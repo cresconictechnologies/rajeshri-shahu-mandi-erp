@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Central Accounts Settings — Mandi ERP</title>
+    <link rel="stylesheet" href="/static/theme.css">
+</head>
+<body>
+    <div class="top-nav">
+        <a href="/" class="brand">
+            <span class="brand-icon">🌾</span>
+            <span>MANDI ERP</span>
+            <span class="badge" style="background:#059669; color:#fff;">CENTRAL ACCOUNTS</span>
+        </a>
+        <div class="nav-links">
+            <a href="/accounts/dashboard" class="nav-link">← Central Accounts Dashboard</a>
+            <a href="/accounts/settings" class="nav-link active">⚙️ Accounts Settings</a>
+            <a href="/admin/dashboard" class="nav-link">Super Admin</a>
+            <a href="/branch/dashboard" class="nav-link">Branch Dashboard</a>
+            <a href="/branch/stock" class="nav-link">Yard Stock</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- HEADER -->
+        <div class="card header-card">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:15px;">
+                <div>
+                    <h1 style="display:flex; align-items:center; gap:10px;">
+                        <span>⚙️</span>
+                        <span>Central Accounts Financial Governance</span>
+                    </h1>
+                    <p style="color:var(--text-muted); font-size:13px; margin-top:4px;">
+                        Statutory Income Tax limits, price corridor alert tolerances, and centralized RTGS banking settings
+                    </p>
+                </div>
+                <span class="badge-pill badge-green">Financial Controls</span>
+            </div>
+        </div>
+
+        {% if message %}
+        <div style="background:#dcfce7; border:1px solid #86efac; color:#166534; padding:12px 16px; border-radius:8px; margin-bottom:18px; font-weight:700;">
+            ✓ {{ message }}
+        </div>
+        {% endif %}
+
+        <div style="display:grid; grid-template-columns: 2fr 1fr; gap:22px;">
+            <div>
+                <div class="card">
+                    <div class="card-header">
+                        <h2><span>💼</span> Financial Compliance & Banking Parameters</h2>
+                    </div>
+
+                    <form method="POST" action="/api/accounts/settings">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>Section 269ST Statutory Cash Ceiling (₹)</label>
+                                <input type="number" name="sec_269st_cash_limit" value="{{ settings.get('sec_269st_cash_limit', '199999') }}" required>
+                                <small style="color:var(--text-muted); font-size:11px;">Max cash payout per person per day (Mandatory RTGS above this).</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Section 40A(3) Trader Cash Ceiling (₹)</label>
+                                <input type="number" name="sec_40a3_cash_limit" value="{{ settings.get('sec_40a3_cash_limit', '10000') }}" required>
+                                <small style="color:var(--text-muted); font-size:11px;">Max cash to stockers/traders (Farmers exempt under Rule 6DD).</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Price Corridor Alert Tolerance (%)</label>
+                                <input type="number" step="0.1" name="corridor_tolerance_pct" value="{{ settings.get('corridor_tolerance_pct', '5.0') }}" required>
+                                <small style="color:var(--text-muted); font-size:11px;">Variance threshold triggering out-of-corridor approval flag.</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label>RTGS Payout Automatic Confirmation</label>
+                                <select name="rtgs_auto_sms">
+                                    <option value="ENABLED" {% if settings.get('rtgs_auto_sms') == 'ENABLED' %}selected{% endif %}>ENABLED (Real-time UTR Sync)</option>
+                                    <option value="DISABLED" {% if settings.get('rtgs_auto_sms') == 'DISABLED' %}selected{% endif %}>DISABLED (Manual Review)</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group form-full">
+                                <label>Primary Central Disbursement Bank Account</label>
+                                <input type="text" name="default_bank_account" value="{{ settings.get('default_bank_account', 'State Bank of India (A/C: 40992388112)') }}" required>
+                                <small style="color:var(--text-muted); font-size:11px;">Corporate bank pool used for settling branch RTGS requests.</small>
+                            </div>
+                        </div>
+
+                        <div style="margin-top:20px; text-align:right;">
+                            <button type="submit" class="btn btn-accounts" style="padding:10px 24px; font-weight:700;">
+                                💾 Save Accounts Settings
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- RATE CORRIDOR POLICY INFO -->
+                <div class="card" style="margin-top:20px;">
+                    <div class="card-header">
+                        <h2><span>📊</span> Rate Corridor Governance Principle</h2>
+                    </div>
+                    <div style="font-size:13px; line-height:1.7; color:var(--text-secondary);">
+                        <p>Central Accounts retains <strong>exclusive authority</strong> over daily commodity purchasing corridors:</p>
+                        <ul style="padding-left:18px; margin-top:6px;">
+                            <li>Branch operators can only purchase within the <code>Min Rate</code> and <code>Max Rate</code> limits published by Central Accounts.</li>
+                            <li>If market conditions necessitate buying above the corridor, the parchi is flagged as <code>PENDING</code> until Central Accounts enters an approval reason and stamp.</li>
+                            <li>All RTGS payments require verification of bank IFSC and entry of the official Bank UTR number before the parchi is closed as settled.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT COLUMN: QUICK NAV & POLICIES -->
+            <div>
+                <div class="card">
+                    <div class="card-header">
+                        <h2><span>🏛️</span> APMC Mandi Statutory Rules</h2>
+                    </div>
+                    <div style="font-size:12.5px; line-height:1.7; color:var(--text-secondary);">
+                        <p>• <strong>Farmer Hamali:</strong> Standard ₹25 per 100 Kg deducted from inward produce.</p>
+                        <p>• <strong>Zero Mandi Cess:</strong> Farmer produce exempt from inward cess.</p>
+                        <p>• <strong>Outward Dispatches:</strong> Cashier enters negotiated hamali per 100 Kg on commercial buyer orders.</p>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-top:20px;">
+                    <div class="card-header">
+                        <h2><span>🔗</span> Quick Portal Links</h2>
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:10px;">
+                        <a href="/accounts/dashboard" class="btn btn-accounts" style="justify-content:flex-start;">
+                            💼 Central Accounts Desk
+                        </a>
+                        <a href="/admin/dashboard" class="btn btn-secondary" style="justify-content:flex-start;">
+                            📊 Super Admin Analytics
+                        </a>
+                        <a href="/branch/dashboard" class="btn btn-secondary" style="justify-content:flex-start;">
+                            🚜 Branch Yard Terminal
+                        </a>
+                        <a href="/branch/stock" class="btn btn-secondary" style="justify-content:flex-start;">
+                            📦 Mandi Yard Stock Page
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

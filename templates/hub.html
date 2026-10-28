@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Commodity Mandi ERP — Multi-Branch Portal Hub</title>
+    <link rel="stylesheet" href="/static/theme.css">
+    <style>
+        .hub-container {
+            max-width: 1050px;
+            margin: 0 auto;
+            padding: 20px 0;
+        }
+        .hub-header {
+            text-align: center;
+            background: #ffffff;
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 36px 24px;
+            box-shadow: var(--shadow-sm);
+            margin-bottom: 24px;
+            position: relative;
+            overflow: hidden;
+        }
+        .hub-header::before {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 5px;
+            background: linear-gradient(90deg, #3b82f6 0%, #10b981 50%, #f59e0b 100%);
+        }
+        .portal-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
+            gap: 22px;
+            margin-bottom: 24px;
+        }
+        .portal-card {
+            background: #ffffff;
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 28px;
+            box-shadow: var(--shadow-sm);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        .portal-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-md);
+            border-color: var(--card-border-hover);
+        }
+        .portal-card::before {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 4px;
+        }
+        .portal-card.card-admin::before { background: var(--admin-gradient); }
+        .portal-card.card-accounts::before { background: var(--accounts-gradient); }
+        .portal-card.card-branch::before { background: var(--branch-gradient); }
+
+        .feature-list {
+            margin: 18px 0 24px 0;
+            padding-left: 0;
+            list-style: none;
+        }
+        .feature-list li {
+            font-size: 13.5px;
+            color: var(--text-secondary);
+            padding: 5px 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .feature-list li::before {
+            content: "✓";
+            color: #10b981;
+            font-weight: 800;
+            font-size: 12px;
+        }
+        .notice-card {
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            border-radius: 12px;
+            padding: 12px 20px;
+            margin-bottom: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 13.5px;
+            color: #166534;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="hub-container">
+        <div class="hub-header">
+            <span class="brand-badge" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; margin-bottom:12px;">
+                ● Multi-Branch Mandi Network
+            </span>
+            <h1 style="font-size:32px; font-weight:800; color:#0f172a; margin-bottom:8px;">
+                Rajeshri Shahu Trading
+            </h1>
+            <p style="color:var(--text-secondary); font-size:15px; max-width:650px; margin:0 auto;">
+                Mandi & Commodity Procurement ERP • Branches: Chikhali • Varvand • Dhad
+            </p>
+        </div>
+
+        <div class="notice-card">
+            <div>
+                ⚡ <strong>Independent Host:</strong> Bound to <strong>Port 8080</strong> (Dedicated, isolated from Restaurant App on Port 8000)
+            </div>
+            <div>
+                <span class="badge-pill badge-green">● SQLite WAL Active</span>
+            </div>
+        </div>
+
+        <div class="portal-grid">
+            <!-- LEVEL 1: SUPER ADMIN -->
+            <div class="portal-card card-admin">
+                <div>
+                    <span class="brand-badge badge-admin">Level 1: Executive</span>
+                    <h2 style="font-size:20px; font-weight:700; color:#0f172a; margin-top:12px;">Super Admin Portal</h2>
+                    <p style="font-size:13.5px; color:var(--text-secondary); margin-top:6px;">Organization-wide command center for executives and business owners.</p>
+                    <ul class="feature-list">
+                        <li>Consolidated procurement MT & total payouts</li>
+                        <li>Add, edit and deactivate branches</li>
+                        <li>Accountant & yard staff access governance</li>
+                        <li>Central Commodity Master & HSN standards</li>
+                        <li>Executive P&L and cross-branch stock</li>
+                    </ul>
+                </div>
+                <a href="/admin/dashboard" class="btn btn-admin btn-full">Open Admin Portal →</a>
+            </div>
+
+            <!-- LEVEL 2: CENTRAL ACCOUNTS -->
+            <div class="portal-card card-accounts">
+                <div>
+                    <span class="brand-badge badge-accounts">Level 2: HQ Finance</span>
+                    <h2 style="font-size:20px; font-weight:700; color:#0f172a; margin-top:12px;">Central Accounts Desk</h2>
+                    <p style="font-size:13.5px; color:var(--text-secondary); margin-top:6px;">Rate governance hub and double-entry financial ledger authority.</p>
+                    <ul class="feature-list">
+                        <li>Daily Min/Target/Max buying rate corridor</li>
+                        <li>Sole authority to approve out-of-corridor rates</li>
+                        <li>Pre-approved Quality Inspector dropdown master</li>
+                        <li>Branch transactions review & Rojmel tally</li>
+                        <li>General ledgers, cash book & APMC cess returns</li>
+                    </ul>
+                </div>
+                <a href="/accounts/dashboard" class="btn btn-accounts btn-full">Open Accounts Desk →</a>
+            </div>
+
+            <!-- LEVEL 3: BRANCH DASHBOARD -->
+            <div class="portal-card card-branch">
+                <div>
+                    <span class="brand-badge badge-branch">Level 3: Yard Operations</span>
+                    <h2 style="font-size:20px; font-weight:700; color:#0f172a; margin-top:12px;">Branch Yard Terminal</h2>
+                    <p style="font-size:13.5px; color:var(--text-secondary); margin-top:6px;">High-speed procurement terminal for yard operators and cashiers.</p>
+                    <ul class="feature-list">
+                        <li>Interactive commodity cards with live corridor rates</li>
+                        <li>Instant farmer search & rapid registration</li>
+                        <li>Inspector dropdown fed dynamically from HQ master</li>
+                        <li>Manual external Dharamkanta gross & tare input</li>
+                        <li>Cashier payout desk with note denomination tally</li>
+                    </ul>
+                </div>
+                <a href="/branch/dashboard" class="btn btn-branch btn-full">Open Branch Terminal →</a>
+            </div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card accent-blue">
+                <div class="label">Configured Branches</div>
+                <div class="value">{{ stats.branches_count }}</div>
+                <div class="hint hint-blue">Chikhali, Varvand, Dhad</div>
+            </div>
+            <div class="stat-card accent-green">
+                <div class="label">Commodities Master</div>
+                <div class="value">{{ stats.commodities_count }}</div>
+                <div class="hint hint-green">HSN & Cess Configured</div>
+            </div>
+            <div class="stat-card accent-amber">
+                <div class="label">Approved Inspectors</div>
+                <div class="value">{{ stats.inspectors_count }}</div>
+                <div class="hint hint-amber">HQ Certified Assayers</div>
+            </div>
+            <div class="stat-card accent-purple">
+                <div class="label">Dedicated Endpoint</div>
+                <div class="value">Port 8080</div>
+                <div class="hint" style="color:#7c3aed;">Isolated from Port 8000</div>
+            </div>
+        </div>
+
+        <footer style="text-align:center; padding:20px 0; color:var(--text-muted); font-size:13px; font-weight:600;">
+            Commodity Procurement ERP • Section 269ST & 40A(3) Compliance Active • CodeGraph Verified
+        </footer>
+    </div>
+</body>
+</html>

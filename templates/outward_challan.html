@@ -1,0 +1,78 @@
+<div class="parchi-paper">
+    <div class="parchi-header">
+        <h2 style="font-size:20px; font-weight:800; color:#0f172a; margin-bottom:2px;">Rajeshri Shahu Trading</h2>
+        <h3 style="font-size:15px; color:#475569; margin-bottom:4px;">{{ order.branch_name }}</h3>
+        <p>Mandi License No: {{ order.mandi_license_no }} • Dispatch Gate No. 1</p>
+        <p style="font-weight: bold; margin-top: 5px; color:#d97706;">OUTWARD COMMODITY DISPATCH CHALLAN & GATE PASS</p>
+        <div style="font-size: 16px; font-weight: bold; margin-top: 5px; color: #0284c7;">
+            CHALLAN NO: {{ order.challan_number }}
+        </div>
+        <p style="font-size: 11px; color: #666;">Date: {{ order.order_date }} | Status: {{ order.status }} | Outward Sale</p>
+    </div>
+
+    <div class="parchi-grid">
+        <div>
+            <strong>BUYER / CONSIGNEE:</strong><br>
+            Name: <strong>{{ order.buyer_name }}</strong><br>
+            Destination: Mill / Trader Depot<br>
+            Transport: Dedicated Commercial Truck
+        </div>
+        <div>
+            <strong>DISPATCH & VEHICLE:</strong><br>
+            Commodity: <strong>{{ order.commodity_name }}</strong><br>
+            Vehicle Number: <strong>{{ order.vehicle_number or 'Unspecified Vehicle' }}</strong><br>
+            Cashier Desk: Central Mandi Weighbridge
+        </div>
+    </div>
+
+    <table class="parchi-table">
+        <thead>
+            <tr style="background:#f3f4f6;">
+                <th>Description</th>
+                <th style="text-align:right;">Quantity / Unit</th>
+                <th style="text-align:right;">Rate (₹)</th>
+                <th style="text-align:right;">Total Amount (₹)</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>{{ order.commodity_name }} Produce</strong></td>
+                <td style="text-align:right;">{{ "%.2f"|format(order.net_weight_kg) }} Kg ({{ "%.2f"|format(order.net_quintals) }} Qtl)</td>
+                <td style="text-align:right;">₹{{ "{:,.2f}".format(order.rate_per_quintal) }} / Qtl</td>
+                <td style="text-align:right;">₹{{ "{:,.2f}".format(order.gross_amount) }}</td>
+            </tr>
+            <tr>
+                <td><strong>Outward Hamali Charge</strong></td>
+                <td style="text-align:right;">{{ "%.2f"|format(order.net_quintals) }} Qtl (100 Kg bags)</td>
+                <td style="text-align:right;">₹{{ "{:,.2f}".format(order.hamali_per_100kg) }} / 100 Kg</td>
+                <td style="text-align:right;">+₹{{ "{:,.2f}".format(order.hamali_amount) }}</td>
+            </tr>
+            <tr style="font-weight:bold; font-size:15px; background:#e0e7ff;">
+                <td colspan="2">TOTAL DISPATCH BILL VALUE:</td>
+                <td colspan="2" style="text-align:right; font-size:16px; color:#1e3a8a;">₹{{ "{:,.2f}".format(order.total_bill_amount) }}</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:15px; padding:10px; border:1px solid #ddd; border-radius:6px;">
+        <div style="font-size:11px; color:#444;">
+            <strong>SECURITY & GATE PASS:</strong><br>
+            <code>GATE-PASS://{{ order.challan_number }}#{{ order.vehicle_number }}#QTY:{{ order.net_weight_kg }}KG</code><br>
+            <span style="color:#059669; font-weight:bold;">● Authorized Commercial Mandi Dispatch</span>
+        </div>
+        <div style="display:flex; gap:15px;">
+            <div style="text-align:center; border:2px dashed #999; padding:8px 16px; font-size:11px;">
+                <strong>DRIVER / CARRIER SIGN</strong><br>
+                <span style="font-size:10px; color:#777;">Produce Received in Full</span>
+            </div>
+            <div style="text-align:center; border:2px dashed #999; padding:8px 16px; font-size:11px;">
+                <strong>MANDI CASHIER STAMP</strong><br>
+                <span style="font-size:10px; color:#777;">Outward Dispatch Auth</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="parchi-footer">
+        Computer Generated Outward Gate Pass • Subject to APMC Mandi Rules • Valid for Transport Transit
+    </div>
+</div>

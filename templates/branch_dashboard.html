@@ -1,0 +1,1945 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Branch Yard Terminal — Mandi ERP</title>
+    <link rel="stylesheet" href="/static/theme.css">
+    <style>
+        .layout-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 22px;
+        }
+        .rates-ribbon {
+            background: #ffffff;
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 10px 18px;
+            margin-bottom: 22px;
+            display: flex;
+            gap: 16px;
+            overflow-x: auto;
+            align-items: center;
+            box-shadow: var(--shadow-sm);
+        }
+        .rates-ribbon .title {
+            font-size: 12px;
+            font-weight: 800;
+            text-transform: uppercase;
+            color: #d97706;
+            white-space: nowrap;
+        }
+        .rate-chip {
+            background: #f8fafc;
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            padding: 6px 12px;
+            font-size: 12.5px;
+            white-space: nowrap;
+        }
+        .rate-chip strong { color: #0f172a; }
+
+        .denominations-table input {
+            width: 80px;
+            padding: 6px;
+            text-align: center;
+            background: #f8fafc;
+            border: 1.5px solid var(--input-border);
+            color: var(--text-primary);
+            border-radius: 6px;
+            font-weight: 700;
+        }
+
+        /* Printable Parchi Slip */
+        .parchi-paper {
+            background: #fff;
+            color: #111;
+            padding: 25px;
+            border-radius: 8px;
+            font-family: 'Courier New', Courier, monospace;
+            border: 1px solid #ddd;
+        }
+        .parchi-header { text-align: center; border-bottom: 2px dashed #333; padding-bottom: 12px; margin-bottom: 15px; }
+        .parchi-header h3 { font-size: 18px; margin-bottom: 4px; }
+        .parchi-header p { font-size: 12px; color: #555; }
+        .parchi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 13px; margin-bottom: 12px; }
+        .parchi-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+        .parchi-table th, .parchi-table td { border: 1px solid #ccc; padding: 6px; font-size: 12px; }
+        .parchi-footer { border-top: 2px dashed #333; padding-top: 12px; text-align: center; font-size: 11px; }
+
+        .clickable-farmer-row:hover {
+            background: #f1f5f9;
+        }
+    </style>
+</head>
+<body>
+    <!-- HEADER CARD -->
+    <header class="header-card">
+        <div class="header-title">
+            <h1>
+                <span>🌾</span> Rajeshri Shahu Trading • {{ current_branch.name }}
+                <span class="brand-badge badge-branch">{{ current_branch.branch_code }}</span>
+            </h1>
+            <p>Mandi License: {{ current_branch.mandi_license_no }} • Yard Procurement & Cashier Desk • Port 8080 Active</p>
+        </div>
+        <div class="nav-links">
+            <!-- Branch Switcher Dropdown -->
+            <select onchange="window.location.href='/branch/dashboard?branch_id=' + this.value" style="background:#ffffff; border:1.5px solid var(--input-border); color:var(--text-primary); padding:7px 12px; border-radius:8px; font-size:13px; font-weight:700;">
+                {% for b in branches %}
+                <option value="{{ b.id }}" {% if b.id == current_branch.id %}selected{% endif %}>{{ b.name }}</option>
+                {% endfor %}
+            </select>
+            <a href="/branch/stock?branch_id={{ current_branch.id }}" class="nav-pill" style="background:#0284c7; color:#fff; font-weight:700;">📦 Yard Stock</a>
+            <a href="/branch/settings?branch_id={{ current_branch.id }}" class="nav-pill">⚙️ Settings</a>
+            <a href="/" class="nav-pill">← Portal Hub</a>
+            <a href="/accounts/dashboard" class="nav-pill">Accounts Desk →</a>
+        </div>
+    </header>
+
+    <!-- Published Rates Ribbon Card -->
+    <div class="rates-ribbon">
+        <span class="title">⚡ Today's HQ Buying Corridor:</span>
+        {% for r in daily_rates %}
+        <div class="rate-chip">
+            {{ r.commodity_name }}: <strong>₹{{ "{:,.0f}".format(r.min_rate_per_qtl) }} – ₹{{ "{:,.0f}".format(r.max_rate_per_qtl) }}</strong> <span style="color:#d97706; font-weight:700; font-size:11.5px;">(Target: ₹{{ "{:,.0f}".format(r.target_rate_per_qtl) }})</span>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- TABS NAVIGATION -->
+    <div class="tabs">
+        <button class="tab-btn active" onclick="showTab('tab-unified-inward')">🌾 Unified Inward & Cashier Desk</button>
+        <button class="tab-btn" onclick="showTab('tab-outward-sales')">🚚 Outward Dispatch & Sales Entry</button>
+        <button class="tab-btn" onclick="showTab('tab-rtgs-tracker')">🏦 RTGS Payout Status ({{ branch_rtgs_pending_count }} Pending)</button>
+        <button class="tab-btn" onclick="showTab('tab-farmers-directory')">🧑‍🌾 Registered Farmers ({{ parties|length }})</button>
+        <button class="tab-btn" onclick="showTab('tab-buyers-directory')">🏢 Companies & Traders ({{ buyers|length }})</button>
+        <button class="tab-btn" onclick="showTab('tab-invoices')">📑 Purchase & Dispatch Register</button>
+        <button class="tab-btn" onclick="showTab('tab-drawer')">💰 Cash Drawer & Daily Rojmel</button>
+        <a href="/branch/stock?branch_id={{ current_branch.id }}" class="tab-btn" style="text-decoration:none; background:#ecfdf5; border-color:#86efac; color:#15803d; font-weight:700;">📦 Yard Stock & Valuation ↗</a>
+    </div>
+
+    <!-- TAB 1: UNIFIED INWARD ENTRY AND CASHIER DESK (MERGED IN ONE) -->
+    <div id="tab-unified-inward" class="tab-content active">
+        <!-- COMMODITY CARDS SELECTOR -->
+        <div class="card" style="margin-bottom:20px;">
+            <div class="card-header">
+                <div>
+                    <h2><span>🌱</span> Select Commodity for Inward Weighment</h2>
+                    <p style="font-size:12px; color:var(--text-muted); margin-top:2px;">
+                        Click a commodity card to load daily rates, quality moisture thresholds, and farmer hamali rules
+                    </p>
+                </div>
+                <span class="badge-pill badge-green">Farmer Hamali: ₹25 / 100 Kg • Mandi Cess: 0%</span>
+            </div>
+
+            <div class="commodity-cards-grid">
+                {% set comm_icons = {
+                    "Soyabean (Yellow)": "🌱",
+                    "Wheat (Lokwan)": "🌾",
+                    "Chana (Desi)": "🫘",
+                    "Mustard (Rayda)": "🌼",
+                    "Maize (Makka)": "🌽"
+                } %}
+                {% for c in commodity_cards %}
+                <div class="commodity-card {% if loop.first %}selected{% endif %}"
+                     onclick="selectCommodityCard(this)"
+                     data-id="{{ c.id }}"
+                     data-name="{{ c.name }}"
+                     data-icon="{{ comm_icons.get(c.name, '📦') }}"
+                     data-min="{{ c.min_rate }}"
+                     data-target="{{ c.target_rate }}"
+                     data-max="{{ c.max_rate }}"
+                     data-moisture="{{ c.standard_moisture_pct }}"
+                     data-grade="{{ c.grade }}">
+                    <div class="commodity-card-top">
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span class="card-icon">{{ comm_icons.get(c.name, '📦') }}</span>
+                            <div>
+                                <div class="card-name">{{ c.name }}</div>
+                                <div class="card-grade-tag">Grade: {{ c.grade }}</div>
+                            </div>
+                        </div>
+                        <div>
+                            <span class="card-selected-badge">✓ Active Selection</span>
+                        </div>
+                    </div>
+
+                    <!-- KEY NUMBERS: YARD STOCK & TODAY'S TARGET RATE -->
+                    <div class="commodity-stats-box">
+                        <div class="commodity-stat-col">
+                            <span class="commodity-stat-lbl">Yard Stock In Hand</span>
+                            <strong class="commodity-stat-val">{{ "%.2f"|format(c.yard_stock_qtl or 0.0) }} <span style="font-size:12px; font-weight:700;">Qtl</span></strong>
+                            <span class="commodity-stat-sub" style="color:#059669;">({{ c.yard_stock_mt or 0.0 }} MT)</span>
+                        </div>
+                        <div class="commodity-stat-col target-rate-col">
+                            <span class="commodity-stat-lbl">Today's Target Rate</span>
+                            <strong class="commodity-stat-val" style="color:#d97706;">₹{{ "{:,.0f}".format(c.target_rate or 0.0) }}</strong>
+                            <span class="commodity-stat-sub" style="color:var(--text-muted); font-size:10.5px;">Avg Buy: ₹{{ "{:,.2f}".format(c.avg_buying_price or 0.0) }}</span>
+                        </div>
+                    </div>
+
+                    <!-- APPROVED RATE CORRIDOR -->
+                    <div class="commodity-rates-box" style="margin: 0 0 6px 0; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:3px 6px;">
+                        <div class="rate-col">
+                            <span class="rate-lbl">Floor</span>
+                            <strong class="rate-val" style="color:#64748b; font-size:11px;">₹{{ "{:,.0f}".format(c.min_rate or 0.0) }}</strong>
+                        </div>
+                        <div class="rate-col target-rate-col">
+                            <span class="rate-lbl">Target Rate</span>
+                            <strong class="rate-val" style="color:#b45309; font-size:11px;">₹{{ "{:,.0f}".format(c.target_rate or 0.0) }}</strong>
+                        </div>
+                        <div class="rate-col">
+                            <span class="rate-lbl">Ceiling</span>
+                            <strong class="rate-val" style="color:#64748b; font-size:11px;">₹{{ "{:,.0f}".format(c.max_rate or 0.0) }}</strong>
+                        </div>
+                    </div>
+
+                    <div class="card-specs-row" style="font-size:11px;">
+                        <span>💧 Max Nami: <strong>{{ c.standard_moisture_pct }}%</strong></span>
+                        <span style="color:#15803d; font-weight:800; background:#f0fdf4; padding:2px 6px; border-radius:5px; border:1px solid #bbf7d0;">🚜 Hamali: ₹25/100Kg</span>
+                    </div>
+
+                    <div style="margin-top:6px; padding-top:4px; border-top:1px dashed #e2e8f0; text-align:center; font-size:10px; font-weight:700; color:#0284c7;">
+                        ⚡ Click to weigh & settle →
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- UNIFIED WEIGHMENT + CASHIER SETTLEMENT FORM -->
+        <div class="layout-grid">
+            <div class="card">
+                <div class="card-header">
+                    <div>
+                        <h2><span>📝</span> Inward Weighment & Cashier Settlement</h2>
+                        <span style="font-size:12px; color:var(--text-muted); font-weight:600;">Simplified Inward Purchase Entry & Immediate Settlement</span>
+                    </div>
+                    <span class="badge-pill badge-blue">One-Stop Desk</span>
+                </div>
+
+                <form id="unifiedPurchaseForm" onsubmit="submitUnifiedInwardAndPayout(event)">
+                    <input type="hidden" id="branch_id" name="branch_id" value="{{ current_branch.id }}">
+                    <input type="hidden" id="commodity_name" name="commodity_name" value="{{ commodity_cards[0].name if commodity_cards else 'Soyabean (Yellow)' }}">
+                    <input type="hidden" id="weighment_mode" name="weighment_mode" value="MANUAL_YARD">
+                    <input type="hidden" id="settlement_mode" name="settlement_mode" value="CASH">
+
+                    <div class="form-grid">
+                        <!-- Farmer Selector + Action Buttons -->
+                        <div class="form-group form-full">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+                                <label style="margin:0;">Farmer / Cultivator *</label>
+                                <div style="display:flex; gap:8px;">
+                                    <button type="button" class="btn btn-secondary" onclick="openEditFarmerModalForSelected()" style="padding:4px 10px; font-size:11.5px; font-weight:700; color:#0284c7;">
+                                        ✏️ Edit Selected Farmer
+                                    </button>
+                                    <button type="button" class="btn btn-branch" onclick="openFarmerModal()" style="padding:4px 10px; font-size:11.5px; font-weight:700;">
+                                        + Register New Farmer
+                                    </button>
+                                </div>
+                            </div>
+                            <select id="party_id" name="party_id" required onchange="handlePartyChange()" style="font-weight:700;">
+                                {% for p in parties %}
+                                <option value="{{ p.id }}" 
+                                        data-type="{{ p.party_type }}" 
+                                        data-name="{{ p.name }}"
+                                        data-phone="{{ p.phone }}"
+                                        data-village="{{ p.village or '' }}"
+                                        data-khasra="{{ p.khasra_record_no or '' }}"
+                                        data-aadhaar="{{ p.aadhaar_number or '' }}"
+                                        data-pan="{{ p.pan_number or '' }}"
+                                        data-bank="{{ p.bank_name or '' }}"
+                                        data-account="{{ p.bank_account_no or '' }}"
+                                        data-ifsc="{{ p.bank_ifsc or '' }}">
+                                    {{ p.name }} ({{ p.party_type }}) — {{ p.village or 'Village' }} [Khasra: {{ p.khasra_record_no or 'N/A' }}]
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Quality Inspector -->
+                        <div class="form-group">
+                            <label>Assayer / Quality Inspector *</label>
+                            <select id="inspector_name" name="inspector_name" required>
+                                {% for ins in inspectors %}
+                                <option value="{{ ins.name }}">{{ ins.name }} ({{ ins.designation }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Selected Commodity Display -->
+                        <div class="form-group">
+                            <label>Selected Commodity</label>
+                            <div style="background:var(--input-bg); border:1.5px solid var(--input-border); border-radius:8px; padding:9px 12px; color:var(--text-primary); font-weight:700; display:flex; align-items:center; gap:8px;">
+                                <span id="formCommodityIcon">🌱</span>
+                                <span id="formCommodityName">{{ commodity_cards[0].name if commodity_cards else 'Soyabean (Yellow)' }}</span>
+                                <span style="font-size:11px; color:#d97706; margin-left:auto; font-weight:800;">(From Card)</span>
+                            </div>
+                        </div>
+
+                        <!-- Weighment Mode Toggle -->
+                        <div class="form-group form-full">
+                            <label>Weighment Method</label>
+                            <div style="display:flex; gap:10px;">
+                                <button type="button" id="btnModeYard" class="btn btn-branch" style="flex:1; padding:9px; font-weight:700;" onclick="setWeighmentMode('MANUAL_YARD')">
+                                    ⚖️ Manual Yard Scale (Platform)
+                                </button>
+                                <button type="button" id="btnModeWB" class="btn btn-secondary" style="flex:1; padding:9px; font-weight:700;" onclick="setWeighmentMode('WEIGHBRIDGE')">
+                                    🚛 Weighbridge / Dharamkanta
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Mode 1: Manual Yard Weight (Default) -->
+                        <div class="form-group form-full" id="yardWeightBox">
+                            <label style="font-size:13.5px; font-weight:800; color:#0f172a;">Actual Net Weight (Kg) [Yard Scale]</label>
+                            <input type="number" step="1" id="yard_weight_kg" name="yard_weight_kg" value="3500" placeholder="e.g. 3500" oninput="recalculate()" style="font-size:16px; font-weight:700;">
+                            <small style="color:var(--text-muted); font-size:11px;">Direct platform scale weight. No vehicle tare subtraction needed.</small>
+                        </div>
+
+                        <!-- Mode 2: Weighbridge Fields (Hidden unless Weighbridge is active) -->
+                        <div id="weighbridgeFieldsBox" style="display:none;" class="form-full">
+                            <div class="form-grid" style="margin-top:0;">
+                                <div class="form-group">
+                                    <label>External Weighbridge Name</label>
+                                    <input type="text" id="external_kanta_name" name="external_kanta_name" value="Shree Ram Dharamkanta" placeholder="e.g. Shree Ram Dharamkanta">
+                                </div>
+                                <div class="form-group">
+                                    <label>External Slip Number</label>
+                                    <input type="text" id="external_slip_number" name="external_slip_number" placeholder="e.g. K-9012">
+                                </div>
+                                <div class="form-group">
+                                    <label>Vehicle Number</label>
+                                    <input type="text" id="vehicle_number" name="vehicle_number" placeholder="MP-09-GA-4521">
+                                </div>
+                                <div class="form-group">
+                                    <label>Gross Loaded Weight (Kg)</label>
+                                    <input type="number" step="1" id="gross_weight_kg" name="gross_weight_kg" value="5200" oninput="recalculate()">
+                                </div>
+                                <div class="form-group">
+                                    <label>Vehicle Tare Weight (Kg)</label>
+                                    <input type="number" step="1" id="vehicle_tare_kg" name="vehicle_tare_kg" value="2100" oninput="recalculate()">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label id="moisture_label">Moisture % (Nami) [Standard 10%]</label>
+                            <input type="number" step="0.1" id="moisture_percentage" name="moisture_percentage" value="11.5" required oninput="recalculate()">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Approved Rate (₹ / Qtl)</label>
+                            <input type="number" step="1" id="rate_per_quintal" name="rate_per_quintal" value="{{ "{:,.0f}".format(commodity_cards[0].target_rate) if commodity_cards else '4650' }}" required oninput="checkRateAndRecalculate()">
+                            <div id="rateStatus" style="font-size:12px; margin-top:4px; font-weight:600;"></div>
+                        </div>
+
+                        <div class="form-group form-full" id="overrideReasonBox" style="display:none;">
+                            <label style="color:#b91c1c;">Reason for Out-of-Corridor Rate (Required for Central HQ Approval)</label>
+                            <input type="text" id="rate_override_reason" name="rate_override_reason" placeholder="High oil content / exceptionally clean lot..." style="border-color:#fca5a5; background:#fef2f2;">
+                        </div>
+
+                        <!-- ============================================== -->
+                        <!-- MERGED CASHIER SETTLEMENT DESK (RIGHT IN INWARD) -->
+                        <!-- ============================================== -->
+                        <div class="form-full" style="border-top:2px solid #e2e8f0; padding-top:16px; margin-top:10px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                                <h3 style="font-size:15px; font-weight:800; color:#0f172a; margin:0; display:flex; align-items:center; gap:8px;">
+                                    <span>💵</span> Cashier Immediate Settlement Desk
+                                </h3>
+                                <span class="badge-pill badge-green" id="settlementBadge">Physical Cash Mode</span>
+                            </div>
+
+                            <!-- Statutory Section 269ST Warning Alert -->
+                            <div id="unifiedSec269Alert" style="display:none; background:#fef2f2; border:1.5px solid #f87171; border-radius:8px; padding:10px 14px; margin-bottom:12px; color:#991b1b; font-size:12px; font-weight:600;">
+                                ⚠️ <strong>Statutory Cash Ceiling Exceeded (Section 269ST):</strong> Amount is &ge; ₹2,00,000. Cash payout prohibited by Income Tax Act. Payment is automatically switched to <strong>RTGS Bank Transfer</strong>.
+                            </div>
+
+                            <!-- Settlement Mode Selection Buttons -->
+                            <div style="display:flex; gap:10px; margin-bottom:14px;">
+                                <button type="button" id="btnUnifiedModeCash" class="btn btn-branch" style="flex:1; padding:9px; font-weight:700;" onclick="setUnifiedSettlementMode('CASH')">
+                                    💵 Disburse Cash Now (Immediate)
+                                </button>
+                                <button type="button" id="btnUnifiedModeRTGS" class="btn btn-secondary" style="flex:1; padding:9px; font-weight:700;" onclick="setUnifiedSettlementMode('RTGS')">
+                                    🏦 Transfer via RTGS (Central HQ)
+                                </button>
+                            </div>
+
+                            <!-- OPTION A: CASH DENOMINATION COUNTER -->
+                            <div id="unifiedCashSection">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                                    <label style="font-size:12px; font-weight:800; color:#0f172a; text-transform:uppercase; margin:0;">
+                                        Cash Denomination Counter
+                                    </label>
+                                    <button type="button" class="btn btn-secondary" onclick="autoFillDenominations()" style="padding:4px 10px; font-size:11px; font-weight:700; color:#15803d;">
+                                        ⚡ Quick Auto-Fill Exact Cash
+                                    </button>
+                                </div>
+
+                                <table class="denominations-table" style="margin-bottom:10px;">
+                                    <thead>
+                                        <tr><th>Note</th><th>Count</th><th>Value (₹)</th></tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr><td>₹500</td><td><input type="number" id="n500" name="notes_500" value="0" min="0" oninput="tallyDenominations()"></td><td id="v500" style="font-weight:700;">₹0</td></tr>
+                                        <tr><td>₹200</td><td><input type="number" id="n200" name="notes_200" value="0" min="0" oninput="tallyDenominations()"></td><td id="v200" style="font-weight:700;">₹0</td></tr>
+                                        <tr><td>₹100</td><td><input type="number" id="n100" name="notes_100" value="0" min="0" oninput="tallyDenominations()"></td><td id="v100" style="font-weight:700;">₹0</td></tr>
+                                        <tr><td>₹50</td><td><input type="number" id="n50" name="notes_50" value="0" min="0" oninput="tallyDenominations()"></td><td id="v50" style="font-weight:700;">₹0</td></tr>
+                                        <tr><td>₹20</td><td><input type="number" id="n20" name="notes_20" value="0" min="0" oninput="tallyDenominations()"></td><td id="v20" style="font-weight:700;">₹0</td></tr>
+                                        <tr><td>₹10</td><td><input type="number" id="n10" name="notes_10" value="0" min="0" oninput="tallyDenominations()"></td><td id="v10" style="font-weight:700;">₹0</td></tr>
+                                        <tr><td>Coins</td><td><input type="number" id="ncoins" name="coins" value="0" min="0" oninput="tallyDenominations()"></td><td id="vcoins" style="font-weight:700;">₹0</td></tr>
+                                    </tbody>
+                                </table>
+
+                                <div class="calc-row" style="background:#f8fafc; padding:8px 12px; border-radius:6px; border:1px solid #e2e8f0;">
+                                    <span>Counted Cash:</span>
+                                    <strong id="disp_counted_cash" style="font-size:15px; color:#0f172a;">₹0.00</strong>
+                                </div>
+                                <div id="denominationStatus" style="font-size:12.5px; margin-top:6px; font-weight:700;"></div>
+                            </div>
+
+                            <!-- OPTION B: RTGS BANK TRANSFER FIELDS -->
+                            <div id="unifiedRtgsSection" style="display:none;">
+                                <div style="background:#f0fdf4; border:1px solid #86efac; border-radius:8px; padding:10px 12px; margin-bottom:12px; font-size:12px; color:#166534; font-weight:600;">
+                                    ✓ Pre-filled from farmer's database record. Central Accounts will disburse RTGS and record the Bank UTR.
+                                </div>
+                                <div class="form-grid" style="margin-top:0;">
+                                    <div class="form-group form-full">
+                                        <label>Beneficiary Name *</label>
+                                        <input type="text" id="rtgs_beneficiary_name" name="rtgs_beneficiary_name" placeholder="Farmer Account Name">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Bank Name *</label>
+                                        <input type="text" id="rtgs_bank_name" name="rtgs_bank_name" placeholder="State Bank of India">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Account Number *</label>
+                                        <input type="text" id="rtgs_account_no" name="rtgs_account_no" placeholder="e.g. 308912345678">
+                                    </div>
+                                    <div class="form-group form-full">
+                                        <label>Bank IFSC Code *</label>
+                                        <input type="text" id="rtgs_ifsc_code" name="rtgs_ifsc_code" placeholder="e.g. SBIN0001234" style="text-transform:uppercase;">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-branch btn-full" id="btnSubmitUnified" style="margin-top:20px; font-size:15px; padding:12px;">
+                        🚀 Generate Parchi & Disburse Payment →
+                    </button>
+                </form>
+            </div>
+
+            <!-- LIVE CALCULATION & COMPLIANCE PREVIEW CARD -->
+            <div>
+                <div class="card calc-preview">
+                    <div class="card-header">
+                        <h2><span>🧮</span> Live Produce & Settlement Calculation</h2>
+                        <span class="badge-pill badge-green" id="disp_mode_badge">Yard Scale</span>
+                    </div>
+
+                    <div class="calc-row">
+                        <span id="disp_weight_label">Actual Net Weight:</span>
+                        <strong id="disp_vehicle_net" style="color:var(--text-primary);">3,500.00 Kg</strong>
+                    </div>
+                    <div class="calc-row">
+                        <span>Moisture Cut (Excess above 10%):</span>
+                        <span id="disp_moisture_cut" style="color:#dc2626;">-52.50 Kg</span>
+                    </div>
+                    <div class="calc-row" style="background:#f8fafc; padding:8px 6px; font-weight:700; border-radius:6px;">
+                        <span>Net Billable Weight:</span>
+                        <strong id="disp_net_weight" style="color:#0f172a;">3,447.50 Kg (34.48 Qtl)</strong>
+                    </div>
+                    <div class="calc-row">
+                        <span>Approved Rate:</span>
+                        <span id="disp_rate" style="font-weight:700;">₹4,650.00 / Qtl</span>
+                    </div>
+                    <div class="calc-row">
+                        <span>Gross Produce Amount:</span>
+                        <span id="disp_gross_amount" style="font-weight:700;">₹1,60,308.75</span>
+                    </div>
+
+                    <!-- MANDI CHARGES: HAMALI ONLY (NO CESS) -->
+                    <div class="calc-row">
+                        <span>Farmer Hamali (₹25 / 100 Kg):</span>
+                        <span id="disp_hamali_deduction" style="color:#dc2626; font-weight:700;">-₹861.88</span>
+                    </div>
+                    <div class="calc-row" style="font-size:11.5px; color:#64748b;">
+                        <span>Mandi Cess:</span>
+                        <span style="color:#15803d; font-weight:700;">₹0.00 (Exempt)</span>
+                    </div>
+
+                    <div class="calc-row" style="font-size:17px; font-weight:800; color:#0f172a; border-top:2px solid #e2e8f0; margin-top:6px; padding-top:10px;">
+                        <span>Net Payable to Farmer:</span>
+                        <span id="disp_net_payable" style="color:#b45309;">₹1,59,446.88</span>
+                    </div>
+
+                    <div class="calc-row" style="background:#fef3c7; border-radius:6px; padding:6px 8px; margin-top:8px;">
+                        <span style="font-size:12px; font-weight:700;">Rounded Cash Payout:</span>
+                        <strong id="disp_rounded_payout" style="font-size:15px; color:#b45309;">₹1,59,447.00</strong>
+                    </div>
+                </div>
+
+                <div class="card" style="background:#f8fafc; border:1px solid #e2e8f0; margin-top:16px;">
+                    <h3 style="font-size:13px; font-weight:800; text-transform:uppercase; margin-bottom:8px; color:var(--text-secondary);">Compliance & Cash Drawer Balance</h3>
+                    <div style="font-size:12.5px; color:var(--text-muted); line-height:1.6; font-weight:600;">
+                        • <strong>Cash Drawer Closing:</strong> ₹{{ "{:,.2f}".format(drawer.calculated_closing_cash) }}<br>
+                        • <strong>Section 269ST:</strong> Strict ₹1,99,999 cash ceiling. Payouts &ge; ₹2,00,000 auto-switch to RTGS.<br>
+                        • <strong>Hamali Rule:</strong> Strictly ₹25 per 100 Kg produce deducted from farmer. No cess.<br>
+                        • <strong>Token Parchi:</strong> Generated immediately with security stamp.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 2: OUTWARD DISPATCH & SALES ENTRY -->
+    <div id="tab-outward-sales" class="tab-content">
+        <div class="layout-grid">
+            <div class="card">
+                <div class="card-header">
+                    <h2><span>🚚</span> Outward Commodity Dispatch & Sales</h2>
+                    <span class="badge-pill badge-amber">Gate Pass & Challan</span>
+                </div>
+
+                <form id="outwardDispatchForm" onsubmit="submitOutwardDispatch(event)">
+                    <input type="hidden" name="branch_id" value="{{ current_branch.id }}">
+
+                    <div class="form-grid">
+                        <div class="form-group form-full">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+                                <label style="margin:0;">Buyer / Consignee / Mill Depot *</label>
+                                <button type="button" class="btn btn-branch" onclick="openRegisterBuyerModal()" style="padding:4px 10px; font-size:11.5px; font-weight:700;">
+                                    + Register Company / Trader
+                                </button>
+                            </div>
+                            <select id="outward_buyer_id" name="buyer_id" required onchange="handleBuyerSelect(this)" style="font-weight:700; background:#ffffff; border:1.5px solid var(--input-border); border-radius:8px; padding:9px 12px; width:100%;">
+                                <option value="">-- Select Registered Buyer Company / Trader --</option>
+                                {% for b in buyers %}
+                                <option value="{{ b.id }}" data-name="{{ b.name }}" data-phone="{{ b.phone }}" data-gstin="{{ b.gstin }}" data-address="{{ b.village }}">
+                                    {{ b.name }} {% if b.gstin %}(GSTIN: {{ b.gstin }}){% elif b.village %}({{ b.village }}){% endif %}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <input type="hidden" id="outward_buyer_name" name="buyer_name" value="">
+                            <div id="buyer_info_pill" style="display:none; margin-top:8px; padding:8px 12px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:6px; font-size:12px; color:#166534;">
+                                <!-- Auto-filled buyer details -->
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Commodity Dispatched *</label>
+                            <select id="outward_commodity_name" name="commodity_name" required onchange="recalculateOutward()">
+                                {% for c in commodities %}
+                                <option value="{{ c.name }}">{{ c.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Vehicle / Transport Truck No *</label>
+                            <input type="text" id="outward_vehicle_number" name="vehicle_number" required placeholder="e.g. MP-09-GA-8822" style="text-transform:uppercase;">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Net Produce Weight (Kg) *</label>
+                            <input type="number" step="1" id="outward_net_weight_kg" name="net_weight_kg" value="10000" required oninput="recalculateOutward()" style="font-weight:700;">
+                            <small style="color:var(--text-muted); font-size:11px;">10,000 Kg = 100.00 Quintals (10 MT)</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Outward Sale Rate (₹ / Qtl) *</label>
+                            <input type="number" step="1" id="outward_rate_per_quintal" name="rate_per_quintal" value="4850" required oninput="recalculateOutward()" style="font-weight:700;">
+                        </div>
+
+                        <!-- CASHIER INPUT BOX FOR HAMALI PER 100 KG -->
+                        <div class="form-group form-full" style="background:#fef3c7; border:1.5px solid #fcd34d; border-radius:8px; padding:12px;">
+                            <label style="color:#92400e; font-weight:800; font-size:13.5px;">
+                                🚚 Hamali Price per 100 Kg (₹) * [Cashier Input Box]
+                            </label>
+                            <input type="number" step="0.5" id="outward_hamali_per_100kg" name="hamali_per_100kg" value="25.0" required oninput="recalculateOutward()" style="background:#fff; font-size:16px; font-weight:800; border-color:#d97706; color:#92400e;">
+                            <small style="color:#78350f; font-size:11.5px; font-weight:600; margin-top:4px; display:block;">
+                                Type the negotiated outward handling rate per 100 Kg (per Quintal). Billed to the commercial buyer on dispatch challan.
+                            </small>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-branch btn-full" id="btnSubmitOutward" style="margin-top:16px; font-size:15px; padding:12px;">
+                        Generate Outward Challan & Gate Pass →
+                    </button>
+                </form>
+            </div>
+
+            <!-- LIVE OUTWARD CALCULATION PREVIEW -->
+            <div>
+                <div class="card calc-preview">
+                    <div class="card-header">
+                        <h2><span>🧮</span> Outward Dispatch Value</h2>
+                        <span class="badge-pill badge-amber">Commercial Sale</span>
+                    </div>
+
+                    <div class="calc-row">
+                        <span>Net Weight:</span>
+                        <strong id="out_disp_weight" style="color:var(--text-primary);">10,000.00 Kg (100.00 Qtl)</strong>
+                    </div>
+                    <div class="calc-row">
+                        <span>Sale Rate:</span>
+                        <span id="out_disp_rate" style="font-weight:700;">₹4,850.00 / Qtl</span>
+                    </div>
+                    <div class="calc-row">
+                        <span>Gross Produce Amount:</span>
+                        <span id="out_disp_gross" style="font-weight:700;">₹4,85,000.00</span>
+                    </div>
+                    <div class="calc-row" style="background:#fef3c7; padding:8px 6px; border-radius:6px;">
+                        <span>Hamali Charge (<span id="out_disp_hamali_rate">₹25.00</span> / 100 Kg):</span>
+                        <strong id="out_disp_hamali_amt" style="color:#b45309;">+₹2,500.00</strong>
+                    </div>
+                    <div class="calc-row" style="font-size:18px; font-weight:800; color:#0f172a; border-top:2px solid #e2e8f0; margin-top:8px; padding-top:10px;">
+                        <span>Total Dispatch Bill Value:</span>
+                        <span id="out_disp_total" style="color:#0284c7;">₹4,87,500.00</span>
+                    </div>
+                </div>
+
+                <div class="card" style="background:#f8fafc; border:1px solid #e2e8f0; margin-top:16px;">
+                    <h3 style="font-size:13px; font-weight:800; text-transform:uppercase; margin-bottom:8px; color:var(--text-secondary);">Stock & Gate Pass Security</h3>
+                    <div style="font-size:12.5px; color:var(--text-muted); line-height:1.6; font-weight:600;">
+                        • Outward dispatches immediately decrement physical yard stock.<br>
+                        • Driver copy requires transporter signature before yard gate clearance.<br>
+                        • Accounts receivable debited automatically under double-entry ledger.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- RECENT OUTWARD DISPATCHES TABLE -->
+        <div class="card" style="margin-top:20px;">
+            <div class="card-header">
+                <h2><span>📋</span> Recent Outward Dispatches (Gate Register)</h2>
+                <span class="badge-pill badge-blue">{{ recent_outward_orders|length }} Dispatches</span>
+            </div>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Challan No</th>
+                            <th>Date</th>
+                            <th>Buyer / Consignee</th>
+                            <th>Commodity</th>
+                            <th>Vehicle No</th>
+                            <th style="text-align:right;">Net Weight</th>
+                            <th style="text-align:right;">Rate (₹/Qtl)</th>
+                            <th style="text-align:right;">Hamali (₹/100kg)</th>
+                            <th style="text-align:right;">Total Bill (₹)</th>
+                            <th style="text-align:center;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if recent_outward_orders %}
+                        {% for o in recent_outward_orders %}
+                        <tr>
+                            <td><strong>{{ o.challan_number }}</strong></td>
+                            <td style="font-size:11.5px; color:var(--text-muted);">{{ o.order_date }}</td>
+                            <td>{{ o.buyer_name }}</td>
+                            <td>{{ o.commodity_name }}</td>
+                            <td><code>{{ o.vehicle_number or 'Direct' }}</code></td>
+                            <td style="text-align:right;">{{ "%.2f"|format(o.net_quintals) }} Qtl</td>
+                            <td style="text-align:right;">₹{{ "{:,.0f}".format(o.rate_per_quintal) }}</td>
+                            <td style="text-align:right; color:#b45309; font-weight:700;">₹{{ "%.2f"|format(o.hamali_per_100kg) }}</td>
+                            <td style="text-align:right; font-weight:800; color:#0284c7;">₹{{ "{:,.2f}".format(o.total_bill_amount) }}</td>
+                            <td style="text-align:center;">
+                                <button class="btn btn-secondary" onclick="viewOutwardChallan('{{ o.challan_number }}')" style="padding:4px 8px; font-size:11px;">
+                                    🖨️ Gate Pass
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% else %}
+                        <tr>
+                            <td colspan="10" style="text-align:center; padding:20px; color:var(--text-muted);">
+                                No outward dispatches recorded yet for this branch.
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 3: REGISTERED FARMERS DIRECTORY -->
+    <div id="tab-farmers-directory" class="tab-content">
+        <div class="card">
+            <div class="card-header">
+                <div>
+                    <h2><span>🧑‍🌾</span> Registered Farmers & Cultivators (Live Directory)</h2>
+                    <p style="font-size:12px; color:var(--text-muted); margin-top:2px;">
+                        View and update registered cultivator profiles, land records, and verified bank accounts.
+                    </p>
+                </div>
+                <button class="btn btn-branch" onclick="openFarmerModal()">
+                    + Register New Farmer
+                </button>
+            </div>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Farmer Name</th>
+                            <th>Phone</th>
+                            <th>Village</th>
+                            <th>Khasra Record</th>
+                            <th>Aadhaar / PAN</th>
+                            <th>Bank Account & IFSC</th>
+                            <th style="text-align:center;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="farmersTableBody">
+                        {% for p in parties %}
+                        <tr class="clickable-farmer-row" id="farmer-row-{{ p.id }}">
+                            <td><strong>{{ p.name }}</strong> <span class="badge-pill badge-green" style="font-size:10px;">{{ p.party_type }}</span></td>
+                            <td>{{ p.phone }}</td>
+                            <td>{{ p.village or '-' }}</td>
+                            <td><code>{{ p.khasra_record_no or '-' }}</code></td>
+                            <td style="font-size:11.5px;">{{ p.aadhaar_number or p.pan_number or '-' }}</td>
+                            <td style="font-size:12px;">
+                                {% if p.bank_account_no %}
+                                <strong>{{ p.bank_name or 'Bank' }}</strong><br>
+                                A/C: {{ p.bank_account_no }} | IFSC: {{ p.bank_ifsc }}
+                                {% else %}
+                                <span style="color:#94a3b8;">No bank added</span>
+                                {% endif %}
+                            </td>
+                            <td style="text-align:center;">
+                                <button class="btn btn-secondary" onclick="openEditFarmerModal('{{ p.id }}')" style="padding:4px 10px; font-size:11.5px; color:#0284c7; font-weight:700;">
+                                    ✏️ Edit
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 4: REGISTERED BUYERS / TRADERS DIRECTORY (OUTWARD DATABASE) -->
+    <div id="tab-buyers-directory" class="tab-content">
+        <div class="card">
+            <div class="card-header">
+                <div>
+                    <h2><span>🏢</span> Registered Buyer Companies & Grain Traders</h2>
+                    <p style="font-size:12px; color:var(--text-muted); margin-top:2px;">
+                        Database of commercial buyers, oil mills, processors, and corporate traders for outward produce dispatches.
+                    </p>
+                </div>
+                <button class="btn btn-branch" onclick="openRegisterBuyerModal()">
+                    + Register New Company / Trader
+                </button>
+            </div>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Company / Trader Name</th>
+                            <th>Contact Person</th>
+                            <th>Phone / Mobile</th>
+                            <th>GSTIN</th>
+                            <th>Location / Factory Address</th>
+                            <th>Bank Account</th>
+                            <th style="text-align:center;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="buyersTableBody">
+                        {% if buyers %}
+                        {% for b in buyers %}
+                        <tr>
+                            <td>
+                                <strong>{{ b.name }}</strong>
+                                <span class="badge-pill badge-blue" style="font-size:10px; margin-left:4px;">COMMERCIAL</span>
+                            </td>
+                            <td>{{ b.contact_person or '-' }}</td>
+                            <td>{{ b.phone }}</td>
+                            <td><code>{{ b.gstin or 'Unregistered' }}</code></td>
+                            <td>{{ b.village or '-' }}</td>
+                            <td style="font-size:11.5px;">
+                                {% if b.bank_account_no %}
+                                {{ b.bank_name or 'Bank' }}<br>A/C: {{ b.bank_account_no }}
+                                {% else %}
+                                <span style="color:#94a3b8;">-</span>
+                                {% endif %}
+                            </td>
+                            <td style="text-align:center;">
+                                <button class="btn btn-secondary" onclick="selectBuyerForDispatch('{{ b.id }}')" style="padding:4px 10px; font-size:11.5px; color:#b45309; font-weight:700;">
+                                    🚚 Dispatch
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% else %}
+                        <tr>
+                            <td colspan="7" style="text-align:center; padding:20px; color:var(--text-muted);">
+                                No buyer companies registered yet. Click '+ Register New Company / Trader' to add.
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 4: RECENT BRANCH PURCHASES REGISTER -->
+    <div id="tab-invoices" class="tab-content">
+        <div class="card">
+            <div class="card-header">
+                <h2><span>📑</span> Inward Purchase Invoices & Settlement Status</h2>
+                <span class="badge-pill badge-blue">{{ recent_invoices|length }} Inward Purchases</span>
+            </div>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Token No</th>
+                            <th>Date</th>
+                            <th>Farmer</th>
+                            <th>Commodity</th>
+                            <th>Weighment Mode</th>
+                            <th style="text-align:right;">Net Weight</th>
+                            <th style="text-align:right;">Rate (₹/Qtl)</th>
+                            <th style="text-align:right;">Net Payable (₹)</th>
+                            <th style="text-align:center;">Settlement Status</th>
+                            <th style="text-align:center;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if recent_invoices %}
+                        {% for inv in recent_invoices %}
+                        <tr>
+                            <td><strong>{{ inv.token_number }}</strong></td>
+                            <td style="font-size:11.5px; color:var(--text-muted);">{{ inv.invoice_date }}</td>
+                            <td>{{ inv.party_name }}</td>
+                            <td>{{ inv.commodity_name }}</td>
+                            <td>
+                                {% if inv.weighment_mode == 'MANUAL_YARD' %}
+                                <span class="badge-pill badge-green" style="font-size:11px;">Yard Scale</span>
+                                {% else %}
+                                <span class="badge-pill badge-blue" style="font-size:11px;">Weighbridge</span>
+                                {% endif %}
+                            </td>
+                            <td style="text-align:right;">{{ "%.2f"|format(inv.net_quintals) }} Qtl</td>
+                            <td style="text-align:right;">₹{{ "{:,.0f}".format(inv.rate_per_quintal) }}</td>
+                            <td style="text-align:right; font-weight:800; color:#0f172a;">₹{{ "{:,.2f}".format(inv.net_payable_amount) }}</td>
+                            <td style="text-align:center;">
+                                {% if inv.payout_status == 'PAID' %}
+                                <span class="badge-pill badge-green">✓ Cash Disbursed</span>
+                                {% elif inv.payout_status == 'RTGS_PENDING' %}
+                                <span class="badge-pill badge-amber">⏳ RTGS at HQ</span>
+                                {% elif inv.payout_status == 'SETTLED' %}
+                                <span class="badge-pill badge-green">✓ RTGS Settled</span>
+                                {% else %}
+                                <span class="badge-pill badge-red">Pending</span>
+                                {% endif %}
+                            </td>
+                            <td style="text-align:center;">
+                                <button class="btn btn-secondary" onclick="viewParchiSlip('{{ inv.token_number }}')" style="padding:4px 8px; font-size:11px;">
+                                    🖨️ View Parchi
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% else %}
+                        <tr>
+                            <td colspan="10" style="text-align:center; padding:20px; color:var(--text-muted);">No invoices recorded today.</td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 5: DAILY CASH DRAWER & ROJMEL -->
+    <div id="tab-drawer" class="tab-content">
+        <div class="stats-grid">
+            <div class="stat-card stat-blue">
+                <div class="stat-icon">💵</div>
+                <div class="stat-content">
+                    <span class="stat-label">Calculated Cash In Hand</span>
+                    <strong class="stat-value">₹{{ "{:,.2f}".format(drawer.calculated_closing_cash) }}</strong>
+                    <span class="stat-help">Drawer Balance</span>
+                </div>
+            </div>
+            <div class="stat-card stat-amber">
+                <div class="stat-icon">📥</div>
+                <div class="stat-content">
+                    <span class="stat-label">Opening Float</span>
+                    <strong class="stat-value">₹{{ "{:,.2f}".format(drawer.opening_float) }}</strong>
+                    <span class="stat-help">Assigned Start of Day</span>
+                </div>
+            </div>
+            <div class="stat-card stat-purple">
+                <div class="stat-icon">📤</div>
+                <div class="stat-content">
+                    <span class="stat-label">Total Cash Disbursements</span>
+                    <strong class="stat-value">₹{{ "{:,.2f}".format(drawer.total_cash_payouts) }}</strong>
+                    <span class="stat-help">Paid to Farmers Today</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 6: RTGS PAYOUT STATUS TRACKER -->
+    <div id="tab-rtgs-tracker" class="tab-content">
+        <div class="card">
+            <div class="card-header">
+                <div>
+                    <h2><span>🏦</span> Branch Farmer RTGS & Bank Transfer Status Tracker</h2>
+                    <p style="font-size:12.5px; color:var(--text-muted); margin-top:2px;">
+                        Real-time disbursal status from Head Office. As soon as HQ Accountant enters the UTR, it displays here with exact UTR reference so you can verify and answer farmer inquiries immediately.
+                    </p>
+                </div>
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <span class="badge-pill badge-green">{{ branch_rtgs_list|length }} Total RTGS Records</span>
+                    <span class="badge-pill {% if branch_rtgs_pending_count > 0 %}badge-amber{% else %}badge-green{% endif %}">
+                        {{ branch_rtgs_pending_count }} Pending HQ Disbursal
+                    </span>
+                </div>
+            </div>
+
+            <!-- SEARCH FILTER -->
+            <div style="margin-bottom:14px; display:flex; gap:10px;">
+                <input type="text" id="rtgsSearchInput" onkeyup="filterRtgsTable()" placeholder="🔍 Search by Farmer Name, Token #, Bank A/C, or UTR..." style="padding:8px 14px; border:1.5px solid var(--input-border); border-radius:8px; width:360px; font-size:13px;">
+            </div>
+
+            <div class="table-container">
+                <table id="branchRtgsTable">
+                    <thead>
+                        <tr>
+                            <th>Token #</th>
+                            <th>Date</th>
+                            <th>Farmer / Beneficiary</th>
+                            <th>Commodity & Weight</th>
+                            <th>Net Payable (₹)</th>
+                            <th>Bank Account & IFSC</th>
+                            <th>Disbursal Status</th>
+                            <th>Bank UTR Reference #</th>
+                            <th>HQ Settled Timestamp</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if branch_rtgs_list %}
+                        {% for r in branch_rtgs_list %}
+                        <tr>
+                            <td>
+                                <a href="javascript:void(0)" onclick="viewParchiSlip('{{ r.token_number }}')" style="font-weight:700; color:#0284c7; text-decoration:none;">
+                                    <code>{{ r.token_number }}</code>
+                                </a>
+                            </td>
+                            <td style="font-size:12px; color:var(--text-muted);">{{ r.invoice_date }}</td>
+                            <td>
+                                <strong>{{ r.party_name }}</strong><br>
+                                <span style="font-size:11px; color:var(--text-muted);">📞 {{ r.party_phone or '—' }}</span>
+                            </td>
+                            <td>{{ r.commodity_name }}<br><span style="font-size:11.5px; color:#059669; font-weight:700;">{{ "%.2f"|format(r.net_quintals) }} Qtl</span></td>
+                            <td>
+                                <strong style="font-size:14.5px; color:#0f172a;">₹{{ "{:,.2f}".format(r.net_payable_amount) }}</strong>
+                            </td>
+                            <td style="font-size:12px;">
+                                <div><strong>{{ r.rtgs_bank_name or 'Bank' }}</strong></div>
+                                <div>A/C: <code>{{ r.rtgs_account_no }}</code></div>
+                                <div>IFSC: <code>{{ r.rtgs_ifsc_code }}</code></div>
+                            </td>
+                            <td>
+                                {% if r.payout_status == 'PAID' or r.rtgs_utr_no %}
+                                <span class="badge-pill badge-green" style="font-weight:800;">✓ Disbursed by Bank</span>
+                                {% else %}
+                                <span class="badge-pill badge-amber" style="font-weight:800;">⏳ Pending HQ Action</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if r.rtgs_utr_no %}
+                                <div style="display:flex; align-items:center; gap:6px;">
+                                    <code style="font-size:13.5px; font-weight:800; color:#047857; background:#ecfdf5; padding:4px 8px; border-radius:6px; border:1px solid #a7f3d0;">
+                                        {{ r.rtgs_utr_no }}
+                                    </code>
+                                </div>
+                                {% else %}
+                                <span style="color:#94a3b8; font-size:11.5px; font-style:italic;">Awaiting Accountant UTR</span>
+                                {% endif %}
+                            </td>
+                            <td style="font-size:11.5px; color:var(--text-muted);">
+                                {{ r.rtgs_completed_at or 'In Verification Queue' }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% else %}
+                        <tr>
+                            <td colspan="9" style="text-align:center; padding:24px; color:var(--text-muted);">
+                                No RTGS payments recorded for this branch yet.
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- MODALS SECTION -->
+    <!-- ============================================== -->
+
+    <!-- MODAL 1: REGISTER NEW FARMER -->
+    <div id="farmerModal" class="modal-overlay">
+        <div class="modal" style="background:#ffffff; max-width:600px;">
+            <div class="modal-header">
+                <h2>Register New Farmer / Cultivator</h2>
+                <button class="modal-close" onclick="closeFarmerModal()">✕</button>
+            </div>
+            <form id="newFarmerForm" onsubmit="submitNewFarmer(event)">
+                <input type="hidden" name="home_branch_id" value="{{ current_branch.id }}">
+                <div class="form-grid">
+                    <div class="form-group form-full">
+                        <label>Farmer Full Name *</label>
+                        <input type="text" name="name" required placeholder="e.g. Ramesh Chandra Patidar">
+                    </div>
+                    <div class="form-group">
+                        <label>Phone Number *</label>
+                        <input type="tel" name="phone" required placeholder="98260XXXXX">
+                    </div>
+                    <div class="form-group">
+                        <label>Village *</label>
+                        <input type="text" name="village" required placeholder="e.g. Sanwer / Depalpur">
+                    </div>
+                    <div class="form-group">
+                        <label>Khasra Record No *</label>
+                        <input type="text" name="khasra_record_no" required placeholder="e.g. KH-402/12">
+                    </div>
+                    <div class="form-group">
+                        <label>Aadhaar Number</label>
+                        <input type="text" name="aadhaar_number" placeholder="XXXX-XXXX-XXXX">
+                    </div>
+                    <div class="form-group">
+                        <label>Bank Name</label>
+                        <input type="text" name="bank_name" placeholder="State Bank of India">
+                    </div>
+                    <div class="form-group">
+                        <label>Bank Account Number</label>
+                        <input type="text" name="bank_account_no" placeholder="e.g. 30891234567">
+                    </div>
+                    <div class="form-group form-full">
+                        <label>Bank IFSC Code</label>
+                        <input type="text" name="bank_ifsc" placeholder="e.g. SBIN0001234" style="text-transform:uppercase;">
+                    </div>
+                </div>
+                <div style="margin-top:16px; text-align:right;">
+                    <button type="submit" class="btn btn-branch" style="width:100%;">Save & Continue Purchase</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 2: EDIT FARMER DETAILS (ANY TIME) WITH AUDIT CHANGE LOG -->
+    <div id="editFarmerModal" class="modal-overlay">
+        <div class="modal" style="background:#ffffff; max-width:640px;">
+            <div class="modal-header">
+                <h2>✏️ Edit Farmer Details & Record Audit Log</h2>
+                <button class="modal-close" onclick="closeEditFarmerModal()">✕</button>
+            </div>
+            <form id="editFarmerForm" onsubmit="submitEditFarmer(event)">
+                <input type="hidden" id="edit_party_id" name="party_id">
+                <input type="hidden" name="branch_id" value="{{ current_branch.id }}">
+
+                <div class="form-grid">
+                    <div class="form-group form-full">
+                        <label>Farmer Full Name *</label>
+                        <input type="text" id="edit_name" name="name" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Phone Number *</label>
+                        <input type="tel" id="edit_phone" name="phone" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Village *</label>
+                        <input type="text" id="edit_village" name="village" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Khasra Record No *</label>
+                        <input type="text" id="edit_khasra" name="khasra_record_no" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Aadhaar Number</label>
+                        <input type="text" id="edit_aadhaar" name="aadhaar_number">
+                    </div>
+                    <div class="form-group">
+                        <label>Bank Name</label>
+                        <input type="text" id="edit_bank" name="bank_name">
+                    </div>
+                    <div class="form-group">
+                        <label>Bank Account Number</label>
+                        <input type="text" id="edit_account" name="bank_account_no">
+                    </div>
+                    <div class="form-group">
+                        <label>Bank IFSC Code</label>
+                        <input type="text" id="edit_ifsc" name="bank_ifsc" style="text-transform:uppercase;">
+                    </div>
+                    <div class="form-group form-full" style="background:#fef3c7; border:1px solid #fcd34d; padding:10px; border-radius:8px;">
+                        <label style="color:#92400e; font-weight:800;">Reason for Edit (Immutable Audit Log) *</label>
+                        <input type="text" id="edit_reason" name="change_reason" required placeholder="e.g. Updated bank account for RTGS transfer / Corrected khasra number" style="background:#fff;">
+                    </div>
+                </div>
+                <div style="margin-top:16px; text-align:right;">
+                    <button type="submit" class="btn btn-branch" style="width:100%;">Save Changes & Update Audit Trail</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 3: INWARD REVIEW & CONFIRMATION DESK -->
+    <div id="inwardConfirmModal" class="modal-overlay" style="display:none;">
+        <div class="modal" style="background:#ffffff; max-width:700px; width:95%; border-radius:14px; box-shadow:0 20px 25px -5px rgba(0, 0, 0, 0.1);">
+            <div class="modal-header" style="border-bottom:1.5px solid #e2e8f0; padding-bottom:12px;">
+                <div>
+                    <h2 style="font-size:18px; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:8px;">
+                        <span>🔍</span> Review & Confirm Inward Weighment & Payment
+                    </h2>
+                    <p style="font-size:12px; color:var(--text-muted); margin-top:2px;">
+                        Cashier Verification: Check weights, agreed rates, and payout mode before printing Parchi
+                    </p>
+                </div>
+                <button class="modal-close" type="button" onclick="closeConfirmModal()">✕</button>
+            </div>
+
+            <div id="confirmReviewBody" style="padding:15px 0; max-height:65vh; overflow-y:auto;">
+                <!-- Populated dynamically via JS -->
+            </div>
+
+            <div style="background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:10px 14px; font-size:12px; color:#92400e; display:flex; align-items:center; gap:8px; margin-top:8px;">
+                <span>⚠️</span>
+                <span><strong>Verification Checklist:</strong> Once confirmed, this transaction will debit physical cash/request RTGS and issue the official Parchi token.</span>
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:16px; padding-top:12px; border-top:1.5px solid #e2e8f0;">
+                <button type="button" class="btn btn-secondary" onclick="closeConfirmModal()" style="font-weight:700;">
+                    ✏️ Modify / Edit Form
+                </button>
+                <button type="button" class="btn btn-branch" id="btnFinalInwardConfirm" onclick="executeFinalInwardSubmit()" style="font-weight:800; font-size:14.5px; padding:10px 22px;">
+                    🖨️ Confirm & Disburse / Issue Parchi →
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 3A: REGISTER BUYER / TRADER COMPANY -->
+    <div id="registerBuyerModal" class="modal-overlay" style="display:none;">
+        <div class="modal" style="background:#ffffff; max-width:620px; width:95%; border-radius:14px;">
+            <div class="modal-header" style="border-bottom:1.5px solid #e2e8f0; padding-bottom:12px;">
+                <h2><span>🏢</span> Register Buyer Company / Trader</h2>
+                <button class="modal-close" type="button" onclick="closeRegisterBuyerModal()">✕</button>
+            </div>
+            <form id="registerBuyerForm" onsubmit="submitRegisterBuyer(event)">
+                <input type="hidden" name="home_branch_id" value="{{ current_branch.id }}">
+                <div class="form-grid" style="margin-top:14px;">
+                    <div class="form-group form-full">
+                        <label>Company / Firm / Trader Name *</label>
+                        <input type="text" name="name" id="reg_b_name" required placeholder="e.g. Malwa Agro Processors Ltd.">
+                    </div>
+                    <div class="form-group">
+                        <label>Contact Person / Manager</label>
+                        <input type="text" name="contact_person" id="reg_b_contact" placeholder="e.g. Rajesh Singhal">
+                    </div>
+                    <div class="form-group">
+                        <label>Phone / Mobile No *</label>
+                        <input type="tel" name="phone" id="reg_b_phone" required placeholder="10-digit Mobile">
+                    </div>
+                    <div class="form-group">
+                        <label>GSTIN</label>
+                        <input type="text" name="gstin" id="reg_b_gstin" placeholder="e.g. 23AACCM1234F1Z9" style="text-transform:uppercase;">
+                    </div>
+                    <div class="form-group">
+                        <label>PAN Number</label>
+                        <input type="text" name="pan_number" id="reg_b_pan" placeholder="e.g. AACCM1234F" style="text-transform:uppercase;">
+                    </div>
+                    <div class="form-group form-full">
+                        <label>Factory / Mill / Registered Address *</label>
+                        <input type="text" name="address" id="reg_b_address" required placeholder="e.g. Industrial Area Sector 2, Indore">
+                    </div>
+                    <div class="form-group">
+                        <label>Bank Name</label>
+                        <input type="text" name="bank_name" id="reg_b_bank" placeholder="e.g. State Bank of India">
+                    </div>
+                    <div class="form-group">
+                        <label>Bank Account No</label>
+                        <input type="text" name="bank_account_no" id="reg_b_account" placeholder="Account Number">
+                    </div>
+                    <div class="form-group form-full">
+                        <label>Bank IFSC Code</label>
+                        <input type="text" name="bank_ifsc" id="reg_b_ifsc" placeholder="e.g. SBIN0001234" style="text-transform:uppercase;">
+                    </div>
+                </div>
+                <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px; border-top:1px solid #e2e8f0; padding-top:14px;">
+                    <button type="button" class="btn btn-secondary" onclick="closeRegisterBuyerModal()">Cancel</button>
+                    <button type="submit" class="btn btn-branch" style="font-weight:800;">Save & Register Company</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 3B: CASHIER PAYOUT & DENOMINATION TALLY -->
+    <div id="payoutModal" class="modal-overlay">
+        <div class="modal" style="background:#ffffff; max-width:650px;">
+            <div class="modal-header">
+                <h2>Cashier Payout & Denomination Tally</h2>
+                <button class="modal-close" onclick="closePayoutModal()">✕</button>
+            </div>
+            <div id="payoutModalContent" style="padding:15px 0;">
+                <p style="font-size:13px; color:var(--text-muted);">Unified cashier desk handles instant payouts directly on inward parchi generation.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 4: PRINTABLE PARCHI SLIP -->
+    <div id="parchiModal" class="modal-overlay">
+        <div class="modal" style="background:#ffffff; max-width:700px;">
+            <div class="modal-header">
+                <h2>Inward Purchase Parchi (Token)</h2>
+                <div>
+                    <button class="btn btn-sm btn-branch" onclick="window.print()">Print Receipt</button>
+                    <button class="modal-close" onclick="closeParchiModal()" style="margin-left:10px;">✕</button>
+                </div>
+            </div>
+            <div id="parchiContent"></div>
+        </div>
+    </div>
+
+    <!-- MODAL 5: PRINTABLE OUTWARD CHALLAN & GATE PASS -->
+    <div id="outwardChallanModal" class="modal-overlay">
+        <div class="modal" style="background:#ffffff; max-width:700px;">
+            <div class="modal-header">
+                <h2>Outward Dispatch Challan & Gate Pass</h2>
+                <div>
+                    <button class="btn btn-sm btn-branch" onclick="window.print()">Print Gate Pass</button>
+                    <button class="modal-close" onclick="closeOutwardChallanModal()" style="margin-left:10px;">✕</button>
+                </div>
+            </div>
+            <div id="outwardChallanContent"></div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        const dailyRates = {{ daily_rates_json | safe }};
+        let currentTargetPayout = 0;
+        let currentExactPayable = 0;
+
+        function showTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        function setWeighmentMode(mode) {
+            document.getElementById('weighment_mode').value = mode;
+            const btnYard = document.getElementById('btnModeYard');
+            const btnWB = document.getElementById('btnModeWB');
+            const yardBox = document.getElementById('yardWeightBox');
+            const wbBox = document.getElementById('weighbridgeFieldsBox');
+            const modeBadge = document.getElementById('disp_mode_badge');
+            const weightLabel = document.getElementById('disp_weight_label');
+
+            if (mode === 'MANUAL_YARD') {
+                btnYard.className = 'btn btn-branch';
+                btnWB.className = 'btn btn-secondary';
+                yardBox.style.display = 'block';
+                wbBox.style.display = 'none';
+                if (modeBadge) modeBadge.innerText = 'Yard Scale';
+                if (weightLabel) weightLabel.innerText = 'Actual Net Weight:';
+            } else {
+                btnYard.className = 'btn btn-secondary';
+                btnWB.className = 'btn btn-branch';
+                yardBox.style.display = 'none';
+                wbBox.style.display = 'block';
+                if (modeBadge) modeBadge.innerText = 'Weighbridge';
+                if (weightLabel) weightLabel.innerText = 'Vehicle Net Weight:';
+            }
+            recalculate();
+        }
+
+        function setUnifiedSettlementMode(mode) {
+            document.getElementById('settlement_mode').value = mode;
+            const btnCash = document.getElementById('btnUnifiedModeCash');
+            const btnRTGS = document.getElementById('btnUnifiedModeRTGS');
+            const cashSection = document.getElementById('unifiedCashSection');
+            const rtgsSection = document.getElementById('unifiedRtgsSection');
+            const badge = document.getElementById('settlementBadge');
+
+            if (mode === 'CASH') {
+                btnCash.className = 'btn btn-branch';
+                btnRTGS.className = 'btn btn-secondary';
+                cashSection.style.display = 'block';
+                rtgsSection.style.display = 'none';
+                if (badge) badge.innerText = 'Physical Cash Mode';
+                tallyDenominations();
+            } else {
+                btnCash.className = 'btn btn-secondary';
+                btnRTGS.className = 'btn btn-branch';
+                cashSection.style.display = 'none';
+                rtgsSection.style.display = 'block';
+                if (badge) badge.innerText = 'RTGS Transfer Mode';
+            }
+        }
+
+        function handlePartyChange() {
+            const sel = document.getElementById('party_id');
+            const opt = sel.options[sel.selectedIndex];
+            if (opt) {
+                document.getElementById('rtgs_beneficiary_name').value = opt.dataset.name || opt.text.split('(')[0].trim();
+                document.getElementById('rtgs_bank_name').value = opt.dataset.bank || '';
+                document.getElementById('rtgs_account_no').value = opt.dataset.account || '';
+                document.getElementById('rtgs_ifsc_code').value = opt.dataset.ifsc || '';
+            }
+            recalculate();
+        }
+
+        function selectCommodityCard(cardElem) {
+            document.querySelectorAll('.commodity-card').forEach(el => el.classList.remove('selected'));
+            cardElem.classList.add('selected');
+
+            const name = cardElem.dataset.name;
+            const minRate = parseFloat(cardElem.dataset.min || 0);
+            const targetRate = parseFloat(cardElem.dataset.target || 0);
+            const maxRate = parseFloat(cardElem.dataset.max || 0);
+            const icon = cardElem.dataset.icon || '🌱';
+
+            document.getElementById('commodity_name').value = name;
+            document.getElementById('formCommodityName').innerText = name;
+            document.getElementById('formCommodityIcon').innerText = icon;
+
+            const rateInput = document.getElementById('rate_per_quintal');
+            if (rateInput && targetRate > 0) {
+                rateInput.value = targetRate;
+            }
+
+            const bannerLimits = document.getElementById('rateStatus');
+            checkRateAndRecalculate();
+        }
+
+        function checkRateAndRecalculate() {
+            const commodity = document.getElementById('commodity_name').value;
+            const rate = parseFloat(document.getElementById('rate_per_quintal').value || 0);
+            const statusDiv = document.getElementById('rateStatus');
+            const overrideBox = document.getElementById('overrideReasonBox');
+
+            const rateInfo = dailyRates.find(r => r.commodity_name === commodity);
+            if (rateInfo && rateInfo.min_rate_per_qtl && rateInfo.max_rate_per_qtl) {
+                if (rate < rateInfo.min_rate_per_qtl || rate > rateInfo.max_rate_per_qtl) {
+                    statusDiv.innerHTML = `<span style="color:#dc2626;">⚠️ Rate ₹${rate.toLocaleString()} is OUTSIDE daily corridor (HQ: ₹${rateInfo.min_rate_per_qtl} - ₹${rateInfo.max_rate_per_qtl}). Central HQ approval required.</span>`;
+                    overrideBox.style.display = 'block';
+                } else {
+                    statusDiv.innerHTML = `<span style="color:#15803d;">✓ Within approved daily corridor (HQ: ₹${rateInfo.min_rate_per_qtl} - ₹${rateInfo.max_rate_per_qtl}). Target: ₹${rateInfo.target_rate_per_qtl}</span>`;
+                    overrideBox.style.display = 'none';
+                }
+            } else {
+                statusDiv.innerHTML = `<span style="color:#475569;">Rate for ${commodity}: ₹${rate.toLocaleString()}/Qtl</span>`;
+                overrideBox.style.display = 'none';
+            }
+            recalculate();
+        }
+
+        async function recalculate() {
+            const mode = document.getElementById('weighment_mode').value;
+            let gross = 0;
+            let tare = 0;
+
+            if (mode === 'MANUAL_YARD') {
+                gross = parseFloat(document.getElementById('yard_weight_kg').value || 0);
+                tare = 0;
+            } else {
+                gross = parseFloat(document.getElementById('gross_weight_kg').value || 0);
+                tare = parseFloat(document.getElementById('vehicle_tare_kg').value || 0);
+            }
+
+            const moisture = parseFloat(document.getElementById('moisture_percentage').value || 0);
+            const rate = parseFloat(document.getElementById('rate_per_quintal').value || 0);
+
+            try {
+                const res = await fetch(`/api/invoices/calculate?gross_weight_kg=${gross}&vehicle_tare_kg=${tare}&bag_count=0&moisture_percentage=${moisture}&rate_per_quintal=${rate}&hamali_rate_per_100kg=25.0`, {
+                    method: 'POST'
+                });
+                const d = await res.json();
+                document.getElementById('disp_vehicle_net').innerText = d.vehicle_net_kg.toLocaleString() + ' Kg';
+                document.getElementById('disp_moisture_cut').innerText = '-' + d.moisture_cut_kg.toLocaleString() + ' Kg';
+                document.getElementById('disp_net_weight').innerText = `${d.net_weight_kg.toLocaleString()} Kg (${d.net_quintals.toFixed(2)} Qtl)`;
+                
+                const dispRate = document.getElementById('disp_rate');
+                if (dispRate) dispRate.innerText = '₹' + rate.toLocaleString() + ' / Qtl';
+                
+                document.getElementById('disp_gross_amount').innerText = '₹' + d.gross_amount.toLocaleString(undefined, {minimumFractionDigits: 2});
+                
+                // Hamali is exactly ₹25 on 100 kg (per Quintal)
+                const hamaliAmt = d.hamali_charge || (d.net_quintals * 25.0);
+                document.getElementById('disp_hamali_deduction').innerText = '-₹' + hamaliAmt.toLocaleString(undefined, {minimumFractionDigits: 2});
+                
+                currentExactPayable = d.net_payable_amount;
+                document.getElementById('disp_net_payable').innerText = '₹' + d.net_payable_amount.toLocaleString(undefined, {minimumFractionDigits: 2});
+
+                const rounded = Math.ceil(d.net_payable_amount);
+                currentTargetPayout = rounded;
+                document.getElementById('disp_rounded_payout').innerText = '₹' + rounded.toLocaleString() + '.00';
+
+                // Section 269ST check
+                const sec269Alert = document.getElementById('unifiedSec269Alert');
+                const btnCash = document.getElementById('btnUnifiedModeCash');
+
+                if (d.net_payable_amount >= 200000) {
+                    sec269Alert.style.display = 'block';
+                    btnCash.disabled = true;
+                    btnCash.style.opacity = '0.5';
+                    btnCash.title = 'Section 269ST prohibits cash >= ₹2,00,000';
+                    setUnifiedSettlementMode('RTGS');
+                } else {
+                    sec269Alert.style.display = 'none';
+                    btnCash.disabled = false;
+                    btnCash.style.opacity = '1';
+                    btnCash.title = '';
+                }
+
+                tallyDenominations();
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        // ==============================================
+        // CASH DENOMINATIONS AUTO-FILL & TALLY
+        // ==============================================
+        function autoFillDenominations() {
+            let remaining = currentTargetPayout;
+            const denominations = [500, 200, 100, 50, 20, 10];
+            const counts = {};
+
+            denominations.forEach(denom => {
+                const count = Math.floor(remaining / denom);
+                counts[denom] = count;
+                remaining %= denom;
+            });
+
+            document.getElementById('n500').value = counts[500] || 0;
+            document.getElementById('n200').value = counts[200] || 0;
+            document.getElementById('n100').value = counts[100] || 0;
+            document.getElementById('n50').value = counts[50] || 0;
+            document.getElementById('n20').value = counts[20] || 0;
+            document.getElementById('n10').value = counts[10] || 0;
+            document.getElementById('ncoins').value = remaining;
+
+            tallyDenominations();
+        }
+
+        function tallyDenominations() {
+            const n500 = parseInt(document.getElementById('n500')?.value || 0);
+            const n200 = parseInt(document.getElementById('n200')?.value || 0);
+            const n100 = parseInt(document.getElementById('n100')?.value || 0);
+            const n50 = parseInt(document.getElementById('n50')?.value || 0);
+            const n20 = parseInt(document.getElementById('n20')?.value || 0);
+            const n10 = parseInt(document.getElementById('n10')?.value || 0);
+            const ncoins = parseInt(document.getElementById('ncoins')?.value || 0);
+
+            if (document.getElementById('v500')) document.getElementById('v500').innerText = '₹' + (n500 * 500);
+            if (document.getElementById('v200')) document.getElementById('v200').innerText = '₹' + (n200 * 200);
+            if (document.getElementById('v100')) document.getElementById('v100').innerText = '₹' + (n100 * 100);
+            if (document.getElementById('v50')) document.getElementById('v50').innerText = '₹' + (n50 * 50);
+            if (document.getElementById('v20')) document.getElementById('v20').innerText = '₹' + (n20 * 20);
+            if (document.getElementById('v10')) document.getElementById('v10').innerText = '₹' + (n10 * 10);
+            if (document.getElementById('vcoins')) document.getElementById('vcoins').innerText = '₹' + ncoins;
+
+            const total = (n500 * 500) + (n200 * 200) + (n100 * 100) + (n50 * 50) + (n20 * 20) + (n10 * 10) + ncoins;
+            const dispCounted = document.getElementById('disp_counted_cash');
+            if (dispCounted) dispCounted.innerText = '₹' + total.toLocaleString() + '.00';
+
+            const status = document.getElementById('denominationStatus');
+            const diff = total - currentTargetPayout;
+
+            if (diff === 0) {
+                if (status) status.innerHTML = `<span style="color:#15803d;">✓ Exact Match: Physical cash equals ₹${currentTargetPayout.toLocaleString()}. Ready.</span>`;
+            } else if (diff < 0) {
+                if (status) status.innerHTML = `<span style="color:#b91c1c;">⚠️ Cash short by ₹${Math.abs(diff).toLocaleString()}</span>`;
+            } else {
+                if (status) status.innerHTML = `<span style="color:#b45309;">⚠️ Cash excess by ₹${diff.toLocaleString()}</span>`;
+            }
+        }
+
+        // ==============================================
+        // INWARD REVIEW & CONFIRMATION DESK WORKFLOW
+        // ==============================================
+        function submitUnifiedInwardAndPayout(e) {
+            e.preventDefault();
+
+            // 1. Validate farmer
+            const partySelect = document.getElementById('party_id');
+            const partyId = partySelect.value;
+            if (!partyId) {
+                alert('Please select a Farmer / Cultivator first.');
+                return;
+            }
+            const selectedOpt = partySelect.options[partySelect.selectedIndex];
+            const farmerName = selectedOpt.dataset.name || selectedOpt.text.split('(')[0].trim();
+            const farmerPhone = selectedOpt.dataset.phone || '-';
+            const farmerVillage = selectedOpt.dataset.village || '-';
+            const farmerKhasra = selectedOpt.dataset.khasra || '-';
+            const farmerAadhaar = selectedOpt.dataset.aadhaar || '-';
+            const farmerBank = selectedOpt.dataset.bank || '-';
+            const farmerAccount = selectedOpt.dataset.account || '-';
+            const farmerIfsc = selectedOpt.dataset.ifsc || '-';
+
+            // 2. Validate commodity & weight
+            const commodity = document.getElementById('commodity_name').value;
+            const mode = document.getElementById('weighment_mode').value;
+            let grossWeight = 0;
+            let tareWeight = 0;
+            let netWeight = 0;
+            let modeTitle = '';
+
+            if (mode === 'MANUAL_YARD') {
+                grossWeight = parseFloat(document.getElementById('yard_weight_kg').value || 0);
+                tareWeight = 0;
+                netWeight = grossWeight;
+                modeTitle = 'Manual Yard Scale (Gross = Net)';
+            } else {
+                grossWeight = parseFloat(document.getElementById('gross_weight_kg').value || 0);
+                tareWeight = parseFloat(document.getElementById('vehicle_tare_kg').value || 0);
+                netWeight = grossWeight - tareWeight;
+                const vehNo = document.getElementById('vehicle_number').value || 'N/A';
+                modeTitle = `Digital Weighbridge (Truck: ${vehNo})`;
+            }
+
+            if (netWeight <= 0) {
+                alert('Net produce weight must be greater than zero.');
+                return;
+            }
+
+            const rate = parseFloat(document.getElementById('rate_per_quintal').value || 0);
+            if (rate <= 0) {
+                alert('Agreed purchase rate must be greater than zero.');
+                return;
+            }
+
+            const netQuintals = netWeight / 100.0;
+            const grossProduceVal = netQuintals * rate;
+            const hamaliDeduction = netQuintals * 25.0; // Fixed ₹25 per 100 kg
+            const netPayable = currentExactPayable > 0 ? currentExactPayable : (grossProduceVal - hamaliDeduction);
+            const roundedPayout = Math.ceil(netPayable);
+
+            // 3. Settlement check
+            const settleMode = document.getElementById('settlement_mode').value;
+            let settlementHtml = '';
+
+            if (settleMode === 'CASH') {
+                const n500 = parseInt(document.getElementById('n500')?.value || 0);
+                const n200 = parseInt(document.getElementById('n200')?.value || 0);
+                const n100 = parseInt(document.getElementById('n100')?.value || 0);
+                const n50 = parseInt(document.getElementById('n50')?.value || 0);
+                const n20 = parseInt(document.getElementById('n20')?.value || 0);
+                const n10 = parseInt(document.getElementById('n10')?.value || 0);
+                const ncoins = parseInt(document.getElementById('ncoins')?.value || 0);
+                const countedTotal = (n500*500) + (n200*200) + (n100*100) + (n50*50) + (n20*20) + (n10*10) + ncoins;
+
+                settlementHtml = `
+                    <div style="background:#ecfdf5; border:1px solid #a7f3d0; border-radius:10px; padding:12px; margin-top:10px;">
+                        <div style="font-weight:800; color:#065f46; font-size:13.5px; display:flex; justify-content:space-between;">
+                            <span>💵 Disbursement: Instant Cash Payout</span>
+                            <span>Total Counted: ₹${countedTotal.toLocaleString()}.00</span>
+                        </div>
+                        <div style="font-size:12px; color:#047857; margin-top:6px; font-weight:600;">
+                            Denominations: ₹500×${n500} | ₹200×${n200} | ₹100×${n100} | ₹50×${n50} | ₹20×${n20} | ₹10×${n10} | Coins: ₹${ncoins}
+                        </div>
+                    </div>
+                `;
+            } else {
+                const bName = document.getElementById('rtgs_bank_name')?.value || farmerBank;
+                const bAcc = document.getElementById('rtgs_account_no')?.value || farmerAccount;
+                const bIfsc = document.getElementById('rtgs_ifsc_code')?.value || farmerIfsc;
+                settlementHtml = `
+                    <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px; padding:12px; margin-top:10px;">
+                        <div style="font-weight:800; color:#1e40af; font-size:13.5px;">
+                            🏦 Disbursement: Bank RTGS Transfer Request
+                        </div>
+                        <div style="font-size:12px; color:#1d4ed8; margin-top:6px; font-weight:600;">
+                            Beneficiary: ${farmerName} | Bank: ${bName}<br>
+                            A/C No: ${bAcc} | IFSC: ${bIfsc}<br>
+                            <span style="color:#64748b; font-size:11px;">(Will route to Central Accounts for UTR entry)</span>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Build Review Card HTML
+            const reviewHtml = `
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                    <!-- Farmer Info -->
+                    <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px;">
+                        <div style="font-size:10.5px; text-transform:uppercase; color:#64748b; font-weight:800; margin-bottom:4px;">🧑‍🌾 Cultivator / Supplier</div>
+                        <div style="font-size:16px; font-weight:800; color:#0f172a;">${farmerName}</div>
+                        <div style="font-size:12px; color:#475569; margin-top:2px;">📱 ${farmerPhone} • 📍 ${farmerVillage}</div>
+                        <div style="font-size:11.5px; color:#64748b; margin-top:4px;">Khasra: ${farmerKhasra} • Aadhaar: ${farmerAadhaar}</div>
+                    </div>
+
+                    <!-- Produce & Mode -->
+                    <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px;">
+                        <div style="font-size:10.5px; text-transform:uppercase; color:#64748b; font-weight:800; margin-bottom:4px;">🌾 Produce & Weighment</div>
+                        <div style="font-size:16px; font-weight:800; color:#0f172a;">${commodity}</div>
+                        <div style="font-size:12px; color:#0284c7; font-weight:700; margin-top:2px;">${modeTitle}</div>
+                        <div style="font-size:11.5px; color:#475569; margin-top:4px;">Gross: ${grossWeight.toLocaleString()} Kg | Tare: ${tareWeight.toLocaleString()} Kg</div>
+                    </div>
+                </div>
+
+                <!-- Weights, Rates & Math Box -->
+                <div style="background:#ffffff; border:1.5px solid #cbd5e1; border-radius:10px; padding:14px; margin-top:12px;">
+                    <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; text-align:center; padding-bottom:10px; border-bottom:1px dashed #e2e8f0;">
+                        <div>
+                            <div style="font-size:10.5px; text-transform:uppercase; color:#64748b; font-weight:800;">Net Billable Weight</div>
+                            <div style="font-size:17px; font-weight:800; color:#0f172a; margin-top:2px;">${netWeight.toLocaleString()} Kg</div>
+                            <div style="font-size:11.5px; color:#0284c7; font-weight:700;">(${netQuintals.toFixed(2)} Qtl)</div>
+                        </div>
+                        <div>
+                            <div style="font-size:10.5px; text-transform:uppercase; color:#64748b; font-weight:800;">Agreed Rate</div>
+                            <div style="font-size:17px; font-weight:800; color:#d97706; margin-top:2px;">₹${rate.toLocaleString()}/Qtl</div>
+                            <div style="font-size:11px; color:#15803d; font-weight:600;">Standard Grade</div>
+                        </div>
+                        <div>
+                            <div style="font-size:10.5px; text-transform:uppercase; color:#64748b; font-weight:800;">Farmer Hamali</div>
+                            <div style="font-size:17px; font-weight:800; color:#dc2626; margin-top:2px;">-₹${hamaliDeduction.toFixed(2)}</div>
+                            <div style="font-size:11px; color:#64748b; font-weight:600;">(₹25.00 / 100 Kg)</div>
+                        </div>
+                    </div>
+
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px; padding:10px 14px; background:#fef3c7; border-radius:8px;">
+                        <span style="font-size:14px; font-weight:800; color:#92400e;">Net Farmer Disbursement Amount:</span>
+                        <strong style="font-size:22px; font-weight:900; color:#b45309;">₹${roundedPayout.toLocaleString()}.00</strong>
+                    </div>
+                </div>
+
+                ${settlementHtml}
+            `;
+
+            document.getElementById('confirmReviewBody').innerHTML = reviewHtml;
+            document.getElementById('inwardConfirmModal').style.display = 'flex';
+        }
+
+        function closeConfirmModal() {
+            document.getElementById('inwardConfirmModal').style.display = 'none';
+        }
+
+        async function executeFinalInwardSubmit() {
+            const btn = document.getElementById('btnFinalInwardConfirm');
+            btn.disabled = true;
+            btn.innerText = '⏳ Processing & Generating Parchi...';
+
+            const form = document.getElementById('unifiedPurchaseForm');
+            const formData = new FormData(form);
+
+            try {
+                const res = await fetch('/api/branch/invoices/create', {
+                    method: 'POST',
+                    body: formData
+                });
+                const d = await res.json();
+                if (d.success) {
+                    closeConfirmModal();
+                    viewParchiSlip(d.token_number);
+                } else {
+                    alert('Submission Error: ' + (d.error || 'Failed to generate invoice'));
+                    btn.disabled = false;
+                    btn.innerText = '🖨️ Confirm & Disburse / Issue Parchi →';
+                }
+            } catch (err) {
+                alert('Server network error: ' + err);
+                btn.disabled = false;
+                btn.innerText = '🖨️ Confirm & Disburse / Issue Parchi →';
+            }
+        }
+
+        // ==============================================
+        // OUTWARD DISPATCH CALCULATIONS & SUBMISSION
+        // ==============================================
+        function recalculateOutward() {
+            const netKg = parseFloat(document.getElementById('outward_net_weight_kg').value || 0);
+            const rate = parseFloat(document.getElementById('outward_rate_per_quintal').value || 0);
+            const hamaliRate = parseFloat(document.getElementById('outward_hamali_per_100kg').value || 0);
+
+            const qtl = netKg / 100.0;
+            const gross = qtl * rate;
+            const hamaliAmt = qtl * hamaliRate;
+            const totalBill = gross + hamaliAmt;
+
+            document.getElementById('out_disp_weight').innerText = `${netKg.toLocaleString()} Kg (${qtl.toFixed(2)} Qtl)`;
+            document.getElementById('out_disp_rate').innerText = '₹' + rate.toLocaleString() + ' / Qtl';
+            document.getElementById('out_disp_gross').innerText = '₹' + gross.toLocaleString(undefined, {minimumFractionDigits: 2});
+            document.getElementById('out_disp_hamali_rate').innerText = '₹' + hamaliRate.toFixed(2);
+            document.getElementById('out_disp_hamali_amt').innerText = '+₹' + hamaliAmt.toLocaleString(undefined, {minimumFractionDigits: 2});
+            document.getElementById('out_disp_total').innerText = '₹' + totalBill.toLocaleString(undefined, {minimumFractionDigits: 2});
+        }
+
+        async function submitOutwardDispatch(e) {
+            e.preventDefault();
+            const form = document.getElementById('outwardDispatchForm');
+            const formData = new FormData(form);
+
+            try {
+                const res = await fetch('/api/branch/outward/create', {
+                    method: 'POST',
+                    body: formData
+                });
+                const d = await res.json();
+                if (d.success) {
+                    alert(`Outward Dispatch Challan Generated!\nChallan No: ${d.challan_number}\nTotal Bill: ₹${d.total_bill_amount.toLocaleString()}`);
+                    viewOutwardChallan(d.challan_number);
+                } else {
+                    alert(`Error: ${d.error || 'Outward dispatch creation failed'}`);
+                }
+            } catch (err) {
+                alert('Network error: ' + err);
+            }
+        }
+
+        async function viewOutwardChallan(challanNo) {
+            try {
+                const res = await fetch(`/api/branch/outward/challan/${challanNo}`);
+                const html = await res.text();
+                document.getElementById('outwardChallanContent').innerHTML = html;
+                document.getElementById('outwardChallanModal').style.display = 'flex';
+            } catch (err) {
+                alert('Failed to load challan: ' + err);
+            }
+        }
+
+        function closeOutwardChallanModal() {
+            document.getElementById('outwardChallanModal').style.display = 'none';
+            window.location.reload();
+        }
+
+        // ==============================================
+        // FARMER REGISTRATION & EDIT MODAL HANDLERS
+        // ==============================================
+        function openFarmerModal() {
+            document.getElementById('farmerModal').style.display = 'flex';
+        }
+        function closeFarmerModal() {
+            document.getElementById('farmerModal').style.display = 'none';
+        }
+
+        async function submitNewFarmer(e) {
+            e.preventDefault();
+            const form = e.target;
+            const formData = new FormData(form);
+
+            try {
+                const res = await fetch('/api/branch/farmers/register', {
+                    method: 'POST',
+                    body: formData
+                });
+                const d = await res.json();
+                if (d.success) {
+                    alert(`Farmer Registered: ${d.name}`);
+                    const sel = document.getElementById('party_id');
+                    const opt = document.createElement('option');
+                    opt.value = d.id;
+                    opt.innerText = `${d.name} (FARMER) — ${d.village} [Khasra: ${d.khasra_record_no}]`;
+                    opt.dataset.type = 'FARMER';
+                    opt.dataset.name = d.name;
+                    opt.dataset.khasra = d.khasra_record_no;
+                    opt.dataset.village = d.village;
+                    sel.appendChild(opt);
+                    sel.value = d.id;
+                    closeFarmerModal();
+                    handlePartyChange();
+                } else {
+                    alert('Error: ' + d.error);
+                }
+            } catch (err) {
+                alert('Network error: ' + err);
+            }
+        }
+
+        function openEditFarmerModalForSelected() {
+            const sel = document.getElementById('party_id');
+            const farmerId = sel.value;
+            openEditFarmerModal(farmerId);
+        }
+
+        function openEditFarmerModal(partyId) {
+            const sel = document.getElementById('party_id');
+            let opt = null;
+            for (let i = 0; i < sel.options.length; i++) {
+                if (sel.options[i].value === partyId) {
+                    opt = sel.options[i];
+                    break;
+                }
+            }
+
+            if (!opt) return;
+
+            document.getElementById('edit_party_id').value = partyId;
+            document.getElementById('edit_name').value = opt.dataset.name || opt.text.split('(')[0].trim();
+            document.getElementById('edit_phone').value = opt.dataset.phone || '';
+            document.getElementById('edit_village').value = opt.dataset.village || '';
+            document.getElementById('edit_khasra').value = opt.dataset.khasra || '';
+            document.getElementById('edit_aadhaar').value = opt.dataset.aadhaar || '';
+            document.getElementById('edit_bank').value = opt.dataset.bank || '';
+            document.getElementById('edit_account').value = opt.dataset.account || '';
+            document.getElementById('edit_ifsc').value = opt.dataset.ifsc || '';
+            document.getElementById('edit_reason').value = 'Updated profile & banking details';
+
+            document.getElementById('editFarmerModal').style.display = 'flex';
+        }
+
+        function closeEditFarmerModal() {
+            document.getElementById('editFarmerModal').style.display = 'none';
+        }
+
+        async function submitEditFarmer(e) {
+            e.preventDefault();
+            const form = e.target;
+            const formData = new FormData(form);
+
+            try {
+                const res = await fetch('/api/branch/farmers/edit', {
+                    method: 'POST',
+                    body: formData
+                });
+                const d = await res.json();
+                if (d.success) {
+                    alert('Farmer details updated and logged to audit trail successfully!');
+                    closeEditFarmerModal();
+                    window.location.reload();
+                } else {
+                    alert('Update failed: ' + d.error);
+                }
+            } catch (err) {
+                alert('Server error: ' + err);
+            }
+        }
+
+        // ==============================================
+        // BUYER / TRADER REGISTRATION & OUTWARD SELECT
+        // ==============================================
+        function openRegisterBuyerModal() {
+            document.getElementById('registerBuyerModal').style.display = 'flex';
+        }
+
+        function closeRegisterBuyerModal() {
+            document.getElementById('registerBuyerModal').style.display = 'none';
+        }
+
+        async function submitRegisterBuyer(e) {
+            e.preventDefault();
+            const form = document.getElementById('registerBuyerForm');
+            const formData = new FormData(form);
+
+            try {
+                const res = await fetch('/api/branch/buyers/register', {
+                    method: 'POST',
+                    body: formData
+                });
+                const d = await res.json();
+                if (d.success) {
+                    alert(`Company Registered Successfully: ${d.buyer.name}`);
+                    // Add to outward select
+                    const sel = document.getElementById('outward_buyer_id');
+                    const opt = document.createElement('option');
+                    opt.value = d.buyer.id;
+                    opt.text = `${d.buyer.name} (GST: ${d.buyer.gstin || 'Unregistered'})`;
+                    opt.dataset.name = d.buyer.name;
+                    opt.dataset.phone = d.buyer.phone;
+                    opt.dataset.gstin = d.buyer.gstin;
+                    opt.dataset.address = d.buyer.address;
+                    sel.appendChild(opt);
+                    sel.value = d.buyer.id;
+                    handleBuyerSelect(sel);
+                    closeRegisterBuyerModal();
+                } else {
+                    alert('Registration failed: ' + d.error);
+                }
+            } catch (err) {
+                alert('Server error: ' + err);
+            }
+        }
+
+        function handleBuyerSelect(sel) {
+            const opt = sel.options[sel.selectedIndex];
+            const infoPill = document.getElementById('buyer_info_pill');
+            const buyerNameInput = document.getElementById('outward_buyer_name');
+
+            if (!opt || !opt.value) {
+                if (infoPill) infoPill.style.display = 'none';
+                if (buyerNameInput) buyerNameInput.value = '';
+                return;
+            }
+
+            const name = opt.dataset.name || opt.text.split('(')[0].trim();
+            const phone = opt.dataset.phone || '';
+            const gstin = opt.dataset.gstin || '';
+            const address = opt.dataset.address || '';
+
+            if (buyerNameInput) buyerNameInput.value = name;
+            if (infoPill) {
+                infoPill.innerHTML = `<strong>🏢 ${name}</strong> • Phone: ${phone || '-'} • GSTIN: <code>${gstin || 'Unregistered'}</code> • Address: ${address || '-'}`;
+                infoPill.style.display = 'block';
+            }
+        }
+
+        function selectBuyerForDispatch(buyerId) {
+            showTab('tab-outward-sales');
+            const sel = document.getElementById('outward_buyer_id');
+            if (sel) {
+                sel.value = buyerId;
+                handleBuyerSelect(sel);
+            }
+        }
+
+        async function viewParchiSlip(token) {
+            try {
+                const res = await fetch(`/api/branch/invoices/parchi/${token}`);
+                const html = await res.text();
+                document.getElementById('parchiContent').innerHTML = html;
+                document.getElementById('parchiModal').style.display = 'flex';
+            } catch (err) {
+                alert('Failed to load slip: ' + err);
+            }
+        }
+
+        function closeParchiModal() {
+            document.getElementById('parchiModal').style.display = 'none';
+            window.location.reload();
+        }
+
+        function filterRtgsTable() {
+            const input = (document.getElementById('rtgsSearchInput')?.value || '').toLowerCase();
+            const rows = document.querySelectorAll('#branchRtgsTable tbody tr');
+            rows.forEach(r => {
+                const text = r.innerText.toLowerCase();
+                r.style.display = text.includes(input) ? '' : 'none';
+            });
+        }
+
+        window.onload = function() {
+            const firstCard = document.querySelector('.commodity-card');
+            if (firstCard) {
+                selectCommodityCard(firstCard);
+            } else {
+                checkRateAndRecalculate();
+            }
+            handlePartyChange();
+            recalculateOutward();
+            const buyerSel = document.getElementById('outward_buyer_id');
+            if (buyerSel) handleBuyerSelect(buyerSel);
+        };
+    </script>
+</body>
+</html>

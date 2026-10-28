@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Central Accounts & Rate Authority Desk — Mandi ERP</title>
+    <link rel="stylesheet" href="/static/theme.css">
+    <style>
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 14px;
+            margin-bottom: 14px;
+        }
+        .notice-card {
+            background: #ecfdf5;
+            border: 1px solid #a7f3d0;
+            border-radius: 12px;
+            padding: 14px 20px;
+            font-size: 13.5px;
+            margin-bottom: 22px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: #065f46;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <!-- HEADER CARD -->
+    <header class="header-card">
+        <div class="header-title">
+            <h1>
+                <span>📊</span> Rajeshri Shahu Trading
+                <span class="brand-badge badge-accounts">Central Accounts & Rate Authority Desk</span>
+            </h1>
+            <p>Mandatory Daily Price Corridors • Branches: Chikhali, Varvand, Dhad • Port 8080 Active</p>
+        </div>
+        <div class="nav-links">
+            <a href="/" class="nav-pill">← Portal Hub</a>
+            <a href="/accounts/settings" class="nav-pill">⚙️ Accounts Settings</a>
+            <a href="/branch/stock" class="nav-pill">📦 Yard Stock</a>
+            <a href="/admin/dashboard" class="nav-pill">Super Admin Portal →</a>
+            <a href="/branch/dashboard" class="nav-pill">Branch Terminal →</a>
+        </div>
+    </header>
+
+    <div class="notice-card">
+        <div>
+            ⚡ <strong>Statutory & Pricing Authority:</strong> Branches cannot purchase commodities outside your approved Min/Max corridor without your written approval.
+        </div>
+        <div>
+            <span class="badge-pill badge-green">Central Authority Active</span>
+        </div>
+    </div>
+
+    <!-- TABS -->
+    <div class="tabs">
+        <button class="tab-btn active" onclick="showTab('tab-rates')">Daily Rate Corridor Master</button>
+        <button class="tab-btn" onclick="showTab('tab-overrides')">Rate Override Approvals ({{ pending_overrides|length }})</button>
+        <button class="tab-btn" onclick="showTab('tab-rtgs')">RTGS Bank Transfers ({{ pending_rtgs|length }})</button>
+        <button class="tab-btn" onclick="showTab('tab-outward-receivables')">🚚 Outward Receivables ({{ pending_outward_count }} Due)</button>
+        <button class="tab-btn" onclick="showTab('tab-inspectors')">Quality Inspector Master</button>
+        <button class="tab-btn" onclick="showTab('tab-ledgers')">Ledger Entries & Cashbook</button>
+    </div>
+
+    <!-- TAB 1: DAILY RATE MASTER -->
+    <div id="tab-rates" class="tab-content active">
+        <!-- COMMODITY CARDS IN ACCOUNTS -->
+        <div class="commodity-selection-section">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+                <label style="font-size:12.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; color:#059669;">
+                    ⚡ Click Commodity Card to Update Rates:
+                </label>
+                <span style="font-size:12px; color:var(--text-muted); font-weight:600;">Click any card to load its current rates into the editor below</span>
+            </div>
+            <div class="commodity-cards-grid">
+                {% for c in commodity_cards %}
+                <div class="commodity-card {% if loop.first %}selected{% endif %}"
+                     data-name="{{ c.name }}"
+                     data-min="{{ c.min_rate }}"
+                     data-target="{{ c.target_rate }}"
+                     data-max="{{ c.max_rate }}"
+                     data-grade="{{ c.grade }}"
+                     onclick="selectAccountCommodity(this)">
+                    <div class="card-selected-badge" style="background:#059669;">✓ Loaded</div>
+                    <div class="commodity-card-top">
+                        <span class="card-icon">
+                            {% if 'Soya' in c.name %}🌱
+                            {% elif 'Wheat' in c.name %}🌾
+                            {% elif 'Chana' in c.name %}🫘
+                            {% elif 'Mustard' in c.name or 'Rayda' in c.name %}🌼
+                            {% elif 'Maize' in c.name or 'Makka' in c.name %}🌽
+                            {% else %}🌾{% endif %}
+                        </span>
+                        <div>
+                            <div class="card-name">{{ c.name }}</div>
+                            <div class="card-grade-tag">Grade: {{ c.grade }}</div>
+                        </div>
+                    </div>
+                    <div class="commodity-rates-box">
+                        <div class="rate-col">
+                            <span class="rate-lbl">Floor</span>
+                            <strong class="rate-val">₹{{ "{:,.0f}".format(c.min_rate) }}</strong>
+                        </div>
+                        <div class="rate-col target-rate-col" style="background:#ecfdf5; border-color:#a7f3d0;">
+                            <span class="rate-lbl" style="color:#059669;">Target</span>
+                            <strong class="rate-val" style="color:#059669;">₹{{ "{:,.0f}".format(c.target_rate) }}</strong>
+                        </div>
+                        <div class="rate-col">
+                            <span class="rate-lbl">Ceiling</span>
+                            <strong class="rate-val">₹{{ "{:,.0f}".format(c.max_rate) }}</strong>
+                        </div>
+                    </div>
+                    <div class="card-specs-row">
+                        <span>Std Nami: {{ c.standard_moisture_pct }}%</span>
+                        <span>Mandi Cess: {{ c.mandi_cess_pct }}%</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h2><span>📝</span> Set / Update Today's Buying Price Corridor</h2>
+            </div>
+            <form action="/api/accounts/rates" method="POST">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Effective Date</label>
+                        <input type="date" name="rate_date" value="{{ today_str }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Commodity</label>
+                        <select id="acc_commodity_name" name="commodity_name" required>
+                            {% for c in commodities %}
+                            <option value="{{ c.name }}">{{ c.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Quality Grade</label>
+                        <select id="acc_quality_grade" name="quality_grade">
+                            <option value="STANDARD">STANDARD</option>
+                            <option value="GRADE_A">GRADE_A (Premium)</option>
+                            <option value="COMMERCIAL">COMMERCIAL (Fair)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Min Rate (₹ / Qtl)</label>
+                        <input type="number" step="0.5" id="acc_min_rate" name="min_rate" placeholder="4400" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Target Rate (₹ / Qtl)</label>
+                        <input type="number" step="0.5" id="acc_target_rate" name="target_rate" placeholder="4650" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Max Rate (₹ / Qtl)</label>
+                        <input type="number" step="0.5" id="acc_max_rate" name="max_rate" placeholder="4800" required>
+                    </div>
+                    <div class="form-group" style="display:flex; align-items:flex-end;">
+                        <button type="submit" class="btn btn-accounts" style="width:100%;">Publish Rate Board →</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h2><span>📋</span> Published Daily Mandi Rates</h2>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Commodity</th>
+                        <th>Quality Grade</th>
+                        <th>Floor (Min ₹/Qtl)</th>
+                        <th>Target Rate (₹/Qtl)</th>
+                        <th>Ceiling (Max ₹/Qtl)</th>
+                        <th>Updated At</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in rates %}
+                    <tr>
+                        <td><code>{{ r.rate_date }}</code></td>
+                        <td><strong>{{ r.commodity_name }}</strong></td>
+                        <td><span class="badge-pill badge-green">{{ r.quality_grade }}</span></td>
+                        <td>₹{{ "{:,.2f}".format(r.min_rate_per_qtl) }}</td>
+                        <td><strong style="color:#059669;">₹{{ "{:,.2f}".format(r.target_rate_per_qtl) }}</strong></td>
+                        <td>₹{{ "{:,.2f}".format(r.max_rate_per_qtl) }}</td>
+                        <td style="font-size:12px; color:var(--text-muted);">{{ r.updated_at }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- TAB 2: RATE OVERRIDE QUEUE -->
+    <div id="tab-overrides" class="tab-content">
+        <div class="card">
+            <div class="card-header">
+                <h2><span>⚠️</span> Pending Out-of-Corridor Rate Overrides</h2>
+                <span class="badge-pill badge-amber">{{ pending_overrides|length }} Decisions Pending</span>
+            </div>
+            {% if pending_overrides %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Token</th>
+                        <th>Branch</th>
+                        <th>Party</th>
+                        <th>Commodity</th>
+                        <th>Net Qtl</th>
+                        <th>Proposed Rate</th>
+                        <th>Operator's Reason</th>
+                        <th>Action with Audit Reason</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for po in pending_overrides %}
+                    <tr>
+                        <td><code style="font-weight:700; color:#0284c7;">{{ po.token_number }}</code></td>
+                        <td><strong>{{ po.branch_name }}</strong></td>
+                        <td>{{ po.party_name }}</td>
+                        <td>{{ po.commodity_name }}</td>
+                        <td>{{ "%.2f"|format(po.net_quintals) }} Qtl</td>
+                        <td><strong style="color:#dc2626;">₹{{ "{:,.2f}".format(po.rate_per_quintal) }}</strong></td>
+                        <td style="font-style:italic; color:var(--text-secondary);">"{{ po.rate_override_reason or 'No reason provided' }}"</td>
+                        <td>
+                            <form action="/api/accounts/rate-overrides/action" method="POST" style="display:flex; gap:6px; align-items:center;">
+                                <input type="hidden" name="invoice_id" value="{{ po.id }}">
+                                <input type="text" name="accountant_reason" placeholder="Mandatory HQ reason..." required style="padding:6px 10px; font-size:12px; border:1px solid var(--input-border); border-radius:6px; width:160px;">
+                                <button type="submit" name="decision" value="APPROVE" class="btn btn-sm btn-accounts">Approve</button>
+                                <button type="submit" name="decision" value="REJECT" class="btn btn-sm btn-danger">Reject</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p style="color:var(--text-muted); font-size:14px; padding:20px 0; font-weight:600;">✓ No pending out-of-range purchase rates. All branch entries are currently within daily approved corridors.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- TAB 3: RTGS BANK TRANSFERS DESK -->
+    <div id="tab-rtgs" class="tab-content">
+        <div class="card">
+            <div class="card-header">
+                <div>
+                    <h2><span>🏦</span> Central RTGS & Bank Transfer Authority Desk</h2>
+                    <p style="font-size:12.5px; color:var(--text-muted); margin-top:2px;">
+                        Mandatory UTR Entry: Requests from branches remain pending and cannot be settled without entering a valid Bank UTR number.
+                    </p>
+                </div>
+                <span class="badge-pill {% if pending_rtgs %}badge-amber{% else %}badge-green{% endif %}">
+                    {{ pending_rtgs|length }} Pending RTGS
+                </span>
+            </div>
+
+            {% if pending_rtgs %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Token #</th>
+                        <th>Branch</th>
+                        <th>Farmer Name</th>
+                        <th>Beneficiary Bank Details</th>
+                        <th>Net Amount (₹)</th>
+                        <th>Action: Enter UTR to Disburse</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in pending_rtgs %}
+                    <tr>
+                        <td><code style="font-weight:700; color:#0284c7;">{{ r.token_number }}</code></td>
+                        <td><strong>{{ r.branch_name }}</strong></td>
+                        <td>
+                            <strong>{{ r.party_name }}</strong><br>
+                            <span style="font-size:11px; color:var(--text-muted);">{{ r.party_phone or '' }}</span>
+                        </td>
+                        <td>
+                            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:6px 10px; font-size:12px;">
+                                <div><strong>Bank:</strong> {{ r.rtgs_bank_name or 'Bank Account' }}</div>
+                                <div><strong>A/C:</strong> <code>{{ r.rtgs_account_no }}</code></div>
+                                <div><strong>IFSC:</strong> <code>{{ r.rtgs_ifsc_code }}</code></div>
+                                <div><strong>Beneficiary:</strong> {{ r.rtgs_beneficiary_name }}</div>
+                            </div>
+                        </td>
+                        <td>
+                            <strong style="font-size:16px; color:#059669;">₹{{ "{:,.2f}".format(r.net_payable_amount) }}</strong>
+                        </td>
+                        <td>
+                            <form action="/api/accounts/rtgs/process" method="POST" style="display:flex; flex-direction:column; gap:6px;">
+                                <input type="hidden" name="invoice_id" value="{{ r.id }}">
+                                <div style="display:flex; gap:6px;">
+                                    <input type="text" name="bank_utr_no" placeholder="Bank UTR # (e.g. SBIN12345)" required style="padding:6px 10px; font-size:12.5px; border:1.5px solid #059669; border-radius:6px; width:190px;">
+                                    <button type="submit" class="btn btn-accounts btn-sm" style="white-space:nowrap;">
+                                        ✓ Disburse & Close
+                                    </button>
+                                </div>
+                                <span style="font-size:10.5px; color:var(--text-muted);">Request only closes when valid UTR is submitted.</span>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div style="text-align:center; padding:30px; color:var(--text-muted); font-size:14px; font-weight:600;">
+                ✓ All RTGS bank transfer requests are currently settled. Zero pending branch payouts.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- TAB 3: QUALITY INSPECTOR MASTER -->
+    <div id="tab-inspectors" class="tab-content">
+        <div class="card">
+            <div class="card-header">
+                <h2><span>🔍</span> Add Quality Inspector (Feeds Branch Dropdown)</h2>
+            </div>
+            <form action="/api/accounts/inspectors" method="POST">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Inspector Full Name</label>
+                        <input type="text" name="name" placeholder="Ramesh Chandra Sharma" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Designation / Role</label>
+                        <input type="text" name="designation" placeholder="Chief Assayer / Mandi Sampler" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Mobile Number</label>
+                        <input type="text" name="phone" placeholder="98260XXXXX">
+                    </div>
+                    <div class="form-group">
+                        <label>Branch Assignment</label>
+                        <select name="branch_id">
+                            <option value="">All Branches (Universal Assayer)</option>
+                            {% for b in branches %}
+                            <option value="{{ b.id }}">{{ b.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group" style="display:flex; align-items:flex-end;">
+                        <button type="submit" class="btn btn-accounts" style="width:100%;">+ Add to Dropdown</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h2><span>👥</span> Pre-Approved Quality Inspectors</h2>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Inspector Name</th>
+                        <th>Designation</th>
+                        <th>Phone</th>
+                        <th>Assigned Branch</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ins in inspectors %}
+                    <tr>
+                        <td><strong>{{ ins.name }}</strong></td>
+                        <td>{{ ins.designation }}</td>
+                        <td>{{ ins.phone or '-' }}</td>
+                        <td>{{ ins.branch_name or 'Universal (All Branches)' }}</td>
+                        <td>
+                            {% if ins.is_active %}
+                                <span class="badge-pill badge-green">Active in Dropdown</span>
+                            {% else %}
+                                <span class="badge-pill badge-red">Inactive</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <form action="/api/accounts/inspectors/toggle" method="POST" style="display:inline;">
+                                <input type="hidden" name="inspector_id" value="{{ ins.id }}">
+                                <button type="submit" class="btn btn-sm {% if ins.is_active %}btn-danger{% else %}btn-secondary{% endif %}">
+                                    {% if ins.is_active %}Remove{% else %}Enable{% endif %}
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- TAB 4: GENERAL LEDGER & CASHBOOK -->
+    <div id="tab-ledgers" class="tab-content">
+        <div class="card">
+            <div class="card-header">
+                <h2><span>📑</span> Consolidated General Ledger Entries</h2>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Branch</th>
+                        <th>Voucher Type</th>
+                        <th>Voucher #</th>
+                        <th>Account Name</th>
+                        <th>Debit (₹)</th>
+                        <th>Credit (₹)</th>
+                        <th>Narration</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for l in ledgers %}
+                    <tr>
+                        <td><code>{{ l.transaction_date }}</code></td>
+                        <td><strong>{{ l.branch_name }}</strong></td>
+                        <td><span class="badge-pill badge-green">{{ l.voucher_type }}</span></td>
+                        <td><code style="font-weight:700;">{{ l.voucher_id }}</code></td>
+                        <td><strong>{{ l.account_name }}</strong></td>
+                        <td style="font-weight:600; color:#0f172a;">{% if l.debit_amount > 0 %}₹{{ "{:,.2f}".format(l.debit_amount) }}{% else %}-{% endif %}</td>
+                        <td style="font-weight:600; color:#059669;">{% if l.credit_amount > 0 %}₹{{ "{:,.2f}".format(l.credit_amount) }}{% else %}-{% endif %}</td>
+                        <td style="font-size:12.5px; color:var(--text-muted);">{{ l.narration }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- TAB 5: OUTWARD RECEIVABLES & PAYMENT SETTLEMENT DESK -->
+    <div id="tab-outward-receivables" class="tab-content">
+        <!-- METRICS ROW -->
+        <div class="stats-grid" style="margin-bottom:20px;">
+            <div class="stat-card stat-blue">
+                <div class="stat-icon">🚚</div>
+                <div class="stat-content">
+                    <span class="stat-label">Total Outward Billed</span>
+                    <strong class="stat-value">₹{{ "{:,.2f}".format(total_outward_billed) }}</strong>
+                    <span class="stat-help">All Branches Combined</span>
+                </div>
+            </div>
+            <div class="stat-card stat-green">
+                <div class="stat-icon">✅</div>
+                <div class="stat-content">
+                    <span class="stat-label">Received Collections</span>
+                    <strong class="stat-value" style="color:#059669;">₹{{ "{:,.2f}".format(total_outward_received) }}</strong>
+                    <span class="stat-help">Bank & Cash Cleared</span>
+                </div>
+            </div>
+            <div class="stat-card stat-amber">
+                <div class="stat-icon">⏳</div>
+                <div class="stat-content">
+                    <span class="stat-label">Pending / Outstanding Due</span>
+                    <strong class="stat-value" style="color:#d97706;">₹{{ "{:,.2f}".format(total_outward_pending) }}</strong>
+                    <span class="stat-help">{{ pending_outward_count }} Invoices Awaiting Settlement</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <div>
+                    <h2><span>🚚</span> Outward Dispatch Receivables & Payment Settlement Desk</h2>
+                    <p style="font-size:12.5px; color:var(--text-muted); margin-top:2px;">
+                        Daily Accountant Control: When payment is received from buyers/mills, record settlement. If received via Bank RTGS, enter mandatory UTR. If received via Cash, assign to specific receiving branch drawer.
+                    </p>
+                </div>
+                <span class="badge-pill {% if pending_outward_count > 0 %}badge-amber{% else %}badge-green{% endif %}">
+                    {{ pending_outward_count }} Awaiting Payment
+                </span>
+            </div>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Challan #</th>
+                            <th>Date</th>
+                            <th>Branch</th>
+                            <th>Buyer / Mill</th>
+                            <th>Commodity & Weight</th>
+                            <th>Bill Amount (₹)</th>
+                            <th>Payment Status</th>
+                            <th>Receipt Mode / UTR / Branch</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if outward_orders %}
+                        {% for o in outward_orders %}
+                        <tr>
+                            <td><code style="font-weight:700; color:#0284c7;">{{ o.challan_number }}</code></td>
+                            <td style="font-size:12px; color:var(--text-muted);">{{ o.order_date }}</td>
+                            <td><strong>{{ o.branch_name }}</strong></td>
+                            <td><strong>{{ o.buyer_name }}</strong></td>
+                            <td>{{ o.commodity_name }}<br><span style="font-size:11.5px; color:#059669; font-weight:700;">{{ "%.2f"|format(o.net_quintals) }} Qtl</span></td>
+                            <td><strong style="font-size:14px; color:#0f172a;">₹{{ "{:,.2f}".format(o.total_bill_amount) }}</strong></td>
+                            <td>
+                                {% if o.payment_status == 'RECEIVED' %}
+                                <span class="badge-pill badge-green" style="font-weight:800;">✓ RECEIVED</span>
+                                {% else %}
+                                <span class="badge-pill badge-amber" style="font-weight:800;">⏳ PAYMENT DUE</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if o.payment_status == 'RECEIVED' %}
+                                    {% if o.payment_mode == 'RTGS' %}
+                                    <div style="font-size:12px;">
+                                        <span class="badge-pill badge-blue" style="font-size:10.5px;">RTGS</span>
+                                        <strong>UTR:</strong> <code>{{ o.utr_number or '—' }}</code>
+                                    </div>
+                                    {% elif o.payment_mode == 'CASH' %}
+                                    <div style="font-size:12px;">
+                                        <span class="badge-pill badge-purple" style="font-size:10.5px;">CASH</span>
+                                        <strong>At:</strong> {{ o.payment_branch_name or 'Branch' }}
+                                    </div>
+                                    {% else %}
+                                    <span style="font-size:12px;">{{ o.payment_mode or 'SETTLED' }}</span>
+                                    {% endif %}
+                                    <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">{{ o.payment_received_date }}</div>
+                                {% else %}
+                                    <span style="color:#94a3b8; font-size:12px; font-style:italic;">Pending Receipt</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if o.payment_status != 'RECEIVED' %}
+                                <button type="button" class="btn btn-accounts btn-sm" onclick="openReceivePaymentModal('{{ o.id }}', '{{ o.challan_number }}', '{{ o.buyer_name }}', '{{ o.total_bill_amount }}')" style="font-weight:700; white-space:nowrap;">
+                                    💰 Receive Payment
+                                </button>
+                                {% else %}
+                                <span style="color:#059669; font-size:12.5px; font-weight:700;">✓ Settled</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% else %}
+                        <tr>
+                            <td colspan="9" style="text-align:center; padding:24px; color:var(--text-muted);">
+                                No outward dispatch orders recorded yet.
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: RECEIVE OUTWARD PAYMENT -->
+    <div id="receivePaymentModal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.6); z-index:9999; justify-content:center; align-items:center;">
+        <div class="modal" style="background:#ffffff; max-width:540px; width:92%; border-radius:14px; padding:22px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1.5px solid #e2e8f0; padding-bottom:12px;">
+                <h2 style="font-size:18px; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:8px;">
+                    <span>💰</span> Record Outward Payment Receipt
+                </h2>
+                <button type="button" onclick="closeReceivePaymentModal()" style="background:none; border:none; font-size:20px; cursor:pointer; color:#64748b;">✕</button>
+            </div>
+
+            <form action="/api/accounts/outward/receive-payment" method="POST" style="margin-top:16px;">
+                <input type="hidden" id="modal_challan_id" name="challan_id">
+
+                <!-- INFO BANNER -->
+                <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px 14px; margin-bottom:16px;">
+                    <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:4px;">
+                        <span style="color:var(--text-muted);">Challan Number:</span>
+                        <code id="modal_disp_challan" style="font-weight:800; color:#0284c7;"></code>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:4px;">
+                        <span style="color:var(--text-muted);">Buyer / Trader:</span>
+                        <strong id="modal_disp_buyer" style="color:#0f172a;"></strong>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; font-size:15px; border-top:1px dashed #cbd5e1; padding-top:6px; margin-top:6px;">
+                        <span style="font-weight:700; color:#059669;">Amount Receivable:</span>
+                        <strong id="modal_disp_amount" style="font-weight:900; color:#059669;"></strong>
+                    </div>
+                </div>
+
+                <div class="form-grid" style="display:grid; grid-template-columns:1fr; gap:14px;">
+                    <div class="form-group">
+                        <label style="font-size:12.5px; font-weight:700;">Payment Mode Received *</label>
+                        <select id="modal_payment_mode" name="payment_mode" onchange="togglePaymentModeFields()" required style="width:100%; padding:9px 12px; border:1.5px solid var(--input-border); border-radius:8px; font-weight:700;">
+                            <option value="RTGS">RTGS / NEFT / Direct Bank Transfer</option>
+                            <option value="CASH">Cash (Deposited at Branch Yard)</option>
+                        </select>
+                    </div>
+
+                    <!-- IF RTGS: UTR FIELD -->
+                    <div id="rtgs_fields_box" class="form-group">
+                        <label style="font-size:12.5px; font-weight:700; color:#059669;">Bank UTR Number * (Mandatory for RTGS)</label>
+                        <input type="text" id="modal_utr_number" name="utr_number" placeholder="e.g. SBIN20261028994" style="width:100%; padding:9px 12px; border:1.5px solid #059669; border-radius:8px; text-transform:uppercase; font-weight:700;">
+                        <small style="color:var(--text-muted); font-size:11px;">Credited to Mandi Central Bank Account.</small>
+                    </div>
+
+                    <!-- IF CASH: BRANCH SELECTOR -->
+                    <div id="cash_fields_box" class="form-group" style="display:none;">
+                        <label style="font-size:12.5px; font-weight:700; color:#7c3aed;">Receiving Branch Drawer *</label>
+                        <select id="modal_payment_branch_id" name="payment_branch_id" style="width:100%; padding:9px 12px; border:1.5px solid #7c3aed; border-radius:8px; font-weight:700;">
+                            {% for b in branches %}
+                            <option value="{{ b.id }}">{{ b.name }} ({{ b.branch_code }})</option>
+                            {% endfor %}
+                        </select>
+                        <small style="color:var(--text-muted); font-size:11px;">Will automatically increase cash drawer closing balance of this branch.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label style="font-size:12.5px; font-weight:700;">Payment Receipt Date *</label>
+                        <input type="date" name="receipt_date" value="{{ today_str }}" required style="width:100%; padding:9px 12px; border:1.5px solid var(--input-border); border-radius:8px;">
+                    </div>
+
+                    <div class="form-group">
+                        <label style="font-size:12.5px; font-weight:700;">Notes / Remarks (Optional)</label>
+                        <input type="text" name="payment_notes" placeholder="e.g. Cleared against dispatch invoice" style="width:100%; padding:9px 12px; border:1.5px solid var(--input-border); border-radius:8px;">
+                    </div>
+                </div>
+
+                <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px; border-top:1px solid #e2e8f0; padding-top:14px;">
+                    <button type="button" class="btn btn-secondary" onclick="closeReceivePaymentModal()">Cancel</button>
+                    <button type="submit" class="btn btn-accounts" style="font-weight:800; padding:10px 22px;">
+                        ✓ Confirm & Post Receipt
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function showTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        function selectAccountCommodity(card) {
+            document.querySelectorAll('.commodity-card').forEach(el => el.classList.remove('selected'));
+            card.classList.add('selected');
+            const name = card.dataset.name;
+            const minRate = card.dataset.min;
+            const targetRate = card.dataset.target;
+            const maxRate = card.dataset.max;
+            const grade = card.dataset.grade || 'STANDARD';
+
+            document.getElementById('acc_commodity_name').value = name;
+            document.getElementById('acc_quality_grade').value = grade;
+            document.getElementById('acc_min_rate').value = minRate;
+            document.getElementById('acc_target_rate').value = targetRate;
+            document.getElementById('acc_max_rate').value = maxRate;
+        }
+
+        function openReceivePaymentModal(challanId, challanNo, buyerName, amount) {
+            document.getElementById('modal_challan_id').value = challanId;
+            document.getElementById('modal_disp_challan').innerText = challanNo;
+            document.getElementById('modal_disp_buyer').innerText = buyerName;
+            document.getElementById('modal_disp_amount').innerText = '₹' + parseFloat(amount).toLocaleString('en-IN', {minimumFractionDigits: 2});
+            document.getElementById('modal_payment_mode').value = 'RTGS';
+            togglePaymentModeFields();
+            document.getElementById('receivePaymentModal').style.display = 'flex';
+        }
+
+        function closeReceivePaymentModal() {
+            document.getElementById('receivePaymentModal').style.display = 'none';
+        }
+
+        function togglePaymentModeFields() {
+            const mode = document.getElementById('modal_payment_mode').value;
+            const rtgsBox = document.getElementById('rtgs_fields_box');
+            const cashBox = document.getElementById('cash_fields_box');
+            const utrInput = document.getElementById('modal_utr_number');
+
+            if (mode === 'RTGS') {
+                rtgsBox.style.display = 'block';
+                cashBox.style.display = 'none';
+                utrInput.required = true;
+            } else {
+                rtgsBox.style.display = 'none';
+                cashBox.style.display = 'block';
+                utrInput.required = false;
+                utrInput.value = '';
+            }
+        }
+
+        window.onload = function() {
+            const first = document.querySelector('.commodity-card');
+            if (first) selectAccountCommodity(first);
+        };
+    </script>
+</body>
+</html>

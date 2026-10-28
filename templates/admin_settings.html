@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Super Admin System Settings — Mandi ERP</title>
+    <link rel="stylesheet" href="/static/theme.css">
+</head>
+<body>
+    <div class="top-nav">
+        <a href="/" class="brand">
+            <span class="brand-icon">🌾</span>
+            <span>MANDI ERP</span>
+            <span class="badge" style="background:#7c3aed; color:#fff;">SUPER ADMIN</span>
+        </a>
+        <div class="nav-links">
+            <a href="/admin/dashboard" class="nav-link">← Super Admin Dashboard</a>
+            <a href="/admin/settings" class="nav-link active">⚙️ System Settings</a>
+            <a href="/accounts/dashboard" class="nav-link">Central Accounts</a>
+            <a href="/branch/dashboard" class="nav-link">Branch Dashboard</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- HEADER -->
+        <div class="card header-card">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:15px;">
+                <div>
+                    <h1 style="display:flex; align-items:center; gap:10px;">
+                        <span>⚙️</span>
+                        <span>Super Admin Enterprise Configuration</span>
+                    </h1>
+                    <p style="color:var(--text-muted); font-size:13px; margin-top:4px;">
+                        Organization statutory credentials, global mandi policies, and system-wide audit governance
+                    </p>
+                </div>
+                <span class="badge-pill badge-purple">Organization Level Governance</span>
+            </div>
+        </div>
+
+        {% if message %}
+        <div style="background:#dcfce7; border:1px solid #86efac; color:#166534; padding:12px 16px; border-radius:8px; margin-bottom:18px; font-weight:700;">
+            ✓ {{ message }}
+        </div>
+        {% endif %}
+
+        <div style="display:grid; grid-template-columns: 2fr 1fr; gap:22px;">
+            <!-- LEFT COLUMN: SETTINGS FORM -->
+            <div>
+                <div class="card">
+                    <div class="card-header">
+                        <h2><span>🏢</span> Corporate Organization & Statutory Profile</h2>
+                    </div>
+
+                    <form method="POST" action="/api/admin/settings">
+                        <div class="form-grid">
+                            <div class="form-group form-full">
+                                <label>Corporate Enterprise Name</label>
+                                <input type="text" name="org_name" value="{{ settings.get('org_name', 'Rajeshri Shahu Trading') }}" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Corporate PAN</label>
+                                <input type="text" name="org_pan" value="{{ settings.get('org_pan', 'AACCK1234F') }}" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Corporate GSTIN</label>
+                                <input type="text" name="org_gstin" value="{{ settings.get('org_gstin', '23AACCK1234F1Z5') }}" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Active Financial Year</label>
+                                <input type="text" name="fiscal_year" value="{{ settings.get('fiscal_year', '2026-2027') }}" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Multi-Branch Real-Time Sync</label>
+                                <select name="multi_branch_sync">
+                                    <option value="ENABLED" {% if settings.get('multi_branch_sync') == 'ENABLED' %}selected{% endif %}>ENABLED (Instant SQLite/WAL)</option>
+                                    <option value="DISABLED" {% if settings.get('multi_branch_sync') == 'DISABLED' %}selected{% endif %}>DISABLED (Batch Scheduled)</option>
+                                </select>
+                            </div>
+                            <div class="form-group form-full">
+                                <label>Audit Change Log Retention (Days)</label>
+                                <input type="number" name="audit_retention_days" value="{{ settings.get('audit_retention_days', '365') }}" required>
+                                <small style="color:var(--text-muted); font-size:11px;">Statutory minimum APMC audit log retention period is 365 days.</small>
+                            </div>
+                        </div>
+
+                        <div style="margin-top:20px; text-align:right;">
+                            <button type="submit" class="btn btn-admin" style="padding:10px 24px; font-weight:700;">
+                                💾 Save Super Admin Settings
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- STAFF & BRANCH LOGINS MANAGEMENT -->
+                <div class="card" style="margin-top:20px;">
+                    <div class="card-header">
+                        <div>
+                            <h2><span>👥</span> Branch Logins & Staff Credential Management</h2>
+                            <p style="font-size:12px; color:var(--text-muted); margin-top:2px;">
+                                Single Branch Operator Architecture: Each branch is operated by 1 single person (Cashier & Munim). Client Admin can edit staff names, phone numbers, and reset passwords anytime.
+                            </p>
+                        </div>
+                        <span class="badge-pill badge-purple">{{ staff_users|length }} Active Staff Accounts</span>
+                    </div>
+
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Branch / Unit</th>
+                                    <th>Role Assigned</th>
+                                    <th>Person Full Name</th>
+                                    <th>Username</th>
+                                    <th>Mobile Number</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for u in staff_users %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ u.branch_name }}</strong>
+                                        {% if u.branch_code %}<code style="font-size:11px; margin-left:4px;">{{ u.branch_code }}</code>{% endif %}
+                                    </td>
+                                    <td>
+                                        {% if u.role == 'SUPER_ADMIN' %}
+                                        <span class="badge-pill badge-purple">Owner / Master Admin</span>
+                                        {% elif u.role == 'ACCOUNTANT_HQ' %}
+                                        <span class="badge-pill badge-blue">Chief Accountant (HQ)</span>
+                                        {% else %}
+                                        <span class="badge-pill badge-green">Branch Cashier & Munim</span>
+                                        {% endif %}
+                                    </td>
+                                    <td><strong>{{ u.full_name }}</strong></td>
+                                    <td><code style="font-weight:700; color:#0284c7;">{{ u.username }}</code></td>
+                                    <td>{{ u.phone }}</td>
+                                    <td>
+                                        <button type="button" class="btn btn-secondary btn-sm" onclick="openEditUserModal('{{ u.id }}', '{{ u.full_name }}', '{{ u.username }}', '{{ u.phone }}', '{{ u.branch_name }}', '{{ u.role }}')" style="font-weight:700; white-space:nowrap;">
+                                            ✏️ Edit / 🔑 Reset Password
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- AUDIT & CHANGE LOGS VIEWER -->
+                <div class="card" style="margin-top:20px;">
+                    <div class="card-header">
+                        <h2><span>📜</span> Enterprise Audit & Change Logs</h2>
+                        <span class="badge-pill badge-blue">{{ audit_logs|length }} Recent Modifications</span>
+                    </div>
+
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Timestamp</th>
+                                    <th>Entity</th>
+                                    <th>Action</th>
+                                    <th>Branch / Operator</th>
+                                    <th>Summary / Reason</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if audit_logs %}
+                                {% for l in audit_logs %}
+                                <tr>
+                                    <td style="font-size:11.5px; color:var(--text-muted);">{{ l.created_at }}</td>
+                                    <td><strong>{{ l.entity_type }}: {{ l.entity_name or l.entity_id }}</strong></td>
+                                    <td><span class="badge-pill badge-amber">{{ l.action }}</span></td>
+                                    <td>{{ l.branch_id or 'GLOBAL' }} • {{ l.changed_by }}</td>
+                                    <td style="font-size:12px;">{{ l.change_summary or 'Record modified' }}</td>
+                                </tr>
+                                {% endfor %}
+                                {% else %}
+                                <tr>
+                                    <td colspan="5" style="text-align:center; padding:20px; color:var(--text-muted);">
+                                        No audit change logs recorded yet. All branch farmer edits and configuration updates are preserved here.
+                                    </td>
+                                </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT COLUMN: LICENSE, SYSTEM HEALTH & SECURITY -->
+            <div>
+                <!-- COMMERCIAL LICENSE KEY CHECKER -->
+                <div class="card" style="border: 2px solid #8b5cf6; background: linear-gradient(135deg, #ffffff 0%, #fbf8ff 100%);">
+                    <div class="card-header" style="border-bottom: 1.5px solid #ede9fe; padding-bottom: 10px;">
+                        <h2 style="color: #6d28d9; display:flex; align-items:center; gap:8px;">
+                            <span>🔑</span> Software License & Subscription
+                        </h2>
+                        <span class="badge-pill badge-green" style="background:#ecfdf5; color:#059669; border:1px solid #a7f3d0; font-weight:800;">
+                            ● ACTIVE
+                        </span>
+                    </div>
+                    <div style="font-size:13px; line-height:1.7; color:var(--text-secondary); margin-top:10px;">
+                        <div style="margin-bottom:8px;">
+                            <span style="color:var(--text-muted); font-size:11px; text-transform:uppercase; font-weight:700;">License Status:</span><br>
+                            <strong style="color:#059669; font-size:14.5px;">{{ settings.get('license_status', 'Active (Pro Tier - 3 Branches)') }}</strong>
+                        </div>
+                        <div style="margin-bottom:8px;">
+                            <span style="color:var(--text-muted); font-size:11px; text-transform:uppercase; font-weight:700;">Valid Until:</span><br>
+                            <strong style="color:#0f172a; font-size:14.5px;">{{ settings.get('license_valid_until', '31-March-2027') }}</strong>
+                        </div>
+                        <div style="margin-bottom:8px;">
+                            <span style="color:var(--text-muted); font-size:11px; text-transform:uppercase; font-weight:700;">Licensed Enterprise:</span><br>
+                            <strong style="color:#0f172a;">{{ settings.get('org_name', 'Rajeshri Shahu Trading') }}</strong>
+                        </div>
+                        <div style="margin-bottom:8px;">
+                            <span style="color:var(--text-muted); font-size:11px; text-transform:uppercase; font-weight:700;">Active Branch Quota:</span><br>
+                            <strong style="color:#7c3aed;">3 / 3 Branches Configured</strong>
+                            <div style="font-size:11.5px; color:var(--text-muted); margin-top:2px;">
+                                • Chikhali (BR-CHK) • Varvand (BR-VRV) • Dhad (BR-DHD)
+                            </div>
+                        </div>
+                        <div style="background:#f3e8ff; border:1px dashed #c084fc; border-radius:6px; padding:8px 10px; margin-top:12px;">
+                            <span style="font-size:10.5px; color:#6b21a8; font-weight:700; text-transform:uppercase;">License Key:</span><br>
+                            <code style="font-size:12px; font-weight:800; color:#581c87;">{{ settings.get('license_key', 'RST-PRO-2026-MH3B-89A12F') }}</code>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-top:20px;">
+                    <div class="card-header">
+                        <h2><span>🛡️</span> Security & Compliance Guardrails</h2>
+                    </div>
+                    <div style="font-size:12.5px; line-height:1.7; color:var(--text-secondary);">
+                        <p><strong>Database Engine:</strong> SQLite 3 with Write-Ahead Logging (WAL) mode.</p>
+                        <p><strong>Three-Level Architecture:</strong></p>
+                        <ul style="padding-left:18px; margin-top:6px;">
+                            <li><strong>Super Admin:</strong> Full master data, multi-branch analytics.</li>
+                            <li><strong>Central Accounts:</strong> Price corridor rules, RTGS disbursement, double-entry accounting.</li>
+                            <li><strong>Branch Yards:</strong> Inward purchases, manual weighment, parchi tokens, outward sales.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-top:20px;">
+                    <div class="card-header">
+                        <h2><span>🔗</span> Quick Portal Links</h2>
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:10px;">
+                        <a href="/admin/dashboard" class="btn btn-secondary" style="justify-content:flex-start;">
+                            📊 Super Admin Analytics
+                        </a>
+                        <a href="/accounts/dashboard" class="btn btn-secondary" style="justify-content:flex-start;">
+                            💼 Central Accounts Portal
+                        </a>
+                        <a href="/branch/dashboard" class="btn btn-secondary" style="justify-content:flex-start;">
+                            🚜 Branch Yard Terminal
+                        </a>
+                        <a href="/branch/stock" class="btn btn-secondary" style="justify-content:flex-start;">
+                            📦 Mandi Yard Stock Page
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: EDIT USER & RESET PASSWORD -->
+    <div id="editUserModal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.6); z-index:9999; justify-content:center; align-items:center;">
+        <div class="modal" style="background:#ffffff; max-width:500px; width:92%; border-radius:14px; padding:22px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1.5px solid #e2e8f0; padding-bottom:12px;">
+                <h2 style="font-size:18px; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:8px;">
+                    <span>🔑</span> Edit Staff & Reset Password
+                </h2>
+                <button type="button" onclick="closeEditUserModal()" style="background:none; border:none; font-size:20px; cursor:pointer; color:#64748b;">✕</button>
+            </div>
+
+            <form action="/api/admin/users/update-credentials" method="POST" style="margin-top:16px;">
+                <input type="hidden" id="edit_user_id" name="user_id">
+
+                <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px 12px; margin-bottom:14px;">
+                    <span style="font-size:11px; text-transform:uppercase; font-weight:700; color:var(--text-muted);">Assigned Unit:</span>
+                    <strong id="disp_user_branch" style="display:block; color:#0f172a; font-size:13.5px; margin-top:2px;"></strong>
+                </div>
+
+                <div class="form-grid" style="display:grid; grid-template-columns:1fr; gap:12px;">
+                    <div class="form-group">
+                        <label style="font-size:12.5px; font-weight:700;">Full Name *</label>
+                        <input type="text" id="edit_full_name" name="full_name" required style="width:100%; padding:9px 12px; border:1.5px solid var(--input-border); border-radius:8px; font-weight:600;">
+                    </div>
+                    <div class="form-group">
+                        <label style="font-size:12.5px; font-weight:700;">Mobile Phone *</label>
+                        <input type="tel" id="edit_phone" name="phone" required style="width:100%; padding:9px 12px; border:1.5px solid var(--input-border); border-radius:8px;">
+                    </div>
+                    <div class="form-group">
+                        <label style="font-size:12.5px; font-weight:700;">Login Username *</label>
+                        <input type="text" id="edit_username" name="username" required style="width:100%; padding:9px 12px; border:1.5px solid var(--input-border); border-radius:8px; font-weight:700; color:#0284c7;">
+                    </div>
+                    <div class="form-group" style="background:#fef3c7; border:1px solid #fcd34d; padding:10px 12px; border-radius:8px;">
+                        <label style="font-size:12.5px; font-weight:800; color:#92400e;">New Password (Leave blank to keep unchanged)</label>
+                        <input type="text" id="edit_new_password" name="new_password" placeholder="Enter new password (e.g. Chikhali@2026)" style="width:100%; padding:9px 12px; border:1.5px solid #d97706; border-radius:8px; background:#fff; font-weight:700; margin-top:4px;">
+                    </div>
+                </div>
+
+                <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:18px; border-top:1px solid #e2e8f0; padding-top:12px;">
+                    <button type="button" class="btn btn-secondary" onclick="closeEditUserModal()">Cancel</button>
+                    <button type="submit" class="btn btn-admin" style="font-weight:800; padding:10px 22px;">
+                        💾 Save Staff Credentials
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function openEditUserModal(id, fullName, username, phone, branchName, role) {
+            document.getElementById('edit_user_id').value = id;
+            document.getElementById('edit_full_name').value = fullName;
+            document.getElementById('edit_username').value = username;
+            document.getElementById('edit_phone').value = phone;
+            document.getElementById('disp_user_branch').innerText = branchName + ' (' + role + ')';
+            document.getElementById('edit_new_password').value = '';
+            document.getElementById('editUserModal').style.display = 'flex';
+        }
+
+        function closeEditUserModal() {
+            document.getElementById('editUserModal').style.display = 'none';
+        }
+    </script>
+        </div>
+    </div>
+</body>
+</html>

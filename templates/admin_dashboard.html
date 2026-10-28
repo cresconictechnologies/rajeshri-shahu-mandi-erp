@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Super Admin Executive Portal — Mandi ERP</title>
+    <link rel="stylesheet" href="/static/theme.css">
+    <style>
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 14px;
+            margin-bottom: 14px;
+        }
+        .clickable-card {
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+        }
+        .clickable-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 22px -3px rgba(0, 0, 0, 0.12), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            border-color: #0284c7 !important;
+        }
+    </style>
+</head>
+<body>
+    <!-- HEADER CARD -->
+    <header class="header-card">
+        <div class="header-title">
+            <h1>
+                <span>🏛️</span> Rajeshri Shahu Trading
+                <span class="brand-badge badge-admin">Super Admin Command Center</span>
+            </h1>
+            <p>Organization Overview • Branches: Chikhali, Varvand, Dhad • Port 8080 Active</p>
+        </div>
+        <div class="nav-links">
+            <a href="/" class="nav-pill">← Portal Hub</a>
+            <a href="/admin/settings" class="nav-pill">⚙️ System Settings</a>
+            <a href="/branch/stock" class="nav-pill">📦 Branch Stock</a>
+            <a href="/accounts/dashboard" class="nav-pill">Accounts Desk →</a>
+            <a href="/branch/dashboard" class="nav-pill">Branch Terminal →</a>
+        </div>
+    </header>
+
+    <!-- METRICS CARDS -->
+    <div class="stats-grid">
+        <div class="stat-card accent-blue">
+            <div class="label">Configured Branches</div>
+            <div class="value">{{ stats.branches_active }}</div>
+            <div class="hint hint-blue">Chikhali, Varvand, Dhad</div>
+        </div>
+        <div class="stat-card accent-green">
+            <div class="label">Total Procurement (Qtl)</div>
+            <div class="value">{{ "%.2f"|format(stats.total_quintals) }}</div>
+            <div class="hint hint-green">{{ "%.2f"|format(stats.total_quintals / 10.0) }} Metric Tonnes</div>
+        </div>
+        <div class="stat-card accent-amber">
+            <div class="label">Total Disbursements</div>
+            <div class="value">₹{{ "{:,.2f}".format(stats.total_disbursed) }}</div>
+            <div class="hint hint-amber">Across All Branches</div>
+        </div>
+        <div class="stat-card {% if stats.total_pnl >= 0 %}accent-green{% else %}accent-rose{% endif %}">
+            <div class="label">Total Estimated Profit / Loss</div>
+            <div class="value" style="color:{% if stats.total_pnl >= 0 %}#059669{% else %}#dc2626{% endif %};">
+                {% if stats.total_pnl >= 0 %}+{% endif %}₹{{ "{:,.2f}".format(stats.total_pnl) }}
+            </div>
+            <div class="hint {% if stats.total_pnl >= 0 %}hint-green{% else %}hint-amber{% endif %}">
+                {% if stats.total_pnl >= 0 %}▲ Profit (+{{ stats.total_pnl_pct }}% margin){% else %}▼ Loss ({{ stats.total_pnl_pct }}% margin){% endif %}
+            </div>
+        </div>
+        <div class="stat-card accent-purple">
+            <div class="label">Active Users</div>
+            <div class="value">{{ stats.users_active }}</div>
+            <div class="hint" style="color:#7c3aed;">Central Accountants & Branch Cashiers</div>
+        </div>
+    </div>
+
+    <!-- COMMODITY STOCK & BRANCH QUANTITY BREAKDOWN (ZERO STOCK HIDDEN) -->
+    <div class="card" style="margin-bottom:24px;">
+        <div class="card-header">
+            <div>
+                <h2><span>🌾</span> Live Commodity Stock & Branch Inventory Allocation</h2>
+                <p style="font-size:12.5px; color:var(--text-muted); margin-top:3px;">
+                    Active stock cards (commodities with zero stock are hidden) • Real-time Average Buying Price • Exact Branch Quantity Distribution
+                </p>
+            </div>
+            <div style="display:flex; gap:10px; align-items:center;">
+                <span class="badge-pill badge-green">{{ commodity_stock_cards|length }} Commodities In Stock</span>
+                <span class="badge-pill badge-blue">Mark-to-Market Valuation</span>
+            </div>
+        </div>
+
+        {% if commodity_stock_cards %}
+        <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 18px;">
+            {% for cs in commodity_stock_cards %}
+            <div class="card clickable-card" onclick="openBranchStockModal('{{ cs.name }}', '{{ cs.icon }}', '{{ cs.hsn_code }}', {{ cs.total_stock_qtl }}, {{ cs.avg_buying_price }}, {{ cs.total_stock_mt }}, {{ loop.index0 }})" style="border:1.5px solid var(--card-border); margin-bottom:0; background:#ffffff; box-shadow:var(--shadow-sm); padding:18px;">
+                <script type="application/json" id="branch-data-{{ loop.index0 }}">{{ cs.branch_json|safe }}</script>
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <span style="font-size:32px;">{{ cs.icon }}</span>
+                        <div>
+                            <h3 style="font-size:17px; font-weight:800; color:#0f172a;">{{ cs.name }}</h3>
+                            <span style="font-size:11.5px; color:var(--text-muted);">HSN: {{ cs.hsn_code }}</span>
+                        </div>
+                    </div>
+                    <div style="text-align:right;">
+                        <span class="badge-pill {% if cs.profit_loss >= 0 %}badge-green{% else %}badge-red{% endif %}">
+                            {% if cs.profit_loss >= 0 %}+₹{{ "{:,.0f}".format(cs.profit_loss) }} (+{{ cs.pnl_pct }}%){% else %}-₹{{ "{:,.0f}".format(cs.profit_loss|abs) }} ({{ cs.pnl_pct }}%){% endif %}
+                        </span>
+                    </div>
+                </div>
+
+                <!-- KEY NUMBERS: STOCK & AVG BUYING PRICE -->
+                <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px; display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px; text-align:center;">
+                    <div>
+                        <div style="font-size:10.5px; text-transform:uppercase; color:var(--text-muted); font-weight:800;">Total Stock In Hand</div>
+                        <div style="font-size:18px; font-weight:800; color:#0f172a; margin-top:2px;">{{ "%.2f"|format(cs.total_stock_qtl) }} <span style="font-size:12px;">Qtl</span></div>
+                        <div style="font-size:11px; color:#059669; font-weight:700;">({{ cs.total_stock_mt }} MT)</div>
+                    </div>
+                    <div>
+                        <div style="font-size:10.5px; text-transform:uppercase; color:var(--text-muted); font-weight:800;">Avg Buying Price</div>
+                        <div style="font-size:18px; font-weight:800; color:#d97706; margin-top:2px;">₹{{ "{:,.2f}".format(cs.avg_buying_price) }}</div>
+                        <div style="font-size:11px; color:var(--text-muted);">Today Target: ₹{{ "{:,.0f}".format(cs.today_target_rate) }}</div>
+                    </div>
+                </div>
+
+                <!-- WHICH BRANCH HAS HOW MUCH QUANTITY -->
+                <div>
+                    <div style="font-size:11.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; color:#475569; margin-bottom:8px; display:flex; justify-content:space-between;">
+                        <span>Branch Quantity Breakdown:</span>
+                        <span>{{ cs.branch_breakdown|length }} Yards</span>
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:6px;">
+                        {% for br in cs.branch_breakdown %}
+                        <div style="display:flex; justify-content:space-between; align-items:center; background:#f1f5f9; padding:6px 10px; border-radius:6px; font-size:12.5px;">
+                            <span style="font-weight:700; color:#0f172a;">📍 {{ br.branch_name }}</span>
+                            <div style="text-align:right;">
+                                <strong style="color:#0369a1;">{{ "%.2f"|format(br.qty_qtl) }} Qtl</strong>
+                                <span style="font-size:11px; color:var(--text-muted); margin-left:4px;">@ ₹{{ "{:,.0f}".format(br.branch_avg_rate) }}</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div style="margin-top:12px; padding-top:8px; border-top:1px dashed #cbd5e1; text-align:center; font-size:11.5px; font-weight:700; color:#0284c7;">
+                    🔍 Click card to view branch quantities & rates →
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div style="text-align:center; padding:30px; color:var(--text-muted); font-size:14px; font-weight:600;">
+            📦 Zero stock available across all commodities. Commodity cards will appear here automatically when inward purchases are registered.
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- TABS NAVIGATION -->
+    <div class="tabs">
+        <button class="tab-btn active" onclick="showTab('tab-procurement')">Recent Purchases</button>
+        <button class="tab-btn" onclick="showTab('tab-branches')">Branch Management</button>
+        <button class="tab-btn" onclick="showTab('tab-users')">User Access Control</button>
+        <button class="tab-btn" onclick="showTab('tab-commodities')">Commodity Master</button>
+    </div>
+
+    <!-- TAB 1: RECENT PURCHASES -->
+    <div id="tab-procurement" class="tab-content active">
+        <div class="card">
+            <div class="card-header">
+                <h2><span>📦</span> Cross-Branch Inward Purchase Feed</h2>
+                <span class="badge-pill badge-green">Live Database Feed</span>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Token</th>
+                        <th>Branch</th>
+                        <th>Party Name</th>
+                        <th>Type</th>
+                        <th>Commodity</th>
+                        <th>Weight (Qtl)</th>
+                        <th>Rate/Qtl</th>
+                        <th>Net Payable</th>
+                        <th>Payout Status</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for inv in invoices %}
+                    <tr>
+                        <td><code style="font-weight:700; color:#0284c7;">{{ inv.token_number }}</code></td>
+                        <td><strong>{{ inv.branch_name }}</strong></td>
+                        <td>{{ inv.party_name }}</td>
+                        <td><span class="badge-pill {% if inv.party_type == 'FARMER' %}badge-green{% else %}badge-amber{% endif %}">{{ inv.party_type }}</span></td>
+                        <td>{{ inv.commodity_name }}</td>
+                        <td><strong>{{ "%.2f"|format(inv.net_quintals) }} Qtl</strong></td>
+                        <td>₹{{ "{:,.2f}".format(inv.rate_per_quintal) }}</td>
+                        <td><strong style="color:#0f172a;">₹{{ "{:,.2f}".format(inv.net_payable_amount) }}</strong></td>
+                        <td>
+                            {% if inv.payout_status == 'PAID' %}
+                                <span class="badge-pill badge-green">PAID</span>
+                            {% elif inv.payout_status == 'PENDING' %}
+                                <span class="badge-pill badge-amber">PENDING PAYOUT</span>
+                            {% else %}
+                                <span class="badge-pill badge-red">{{ inv.payout_status }}</span>
+                            {% endif %}
+                        </td>
+                        <td style="color:var(--text-muted); font-size:12px;">{{ inv.invoice_date }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- TAB 2: BRANCH MANAGEMENT -->
+    <div id="tab-branches" class="tab-content">
+        <div class="card">
+            <div class="card-header">
+                <h2><span>🏢</span> Add New Branch</h2>
+            </div>
+            <form action="/api/admin/branches" method="POST">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Branch Code</label>
+                        <input type="text" name="branch_code" placeholder="BR-BPL" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Branch Name</label>
+                        <input type="text" name="name" placeholder="Bhopal Mandi Yard" required>
+                    </div>
+                    <div class="form-group">
+                        <label>APMC License No</label>
+                        <input type="text" name="mandi_license_no" placeholder="MP/BPL/APMC-502">
+                    </div>
+                    <div class="form-group">
+                        <label>Address</label>
+                        <input type="text" name="address" placeholder="Karond Mandi, Bhopal">
+                    </div>
+                    <div class="form-group">
+                        <label>Phone</label>
+                        <input type="text" name="phone" placeholder="0755-2740110">
+                    </div>
+                    <div class="form-group" style="display:flex; align-items:flex-end;">
+                        <button type="submit" class="btn btn-admin" style="width:100%;">+ Create Branch</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h2><span>📋</span> Configured Branches</h2>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Code</th>
+                        <th>Branch Name</th>
+                        <th>License No</th>
+                        <th>Address</th>
+                        <th>Phone</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for b in branches %}
+                    <tr>
+                        <td><code style="font-weight:700;">{{ b.branch_code }}</code></td>
+                        <td><strong>{{ b.name }}</strong></td>
+                        <td>{{ b.mandi_license_no }}</td>
+                        <td>{{ b.address }}</td>
+                        <td>{{ b.phone }}</td>
+                        <td>
+                            {% if b.is_active %}
+                                <span class="badge-pill badge-green">Active</span>
+                            {% else %}
+                                <span class="badge-pill badge-red">Deactivated</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <form action="/api/admin/branches/toggle" method="POST" style="display:inline;">
+                                <input type="hidden" name="branch_id" value="{{ b.id }}">
+                                <button type="submit" class="btn btn-sm {% if b.is_active %}btn-danger{% else %}btn-secondary{% endif %}">
+                                    {% if b.is_active %}Deactivate{% else %}Activate{% endif %}
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- TAB 3: USER ACCESS CONTROL -->
+    <div id="tab-users" class="tab-content">
+        <div class="card">
+            <div class="card-header">
+                <h2><span>👤</span> Create User Account</h2>
+            </div>
+            <form action="/api/admin/users" method="POST">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Username</label>
+                        <input type="text" name="username" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Full Name</label>
+                        <input type="text" name="full_name" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Phone</label>
+                        <input type="text" name="phone" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Role</label>
+                        <select name="role" required>
+                            <option value="BRANCH_CASHIER">Branch Cashier & Yard Operator</option>
+                            <option value="ACCOUNTANT_HQ">Central HQ Accountant</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Branch Assignment</label>
+                        <select name="branch_id">
+                            <option value="">None (HQ / Central)</option>
+                            {% for b in branches %}
+                            <option value="{{ b.id }}">{{ b.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" name="password" required>
+                    </div>
+                    <div class="form-group" style="display:flex; align-items:flex-end;">
+                        <button type="submit" class="btn btn-admin" style="width:100%;">+ Add User</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h2><span>👥</span> Registered System Users</h2>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Username</th>
+                        <th>Full Name</th>
+                        <th>Role</th>
+                        <th>Assigned Branch</th>
+                        <th>Phone</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in users %}
+                    <tr>
+                        <td><code style="font-weight:700;">{{ u.username }}</code></td>
+                        <td><strong>{{ u.full_name }}</strong></td>
+                        <td><span class="badge-pill badge-amber">{{ u.role }}</span></td>
+                        <td>{{ u.branch_name or 'HQ / Central' }}</td>
+                        <td>{{ u.phone }}</td>
+                        <td>
+                            {% if u.is_active %}
+                                <span class="badge-pill badge-green">Active</span>
+                            {% else %}
+                                <span class="badge-pill badge-red">Disabled</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if u.role != 'SUPER_ADMIN' %}
+                            <form action="/api/admin/users/toggle" method="POST" style="display:inline;">
+                                <input type="hidden" name="user_id" value="{{ u.id }}">
+                                <button type="submit" class="btn btn-sm {% if u.is_active %}btn-danger{% else %}btn-secondary{% endif %}">
+                                    {% if u.is_active %}Deactivate{% else %}Activate{% endif %}
+                                </button>
+                            </form>
+                            {% else %}
+                            <span style="font-size:12px; color:var(--text-muted); font-weight:600;">Permanent</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- TAB 4: COMMODITY MASTER -->
+    <div id="tab-commodities" class="tab-content">
+        <div class="card">
+            <div class="card-header">
+                <h2><span>🌾</span> Add Central Commodity</h2>
+            </div>
+            <form action="/api/admin/commodities" method="POST">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Commodity Name</label>
+                        <input type="text" name="name" placeholder="Soyabean (Yellow)" required>
+                    </div>
+                    <div class="form-group">
+                        <label>HSN Code</label>
+                        <input type="text" name="hsn_code" placeholder="1201" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Standard Moisture %</label>
+                        <input type="number" step="0.1" name="standard_moisture_pct" value="10.0" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Mandi Cess %</label>
+                        <input type="number" step="0.1" name="mandi_cess_pct" value="1.5" required>
+                    </div>
+                    <div class="form-group" style="display:flex; align-items:flex-end;">
+                        <button type="submit" class="btn btn-admin" style="width:100%;">+ Save Commodity</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h2><span>📑</span> Active Commodities</h2>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Commodity</th>
+                        <th>HSN Code</th>
+                        <th>Standard Moisture Threshold</th>
+                        <th>Mandi Cess Rate</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in commodities %}
+                    <tr>
+                        <td><strong>{{ c.name }}</strong></td>
+                        <td><code style="font-weight:700;">{{ c.hsn_code }}</code></td>
+                        <td>{{ c.standard_moisture_pct }}%</td>
+                        <td>{{ c.mandi_cess_pct }}%</td>
+                        <td><span class="badge-pill badge-green">Active</span></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- MODAL: COMMODITY BRANCH QUANTITY & RATE BREAKDOWN -->
+    <div id="branchStockModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.65); z-index:9999; align-items:center; justify-content:center; padding:20px; backdrop-filter:blur(3px);">
+        <div class="card" style="max-width:760px; width:100%; max-height:90vh; overflow-y:auto; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25); border:2px solid var(--primary-admin);">
+            <div class="card-header" style="border-bottom:1.5px solid #e2e8f0; padding-bottom:12px;">
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <span id="modalCommIcon" style="font-size:36px;">🌱</span>
+                    <div>
+                        <h2 id="modalCommName" style="margin:0; font-size:20px; color:#0f172a;">Commodity Name</h2>
+                        <span id="modalCommHsn" style="font-size:12px; color:var(--text-muted);">HSN: 1201</span>
+                    </div>
+                </div>
+                <button type="button" onclick="closeBranchStockModal()" style="background:none; border:none; font-size:24px; cursor:pointer; color:#64748b; font-weight:bold;">&times;</button>
+            </div>
+
+            <!-- Summary KPI Strip in Modal -->
+            <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px; margin:16px 0; text-align:center;">
+                <div>
+                    <div style="font-size:10px; text-transform:uppercase; color:var(--text-muted); font-weight:800;">Total Org Stock</div>
+                    <div id="modalTotalQtl" style="font-size:18px; font-weight:800; color:#0284c7; margin-top:2px;">0.00 Qtl</div>
+                    <div id="modalTotalMt" style="font-size:11px; color:#15803d; font-weight:600;">(0.00 MT)</div>
+                </div>
+                <div>
+                    <div style="font-size:10px; text-transform:uppercase; color:var(--text-muted); font-weight:800;">Org Avg Buying Rate</div>
+                    <div id="modalAvgRate" style="font-size:18px; font-weight:800; color:#d97706; margin-top:2px;">₹0.00 / Qtl</div>
+                </div>
+                <div>
+                    <div style="font-size:10px; text-transform:uppercase; color:var(--text-muted); font-weight:800;">Holding Branch Yards</div>
+                    <div id="modalYardCount" style="font-size:18px; font-weight:800; color:#7c3aed; margin-top:2px;">0 Yards</div>
+                </div>
+            </div>
+
+            <h3 style="font-size:13px; font-weight:800; text-transform:uppercase; color:#475569; margin-bottom:10px;">
+                Branch Yard Inventory & Buying Rates Breakdown
+            </h3>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr style="background:#f1f5f9;">
+                            <th>Branch Yard</th>
+                            <th>Code</th>
+                            <th style="text-align:right;">Quantity Held (Qtl)</th>
+                            <th style="text-align:right;">Share %</th>
+                            <th style="text-align:right;">Branch Avg Rate (₹)</th>
+                            <th style="text-align:right;">Branch Stock Value (₹)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="modalBranchTableBody">
+                    </tbody>
+                </table>
+            </div>
+
+            <div style="margin-top:20px; display:flex; justify-content:space-between; align-items:center; border-top:1px solid #e2e8f0; padding-top:14px;">
+                <span style="font-size:12px; color:var(--text-muted);">Real-time multi-branch inventory tracking across all APMC yards.</span>
+                <button type="button" class="btn btn-secondary" onclick="closeBranchStockModal()">Close Window</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        function openBranchStockModal(name, icon, hsn, totalQtl, avgRate, totalMt, idx) {
+            document.getElementById('modalCommName').innerText = name;
+            document.getElementById('modalCommIcon').innerText = icon;
+            document.getElementById('modalCommHsn').innerText = 'HSN Code: ' + hsn;
+            document.getElementById('modalTotalQtl').innerText = totalQtl.toFixed(2) + ' Qtl';
+            document.getElementById('modalTotalMt').innerText = '(' + totalMt.toFixed(2) + ' MT)';
+            document.getElementById('modalAvgRate').innerText = '₹' + avgRate.toLocaleString(undefined, {minimumFractionDigits: 2}) + ' / Qtl';
+
+            const scriptElem = document.getElementById('branch-data-' + idx);
+            const branches = scriptElem ? JSON.parse(scriptElem.textContent || '[]') : [];
+
+            document.getElementById('modalYardCount').innerText = branches.length + ' Yards';
+
+            const tbody = document.getElementById('modalBranchTableBody');
+            tbody.innerHTML = '';
+
+            if (branches.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:16px; color:#64748b;">No active branch holding for this commodity.</td></tr>';
+            } else {
+                branches.forEach(b => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td><strong>📍 ${b.branch_name}</strong></td>
+                        <td><code>${b.branch_code}</code></td>
+                        <td style="text-align:right; font-weight:800; color:#0369a1;">${b.qty_qtl.toFixed(2)} Qtl (${b.qty_mt.toFixed(2)} MT)</td>
+                        <td style="text-align:right;"><span class="badge-pill badge-blue">${b.pct}%</span></td>
+                        <td style="text-align:right; font-weight:700; color:#d97706;">₹${(b.branch_avg_rate || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                        <td style="text-align:right; font-weight:800; color:#0f172a;">₹${(b.stock_val || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+
+            document.getElementById('branchStockModal').style.display = 'flex';
+        }
+
+        function closeBranchStockModal() {
+            document.getElementById('branchStockModal').style.display = 'none';
+        }
+    </script>
+</body>
+</html>

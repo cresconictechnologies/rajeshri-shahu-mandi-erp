@@ -1,0 +1,103 @@
+<div class="parchi-paper">
+    <div class="parchi-header">
+        <h2 style="font-size:20px; font-weight:800; color:#0f172a; margin-bottom:2px;">Rajeshri Shahu Trading</h2>
+        <h3 style="font-size:15px; color:#475569; margin-bottom:4px;">{{ invoice.branch_name }}</h3>
+        <p>Mandi License No: {{ invoice.mandi_license_no }} • Yard Gate No. 2</p>
+        <p style="font-weight: bold; margin-top: 5px;">INWARD COMMODITY PURCHASE PARCHI / TOKEN</p>
+        <div style="font-size: 16px; font-weight: bold; margin-top: 5px; color: #b45309;">
+            TOKEN NO: {{ invoice.token_number }}
+        </div>
+        <p style="font-size: 11px; color: #666;">Date: {{ invoice.invoice_date }} | Status: {{ invoice.payout_status }} | Mode: {{ 'Yard Scale (Platform)' if invoice.weighment_mode == 'MANUAL_YARD' else 'External Weighbridge' }}</p>
+    </div>
+
+    {% if invoice.rtgs_utr_no %}
+    <div style="background:#f0fdf4; border:1.5px solid #86efac; border-radius:6px; padding:8px 12px; margin-bottom:12px; font-size:12px; color:#166534;">
+        ✓ <strong>Settled via RTGS Bank Transfer</strong> • Bank: <strong>{{ invoice.rtgs_bank_name }}</strong> • A/C: <strong>{{ invoice.rtgs_account_no }}</strong> • IFSC: <strong>{{ invoice.rtgs_ifsc_code }}</strong> • Bank UTR: <strong>{{ invoice.rtgs_utr_no }}</strong>
+    </div>
+    {% endif %}
+
+    <div class="parchi-grid">
+        <div>
+            <strong>SELLER / CULTIVATOR:</strong><br>
+            Name: {{ invoice.party_name }} ({{ invoice.party_type }})<br>
+            Village: {{ invoice.village or '-' }}<br>
+            Phone: {{ invoice.phone or '-' }}<br>
+            Khasra Record: {{ invoice.khasra_record_no or 'N/A' }}
+        </div>
+        <div>
+            <strong>QUALITY & WEIGHMENT:</strong><br>
+            Inspector: {{ invoice.inspector_name or 'Yard Assayer' }}<br>
+            Commodity: {{ invoice.commodity_name }} ({{ invoice.quality_grade }})<br>
+            {% if invoice.weighment_mode == 'MANUAL_YARD' %}
+            Weighment: Direct Yard Scale (Platform)<br>
+            Vehicle No: {{ invoice.vehicle_number or 'Yard Trolley / Bullock' }}
+            {% else %}
+            Kanta Name: {{ invoice.external_kanta_name or '-' }}<br>
+            Kanta Slip No: {{ invoice.external_slip_number or '-' }}<br>
+            Vehicle No: {{ invoice.vehicle_number or '-' }}
+            {% endif %}
+        </div>
+    </div>
+
+    <table class="parchi-table">
+        <thead>
+            <tr style="background:#f3f4f6;">
+                <th>Weighment Breakdown</th>
+                <th style="text-align:right;">Weight (Kg)</th>
+                <th>Deductions / Quality</th>
+                <th style="text-align:right;">Amount (₹)</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                {% if invoice.weighment_mode == 'MANUAL_YARD' %}
+                <td>Yard Platform Weight</td>
+                <td style="text-align:right;">{{ "%.2f"|format(invoice.gross_weight_kg) }} Kg</td>
+                {% else %}
+                <td>Gross Weight (Loaded)</td>
+                <td style="text-align:right;">{{ "%.2f"|format(invoice.gross_weight_kg) }} Kg</td>
+                {% endif %}
+                <td>Moisture Cut ({{ invoice.moisture_percentage }}%)</td>
+                <td style="text-align:right;">-{{ "%.2f"|format(invoice.moisture_cut_kg) }} Kg</td>
+            </tr>
+            <tr>
+                {% if invoice.weighment_mode != 'MANUAL_YARD' %}
+                <td>Vehicle Tare (Empty)</td>
+                <td style="text-align:right;">-{{ "%.2f"|format(invoice.vehicle_tare_kg) }} Kg</td>
+                {% else %}
+                <td>Vehicle / Tare Subtraction</td>
+                <td style="text-align:right;">Direct Scale (0.00 Kg)</td>
+                {% endif %}
+                <td>Farmer Hamali (₹25 / 100 Kg)</td>
+                <td style="text-align:right; color:#dc2626;">-₹{{ "%.2f"|format(invoice.hamali_charge) }}</td>
+            </tr>
+            <tr style="background:#fef3c7; font-weight:bold;">
+                <td>NET BILLABLE WEIGHT</td>
+                <td style="text-align:right;">{{ "%.2f"|format(invoice.net_weight_kg) }} Kg ({{ "%.4f"|format(invoice.net_quintals) }} Qtl)</td>
+                <td>APPROVED RATE / QTL</td>
+                <td style="text-align:right;">₹{{ "%.2f"|format(invoice.rate_per_quintal) }}</td>
+            </tr>
+            <tr style="font-weight:bold; font-size:14px; background:#e0e7ff;">
+                <td colspan="2">GROSS VALUE: ₹{{ "{:,.2f}".format(invoice.gross_amount) }}</td>
+                <td>FINAL NET PAYABLE:</td>
+                <td style="text-align:right; font-size:15px; color:#1e3a8a;">₹{{ "{:,.2f}".format(invoice.net_payable_amount) }}</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:15px; padding:10px; border:1px solid #ddd; border-radius:6px;">
+        <div style="font-size:11px; color:#444;">
+            <strong>QR VERIFICATION TOKEN:</strong><br>
+            <code>MANDI://{{ invoice.token_number }}#{{ invoice.branch_id }}#NET:{{ invoice.net_payable_amount }}</code><br>
+            <span style="color:#059669; font-weight:bold;">● Digitally Traceable Ledger Record</span>
+        </div>
+        <div style="text-align:center; border:2px dashed #999; padding:10px 20px; min-width:160px; font-size:12px;">
+            <strong>CASHIER STAMP & SIGN</strong><br>
+            <span style="font-size:10px; color:#777;">(Mandatory before payout)</span>
+        </div>
+    </div>
+
+    <div class="parchi-footer">
+        Computer Generated Mandi Parchi • Governed under APMC Act & Sec 269ST Income Tax Act • Duplicate Reprints Audited
+    </div>
+</div>

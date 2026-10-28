@@ -307,10 +307,14 @@ def init_db():
     if cur.fetchone()['cnt'] == 0:
         commodities = [
             ("c-soya", "Soyabean (Yellow)", "1201", 10.0, 1.5),
+            ("c-cotton", "Cotton / Kapas (कापूस)", "5201", 8.0, 1.5),
+            ("c-tur", "Tur / Arhar (तूर)", "0713", 10.0, 1.5),
+            ("c-chana", "Chana (Desi) / Harbhara (हरभरा)", "0713", 10.0, 1.5),
             ("c-wheat", "Wheat (Lokwan)", "1001", 10.0, 1.5),
-            ("c-chana", "Chana (Desi)", "0713", 10.0, 1.5),
-            ("c-mustard", "Mustard (Rayda)", "1207", 8.0, 1.5),
+            ("c-mustard", "Mustard (Rayda)", "1205", 9.0, 1.5),
             ("c-maize", "Maize (Makka)", "1005", 12.0, 1.5),
+            ("c-moong", "Moong (Green Gram)", "0713", 10.0, 1.5),
+            ("c-urad", "Urad (Black Gram)", "0713", 10.0, 1.5)
         ]
         cur.executemany("INSERT INTO commodities (id, name, hsn_code, standard_moisture_pct, mandi_cess_pct) VALUES (?,?,?,?,?)", commodities)
 

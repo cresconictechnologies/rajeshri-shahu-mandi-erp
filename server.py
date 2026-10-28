@@ -8,6 +8,9 @@ import os
 import sys
 import uuid
 import json
+import hashlib
+import hmac
+import base64
 from datetime import date, datetime
 from typing import Optional
 
@@ -62,32 +65,276 @@ templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 
 # --------------------------------------------------------------------------
-# ROOT & PORTAL HUB
+# AUTHENTICATION, SESSIONS & OWNER SETUP
 # --------------------------------------------------------------------------
 
-@app.get("/", response_class=HTMLResponse)
-def root_hub(request: Request):
+SESSION_SECRET = os.environ.get("SESSION_SECRET", "rajeshri-shahu-mandi-erp-2026-cresconic-secret")
+
+def create_session_token(username: str, role: str, branch_id: str = "") -> str:
+    payload = f"{username}|{role}|{branch_id}"
+    sig = hmac.new(SESSION_SECRET.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).hexdigest()
+    token_raw = f"{payload}|{sig}"
+    return base64.urlsafe_b64encode(token_raw.encode("utf-8")).decode("utf-8")
+
+def verify_session_token(token: Optional[str]) -> Optional[dict]:
+    if not token:
+        return None
+    try:
+        decoded = base64.urlsafe_b64decode(token.encode("utf-8")).decode("utf-8")
+        parts = decoded.split("|")
+        if len(parts) != 4:
+            return None
+        username, role, branch_id, sig = parts
+        expected_sig = hmac.new(SESSION_SECRET.encode("utf-8"), f"{username}|{role}|{branch_id}".encode("utf-8"), hashlib.sha256).hexdigest()
+        if hmac.compare_digest(sig, expected_sig):
+            return {"username": username, "role": role, "branch_id": branch_id}
+    except Exception:
+        return None
+    return None
+
+def get_current_user(request: Request) -> Optional[dict]:
+    token = request.cookies.get("mandi_session")
+    return verify_session_token(token)
+
+def is_system_setup_done() -> bool:
     conn = get_connection()
     try:
         cur = conn.cursor()
-        cur.execute("SELECT count(*) as cnt FROM branches WHERE is_active=1")
-        branches_count = cur.fetchone()["cnt"]
-
-        cur.execute("SELECT count(*) as cnt FROM commodities WHERE is_active=1")
-        commodities_count = cur.fetchone()["cnt"]
-
-        cur.execute("SELECT count(*) as cnt FROM inspectors WHERE is_active=1")
-        inspectors_count = cur.fetchone()["cnt"]
-
-        stats = {
-            "branches_count": branches_count,
-            "commodities_count": commodities_count,
-            "inspectors_count": inspectors_count
-        }
+        cur.execute("SELECT setting_value FROM system_settings WHERE scope='SUPER_ADMIN' AND setting_key='is_setup_completed'")
+        row = cur.fetchone()
+        return bool(row and row["setting_value"] == "1")
+    except Exception:
+        return False
     finally:
         conn.close()
 
-    return templates.TemplateResponse(request=request, name="hub.html", context={"stats": stats})
+@app.get("/", response_class=HTMLResponse)
+def root_hub(request: Request):
+    # Direct hub parameter support (used in developer testing)
+    if request.query_params.get("hub") == "1":
+        conn = get_connection()
+        try:
+            cur = conn.cursor()
+            cur.execute("SELECT count(*) as cnt FROM branches WHERE is_active=1")
+            branches_count = cur.fetchone()["cnt"]
+            cur.execute("SELECT count(*) as cnt FROM commodities WHERE is_active=1")
+            commodities_count = cur.fetchone()["cnt"]
+            cur.execute("SELECT count(*) as cnt FROM inspectors WHERE is_active=1")
+            inspectors_count = cur.fetchone()["cnt"]
+            stats = {
+                "branches_count": branches_count,
+                "commodities_count": commodities_count,
+                "inspectors_count": inspectors_count
+            }
+        finally:
+            conn.close()
+        return templates.TemplateResponse(request=request, name="hub.html", context={"stats": stats})
+
+    # 1. If commercial license / setup has not been completed by the Owner, direct to Setup
+    if not is_system_setup_done():
+        return RedirectResponse(url="/setup", status_code=303)
+
+    # 2. If logged in, route directly to the assigned role terminal
+    user = get_current_user(request)
+    if user:
+        role = user.get("role")
+        if role == "SUPER_ADMIN":
+            return RedirectResponse(url="/admin/dashboard", status_code=303)
+        elif role == "ACCOUNTANT_HQ":
+            return RedirectResponse(url="/accounts/dashboard", status_code=303)
+        else:
+            b_id = user.get("branch_id") or "br-chikhali"
+            return RedirectResponse(url=f"/branch/dashboard?branch_id={b_id}", status_code=303)
+
+    # 3. Otherwise render single-point login terminal
+    return templates.TemplateResponse(request=request, name="login.html", context={"error": None})
+
+@app.get("/setup", response_class=HTMLResponse)
+def setup_view(request: Request):
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT setting_key, setting_value FROM system_settings WHERE scope='SUPER_ADMIN'")
+        settings = {r["setting_key"]: r["setting_value"] for r in cur.fetchall()}
+
+        cur.execute("SELECT * FROM users WHERE role='SUPER_ADMIN' LIMIT 1")
+        owner = cur.fetchone()
+
+        cur.execute("SELECT * FROM users WHERE role='ACCOUNTANT_HQ' LIMIT 1")
+        accountant = cur.fetchone()
+
+        cur.execute("SELECT * FROM users WHERE role='BRANCH_CASHIER' AND branch_id='br-chikhali' LIMIT 1")
+        chk_cashier = cur.fetchone()
+
+        cur.execute("SELECT * FROM users WHERE role='BRANCH_CASHIER' AND branch_id='br-varvand' LIMIT 1")
+        vrv_cashier = cur.fetchone()
+
+        cur.execute("SELECT * FROM users WHERE role='BRANCH_CASHIER' AND branch_id='br-dhad' LIMIT 1")
+        dhd_cashier = cur.fetchone()
+
+        return templates.TemplateResponse(request=request, name="setup.html", context={
+            "settings": settings,
+            "owner": owner,
+            "accountant": accountant,
+            "chk_cashier": chk_cashier,
+            "vrv_cashier": vrv_cashier,
+            "dhd_cashier": dhd_cashier,
+            "success_msg": None,
+            "generated_creds": None
+        })
+    finally:
+        conn.close()
+
+@app.post("/setup", response_class=HTMLResponse)
+def setup_post(
+    request: Request,
+    org_name: str = Form("Rajeshri Shahu Trading Co."),
+    owner_name: str = Form("Vikramaditya Singhal (Owner)"),
+    owner_username: str = Form("admin"),
+    owner_password: Optional[str] = Form(None),
+    owner_phone: str = Form("9826011111"),
+    org_gstin: str = Form("23AACCK1234F1Z5"),
+    license_key: str = Form("RST-PRO-2026-MH3B-89A12F"),
+    license_valid_until: str = Form("31-March-2027"),
+    acc_name: str = Form("Omprakash Agrawal (Chief Accountant)"),
+    acc_username: str = Form("accountant"),
+    acc_password: str = Form("acc123"),
+    acc_phone: str = Form("9826022222"),
+    chk_name: str = Form("Santosh V. Patil (Chikhali Lead)"),
+    chk_username: str = Form("chikhali_cashier"),
+    chk_password: str = Form("chk123"),
+    chk_phone: str = Form("9826033333"),
+    vrv_name: str = Form("Mohanlal Soni (Varvand Cashier & Munim)"),
+    vrv_username: str = Form("varvand_cashier"),
+    vrv_password: str = Form("vrv123"),
+    vrv_phone: str = Form("9826044444"),
+    dhd_name: str = Form("Kailash Tiwari (Dhad Cashier & Munim)"),
+    dhd_username: str = Form("dhad_cashier"),
+    dhd_password: str = Form("dhd123"),
+    dhd_phone: str = Form("9826055555")
+):
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        settings_to_update = [
+            ("org_name", org_name.strip()),
+            ("org_gstin", org_gstin.strip()),
+            ("license_key", license_key.strip()),
+            ("license_status", "Active (Pro Tier - 3 Branches)"),
+            ("license_valid_until", license_valid_until.strip()),
+            ("license_tier", "Pro Tier (3 Branches: Chikhali, Varvand, Dhad)"),
+            ("license_branch_limit", "3"),
+            ("is_setup_completed", "1")
+        ]
+        for k, v in settings_to_update:
+            cur.execute("""
+                INSERT INTO system_settings (scope, scope_id, setting_key, setting_value) 
+                VALUES ('SUPER_ADMIN', 'GLOBAL', ?, ?)
+                ON CONFLICT(scope, scope_id, setting_key) DO UPDATE SET setting_value=excluded.setting_value
+            """, (k, v))
+
+        # Update Owner
+        if owner_password and owner_password.strip():
+            cur.execute("UPDATE users SET full_name=?, username=?, phone=?, password_hash=? WHERE role='SUPER_ADMIN'",
+                        (owner_name.strip(), owner_username.strip(), owner_phone.strip(), hash_password(owner_password.strip())))
+        else:
+            cur.execute("UPDATE users SET full_name=?, username=?, phone=? WHERE role='SUPER_ADMIN'",
+                        (owner_name.strip(), owner_username.strip(), owner_phone.strip()))
+
+        # Update Accountant
+        cur.execute("UPDATE users SET full_name=?, username=?, phone=?, password_hash=? WHERE role='ACCOUNTANT_HQ'",
+                    (acc_name.strip(), acc_username.strip(), acc_phone.strip(), hash_password(acc_password.strip())))
+
+        # Update Chikhali Cashier
+        cur.execute("UPDATE users SET full_name=?, username=?, phone=?, password_hash=? WHERE role='BRANCH_CASHIER' AND branch_id='br-chikhali'",
+                    (chk_name.strip(), chk_username.strip(), chk_phone.strip(), hash_password(chk_password.strip())))
+
+        # Update Varvand Cashier
+        cur.execute("UPDATE users SET full_name=?, username=?, phone=?, password_hash=? WHERE role='BRANCH_CASHIER' AND branch_id='br-varvand'",
+                    (vrv_name.strip(), vrv_username.strip(), vrv_phone.strip(), hash_password(vrv_password.strip())))
+
+        # Update Dhad Cashier
+        cur.execute("UPDATE users SET full_name=?, username=?, phone=?, password_hash=? WHERE role='BRANCH_CASHIER' AND branch_id='br-dhad'",
+                    (dhd_name.strip(), dhd_username.strip(), dhd_phone.strip(), hash_password(dhd_password.strip())))
+
+        conn.commit()
+
+        generated_creds = [
+            {"role": "SUPER_ADMIN", "branch_name": "Central HQ", "full_name": owner_name.strip(), "username": owner_username.strip(), "plain_password": owner_password.strip() if owner_password else "(Unchanged / Admin Default)", "phone": owner_phone.strip()},
+            {"role": "ACCOUNTANT_HQ", "branch_name": "Central HQ", "full_name": acc_name.strip(), "username": acc_username.strip(), "plain_password": acc_password.strip(), "phone": acc_phone.strip()},
+            {"role": "BRANCH_CASHIER", "branch_name": "Chikhali Yard (BR-CHK)", "full_name": chk_name.strip(), "username": chk_username.strip(), "plain_password": chk_password.strip(), "phone": chk_phone.strip()},
+            {"role": "BRANCH_CASHIER", "branch_name": "Varvand Yard (BR-VRV)", "full_name": vrv_name.strip(), "username": vrv_username.strip(), "plain_password": vrv_password.strip(), "phone": vrv_phone.strip()},
+            {"role": "BRANCH_CASHIER", "branch_name": "Dhad Yard (BR-DHD)", "full_name": dhd_name.strip(), "username": dhd_username.strip(), "plain_password": dhd_password.strip(), "phone": dhd_phone.strip()},
+        ]
+
+        cur.execute("SELECT setting_key, setting_value FROM system_settings WHERE scope='SUPER_ADMIN'")
+        settings = {r["setting_key"]: r["setting_value"] for r in cur.fetchall()}
+
+        return templates.TemplateResponse(request=request, name="setup.html", context={
+            "settings": settings,
+            "owner": {"full_name": owner_name, "username": owner_username, "phone": owner_phone},
+            "accountant": {"full_name": acc_name, "username": acc_username, "phone": acc_phone},
+            "chk_cashier": {"full_name": chk_name, "username": chk_username, "phone": chk_phone},
+            "vrv_cashier": {"full_name": vrv_name, "username": vrv_username, "phone": vrv_phone},
+            "dhd_cashier": {"full_name": dhd_name, "username": dhd_username, "phone": dhd_phone},
+            "success_msg": "Commercial License activated and all staff credentials provisioned successfully! Give the printed or noted credentials to staff.",
+            "generated_creds": generated_creds
+        })
+    finally:
+        conn.close()
+
+@app.get("/login", response_class=HTMLResponse)
+def login_view(request: Request):
+    user = get_current_user(request)
+    if user:
+        role = user.get("role")
+        if role == "SUPER_ADMIN":
+            return RedirectResponse(url="/admin/dashboard", status_code=303)
+        elif role == "ACCOUNTANT_HQ":
+            return RedirectResponse(url="/accounts/dashboard", status_code=303)
+        else:
+            b_id = user.get("branch_id") or "br-chikhali"
+            return RedirectResponse(url=f"/branch/dashboard?branch_id={b_id}", status_code=303)
+    return templates.TemplateResponse(request=request, name="login.html", context={"error": None})
+
+@app.post("/login", response_class=HTMLResponse)
+def login_post(request: Request, username: str = Form(...), password: str = Form(...)):
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT id, username, password_hash, role, branch_id, is_active, full_name FROM users WHERE username = ?", (username.strip(),))
+        user = cur.fetchone()
+    finally:
+        conn.close()
+
+    if not user or not user["is_active"] or hash_password(password.strip()) != user["password_hash"]:
+        return templates.TemplateResponse(
+            request=request,
+            name="login.html",
+            context={"error": "Invalid staff username or password. Please verify credentials or contact the owner.", "username": username},
+            status_code=401
+        )
+
+    role = user["role"]
+    branch_id = user["branch_id"] or ""
+    token = create_session_token(user["username"], role, branch_id)
+
+    if role == "SUPER_ADMIN":
+        target_url = "/admin/dashboard"
+    elif role == "ACCOUNTANT_HQ":
+        target_url = "/accounts/dashboard"
+    else:
+        target_url = f"/branch/dashboard?branch_id={branch_id or 'br-chikhali'}"
+
+    resp = RedirectResponse(url=target_url, status_code=303)
+    resp.set_cookie(key="mandi_session", value=token, httponly=True, path="/")
+    return resp
+
+@app.get("/logout")
+def logout_view():
+    resp = RedirectResponse(url="/login", status_code=303)
+    resp.delete_cookie(key="mandi_session", path="/")
+    return resp
 
 
 # --------------------------------------------------------------------------
@@ -96,14 +343,19 @@ def root_hub(request: Request):
 
 @app.get("/admin/login", response_class=HTMLResponse)
 def admin_login_page():
-    admin_html_path = os.path.join(BASE_DIR, "admin_portal", "admin_login.html")
-    if os.path.exists(admin_html_path):
-        with open(admin_html_path, "r", encoding="utf-8") as f:
-            return f.read()
-    return RedirectResponse(url="/admin/dashboard")
+    return RedirectResponse(url="/login", status_code=303)
 
 @app.get("/admin/dashboard", response_class=HTMLResponse)
 def admin_dashboard_view(request: Request):
+    user = get_current_user(request)
+    if user and user.get("role") != "SUPER_ADMIN":
+        if user.get("role") == "ACCOUNTANT_HQ":
+            return RedirectResponse(url="/accounts/dashboard", status_code=303)
+        else:
+            b_id = user.get("branch_id") or "br-chikhali"
+            return RedirectResponse(url=f"/branch/dashboard?branch_id={b_id}", status_code=303)
+    logged_in_user = user or {"username": "admin", "full_name": "Vikramaditya Singhal (Owner)", "role": "SUPER_ADMIN"}
+
     today_str = date.today().isoformat()
     conn = get_connection()
     try:
@@ -158,10 +410,15 @@ def admin_dashboard_view(request: Request):
 
         icon_map = {
             "Soyabean (Yellow)": "🌱",
-            "Wheat (Lokwan)": "🌾",
+            "Cotton / Kapas (कापूस)": "☁️",
+            "Tur / Arhar (तूर)": "🍲",
+            "Chana (Desi) / Harbhara (हरभरा)": "🫘",
             "Chana (Desi)": "🫘",
+            "Wheat (Lokwan)": "🌾",
             "Mustard (Rayda)": "🌼",
-            "Maize (Makka)": "🌽"
+            "Maize (Makka)": "🌽",
+            "Moong (Green Gram)": "🟢",
+            "Urad (Black Gram)": "⚫"
         }
 
         commodity_stock_cards = []
@@ -221,21 +478,22 @@ def admin_dashboard_view(request: Request):
                     "stock_val": b_stock_val
                 })
 
-            commodity_stock_cards.append({
-                "name": c_name,
-                "icon": icon_map.get(c_name, "📦"),
-                "hsn_code": sr["hsn_code"],
-                "total_stock_qtl": total_qtl,
-                "total_stock_mt": round(total_qtl / 10.0, 2),
-                "avg_buying_price": avg_buying_price,
-                "today_target_rate": today_target_rate,
-                "gross_cost": gross_cost,
-                "market_valuation": market_val,
-                "profit_loss": profit_loss,
-                "pnl_pct": pnl_pct,
-                "branch_breakdown": branch_breakdown,
-                "branch_json": json.dumps(branch_breakdown)
-            })
+            if total_qtl > 0:
+                commodity_stock_cards.append({
+                    "name": c_name,
+                    "icon": icon_map.get(c_name, "📦"),
+                    "hsn_code": sr["hsn_code"],
+                    "total_stock_qtl": total_qtl,
+                    "total_stock_mt": round(total_qtl / 10.0, 2),
+                    "avg_buying_price": avg_buying_price,
+                    "today_target_rate": today_target_rate,
+                    "gross_cost": gross_cost,
+                    "market_valuation": market_val,
+                    "profit_loss": profit_loss,
+                    "pnl_pct": pnl_pct,
+                    "branch_breakdown": branch_breakdown,
+                    "branch_json": json.dumps(branch_breakdown)
+                })
 
         # Total Profit / Loss calculation
         total_pnl = round(total_portfolio_market_val - total_portfolio_cost, 2)
@@ -277,7 +535,8 @@ def admin_dashboard_view(request: Request):
             "invoices": invoices,
             "users": users,
             "commodities": commodities,
-            "commodity_stock_cards": commodity_stock_cards
+            "commodity_stock_cards": commodity_stock_cards,
+            "logged_in_user": logged_in_user
         }
     )
 
@@ -396,10 +655,16 @@ def api_admin_add_commodity(
 
 @app.get("/accounts/login", response_class=HTMLResponse)
 def accounts_login_page():
-    return RedirectResponse(url="/accounts/dashboard")
+    return RedirectResponse(url="/login", status_code=303)
 
 @app.get("/accounts/dashboard", response_class=HTMLResponse)
 def accounts_dashboard_view(request: Request):
+    user = get_current_user(request)
+    if user and user.get("role") == "BRANCH_CASHIER":
+        b_id = user.get("branch_id") or "br-chikhali"
+        return RedirectResponse(url=f"/branch/dashboard?branch_id={b_id}", status_code=303)
+    logged_in_user = user or {"username": "accountant", "full_name": "Omprakash Agrawal", "role": "ACCOUNTANT_HQ"}
+
     today_str = date.today().isoformat()
     conn = get_connection()
     try:
@@ -519,7 +784,8 @@ def accounts_dashboard_view(request: Request):
             "total_outward_billed": total_outward_billed,
             "total_outward_received": total_outward_received,
             "total_outward_pending": total_outward_pending,
-            "pending_outward_count": pending_outward_count
+            "pending_outward_count": pending_outward_count,
+            "logged_in_user": logged_in_user
         }
     )
 
@@ -777,10 +1043,19 @@ def api_accounts_toggle_inspector(inspector_id: str = Form(...)):
 
 @app.get("/branch/login", response_class=HTMLResponse)
 def branch_login_page():
-    return RedirectResponse(url="/branch/dashboard")
+    return RedirectResponse(url="/login", status_code=303)
 
 @app.get("/branch/dashboard", response_class=HTMLResponse)
 def branch_dashboard_view(request: Request, branch_id: str = "br-chikhali"):
+    user = get_current_user(request)
+    if user and user.get("role") == "BRANCH_CASHIER":
+        assigned_branch = user.get("branch_id")
+        if assigned_branch and branch_id != assigned_branch:
+            return RedirectResponse(url=f"/branch/dashboard?branch_id={assigned_branch}", status_code=303)
+    elif user and user.get("role") == "ACCOUNTANT_HQ":
+        return RedirectResponse(url="/accounts/dashboard", status_code=303)
+    logged_in_user = user or {"username": "chikhali_cashier", "full_name": "Santosh V. Patil", "role": "BRANCH_CASHIER", "branch_id": branch_id}
+
     today_str = date.today().isoformat()
     conn = get_connection()
     try:
@@ -986,7 +1261,8 @@ def branch_dashboard_view(request: Request, branch_id: str = "br-chikhali"):
             "recent_outward_orders": recent_outward_orders,
             "branch_rtgs_list": branch_rtgs_list,
             "branch_rtgs_pending_count": branch_rtgs_pending_count,
-            "drawer": drawer
+            "drawer": drawer,
+            "logged_in_user": logged_in_user
         }
     )
 
@@ -1624,6 +1900,13 @@ def api_get_farmer_audit_logs(farmer_id: str):
 
 @app.get("/branch/stock", response_class=HTMLResponse)
 def branch_stock_view(request: Request, branch_id: str = "br-chikhali"):
+    user = get_current_user(request)
+    if user and user.get("role") == "BRANCH_CASHIER":
+        assigned_branch = user.get("branch_id")
+        if assigned_branch and branch_id != assigned_branch:
+            return RedirectResponse(url=f"/branch/stock?branch_id={assigned_branch}", status_code=303)
+    logged_in_user = user or {"username": "chikhali_cashier", "full_name": "Santosh V. Patil", "role": "BRANCH_CASHIER", "branch_id": branch_id}
+
     today_str = date.today().isoformat()
     conn = get_connection()
     try:
@@ -1640,10 +1923,16 @@ def branch_stock_view(request: Request, branch_id: str = "br-chikhali"):
 
         icon_map = {
             "Soyabean (Yellow)": "🌱",
+            "Cotton / Kapas (कापूस)": "☁️",
+            "Tur / Arhar (तूर)": "🍲",
+            "Chana (Desi) / Harbhara (हरभरा)": "🫘",
+            "Chana / Harbhara (हरभरा)": "🫘",
             "Wheat (Lokwan)": "🌾",
+            "Maize (Makka)": "🌽",
+            "Moong (Green Gram)": "🟢",
+            "Urad (Black Gram)": "⚫",
             "Chana (Desi)": "🫘",
-            "Mustard (Rayda)": "🌼",
-            "Maize (Makka)": "🌽"
+            "Mustard (Rayda)": "🌼"
         }
 
         # Query all active commodities
@@ -1746,7 +2035,8 @@ def branch_stock_view(request: Request, branch_id: str = "br-chikhali"):
             "total_outward_qtl": total_outward_qtl,
             "total_outward_mt": round(total_outward_qtl / 10.0, 2),
             "recent_invoices": recent_invoices,
-            "recent_outward_orders": recent_outward_orders
+            "recent_outward_orders": recent_outward_orders,
+            "logged_in_user": logged_in_user
         })
     finally:
         conn.close()
@@ -1757,6 +2047,15 @@ def branch_stock_view(request: Request, branch_id: str = "br-chikhali"):
 
 @app.get("/admin/settings", response_class=HTMLResponse)
 def admin_settings_view(request: Request, msg: Optional[str] = None):
+    user = get_current_user(request)
+    if user and user.get("role") != "SUPER_ADMIN":
+        if user.get("role") == "ACCOUNTANT_HQ":
+            return RedirectResponse(url="/accounts/dashboard", status_code=303)
+        else:
+            b_id = user.get("branch_id") or "br-chikhali"
+            return RedirectResponse(url=f"/branch/dashboard?branch_id={b_id}", status_code=303)
+    logged_in_user = user or {"username": "admin", "full_name": "Vikramaditya Singhal (Owner)", "role": "SUPER_ADMIN"}
+
     conn = get_connection()
     try:
         cur = conn.cursor()
@@ -1783,7 +2082,8 @@ def admin_settings_view(request: Request, msg: Optional[str] = None):
             "settings": settings,
             "staff_users": staff_users,
             "audit_logs": audit_logs,
-            "message": msg
+            "message": msg,
+            "logged_in_user": logged_in_user
         })
     finally:
         conn.close()
@@ -1878,6 +2178,12 @@ def api_save_admin_settings(
 
 @app.get("/accounts/settings", response_class=HTMLResponse)
 def accounts_settings_view(request: Request, msg: Optional[str] = None):
+    user = get_current_user(request)
+    if user and user.get("role") == "BRANCH_CASHIER":
+        b_id = user.get("branch_id") or "br-chikhali"
+        return RedirectResponse(url=f"/branch/dashboard?branch_id={b_id}", status_code=303)
+    logged_in_user = user or {"username": "accountant", "full_name": "Omprakash Agrawal", "role": "ACCOUNTANT_HQ"}
+
     conn = get_connection()
     try:
         cur = conn.cursor()
@@ -1885,7 +2191,8 @@ def accounts_settings_view(request: Request, msg: Optional[str] = None):
         settings = {r["setting_key"]: r["setting_value"] for r in cur.fetchall()}
         return templates.TemplateResponse(request=request, name="accounts_settings.html", context={
             "settings": settings,
-            "message": msg
+            "message": msg,
+            "logged_in_user": logged_in_user
         })
     finally:
         conn.close()
@@ -1925,6 +2232,15 @@ def api_save_accounts_settings(
 
 @app.get("/branch/settings", response_class=HTMLResponse)
 def branch_settings_view(request: Request, branch_id: str = "br-chikhali", msg: Optional[str] = None):
+    user = get_current_user(request)
+    if user and user.get("role") == "BRANCH_CASHIER":
+        assigned_branch = user.get("branch_id")
+        if assigned_branch and branch_id != assigned_branch:
+            return RedirectResponse(url=f"/branch/settings?branch_id={assigned_branch}", status_code=303)
+    elif user and user.get("role") == "ACCOUNTANT_HQ":
+        return RedirectResponse(url="/accounts/dashboard", status_code=303)
+    logged_in_user = user or {"username": "chikhali_cashier", "full_name": "Santosh V. Patil", "role": "BRANCH_CASHIER", "branch_id": branch_id}
+
     conn = get_connection()
     try:
         cur = conn.cursor()
@@ -1944,7 +2260,8 @@ def branch_settings_view(request: Request, branch_id: str = "br-chikhali", msg: 
             "current_branch": current_branch,
             "branches": branches,
             "settings": settings,
-            "message": msg
+            "message": msg,
+            "logged_in_user": logged_in_user
         })
     finally:
         conn.close()

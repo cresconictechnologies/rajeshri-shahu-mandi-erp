@@ -258,10 +258,13 @@ INSERT INTO branches (id, branch_code, name, mandi_license_no, address, phone, i
 
 -- Initial seed data for commodities
 INSERT INTO commodities (id, name, hsn_code, standard_moisture_pct, mandi_cess_pct, is_active, created_at) VALUES ('c-soya', 'Soyabean (Yellow)', '1201', 10.0, 1.5, 1, '2026-10-28 11:09:34') ON CONFLICT DO NOTHING;
+INSERT INTO commodities (id, name, hsn_code, standard_moisture_pct, mandi_cess_pct, is_active, created_at) VALUES ('c-cotton', 'Cotton / Kapas (कापूस)', '5201', 8.0, 1.5, 1, '2026-10-28 11:09:34') ON CONFLICT DO NOTHING;
+INSERT INTO commodities (id, name, hsn_code, standard_moisture_pct, mandi_cess_pct, is_active, created_at) VALUES ('c-tur', 'Tur / Arhar (तूर)', '0713', 10.0, 1.5, 1, '2026-10-28 11:09:34') ON CONFLICT DO NOTHING;
+INSERT INTO commodities (id, name, hsn_code, standard_moisture_pct, mandi_cess_pct, is_active, created_at) VALUES ('c-chana', 'Chana / Harbhara (हरभरा)', '0713', 10.0, 1.5, 1, '2026-10-28 11:09:34') ON CONFLICT DO NOTHING;
 INSERT INTO commodities (id, name, hsn_code, standard_moisture_pct, mandi_cess_pct, is_active, created_at) VALUES ('c-wheat', 'Wheat (Lokwan)', '1001', 10.0, 1.5, 1, '2026-10-28 11:09:34') ON CONFLICT DO NOTHING;
-INSERT INTO commodities (id, name, hsn_code, standard_moisture_pct, mandi_cess_pct, is_active, created_at) VALUES ('c-chana', 'Chana (Desi)', '0713', 10.0, 1.5, 1, '2026-10-28 11:09:34') ON CONFLICT DO NOTHING;
-INSERT INTO commodities (id, name, hsn_code, standard_moisture_pct, mandi_cess_pct, is_active, created_at) VALUES ('c-mustard', 'Mustard (Rayda)', '1207', 8.0, 1.5, 1, '2026-10-28 11:09:34') ON CONFLICT DO NOTHING;
 INSERT INTO commodities (id, name, hsn_code, standard_moisture_pct, mandi_cess_pct, is_active, created_at) VALUES ('c-maize', 'Maize (Makka)', '1005', 12.0, 1.5, 1, '2026-10-28 11:09:34') ON CONFLICT DO NOTHING;
+INSERT INTO commodities (id, name, hsn_code, standard_moisture_pct, mandi_cess_pct, is_active, created_at) VALUES ('c-moong', 'Moong (Green Gram)', '0713', 10.0, 1.5, 1, '2026-10-28 11:09:34') ON CONFLICT DO NOTHING;
+INSERT INTO commodities (id, name, hsn_code, standard_moisture_pct, mandi_cess_pct, is_active, created_at) VALUES ('c-urad', 'Urad (Black Gram)', '0713', 10.0, 1.5, 1, '2026-10-28 11:09:34') ON CONFLICT DO NOTHING;
 
 -- Initial seed data for inspectors
 INSERT INTO inspectors (id, branch_id, name, designation, phone, is_active, created_at) VALUES ('ins-1', NULL, 'Mahesh Patidar', 'Chief Assayer & Quality Lead', '9826011111', 1, '2026-10-28 11:09:34') ON CONFLICT DO NOTHING;

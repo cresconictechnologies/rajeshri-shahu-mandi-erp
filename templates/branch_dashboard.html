@@ -84,16 +84,12 @@
             <p>Mandi License: {{ current_branch.mandi_license_no }} • Yard Procurement & Cashier Desk • Port 8080 Active</p>
         </div>
         <div class="nav-links">
-            <!-- Branch Switcher Dropdown -->
-            <select onchange="window.location.href='/branch/dashboard?branch_id=' + this.value" style="background:#ffffff; border:1.5px solid var(--input-border); color:var(--text-primary); padding:7px 12px; border-radius:8px; font-size:13px; font-weight:700;">
-                {% for b in branches %}
-                <option value="{{ b.id }}" {% if b.id == current_branch.id %}selected{% endif %}>{{ b.name }}</option>
-                {% endfor %}
-            </select>
+            <span class="nav-pill" style="background:#fef3c7; color:#b45309; border-color:#fde68a; font-weight:700;">
+                👤 {{ logged_in_user.full_name if logged_in_user else 'Cashier & Munim' }}
+            </span>
             <a href="/branch/stock?branch_id={{ current_branch.id }}" class="nav-pill" style="background:#0284c7; color:#fff; font-weight:700;">📦 Yard Stock</a>
             <a href="/branch/settings?branch_id={{ current_branch.id }}" class="nav-pill">⚙️ Settings</a>
-            <a href="/" class="nav-pill">← Portal Hub</a>
-            <a href="/accounts/dashboard" class="nav-pill">Accounts Desk →</a>
+            <a href="/logout" class="nav-pill" style="background:#fef2f2; color:#b91c1c; border-color:#fecaca; font-weight:700;">🚪 Logout</a>
         </div>
     </header>
 

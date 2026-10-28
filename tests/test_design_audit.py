@@ -15,7 +15,7 @@ class TestMandiDesignAudit(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.pages = {
-            "hub": cls._fetch("/"),
+            "hub": cls._fetch("/?hub=1"),
             "admin": cls._fetch("/admin/dashboard"),
             "accounts": cls._fetch("/accounts/dashboard"),
             "branch": cls._fetch("/branch/dashboard?branch_id=br-chikhali"),

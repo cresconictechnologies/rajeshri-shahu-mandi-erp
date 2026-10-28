@@ -34,11 +34,12 @@
             <p>Organization Overview • Branches: Chikhali, Varvand, Dhad • Port 8080 Active</p>
         </div>
         <div class="nav-links">
-            <a href="/" class="nav-pill">← Portal Hub</a>
-            <a href="/admin/settings" class="nav-pill">⚙️ System Settings</a>
-            <a href="/branch/stock" class="nav-pill">📦 Branch Stock</a>
-            <a href="/accounts/dashboard" class="nav-pill">Accounts Desk →</a>
-            <a href="/branch/dashboard" class="nav-pill">Branch Terminal →</a>
+            <span class="nav-pill" style="background:#eff6ff; color:#1e40af; border-color:#bfdbfe; font-weight:700;">
+                👤 {{ logged_in_user.full_name if logged_in_user else 'Owner / Super Admin' }}
+            </span>
+            <a href="/admin/settings" class="nav-pill">⚙️ System Settings & Staff Logins</a>
+            <a href="/branch/stock" class="nav-pill">📦 All Branches Stock</a>
+            <a href="/logout" class="nav-pill" style="background:#fef2f2; color:#b91c1c; border-color:#fecaca; font-weight:700;">🚪 Logout</a>
         </div>
     </header>
 
@@ -84,15 +85,16 @@
                     Active stock cards (commodities with zero stock are hidden) • Real-time Average Buying Price • Exact Branch Quantity Distribution
                 </p>
             </div>
+            {% set active_commodity_stock_cards = commodity_stock_cards | selectattr('total_stock_qtl', 'gt', 0) | list %}
             <div style="display:flex; gap:10px; align-items:center;">
-                <span class="badge-pill badge-green">{{ commodity_stock_cards|length }} Commodities In Stock</span>
+                <span class="badge-pill badge-green">{{ active_commodity_stock_cards|length }} Commodities In Stock</span>
                 <span class="badge-pill badge-blue">Mark-to-Market Valuation</span>
             </div>
         </div>
 
-        {% if commodity_stock_cards %}
+        {% if active_commodity_stock_cards %}
         <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 18px;">
-            {% for cs in commodity_stock_cards %}
+            {% for cs in active_commodity_stock_cards %}
             <div class="card clickable-card" onclick="openBranchStockModal('{{ cs.name }}', '{{ cs.icon }}', '{{ cs.hsn_code }}', {{ cs.total_stock_qtl }}, {{ cs.avg_buying_price }}, {{ cs.total_stock_mt }}, {{ loop.index0 }})" style="border:1.5px solid var(--card-border); margin-bottom:0; background:#ffffff; box-shadow:var(--shadow-sm); padding:18px;">
                 <script type="application/json" id="branch-data-{{ loop.index0 }}">{{ cs.branch_json|safe }}</script>
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">

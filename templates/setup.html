@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Owner License & Staff Setup — Rajeshri Shahu Mandi ERP</title>
+    <link rel="stylesheet" href="/static/theme.css">
+    <style>
+        .setup-container {
+            max-width: 980px;
+            margin: 30px auto;
+            padding: 0 16px;
+        }
+        .setup-header {
+            text-align: center;
+            background: #ffffff;
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 32px 24px;
+            box-shadow: var(--shadow-sm);
+            margin-bottom: 24px;
+            position: relative;
+            overflow: hidden;
+        }
+        .setup-header::before {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 5px;
+            background: linear-gradient(90deg, #2563eb 0%, #10b981 50%, #f59e0b 100%);
+        }
+        .setup-header h1 {
+            font-size: 26px;
+            font-weight: 800;
+            color: var(--text-primary);
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        .setup-header p {
+            color: var(--text-muted);
+            font-size: 14.5px;
+            margin: 0;
+        }
+        .form-grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+        .form-grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 14px;
+        }
+        .staff-card {
+            background: #f8fafc;
+            border: 1.5px solid var(--card-border);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 14px;
+            transition: border-color 0.2s;
+        }
+        .staff-card:hover {
+            border-color: #94a3b8;
+        }
+        .staff-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .staff-header strong {
+            font-size: 14.5px;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .license-banner {
+            background: #ecfdf5;
+            border: 1.5px solid #a7f3d0;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .license-badge {
+            background: #10b981;
+            color: #ffffff;
+            font-weight: 800;
+            font-size: 12px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            letter-spacing: 0.5px;
+        }
+        .handover-slip {
+            background: #ffffff;
+            border: 2px dashed #94a3b8;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body style="background:var(--canvas-bg); color:var(--text-primary); font-family:var(--font-sans);">
+
+<div class="setup-container">
+    <!-- HEADER CARD -->
+    <div class="setup-header header-card">
+        <h1><span>🌾</span> Rajeshri Shahu Mandi & Commodity Procurement ERP</h1>
+        <p>Initial Owner Setup, Commercial Licensing & Staff Credential Provisioning</p>
+        <div style="margin-top: 12px;">
+            <span class="brand-badge badge-admin">Super Admin / Owner Master Setup</span>
+            <span class="badge-pill badge-green">Port 8080 Active</span>
+        </div>
+    </div>
+
+    {% if success_msg %}
+    <div class="card" style="border-left:5px solid #10b981; margin-bottom:20px; background:#ecfdf5;">
+        <h3 style="color:#065f46; margin:0 0 8px 0;">🎉 {{ success_msg }}</h3>
+        <p style="color:#047857; margin:0 0 16px 0; font-size:14px;">
+            All staff logins have been created and encrypted with SHA-256. Below is your <strong>Staff Credential Handover & Physical Security Record</strong>. Hand over these login details to your cashier and accountant.
+        </p>
+
+        <div class="handover-slip">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+                <h4 style="margin:0; font-size:16px; color:#0f172a;">📋 Confidential Staff Credentials Slip</h4>
+                <button type="button" onclick="window.print()" class="btn btn-sm btn-outline">🖨️ Print Slip</button>
+            </div>
+            
+            <table style="width:100%; border-collapse:collapse; font-size:13.5px;">
+                <thead>
+                    <tr style="background:#f1f5f9; text-align:left; border-bottom:2px solid #cbd5e1;">
+                        <th style="padding:10px;">Role / Designation</th>
+                        <th style="padding:10px;">Assigned Yard</th>
+                        <th style="padding:10px;">Staff Name</th>
+                        <th style="padding:10px;">Username</th>
+                        <th style="padding:10px;">Password</th>
+                        <th style="padding:10px;">Phone</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in (generated_creds or generated_users or []) %}
+                    <tr style="border-bottom:1px solid #e2e8f0;">
+                        <td style="padding:10px; font-weight:700;">
+                            {% if u.role == 'SUPER_ADMIN' %}<span style="color:#2563eb;">Owner / Admin</span>
+                            {% elif u.role == 'ACCOUNTANT_HQ' %}<span style="color:#059669;">Central Accountant</span>
+                            {% else %}<span style="color:#d97706;">Cashier & Munim</span>{% endif %}
+                        </td>
+                        <td style="padding:10px;">{{ u.branch_name or 'Central HQ' }}</td>
+                        <td style="padding:10px; font-weight:600;">{{ u.full_name }}</td>
+                        <td style="padding:10px;"><code style="background:#f1f5f9; padding:3px 6px; border-radius:4px;">{{ u.username }}</code></td>
+                        <td style="padding:10px;"><code style="background:#fef3c7; color:#b45309; padding:3px 6px; border-radius:4px; font-weight:700;">{{ u.plain_password }}</code></td>
+                        <td style="padding:10px;">{{ u.phone }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div style="margin-top:20px; text-align:center;">
+            <a href="/login" class="btn btn-primary" style="padding:12px 32px; font-size:15px; font-weight:700;">
+                Proceed to Staff & Owner Login →
+            </a>
+        </div>
+    </div>
+    {% endif %}
+
+    <form method="POST" action="/setup" class="card">
+        <!-- SECTION 1: OWNER & BUSINESS DETAILS -->
+        <div style="margin-bottom:28px;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:14px; border-bottom:1.5px solid var(--card-border); padding-bottom:8px;">
+                <span style="font-size:20px;">🏢</span>
+                <h2 style="font-size:18px; margin:0; font-weight:800; color:var(--text-primary);">Step 1: Business & Owner Profile</h2>
+            </div>
+            
+            <div class="form-grid-2">
+                <div class="form-group">
+                    <label style="font-weight:700; font-size:13px; margin-bottom:5px; display:block;">Business / Firm Name *</label>
+                    <input type="text" name="org_name" value="{{ settings.org_name or 'Rajeshri Shahu Trading Co.' }}" required
+                           style="width:100%; padding:10px; border:1.5px solid var(--input-border); border-radius:8px; font-size:14px;">
+                </div>
+                <div class="form-group">
+                    <label style="font-weight:700; font-size:13px; margin-bottom:5px; display:block;">Owner / Super Admin Full Name *</label>
+                    <input type="text" name="owner_name" value="{{ owner.full_name or 'Vikramaditya Singhal (Owner)' }}" required
+                           style="width:100%; padding:10px; border:1.5px solid var(--input-border); border-radius:8px; font-size:14px;">
+                </div>
+                <div class="form-group">
+                    <label style="font-weight:700; font-size:13px; margin-bottom:5px; display:block;">Owner Admin Username *</label>
+                    <input type="text" name="owner_username" value="{{ owner.username or 'admin' }}" required
+                           style="width:100%; padding:10px; border:1.5px solid var(--input-border); border-radius:8px; font-size:14px;">
+                </div>
+                <div class="form-group">
+                    <label style="font-weight:700; font-size:13px; margin-bottom:5px; display:block;">Owner Admin Password *</label>
+                    <input type="password" name="owner_password" placeholder="Enter new owner password (leave blank to keep current)"
+                           style="width:100%; padding:10px; border:1.5px solid var(--input-border); border-radius:8px; font-size:14px;">
+                </div>
+                <div class="form-group">
+                    <label style="font-weight:700; font-size:13px; margin-bottom:5px; display:block;">Owner Mobile Number *</label>
+                    <input type="text" name="owner_phone" value="{{ owner.phone or '9826011111' }}" required
+                           style="width:100%; padding:10px; border:1.5px solid var(--input-border); border-radius:8px; font-size:14px;">
+                </div>
+                <div class="form-group">
+                    <label style="font-weight:700; font-size:13px; margin-bottom:5px; display:block;">Firm GSTIN / APMC Registration</label>
+                    <input type="text" name="org_gstin" value="{{ settings.org_gstin or '23AACCK1234F1Z5' }}"
+                           style="width:100%; padding:10px; border:1.5px solid var(--input-border); border-radius:8px; font-size:14px;">
+                </div>
+            </div>
+        </div>
+
+        <!-- SECTION 2: LICENSE KEY ACTIVATION -->
+        <div style="margin-bottom:28px;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:14px; border-bottom:1.5px solid var(--card-border); padding-bottom:8px;">
+                <span style="font-size:20px;">🔑</span>
+                <h2 style="font-size:18px; margin:0; font-weight:800; color:var(--text-primary);">Step 2: Commercial License Key Activation</h2>
+            </div>
+
+            <div class="license-banner">
+                <div>
+                    <div style="font-weight:800; font-size:14px; color:#065f46; display:flex; align-items:center; gap:8px;">
+                        <span>🛡️</span> Commercial License Status: <span class="license-badge">ACTIVE</span>
+                    </div>
+                    <div style="font-size:12.5px; color:#047857; margin-top:3px;">
+                        Tier: <strong>Pro Tier — 3 Operating Branches (Chikhali, Varvand, Dhad)</strong> • Valid Until: <strong>31-March-2027</strong>
+                    </div>
+                </div>
+                <span style="font-size:22px;">🔒</span>
+            </div>
+
+            <div class="form-grid-2">
+                <div class="form-group">
+                    <label style="font-weight:700; font-size:13px; margin-bottom:5px; display:block;">Commercial License Key *</label>
+                    <input type="text" name="license_key" id="licenseKeyInput" value="{{ settings.license_key or 'RST-PRO-2026-MH3B-89A12F' }}" required
+                           style="width:100%; padding:10px; font-family:monospace; font-weight:700; color:#1e40af; background:#f0f9ff; border:1.5px solid #93c5fd; border-radius:8px; font-size:14px;">
+                </div>
+                <div class="form-group">
+                    <label style="font-weight:700; font-size:13px; margin-bottom:5px; display:block;">License Validity Period</label>
+                    <input type="text" name="license_valid_until" value="{{ settings.license_valid_until or '31-March-2027' }}" readonly
+                           style="width:100%; padding:10px; background:#f8fafc; border:1.5px solid var(--input-border); border-radius:8px; font-size:14px; color:var(--text-muted);">
+                </div>
+            </div>
+        </div>
+
+        <!-- SECTION 3: STAFF CREDENTIAL GENERATOR -->
+        <div style="margin-bottom:28px;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:14px; border-bottom:1.5px solid var(--card-border); padding-bottom:8px;">
+                <span style="font-size:20px;">👥</span>
+                <h2 style="font-size:18px; margin:0; font-weight:800; color:var(--text-primary);">Step 3: Generate Staff Credentials (Accountant & Branch Cashiers)</h2>
+            </div>
+            <p style="font-size:13px; color:var(--text-muted); margin:0 0 16px 0;">
+                Configure the names and initial passwords for your Central Accountant and 1 Cashier/Munim per branch yard.
+            </p>
+
+            <!-- 1. Central Accountant -->
+            <div class="staff-card">
+                <div class="staff-header">
+                    <strong><span>💼</span> Central HQ Accountant</strong>
+                    <span class="badge-pill badge-green">Central Financial Authority</span>
+                </div>
+                <div class="form-grid-3">
+                    <div>
+                        <label style="font-size:12px; font-weight:700; color:var(--text-secondary);">Full Name</label>
+                        <input type="text" name="acc_name" value="{{ accountant.full_name or 'Omprakash Agrawal (Chief Accountant)' }}" required
+                               style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;">
+                    </div>
+                    <div>
+                        <label style="font-size:12px; font-weight:700; color:var(--text-secondary);">Login Username</label>
+                        <input type="text" name="acc_username" value="{{ accountant.username or 'accountant' }}" required
+                               style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; background:#f1f5f9;">
+                    </div>
+                    <div>
+                        <label style="font-size:12px; font-weight:700; color:var(--text-secondary);">Password (Set or Keep Current)</label>
+                        <input type="text" name="acc_password" placeholder="acc123" value="acc123" required
+                               style="width:100%; padding:8px; border:1.5px solid #f59e0b; border-radius:6px; font-size:13px; font-weight:700; color:#b45309;">
+                    </div>
+                </div>
+                <div style="margin-top:8px;">
+                    <label style="font-size:12px; font-weight:700; color:var(--text-secondary);">Mobile Number</label>
+                    <input type="text" name="acc_phone" value="{{ accountant.phone or '9826022222' }}" required
+                           style="width:300px; padding:6px 8px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;">
+                </div>
+            </div>
+
+            <!-- 2. Chikhali Branch Cashier -->
+            <div class="staff-card">
+                <div class="staff-header">
+                    <strong><span>🌾</span> Chikhali Branch — Single Cashier & Munim</strong>
+                    <span class="brand-badge badge-branch">BR-CHK Yard</span>
+                </div>
+                <div class="form-grid-3">
+                    <div>
+                        <label style="font-size:12px; font-weight:700; color:var(--text-secondary);">Cashier & Munim Name</label>
+                        <input type="text" name="chk_name" value="{{ chk_cashier.full_name or 'Santosh V. Patil (Chikhali Lead)' }}" required
+                               style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;">
+                    </div>
+                    <div>
+                        <label style="font-size:12px; font-weight:700; color:var(--text-secondary);">Login Username</label>
+                        <input type="text" name="chk_username" value="{{ chk_cashier.username or 'chikhali_cashier' }}" required
+                               style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; background:#f1f5f9;">
+                    </div>
+                    <div>
+                        <label style="font-size:12px; font-weight:700; color:var(--text-secondary);">Password</label>
+                        <input type="text" name="chk_password" placeholder="chk123" value="chk123" required
+                               style="width:100%; padding:8px; border:1.5px solid #f59e0b; border-radius:6px; font-size:13px; font-weight:700; color:#b45309;">
+                    </div>
+                </div>
+                <div style="margin-top:8px;">
+                    <label style="font-size:12px; font-weight:700; color:var(--text-secondary);">Mobile Number</label>
+                    <input type="text" name="chk_phone" value="{{ chk_cashier.phone or '9826033333' }}" required
+                           style="width:300px; padding:6px 8px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;">
+                </div>
+            </div>
+
+            <!-- 3. Varvand Branch Cashier -->
+            <div class="staff-card">
+                <div class="staff-header">
+                    <strong><span>🌾</span> Varvand Branch — Single Cashier & Munim</strong>
+                    <span class="brand-badge badge-branch">BR-VRV Yard</span>
+                </div>
+                <div class="form-grid-3">
+                    <div>
+                        <label style="font-size:12px; font-weight:700; color:var(--text-secondary);">Cashier & Munim Name</label>
+                        <input type="text" name="vrv_name" value="{{ vrv_cashier.full_name or 'Mohanlal Soni (Varvand Cashier & Munim)' }}" required
+                               style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;">
+                    </div>
+                    <div>
+                        <label style="font-size:12px; font-weight:700; color:var(--text-secondary);">Login Username</label>
+                        <input type="text" name="vrv_username" value="{{ vrv_cashier.username or 'varvand_cashier' }}" required
+                               style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; background:#f1f5f9;">
+                    </div>
+                    <div>
+                        <label style="font-size:12px; font-weight:700; color:var(--text-secondary);">Password</label>
+                        <input type="text" name="vrv_password" placeholder="vrv123" value="vrv123" required
+                               style="width:100%; padding:8px; border:1.5px solid #f59e0b; border-radius:6px; font-size:13px; font-weight:700; color:#b45309;">
+                    </div>
+                </div>
+                <div style="margin-top:8px;">
+                    <label style="font-size:12px; font-weight:700; color:var(--text-secondary);">Mobile Number</label>
+                    <input type="text" name="vrv_phone" value="{{ vrv_cashier.phone or '9826044444' }}" required
+                           style="width:300px; padding:6px 8px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;">
+                </div>
+            </div>
+
+            <!-- 4. Dhad Branch Cashier -->
+            <div class="staff-card">
+                <div class="staff-header">
+                    <strong><span>🌾</span> Dhad Branch — Single Cashier & Munim</strong>
+                    <span class="brand-badge badge-branch">BR-DHD Yard</span>
+                </div>
+                <div class="form-grid-3">
+                    <div>
+                        <label style="font-size:12px; font-weight:700; color:var(--text-secondary);">Cashier & Munim Name</label>
+                        <input type="text" name="dhd_name" value="{{ dhd_cashier.full_name or 'Kailash Tiwari (Dhad Cashier & Munim)' }}" required
+                               style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;">
+                    </div>
+                    <div>
+                        <label style="font-size:12px; font-weight:700; color:var(--text-secondary);">Login Username</label>
+                        <input type="text" name="dhd_username" value="{{ dhd_cashier.username or 'dhad_cashier' }}" required
+                               style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; background:#f1f5f9;">
+                    </div>
+                    <div>
+                        <label style="font-size:12px; font-weight:700; color:var(--text-secondary);">Password</label>
+                        <input type="text" name="dhd_password" placeholder="dhd123" value="dhd123" required
+                               style="width:100%; padding:8px; border:1.5px solid #f59e0b; border-radius:6px; font-size:13px; font-weight:700; color:#b45309;">
+                    </div>
+                </div>
+                <div style="margin-top:8px;">
+                    <label style="font-size:12px; font-weight:700; color:var(--text-secondary);">Mobile Number</label>
+                    <input type="text" name="dhd_phone" value="{{ dhd_cashier.phone or '9826055555' }}" required
+                           style="width:300px; padding:6px 8px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;">
+                </div>
+            </div>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; padding-top:20px; border-top:1.5px solid var(--card-border);">
+            <div style="font-size:12.5px; color:var(--text-muted);">
+                🔒 All passwords are automatically salted and hashed via SHA-256 before storage.
+            </div>
+            <button type="submit" class="btn btn-primary" style="padding:12px 28px; font-size:15px; font-weight:800; background:var(--admin-gradient);">
+                💾 Activate License & Generate All Staff Credentials
+            </button>
+        </div>
+    </form>
+</div>
+
+</body>
+</html>

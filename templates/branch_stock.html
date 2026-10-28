@@ -61,8 +61,7 @@
             </select>
             <a href="/branch/dashboard?branch_id={{ current_branch.id }}" class="nav-pill" style="background:#d97706; color:#fff; font-weight:700;">← Yard Desk</a>
             <a href="/branch/settings?branch_id={{ current_branch.id }}" class="nav-pill">⚙️ Settings</a>
-            <a href="/admin/dashboard" class="nav-pill">Super Admin</a>
-            <a href="/accounts/dashboard" class="nav-pill">Accounts Desk</a>
+            <a href="/logout" class="nav-pill" style="color:#ef4444; border-color:#fecaca;">🚪 Logout</a>
         </div>
     </header>
 
@@ -210,7 +209,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {% for cs in commodity_stocks %}
+                        {% for cs in active_stocks %}
                         <tr>
                             <td><strong>{{ cs.icon }} {{ cs.name }}</strong></td>
                             <td><code>{{ cs.hsn_code }}</code></td>
@@ -220,11 +219,13 @@
                             <td style="text-align:right; font-weight:700; color:#d97706;">₹{{ "{:,.2f}".format(cs.avg_buying_price) }}</td>
                             <td style="text-align:right; font-weight:800; color:#0f172a;">₹{{ "{:,.2f}".format(cs.stock_valuation) }}</td>
                             <td style="text-align:center;">
-                                {% if cs.net_stock_qtl > 0 %}
                                 <span class="badge-pill badge-green">Ready in Yard</span>
-                                {% else %}
-                                <span class="badge-pill badge-gray">Nil Stock</span>
-                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="8" style="text-align:center; padding:24px; color:var(--text-muted); font-size:13.5px;">
+                                🌾 Zero physical stock in yard. In-stock commodities will appear automatically.
                             </td>
                         </tr>
                         {% endfor %}

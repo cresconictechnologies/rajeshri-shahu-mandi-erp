@@ -1233,8 +1233,9 @@
     </div>
 
     <!-- JAVASCRIPT LOGIC -->
+    <script type="application/json" id="daily-rates-data">{{ daily_rates_json | safe }}</script>
     <script>
-        const dailyRates = {{ daily_rates_json | safe }};
+        const dailyRates = JSON.parse(document.getElementById('daily-rates-data').textContent || '{}');
         let currentTargetPayout = 0;
         let currentExactPayable = 0;
 

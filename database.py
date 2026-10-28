@@ -262,7 +262,9 @@ def init_db():
     CREATE INDEX IF NOT EXISTS idx_audit_branch ON audit_change_logs(branch_id);
     """)
 
-    # Safe migrations for columns in outward_orders
+    # Safe migrations for columns in outward_orders using PRAGMA inspection
+    cur.execute("PRAGMA table_info(outward_orders);")
+    existing_outward_cols = {row['name'] for row in cur.fetchall()}
     for col, definition in [
         ("payment_status", "TEXT DEFAULT 'PENDING'"),
         ("payment_mode", "TEXT"),
@@ -272,12 +274,12 @@ def init_db():
         ("payment_received_by", "TEXT"),
         ("payment_notes", "TEXT")
     ]:
-        try:
+        if col not in existing_outward_cols:
             cur.execute(f"ALTER TABLE outward_orders ADD COLUMN {col} {definition}")
-        except Exception:
-            pass
 
-    # Safe migrations for columns in purchase_invoices
+    # Safe migrations for columns in purchase_invoices using PRAGMA inspection
+    cur.execute("PRAGMA table_info(purchase_invoices);")
+    existing_invoice_cols = {row['name'] for row in cur.fetchall()}
     for col, definition in [
         ("inspector_name", "TEXT"),
         ("rate_override_status", "TEXT DEFAULT 'NONE'"),
@@ -292,10 +294,8 @@ def init_db():
         ("rtgs_completed_at", "TEXT"),
         ("rtgs_completed_by", "TEXT")
     ]:
-        try:
+        if col not in existing_invoice_cols:
             cur.execute(f"ALTER TABLE purchase_invoices ADD COLUMN {col} {definition}")
-        except Exception:
-            pass
 
     # Check if branches exist, otherwise seed initial master data
     cur.execute("SELECT count(*) as cnt FROM branches")

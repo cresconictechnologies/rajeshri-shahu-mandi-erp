@@ -357,7 +357,7 @@ def init_db():
         name TEXT UNIQUE NOT NULL,
         hsn_code TEXT NOT NULL,
         standard_moisture_pct REAL DEFAULT 10.0,
-        mandi_cess_pct REAL DEFAULT 1.5,
+        mandi_cess_pct REAL DEFAULT 0.0,
         is_active INTEGER DEFAULT 1,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
@@ -500,17 +500,20 @@ def init_db():
     cur.execute("SELECT count(*) as cnt FROM commodities")
     if cur.fetchone()['cnt'] == 0:
         commodities = [
-            ("c-soya", "Soyabean (Yellow)", "1201", 10.0, 1.5),
-            ("c-cotton", "Cotton / Kapas (कापूस)", "5201", 8.0, 1.5),
-            ("c-tur", "Tur / Arhar (तूर)", "0713", 10.0, 1.5),
-            ("c-chana", "Chana (Desi) / Harbhara (हरभरा)", "0713", 10.0, 1.5),
-            ("c-wheat", "Wheat (Lokwan)", "1001", 10.0, 1.5),
-            ("c-mustard", "Mustard (Rayda)", "1205", 9.0, 1.5),
-            ("c-maize", "Maize (Makka)", "1005", 12.0, 1.5),
-            ("c-moong", "Moong (Green Gram)", "0713", 10.0, 1.5),
-            ("c-urad", "Urad (Black Gram)", "0713", 10.0, 1.5)
+            ("c-soya", "Soyabean (Yellow)", "1201", 10.0, 0.0),
+            ("c-cotton", "Cotton / Kapas (कापूस)", "5201", 8.0, 0.0),
+            ("c-tur", "Tur / Arhar (तूर)", "0713", 10.0, 0.0),
+            ("c-chana", "Chana (Desi) / Harbhara (हरभरा)", "0713", 10.0, 0.0),
+            ("c-wheat", "Wheat (Lokwan)", "1001", 10.0, 0.0),
+            ("c-mustard", "Mustard (Rayda)", "1205", 9.0, 0.0),
+            ("c-maize", "Maize (Makka)", "1005", 12.0, 0.0),
+            ("c-moong", "Moong (Green Gram)", "0713", 10.0, 0.0),
+            ("c-urad", "Urad (Black Gram)", "0713", 10.0, 0.0)
         ]
         cur.executemany("INSERT INTO commodities (id, name, hsn_code, standard_moisture_pct, mandi_cess_pct) VALUES (?,?,?,?,?)", commodities)
+    else:
+        # Zero out mandi cess across existing commodities
+        cur.execute("UPDATE commodities SET mandi_cess_pct = 0.0 WHERE mandi_cess_pct != 0.0")
 
     # Seed statutory APMC calculation settings (Application Master Configuration) if empty
     cur.execute("SELECT count(*) as cnt FROM system_settings WHERE scope='CENTRAL_ACCOUNTS'")

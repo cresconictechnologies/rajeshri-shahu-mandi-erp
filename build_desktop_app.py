@@ -3,12 +3,9 @@ import sys
 import subprocess
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
-pyinstaller_exe = os.path.expandvars(r"%LOCALAPPDATA%\Python\pythoncore-3.14-64\Scripts\pyinstaller.exe")
-if not os.path.exists(pyinstaller_exe):
-    pyinstaller_exe = "pyinstaller"
 
 cmd = [
-    pyinstaller_exe,
+    sys.executable, "-m", "PyInstaller",
     "--noconfirm",
     "--onedir",
     "--windowed",
@@ -38,4 +35,11 @@ cmd = [
 print("Executing command:")
 print(" ".join(cmd))
 res = subprocess.run(cmd, cwd=current_dir)
+if res.returncode == 0:
+    import shutil
+    dist_dir = os.path.join(current_dir, "dist", "Rajeshri_Shahu_Mandi_ERP")
+    zip_target = os.path.join(current_dir, "dist", "Rajeshri_Shahu_Mandi_ERP_v2.6_Windows_x64")
+    print(f"Creating release archive: {zip_target}.zip ...")
+    shutil.make_archive(zip_target, "zip", dist_dir)
+    print(f"Successfully packaged: {zip_target}.zip")
 sys.exit(res.returncode)

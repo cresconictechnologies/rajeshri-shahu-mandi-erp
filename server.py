@@ -839,7 +839,7 @@ def api_admin_add_commodity(
     name: str = Form(...),
     hsn_code: str = Form(...),
     standard_moisture_pct: float = Form(10.0),
-    mandi_cess_pct: float = Form(1.5)
+    mandi_cess_pct: float = Form(0.0)
 ):
     require_role(request, ["SUPER_ADMIN", "ACCOUNTANT_HQ"])
     cid = f"c-{uuid.uuid4().hex[:6]}"

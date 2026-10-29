@@ -126,7 +126,7 @@
                         Click a commodity card to load daily rates, quality moisture thresholds, and farmer hamali rules
                     </p>
                 </div>
-                <span class="badge-pill badge-green">Farmer Hamali: ₹25 / 100 Kg • Mandi Cess: 0%</span>
+                <span class="badge-pill badge-green">Farmer Hamali: ₹25 / 100 Kg</span>
             </div>
 
             <div class="commodity-cards-grid">
@@ -457,14 +457,10 @@
                         <span id="disp_gross_amount" style="font-weight:700;">₹1,60,308.75</span>
                     </div>
 
-                    <!-- MANDI CHARGES: HAMALI ONLY (NO CESS) -->
+                    <!-- MANDI CHARGES: HAMALI ONLY -->
                     <div class="calc-row">
                         <span>Farmer Hamali (₹25 / 100 Kg):</span>
                         <span id="disp_hamali_deduction" style="color:#dc2626; font-weight:700;">-₹861.88</span>
-                    </div>
-                    <div class="calc-row" style="font-size:11.5px; color:#64748b;">
-                        <span>Mandi Cess:</span>
-                        <span style="color:#15803d; font-weight:700;">₹0.00 (Exempt)</span>
                     </div>
 
                     <div class="calc-row" style="font-size:17px; font-weight:800; color:#0f172a; border-top:2px solid #e2e8f0; margin-top:6px; padding-top:10px;">
@@ -483,7 +479,7 @@
                     <div style="font-size:12.5px; color:var(--text-muted); line-height:1.6; font-weight:600;">
                         • <strong>Cash Drawer Closing:</strong> ₹{{ "{:,.2f}".format(drawer.calculated_closing_cash) }}<br>
                         • <strong>Section 269ST:</strong> Strict ₹1,99,999 cash ceiling. Payouts &ge; ₹2,00,000 auto-switch to RTGS.<br>
-                        • <strong>Hamali Rule:</strong> Strictly ₹25 per 100 Kg produce deducted from farmer. No cess.<br>
+                        • <strong>Hamali Rule:</strong> Strictly ₹25 per 100 Kg produce deducted from farmer.<br>
                         • <strong>Token Parchi:</strong> Generated immediately with security stamp.
                     </div>
                 </div>

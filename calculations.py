@@ -74,7 +74,7 @@ def calculate_inward_invoice(
     tulai_charge = round(bag_count * tulai_rate_per_bag, 2)
     silai_charge = round(bag_count * silai_rate_per_bag, 2)
     bardana_deduction = round(bag_count * bardana_rate_per_bag, 2)
-    mandi_cess_amount = round(gross_amount * (mandi_cess_percentage / 100.0), 2)
+    mandi_cess_amount = 0.0  # Mandi cess removed across entire software
 
     # 7. Advance Loan & Interest
     advance_deducted = round(max(0.0, advance_to_deduct), 2)
@@ -88,7 +88,7 @@ def calculate_inward_invoice(
     tds_194q_amount = round(gross_amount * (tds_194q_percentage / 100.0), 2)
 
     # 9. Total Deductions & Net Payable
-    total_mandi_deductions = round(hamali_charge + tulai_charge + silai_charge + bardana_deduction + mandi_cess_amount, 2)
+    total_mandi_deductions = round(hamali_charge + tulai_charge + silai_charge + bardana_deduction, 2)
     total_loan_deductions = round(advance_deducted + interest_adjusted, 2)
     
     net_payable_amount = round(

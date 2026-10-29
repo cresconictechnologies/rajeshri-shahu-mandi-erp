@@ -1,16 +1,17 @@
 """
 Rajeshri Shahu Trading — Mandi ERP Desktop Application Launcher
-Packages local FastAPI Mandi server with a dedicated standalone native desktop window.
+Runs embedded Uvicorn server in background thread and presents
+a 100% native standalone Windows GUI window via pywebview (WebView2).
+Zero external Chrome or browser popups.
 """
 
 import sys
 import os
 import time
 import threading
-import subprocess
-import webbrowser
 import socket
 import urllib.request
+import webview
 
 APP_TITLE = "Rajeshri Shahu Trading — Mandi ERP"
 PORT = 8080
@@ -25,74 +26,66 @@ def wait_for_server(url, timeout=15):
     while time.time() - start < timeout:
         try:
             with urllib.request.urlopen(url, timeout=1) as response:
-                if response.status == 200:
+                if response.status in (200, 303, 307):
                     return True
         except Exception:
-            time.sleep(0.4)
+            time.sleep(0.3)
     return False
 
 def start_server():
-    # Import and run server inside thread if not already running
     import uvicorn
     from server import app
     print(f"Starting embedded Mandi ERP server on port {PORT}...")
     uvicorn.run(app, host="127.0.0.1", port=PORT, log_level="warning")
 
-def launch_native_window(url):
-    # Try Chrome App Mode first (looks like native desktop application without URL bar)
-    chrome_paths = [
-        os.path.expandvars(r"%ProgramFiles%\Google\Chrome\Application\chrome.exe"),
-        os.path.expandvars(r"%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe"),
-        os.path.expandvars(r"%LocalAppData%\Google\Chrome\Application\chrome.exe")
-    ]
-    for cp in chrome_paths:
-        if os.path.exists(cp):
-            try:
-                subprocess.Popen([cp, f"--app={url}", "--window-size=1366,850"])
-                return
-            except Exception:
-                pass
-
-    # Try Edge App Mode (default on all Windows 10/11 PCs)
-    edge_paths = [
-        os.path.expandvars(r"%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe"),
-        os.path.expandvars(r"%ProgramFiles%\Microsoft\Edge\Application\msedge.exe")
-    ]
-    for ep in edge_paths:
-        if os.path.exists(ep):
-            try:
-                subprocess.Popen([ep, f"--app={url}", "--window-size=1366,850"])
-                return
-            except Exception:
-                pass
-
-    # Fallback to system default browser
-    webbrowser.open(url)
+def on_closed():
+    print("Window closed by user. Terminating Mandi ERP desktop application.")
+    os._exit(0)
 
 def main():
     print("=" * 60)
     print("  " + APP_TITLE)
-    print("  Enterprise Multi-Branch Mandi & Commodity Procurement ERP")
+    print("  Standalone Multi-Branch Mandi & Commodity Procurement ERP")
     print("=" * 60)
 
+    # 1. Start local embedded engine if not already active
     if not is_port_in_use(PORT):
         server_thread = threading.Thread(target=start_server, daemon=True)
         server_thread.start()
         print("Waiting for local Mandi engine to initialize...")
-        if not wait_for_server(TARGET_URL):
-            print("Server took longer than expected to start. Launching window anyway...")
+        wait_for_server(TARGET_URL)
     else:
-        print(f"Mandi ERP engine is already active on port {PORT}.")
+        print(f"Mandi ERP engine is active on port {PORT}.")
 
-    print(f"Opening native application window ({TARGET_URL})...")
-    launch_native_window(TARGET_URL)
+    # 2. Launch true native desktop window (no Chrome, no external browser)
+    print(f"Launching native application window ({TARGET_URL})...")
+    
+    # Configure webview settings
+    webview.settings['ALLOW_DOWNLOADS'] = True
+    webview.settings['ALLOW_FILE_URLS'] = True
+    
+    window = webview.create_window(
+        title=APP_TITLE,
+        url=TARGET_URL,
+        width=1366,
+        height=850,
+        min_size=(1024, 680),
+        confirm_close=False,
+        text_select=True,
+        zoomable=True
+    )
+    window.events.closed += on_closed
 
-    # Keep background process alive
     try:
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        print("Closing Mandi ERP...")
+        # Uses Windows native Edge WebView2 runtime embedded in a native WinForms window
+        webview.start(gui="edgechromium")
+    except Exception as e:
+        print(f"Native WebView2 start failed: {e}. Attempting default native gui...")
+        try:
+            webview.start()
+        except Exception as e2:
+            print(f"GUI launch error: {e2}")
+            os._exit(1)
 
 if __name__ == "__main__":
     main()

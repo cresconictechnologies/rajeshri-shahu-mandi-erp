@@ -5,28 +5,26 @@ Verifies Card-First UI, Light-to-Colourful Theme, Typography, Responsiveness, an
 
 import os
 import re
+import sys
 import unittest
-import urllib.request
+from fastapi.testclient import TestClient
 
-BASE_URL = "http://127.0.0.1:8080"
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from server import app
 
 class TestMandiDesignAudit(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        client = TestClient(app)
         cls.pages = {
-            "hub": cls._fetch("/?hub=1"),
-            "admin": cls._fetch("/admin/dashboard"),
-            "accounts": cls._fetch("/accounts/dashboard"),
-            "branch": cls._fetch("/branch/dashboard?branch_id=br-chikhali"),
+            "hub": client.get("/?hub=1").text,
+            "admin": client.get("/admin/dashboard").text,
+            "accounts": client.get("/accounts/dashboard").text,
+            "branch": client.get("/branch/dashboard?branch_id=br-chikhali").text,
         }
-        with open("static/theme.css", "r", encoding="utf-8") as f:
+        with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "static", "theme.css"), "r", encoding="utf-8") as f:
             cls.css = f.read()
-
-    @staticmethod
-    def _fetch(endpoint):
-        with urllib.request.urlopen(f"{BASE_URL}{endpoint}") as res:
-            return res.read().decode("utf-8")
 
     def test_01_all_pages_link_to_master_theme_css(self):
         """Every portal must link to the single unified static/theme.css stylesheet."""

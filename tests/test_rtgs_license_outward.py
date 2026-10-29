@@ -10,7 +10,14 @@ import unittest
 from fastapi.testclient import TestClient
 import sqlite3
 import os
+import sys
 import hashlib
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from tests.test_support import setup_test_database
+setup_test_database()
+
 from server import app, create_session_token
 from database import DB_PATH, get_connection, verify_password
 

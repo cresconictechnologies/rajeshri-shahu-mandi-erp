@@ -10,6 +10,8 @@ venv/
 instance_secret.key
 *_backup*.db
 *.bak
+*.db-wal
+*.db-shm
 vendor_license_issuer.py
 
 build/

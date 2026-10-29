@@ -58,6 +58,10 @@ from calculations import (
     validate_cash_denominations
 )
 
+# Security guardrail: reject test database override in production mode
+if os.environ.get("MANDI_ERP_ENV", "").lower() == "production" and os.environ.get("MANDI_TEST_DB_PATH"):
+    raise RuntimeError("CRITICAL SECURITY ERROR: Test database override (MANDI_TEST_DB_PATH) is strictly prohibited in production mode.")
+
 app = FastAPI(
     title="Mandi & Commodity Procurement ERP",
     version="1.0.0",
@@ -283,11 +287,11 @@ def setup_view(request: Request):
 
         return templates.TemplateResponse(request=request, name="setup.html", context={
             "settings": settings,
-            "owner": owner,
-            "accountant": accountant,
-            "chk_cashier": chk_cashier,
-            "vrv_cashier": vrv_cashier,
-            "dhd_cashier": dhd_cashier,
+            "owner": dict(owner) if owner else {},
+            "accountant": dict(accountant) if accountant else {},
+            "chk_cashier": dict(chk_cashier) if chk_cashier else {},
+            "vrv_cashier": dict(vrv_cashier) if vrv_cashier else {},
+            "dhd_cashier": dict(dhd_cashier) if dhd_cashier else {},
             "success_msg": None,
             "generated_creds": None
         })
@@ -369,29 +373,46 @@ def setup_post(
                 ON CONFLICT(scope, scope_id, setting_key) DO UPDATE SET setting_value=excluded.setting_value, updated_at=CURRENT_TIMESTAMP
             """, (k, v))
 
-        # Update Owner
-        if owner_password and owner_password.strip():
-            cur.execute("UPDATE users SET full_name=?, username=?, phone=?, password_hash=? WHERE role='SUPER_ADMIN'",
-                        (owner_name.strip(), owner_username.strip(), owner_phone.strip(), hash_password(owner_password.strip())))
-        else:
-            cur.execute("UPDATE users SET full_name=?, username=?, phone=? WHERE role='SUPER_ADMIN'",
-                        (owner_name.strip(), owner_username.strip(), owner_phone.strip()))
+        # Ensure licensed branch records exist up to max_branches
+        branch_definitions = [
+            ("br-chikhali", "BR-CHK", "Chikhali Branch", "MH/CHK/APMC-101", "APMC Market Yard, Chikhali (Buldhana)", "07264-242110"),
+            ("br-varvand", "BR-VRV", "Varvand Branch", "MH/VRV/APMC-202", "Station Road, Varvand (Pune)", "02119-251220"),
+            ("br-dhad", "BR-DHD", "Dhad Branch", "MH/DHD/APMC-303", "Main Market Yard, Dhad (Buldhana)", "07267-233330"),
+        ]
+        for b_id, b_code, b_name, b_lic, b_addr, b_phone in branch_definitions[:max_branches]:
+            cur.execute("""
+                INSERT INTO branches (id, branch_code, name, mandi_license_no, address, phone, is_active)
+                VALUES (?, ?, ?, ?, ?, ?, 1)
+                ON CONFLICT(id) DO UPDATE SET is_active=1
+            """, (b_id, b_code, b_name, b_lic, b_addr, b_phone))
 
-        # Update Accountant
-        cur.execute("UPDATE users SET full_name=?, username=?, phone=?, password_hash=? WHERE role='ACCOUNTANT_HQ'",
-                    (acc_name.strip(), acc_username.strip(), acc_phone.strip(), hash_password(acc_password.strip())))
+        # Helper to create or update staff members securely
+        def provision_staff_user(user_id, branch_id, username, raw_password, full_name, phone, role):
+            pwd_hash = hash_password(raw_password) if (raw_password and raw_password.strip()) else None
+            cur.execute("SELECT id, password_hash FROM users WHERE role = ? AND (branch_id = ? OR (branch_id IS NULL AND ? IS NULL))", (role, branch_id, branch_id))
+            existing = cur.fetchone()
+            if existing:
+                final_hash = pwd_hash if pwd_hash else existing["password_hash"]
+                cur.execute("""
+                    UPDATE users SET username=?, full_name=?, phone=?, password_hash=?, branch_id=?, is_active=1
+                    WHERE id=?
+                """, (username.strip(), full_name.strip(), phone.strip(), final_hash, branch_id, existing["id"]))
+            else:
+                if not pwd_hash:
+                    pwd_hash = hash_password("admin123" if role == "SUPER_ADMIN" else "staff123")
+                cur.execute("""
+                    INSERT INTO users (id, branch_id, username, password_hash, full_name, phone, role, is_active)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+                """, (user_id, branch_id, username.strip(), pwd_hash, full_name.strip(), phone.strip(), role))
 
-        # Update Chikhali Cashier
-        cur.execute("UPDATE users SET full_name=?, username=?, phone=?, password_hash=? WHERE role='BRANCH_CASHIER' AND branch_id='br-chikhali'",
-                    (chk_name.strip(), chk_username.strip(), chk_phone.strip(), hash_password(chk_password.strip())))
-
-        # Update Varvand Cashier
-        cur.execute("UPDATE users SET full_name=?, username=?, phone=?, password_hash=? WHERE role='BRANCH_CASHIER' AND branch_id='br-varvand'",
-                    (vrv_name.strip(), vrv_username.strip(), vrv_phone.strip(), hash_password(vrv_password.strip())))
-
-        # Update Dhad Cashier
-        cur.execute("UPDATE users SET full_name=?, username=?, phone=?, password_hash=? WHERE role='BRANCH_CASHIER' AND branch_id='br-dhad'",
-                    (dhd_name.strip(), dhd_username.strip(), dhd_phone.strip(), hash_password(dhd_password.strip())))
+        # Provision Owner and Staff
+        provision_staff_user("u-admin", None, owner_username, owner_password, owner_name, owner_phone, "SUPER_ADMIN")
+        provision_staff_user("u-accountant", None, acc_username, acc_password, acc_name, acc_phone, "ACCOUNTANT_HQ")
+        provision_staff_user("u-indore-cashier", "br-chikhali", chk_username, chk_password, chk_name, chk_phone, "BRANCH_CASHIER")
+        if max_branches >= 2:
+            provision_staff_user("u-ujjain-cashier", "br-varvand", vrv_username, vrv_password, vrv_name, vrv_phone, "BRANCH_CASHIER")
+        if max_branches >= 3:
+            provision_staff_user("u-dewas-cashier", "br-dhad", dhd_username, dhd_password, dhd_name, dhd_phone, "BRANCH_CASHIER")
 
         conn.commit()
 

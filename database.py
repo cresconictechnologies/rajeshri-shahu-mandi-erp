@@ -12,27 +12,52 @@ import hmac
 import uuid
 from datetime import date, datetime, timezone, timedelta
 
-if getattr(sys, 'frozen', False):
-    _APP_DIR = os.path.dirname(sys.executable)
-    _MEIPASS_DIR = getattr(sys, '_MEIPASS', _APP_DIR)
-    DB_PATH = os.path.join(_APP_DIR, "commodity_mandi.db")
-    if not os.path.exists(DB_PATH):
-        _bundled = os.path.join(_MEIPASS_DIR, "commodity_mandi.db")
-        if os.path.exists(_bundled):
-            try:
-                shutil.copy2(_bundled, DB_PATH)
-            except OSError as _copy_err:
-                sys.stderr.write(f"Notice: using default db initialization: {_copy_err}\n")
-else:
-    _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    DB_PATH = os.path.join(_BASE_DIR, "commodity_mandi.db")
+def get_db_path() -> str:
+    """
+    Authoritative resolution of the SQLite database path.
+    Enforces strict security guardrails:
+    - In frozen executable or production mode (MANDI_ERP_ENV=production), test database override is strictly forbidden.
+    - In development/test mode, MANDI_TEST_DB_PATH redirects all operations to an isolated test database.
+    """
+    is_frozen = getattr(sys, 'frozen', False)
+    is_prod = os.environ.get("MANDI_ERP_ENV", "").lower() == "production"
+    test_db = os.environ.get("MANDI_TEST_DB_PATH")
 
-def get_connection():
-    conn = sqlite3.connect(DB_PATH, timeout=15.0)
+    if test_db:
+        if is_frozen or is_prod:
+            raise RuntimeError("CRITICAL SECURITY ERROR: Test database override (MANDI_TEST_DB_PATH) is strictly forbidden in production or frozen executable.")
+        return os.path.abspath(test_db)
+
+    if is_frozen:
+        _APP_DIR = os.path.dirname(sys.executable)
+        _MEIPASS_DIR = getattr(sys, '_MEIPASS', _APP_DIR)
+        db_path = os.path.join(_APP_DIR, "commodity_mandi.db")
+        if not os.path.exists(db_path):
+            _bundled = os.path.join(_MEIPASS_DIR, "commodity_mandi.db")
+            if os.path.exists(_bundled):
+                try:
+                    shutil.copy2(_bundled, db_path)
+                except OSError as _copy_err:
+                    sys.stderr.write(f"Notice: using default db initialization: {_copy_err}\n")
+        return db_path
+
+    _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(_BASE_DIR, "commodity_mandi.db")
+
+
+def get_connection(db_path: str = None):
+    target_path = db_path or get_db_path()
+    conn = sqlite3.connect(target_path, timeout=15.0)
     conn.execute("PRAGMA journal_mode = WAL;")
     conn.execute("PRAGMA foreign_keys = ON;")
     conn.row_factory = sqlite3.Row
     return conn
+
+
+def __getattr__(name: str):
+    if name == "DB_PATH":
+        return get_db_path()
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
 
 def hash_password(pwd: str) -> str:
     """Cryptographic password hashing with 600,000 PBKDF2-HMAC-SHA256 iterations and per-user 16-byte random salt."""
@@ -471,12 +496,7 @@ def init_db():
         if col not in existing_invoice_cols:
             cur.execute(f"ALTER TABLE purchase_invoices ADD COLUMN {col} {definition}")
 
-    # Check if branches exist, otherwise seed initial master data
-    cur.execute("SELECT count(*) as cnt FROM branches")
-    if cur.fetchone()['cnt'] == 0:
-        seed_initial_data(cur)
-
-    # Seed commodities if empty
+    # Seed statutory commodities master data (Application Master Configuration) if empty
     cur.execute("SELECT count(*) as cnt FROM commodities")
     if cur.fetchone()['cnt'] == 0:
         commodities = [
@@ -492,90 +512,50 @@ def init_db():
         ]
         cur.executemany("INSERT INTO commodities (id, name, hsn_code, standard_moisture_pct, mandi_cess_pct) VALUES (?,?,?,?,?)", commodities)
 
-    # Seed inspectors if empty
-    cur.execute("SELECT count(*) as cnt FROM inspectors")
+    # Seed statutory APMC calculation settings (Application Master Configuration) if empty
+    cur.execute("SELECT count(*) as cnt FROM system_settings WHERE scope='CENTRAL_ACCOUNTS'")
     if cur.fetchone()['cnt'] == 0:
-        inspectors = [
-            ("ins-1", None, "Mahesh Patidar", "Chief Assayer & Quality Lead", "9826011111"),
-            ("ins-2", None, "Suresh Yadav", "Mandi Certified Inspector", "9826022222"),
-            ("ins-3", "br-indore", "Babulal Meena", "Indore Yard Sampler", "9826033333"),
-            ("ins-4", "br-ujjain", "Govind Solanki", "Ujjain Quality Inspector", "9826044444"),
-            ("ins-5", "br-dewas", "Narayan Sharma", "Dewas Assayer", "9826055555"),
-        ]
-        cur.executemany("INSERT INTO inspectors (id, branch_id, name, designation, phone) VALUES (?,?,?,?,?)", inspectors)
-
-    # Seed system settings if empty
-    cur.execute("SELECT count(*) as cnt FROM system_settings")
-    if cur.fetchone()['cnt'] == 0:
-        default_settings = [
-            # Super Admin
-            ("SUPER_ADMIN", "GLOBAL", "org_name", "Rajeshri Shahu Trading"),
-            ("SUPER_ADMIN", "GLOBAL", "org_pan", "AACCK1234F"),
-            ("SUPER_ADMIN", "GLOBAL", "org_gstin", "23AACCK1234F1Z5"),
-            ("SUPER_ADMIN", "GLOBAL", "fiscal_year", "2026-2027"),
-            ("SUPER_ADMIN", "GLOBAL", "multi_branch_sync", "ENABLED"),
-            ("SUPER_ADMIN", "GLOBAL", "audit_retention_days", "365"),
-            ("SUPER_ADMIN", "GLOBAL", "license_status", "Active (Pro Tier - 3 Branches)"),
-            ("SUPER_ADMIN", "GLOBAL", "license_valid_until", "31-March-2027"),
-            ("SUPER_ADMIN", "GLOBAL", "license_key", "RST-PRO-2026-MH3B-89A12F"),
-            ("SUPER_ADMIN", "GLOBAL", "license_tier", "Pro Tier (3 Branches: Chikhali, Varvand, Dhad)"),
-            ("SUPER_ADMIN", "GLOBAL", "license_branch_limit", "3"),
-            # Central Accounts
+        statutory_settings = [
+            # Central Accounts statutory parameters
             ("CENTRAL_ACCOUNTS", "GLOBAL", "sec_269st_cash_limit", "199999"),
             ("CENTRAL_ACCOUNTS", "GLOBAL", "sec_40a3_cash_limit", "10000"),
             ("CENTRAL_ACCOUNTS", "GLOBAL", "corridor_tolerance_pct", "5.0"),
             ("CENTRAL_ACCOUNTS", "GLOBAL", "rtgs_auto_sms", "ENABLED"),
-            ("CENTRAL_ACCOUNTS", "GLOBAL", "default_bank_account", "State Bank of India (A/C: 40992388112)"),
-            # Branch (Global template)
+            # Branch global defaults
             ("BRANCH", "GLOBAL", "default_weighment_mode", "MANUAL_YARD"),
-            ("BRANCH", "GLOBAL", "parchi_gate_no", "Gate No. 2"),
+            ("BRANCH", "GLOBAL", "parchi_gate_no", "Gate No. 1"),
             ("BRANCH", "GLOBAL", "auto_print_parchi", "ENABLED"),
-            ("BRANCH", "GLOBAL", "cash_drawer_warning_limit", "50000")
+            ("BRANCH", "GLOBAL", "cash_drawer_warning_limit", "50000"),
+            # Super Admin setup flag (0 indicates first-run setup required)
+            ("SUPER_ADMIN", "GLOBAL", "is_setup_completed", "0"),
         ]
-        cur.executemany("INSERT OR IGNORE INTO system_settings (scope, scope_id, setting_key, setting_value) VALUES (?,?,?,?)", default_settings)
-
-    # Ensure commercial license token is initialized in system_settings
-    cur.execute("SELECT setting_value FROM system_settings WHERE scope='SUPER_ADMIN' AND setting_key='license_token'")
-    if not cur.fetchone():
-        try:
-            from licensing import DEFAULT_COMMERCIAL_LICENSE_TOKEN
-            cur.execute("""
-                INSERT OR REPLACE INTO system_settings (scope, scope_id, setting_key, setting_value, updated_at)
-                VALUES ('SUPER_ADMIN', 'GLOBAL', 'license_token', ?, CURRENT_TIMESTAMP)
-            """, (DEFAULT_COMMERCIAL_LICENSE_TOKEN,))
-        except Exception as _lic_init_err:
-            sys.stderr.write(f"Notice: license token initialization deferred: {_lic_init_err}\n")
-
-    # Seed default buyer companies/traders if none exist
-    cur.execute("SELECT count(*) as cnt FROM parties WHERE party_type='BUYER'")
-    if cur.fetchone()['cnt'] == 0:
-        sample_buyers = [
-            ("p-buyer-1", "br-indore", "Adani Wilmar Ltd.", "9827088881", "BUYER", "Pithampur Industrial Area, Sector 3, Dhar", "AAACA1234F", None, "23AAACA1234F1Z1", "Anand Sharma (Commercial)", "State Bank of India", "30987654399", "SBIN0004567", 0.0, 0.0),
-            ("p-buyer-2", "br-indore", "Ruchi Soya Industries (Patanjali)", "9827099992", "BUYER", "Manglia Depot, AB Road, Indore", "AAACR5678P", None, "23AAACR5678P1Z8", "Sunil Jain (Purchase)", "ICICI Bank", "012305009999", "ICIC0000456", 0.0, 0.0),
-            ("p-buyer-3", "br-ujjain", "ITC Limited (Choupal Sagar)", "9827012343", "BUYER", "Maksi Road Mandi Bypass, Ujjain", "AAACI9012T", None, "23AAACI9012T1Z4", "Vikram Rathore (Yard Lead)", "HDFC Bank", "50200098765432", "HDFC0000789", 0.0, 0.0),
-            ("p-buyer-4", "br-dewas", "Godrej Agrovet Ltd.", "9827023454", "BUYER", "Industrial Area No. 1, Dewas", "AAACG3456K", None, "23AAACG3456K1Z3", "Pradeep Malviya (Manager)", "Axis Bank", "918020098765432", "UTIB0000189", 0.0, 0.0),
-            ("p-buyer-5", "br-indore", "Kargil India Pvt Ltd", "9827034565", "BUYER", "Sanwer Industrial Area, Indore", "AAACK7890L", None, "23AAACK7890L1Z6", "Rajendra Varma (Agri Sourcing)", "Punjab National Bank", "4098001500012", "PUNB0409800", 0.0, 0.0),
-        ]
-        cur.executemany("""
-        INSERT OR IGNORE INTO parties (id, home_branch_id, name, phone, party_type, village, pan_number, aadhaar_number, gstin, khasra_record_no, bank_name, bank_account_no, bank_ifsc, current_advance, advance_interest_rate)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-        """, sample_buyers)
+        cur.executemany("INSERT OR IGNORE INTO system_settings (scope, scope_id, setting_key, setting_value) VALUES (?,?,?,?)", statutory_settings)
 
     conn.commit()
     conn.close()
 
-def seed_initial_data(cur):
+def seed_test_fixtures(conn=None):
+    """
+    Deterministic test fixture initialization for the isolated test database.
+    Used ONLY in development and CI automated tests. NEVER called in production.
+    """
+    close_conn = False
+    if conn is None:
+        conn = get_connection()
+        close_conn = True
+
+    cur = conn.cursor()
     today_str = date.today().isoformat()
 
-    # 1. Seed 3 Branches
+    # 1. Test Branches
     branches = [
         ("br-chikhali", "BR-CHK", "Chikhali Branch", "MH/CHK/APMC-101", "APMC Market Yard, Chikhali (Buldhana)", "07264-242110"),
         ("br-varvand", "BR-VRV", "Varvand Branch", "MH/VRV/APMC-202", "Station Road, Varvand (Pune)", "02119-251220"),
         ("br-dhad", "BR-DHD", "Dhad Branch", "MH/DHD/APMC-303", "Main Market Yard, Dhad (Buldhana)", "07267-233330"),
     ]
-    cur.executemany("INSERT INTO branches (id, branch_code, name, mandi_license_no, address, phone) VALUES (?,?,?,?,?,?)", branches)
+    cur.executemany("INSERT OR IGNORE INTO branches (id, branch_code, name, mandi_license_no, address, phone) VALUES (?,?,?,?,?,?)", branches)
 
-    # 2. Seed Users for Multi-User Roles
+    # 2. Test Users with standard test credentials
     admin_pw = hash_password("admin123")
     acc_pw = hash_password("acc123")
     chk_pw = hash_password("chk123")
@@ -585,19 +565,35 @@ def seed_initial_data(cur):
     users = [
         ("u-admin", None, "admin", admin_pw, "Vikramaditya Singhal (Owner)", "9826011111", "SUPER_ADMIN"),
         ("u-accountant", None, "accountant", acc_pw, "Omprakash Agrawal (Chief Accountant)", "9826022222", "ACCOUNTANT_HQ"),
-        
         ("u-indore-munim", "br-chikhali", "chikhali_munim", chk_pw, "Santosh V. Patil (Chikhali Lead)", "9826099999", "BRANCH_MUNIM"),
         ("u-indore-cashier", "br-chikhali", "chikhali_cashier", chk_pw, "Santosh V. Patil (Chikhali Lead)", "9826099999", "BRANCH_CASHIER"),
-        
         ("u-ujjain-munim", "br-varvand", "varvand_munim", vrv_pw, "Mohanlal Soni (Varvand Cashier)", "9826044444", "BRANCH_MUNIM"),
         ("u-ujjain-cashier", "br-varvand", "varvand_cashier", vrv_pw, "Mohanlal Soni (Varvand Cashier)", "9826044444", "BRANCH_CASHIER"),
-        
         ("u-dewas-munim", "br-dhad", "dhad_munim", dhd_pw, "Kailash Tiwari (Dhad Cashier)", "9826055555", "BRANCH_MUNIM"),
         ("u-dewas-cashier", "br-dhad", "dhad_cashier", dhd_pw, "Kailash Tiwari (Dhad Cashier)", "9826055555", "BRANCH_CASHIER"),
     ]
-    cur.executemany("INSERT INTO users (id, branch_id, username, password_hash, full_name, phone, role) VALUES (?,?,?,?,?,?,?)", users)
+    cur.executemany("INSERT OR IGNORE INTO users (id, branch_id, username, password_hash, full_name, phone, role) VALUES (?,?,?,?,?,?,?)", users)
 
-    # 3. Seed Daily Rates for Today (Central HQ Rate Board)
+    # 3. Test System Settings
+    from licensing import DEFAULT_COMMERCIAL_LICENSE_TOKEN
+    test_settings = [
+        ("SUPER_ADMIN", "GLOBAL", "org_name", "Rajeshri Shahu Trading"),
+        ("SUPER_ADMIN", "GLOBAL", "org_pan", "AACCK1234F"),
+        ("SUPER_ADMIN", "GLOBAL", "org_gstin", "23AACCK1234F1Z5"),
+        ("SUPER_ADMIN", "GLOBAL", "fiscal_year", "2026-2027"),
+        ("SUPER_ADMIN", "GLOBAL", "multi_branch_sync", "ENABLED"),
+        ("SUPER_ADMIN", "GLOBAL", "audit_retention_days", "365"),
+        ("SUPER_ADMIN", "GLOBAL", "license_status", "Active (Pro Tier - 3 Branches)"),
+        ("SUPER_ADMIN", "GLOBAL", "license_valid_until", "31-March-2027"),
+        ("SUPER_ADMIN", "GLOBAL", "license_key", "RST-PRO-2026-MH3B-89A12F"),
+        ("SUPER_ADMIN", "GLOBAL", "license_tier", "Pro Tier (3 Branches: Chikhali, Varvand, Dhad)"),
+        ("SUPER_ADMIN", "GLOBAL", "license_branch_limit", "3"),
+        ("SUPER_ADMIN", "GLOBAL", "license_token", DEFAULT_COMMERCIAL_LICENSE_TOKEN),
+        ("SUPER_ADMIN", "GLOBAL", "is_setup_completed", "1"),
+    ]
+    cur.executemany("INSERT OR REPLACE INTO system_settings (scope, scope_id, setting_key, setting_value) VALUES (?,?,?,?)", test_settings)
+
+    # 4. Test Daily Commodity Rates for Today
     rates = [
         ("r-1", today_str, None, "Soyabean (Yellow)", "STANDARD", 4400.0, 4650.0, 4800.0, "u-accountant"),
         ("r-2", today_str, None, "Wheat (Lokwan)", "STANDARD", 2600.0, 2750.0, 2900.0, "u-accountant"),
@@ -605,39 +601,54 @@ def seed_initial_data(cur):
         ("r-4", today_str, None, "Mustard (Rayda)", "STANDARD", 5200.0, 5400.0, 5650.0, "u-accountant"),
         ("r-5", today_str, None, "Maize (Makka)", "STANDARD", 2100.0, 2250.0, 2400.0, "u-accountant"),
     ]
-    cur.executemany("INSERT INTO daily_commodity_rates (id, rate_date, branch_id, commodity_name, quality_grade, min_rate_per_qtl, target_rate_per_qtl, max_rate_per_qtl, set_by_user_id) VALUES (?,?,?,?,?,?,?,?,?)", rates)
+    cur.executemany("INSERT OR IGNORE INTO daily_commodity_rates (id, rate_date, branch_id, commodity_name, quality_grade, min_rate_per_qtl, target_rate_per_qtl, max_rate_per_qtl, set_by_user_id) VALUES (?,?,?,?,?,?,?,?,?)", rates)
 
-    # 4. Seed Parties (Farmers & Stockers)
+    # 5. Test Parties
     parties = [
-        # Farmers
         ("p-farmer-1", "br-chikhali", "Rameshwar Patel", "9827011111", "FARMER", "Village Chikhali Rural", "BKWPP1234F", "789012345678", None, "Khasra No. 142/2", "State Bank of India", "30987654321", "SBIN0001234", 15000.0, 12.0),
         ("p-farmer-2", "br-chikhali", "Balram Singh Rajput", "9827022222", "FARMER", "Village Kawhala, Chikhali", "CLFPS5678M", "890123456789", None, "Khasra No. 88/1", "Bank of Baroda", "12340100056789", "BARB0SANWER", 0.0, 12.0),
-        ("p-farmer-3", "br-varvand", "Jagdish Chouhan", "9827033333", "FARMER", "Village Varvand Rural", "DFGPC9012K", "901234567890", None, "Khasra No. 219/3", "Punjab National Bank", "4567001500089", "PUNB0456700", 8000.0, 12.0),
-        ("p-farmer-4", "br-dhad", "Radheshyam Malviya", "9827044444", "FARMER", "Village Dhad Rural", "ERTPS3456L", "678901234567", None, "Khasra No. 54/2", "Bank of Maharashtra", "78900012345", "MAHB0001234", 25000.0, 12.0),
-        
-        # Stockers
-        ("p-stocker-1", "br-chikhali", "Kuber Agro Traders (Chikhali)", "9827055555", "STOCKER", "APMC Yard, Chikhali", "AABCK1234F", None, "27AABCK1234F1Z5", None, "HDFC Bank", "50200012345678", "HDFC0000123", 0.0, 0.0),
-        ("p-stocker-2", "br-varvand", "Mahaveer Grain Merchants", "9827066666", "STOCKER", "Market Yard, Varvand", "AAGCM5678Q", None, "27AAGCM5678Q1Z9", None, "ICICI Bank", "012305001234", "ICIC0000123", 0.0, 0.0),
-        ("p-stocker-3", "br-dhad", "Dhad Agri Stockists", "9827077777", "STOCKER", "Sub-Yard, Dhad", "AAECN9012R", None, "27AAECN9012R1Z2", None, "Axis Bank", "918020012345678", "UTIB0000189", 0.0, 0.0),
+        ("p-buyer-1", "br-chikhali", "Adani Wilmar Ltd.", "9827088881", "BUYER", "Pithampur Industrial Area", "AAACA1234F", None, "23AAACA1234F1Z1", "Anand Sharma", "State Bank of India", "30987654399", "SBIN0004567", 0.0, 0.0),
     ]
     cur.executemany("""
-    INSERT INTO parties (id, home_branch_id, name, phone, party_type, village, pan_number, aadhaar_number, gstin, khasra_record_no, bank_name, bank_account_no, bank_ifsc, current_advance, advance_interest_rate)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        INSERT OR IGNORE INTO parties (id, home_branch_id, name, phone, party_type, village, pan_number, aadhaar_number, gstin, khasra_record_no, bank_name, bank_account_no, bank_ifsc, current_advance, advance_interest_rate)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     """, parties)
 
-    # 5. Initialize Cash Float for today for each branch
+    # 6. Test Inspectors
+    inspectors = [
+        ("ins-1", None, "Mahesh Patidar", "Chief Assayer & Quality Lead", "9826011111"),
+        ("ins-2", None, "Suresh Yadav", "Mandi Certified Inspector", "9826022222"),
+        ("ins-3", "br-chikhali", "Babulal Meena", "Chikhali Yard Sampler", "9826033333"),
+        ("ins-4", "br-varvand", "Govind Solanki", "Varvand Quality Inspector", "9826044444"),
+        ("ins-5", "br-dhad", "Narayan Sharma", "Dhad Assayer", "9826055555"),
+    ]
+    cur.executemany("INSERT OR IGNORE INTO inspectors (id, branch_id, name, designation, phone) VALUES (?,?,?,?,?)", inspectors)
+
+    # 7. Test Cash Drawers
     cash_floats = [
         ("cf-chikhali", "br-chikhali", today_str, 500000.0, 0.0, 0.0, 0.0, 500000.0, 500000.0),
         ("cf-varvand", "br-varvand", today_str, 400000.0, 0.0, 0.0, 0.0, 400000.0, 400000.0),
         ("cf-dhad", "br-dhad", today_str, 300000.0, 0.0, 0.0, 0.0, 300000.0, 300000.0),
     ]
     cur.executemany("""
-    INSERT OR IGNORE INTO branch_daily_cash_drawers 
-    (id, branch_id, record_date, opening_float, total_cash_payouts, petty_expenses_cash, bank_withdrawals_inward, calculated_closing_cash, physical_counted_cash)
-    VALUES (?,?,?,?,?,?,?,?,?)
+        INSERT OR IGNORE INTO branch_daily_cash_drawers 
+        (id, branch_id, record_date, opening_float, total_cash_payouts, petty_expenses_cash, bank_withdrawals_inward, calculated_closing_cash, physical_counted_cash)
+        VALUES (?,?,?,?,?,?,?,?,?)
     """, cash_floats)
 
-    # 6. Seed a sample paid invoice with manual kanta slip to provide instant analytics
+    # 8. Pending Outward Order (Required for RTGS / outward accounts test)
+    cur.execute("""
+        INSERT OR IGNORE INTO outward_orders (
+            id, branch_id, challan_number, order_date, buyer_name, commodity_name,
+            vehicle_number, net_weight_kg, net_quintals, rate_per_quintal, hamali_per_100kg,
+            hamali_amount, gross_amount, total_bill_amount, status, payment_status
+        ) VALUES (
+            'out-test-001', 'br-chikhali', 'CHL-TEST-001', ?, 'Adani Wilmar Ltd.', 'Soyabean (Yellow)',
+            'MH-28-AB-9999', 10000.0, 100.0, 4800.0, 25.0, 2500.0, 480000.0, 482500.0, 'DISPATCHED', 'PENDING'
+        )
+    """, (today_str,))
+
+    # 9. Sample Paid Invoice (Required for stock and voucher views)
     sample_invoice_id = "inv-seed-001"
     cur.execute("""
     INSERT OR IGNORE INTO purchase_invoices (
@@ -651,7 +662,7 @@ def seed_initial_data(cur):
         ?, 'br-chikhali', 'CHK-20261028-001', ?, 'p-farmer-1', 'Soyabean (Yellow)', '1201', 'STANDARD',
         'MH-28-AB-1234', 'MANUAL_EXTERNAL', 'Shree Gajanand Kanta', 'SGK-4912', 60, 'HDPE_50KG',
         5200.0, 2100.0, 30.0, 11.5, 30.7, 1.0, 30.7, 3008.6, 30.086, 4650.0, 0, 139899.9,
-        300.0, 120.0, 60.0, 0.0, 0.0, 5000.0, 50.0, 134369.9, 'PAID', 'u-chikhali-munim'
+        300.0, 120.0, 60.0, 0.0, 0.0, 5000.0, 50.0, 134369.9, 'PAID', 'u-indore-munim'
     )
     """, (sample_invoice_id, today_str))
 
@@ -663,7 +674,7 @@ def seed_initial_data(cur):
         cashier_user_id
     ) VALUES (
         'pay-seed-001', 'br-chikhali', ?, 'p-farmer-1', 'CASH', 134370.0,
-        268, 1, 1, 1, 1, 0, 0, 'u-chikhali-cashier'
+        268, 1, 1, 1, 1, 0, 0, 'u-indore-cashier'
     )
     """, (sample_invoice_id,))
 
@@ -682,20 +693,22 @@ def seed_initial_data(cur):
     ('led-9', 'br-chikhali', ?, 'PAYMENT', ?, 'Cashier Drawer - Cash in Hand', 'p-farmer-1', 0, 134370.0, 'Cash payout with denomination count')
     """, (today_str, sample_invoice_id, today_str, sample_invoice_id, today_str, sample_invoice_id, today_str, sample_invoice_id, today_str, sample_invoice_id, today_str, sample_invoice_id, today_str, sample_invoice_id, today_str, sample_invoice_id, today_str, sample_invoice_id))
 
-    # Update drawer float
-    cur.execute("""
-    UPDATE branch_daily_cash_drawers 
-    SET total_cash_payouts = total_cash_payouts + 134370.0,
-        calculated_closing_cash = opening_float - 134370.0,
-        physical_counted_cash = opening_float - 134370.0
-    WHERE branch_id = 'br-indore' AND record_date = ?
-    """, (today_str,))
+    conn.commit()
+    if close_conn:
+        conn.close()
 
-    # Update farmer advance
-    cur.execute("""
-    UPDATE parties SET current_advance = current_advance - 5000.0 WHERE id = 'p-farmer-1'
-    """)
+def seed_demo_data(conn=None):
+    """Explicitly seeds demo sample data when requested."""
+    seed_test_fixtures(conn)
 
 if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser(description="Mandi ERP Database Tool")
+    parser.add_argument("--seed-demo", action="store_true", help="Seed demo development data")
+    args = parser.parse_args()
+
     init_db()
-    print("Database initialized successfully at:", DB_PATH)
+    if args.seed_demo:
+        seed_demo_data()
+        print("Demo data seeded successfully.")
+    print("Database initialized successfully at:", get_db_path())

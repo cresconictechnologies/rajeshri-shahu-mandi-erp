@@ -17,7 +17,7 @@ from fastapi.testclient import TestClient
 # Ensure parent directory is in sys.path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from server import app
+from server import app, create_session_token
 from database import get_connection
 
 class TestNewMandiFeatures(unittest.TestCase):
@@ -25,6 +25,8 @@ class TestNewMandiFeatures(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.client = TestClient(app)
+        token = create_session_token("admin", "SUPER_ADMIN", user_id="u-admin")
+        cls.client.cookies.set("mandi_session", token)
 
     def test_branch_stock_page(self):
         """Verify that branches can view their physical stock, quantities, and avg prices."""

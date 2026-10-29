@@ -10,13 +10,15 @@ import unittest
 from fastapi.testclient import TestClient
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from server import app
+from server import app, create_session_token
 
 class TestMandiDesignAudit(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
         client = TestClient(app)
+        token = create_session_token("admin", "SUPER_ADMIN", user_id="u-admin")
+        client.cookies.set("mandi_session", token)
         cls.pages = {
             "hub": client.get("/?hub=1").text,
             "admin": client.get("/admin/dashboard").text,

@@ -115,7 +115,7 @@ class TestSecurityAndSystemAudit(unittest.TestCase):
         self.assertTrue(check_ok["allowed"])
 
     def test_05_password_hashing_and_auth_integrity(self):
-        """Verify passwords are cryptographic hashes and users table never stores plaintext."""
+        """Verify passwords are cryptographic hashes (PBKDF2-HMAC-SHA256 or SHA256) and users table never stores plaintext."""
         conn = get_connection()
         cur = conn.cursor()
         cur.execute("SELECT username, password_hash FROM users;")
@@ -125,9 +125,11 @@ class TestSecurityAndSystemAudit(unittest.TestCase):
         self.assertGreater(len(users), 0, "Users table must have seeded users")
         for user in users:
             pw_hash = user["password_hash"]
-            # SHA-256 hash length is exactly 64 hex characters
-            self.assertEqual(len(pw_hash), 64, f"User {user['username']} must have 64-char SHA256 hash")
-            self.assertTrue(re.match(r"^[a-f0-9]{64}$", pw_hash), f"Invalid hash format for {user['username']}")
+            # Must be either salted PBKDF2-HMAC-SHA256 or legacy 64-char SHA256, never plaintext
+            is_pbkdf2 = pw_hash.startswith("pbkdf2_sha256$")
+            is_sha256 = bool(re.match(r"^[a-f0-9]{64}$", pw_hash))
+            self.assertTrue(is_pbkdf2 or is_sha256, f"Invalid cryptographic hash format for {user['username']}: {pw_hash}")
+            self.assertNotIn(pw_hash, ["acc123", "chk123", "vrv123", "dhd123", "admin", "admin123"], f"Plaintext password stored for {user['username']}")
 
     def test_06_database_wal_mode_and_foreign_keys_active(self):
         """Verify SQLite database enforces WAL journal mode and foreign key integrity."""

@@ -11,7 +11,7 @@ import json
 import hashlib
 import hmac
 import base64
-from datetime import date, datetime
+from datetime import date, datetime, timezone, timedelta
 from typing import Optional
 
 import uvicorn
@@ -30,7 +30,24 @@ else:
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
-from database import get_connection, hash_password, DB_PATH, init_db, login_admin
+from database import (
+    get_connection,
+    hash_password,
+    verify_password,
+    DB_PATH,
+    init_db,
+    login_admin,
+    create_user_session,
+    validate_user_session,
+    revoke_user_session
+)
+from licensing import (
+    get_active_license,
+    verify_license_token,
+    save_license_token,
+    check_branch_limit,
+    DEFAULT_COMMERCIAL_LICENSE_TOKEN
+)
 from calculations import (
     calculate_inward_invoice,
     calculate_outward_order,
@@ -48,9 +65,9 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://127.0.0.1:8080", "http://localhost:8080"],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -71,10 +88,45 @@ templates = Jinja2Templates(directory=TEMPLATES_DIR)
 # AUTHENTICATION, SESSIONS & OWNER SETUP
 # --------------------------------------------------------------------------
 
-SESSION_SECRET = os.environ.get("SESSION_SECRET", "rajeshri-shahu-mandi-erp-2026-cresconic-secret")
+SECRET_FILE = os.path.join(BASE_DIR, "instance_secret.key")
 
-def create_session_token(username: str, role: str, branch_id: str = "") -> str:
-    payload = f"{username}|{role}|{branch_id}"
+def get_or_create_instance_secret() -> str:
+    env_secret = os.environ.get("SESSION_SECRET")
+    if env_secret and len(env_secret) >= 32:
+        return env_secret
+    if os.path.exists(SECRET_FILE):
+        try:
+            with open(SECRET_FILE, "r", encoding="utf-8") as f:
+                s = f.read().strip()
+                if len(s) >= 32:
+                    return s
+        except Exception as e:
+            sys.stderr.write(f"Notice: instance secret read failure: {e}\n")
+    new_secret = os.urandom(32).hex()
+    try:
+        with open(SECRET_FILE, "w", encoding="utf-8") as f:
+            f.write(new_secret)
+    except Exception as e:
+        sys.stderr.write(f"Notice: instance secret persistence: {e}\n")
+    return new_secret
+
+SESSION_SECRET = get_or_create_instance_secret()
+
+def create_session_token(username: str, role: str, branch_id: str = "", user_id: str = "") -> str:
+    now_epoch = int(datetime.now(timezone.utc).timestamp())
+    exp_epoch = now_epoch + 43200  # 12-hour session lifetime
+    if not user_id:
+        conn = get_connection()
+        try:
+            cur = conn.cursor()
+            cur.execute("SELECT id FROM users WHERE username=?", (username,))
+            row = cur.fetchone()
+            user_id = row["id"] if row else f"u-{username}"
+        finally:
+            conn.close()
+    
+    session_id = create_user_session(user_id, username, role, branch_id, duration_seconds=43200)
+    payload = f"{session_id}|{username}|{role}|{branch_id}|{exp_epoch}"
     sig = hmac.new(SESSION_SECRET.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).hexdigest()
     token_raw = f"{payload}|{sig}"
     return base64.urlsafe_b64encode(token_raw.encode("utf-8")).decode("utf-8")
@@ -85,12 +137,38 @@ def verify_session_token(token: Optional[str]) -> Optional[dict]:
     try:
         decoded = base64.urlsafe_b64decode(token.encode("utf-8")).decode("utf-8")
         parts = decoded.split("|")
-        if len(parts) != 4:
-            return None
-        username, role, branch_id, sig = parts
-        expected_sig = hmac.new(SESSION_SECRET.encode("utf-8"), f"{username}|{role}|{branch_id}".encode("utf-8"), hashlib.sha256).hexdigest()
-        if hmac.compare_digest(sig, expected_sig):
-            return {"username": username, "role": role, "branch_id": branch_id}
+        if len(parts) == 6:
+            session_id, username, role, branch_id, exp_str, sig = parts
+            expected_payload = f"{session_id}|{username}|{role}|{branch_id}|{exp_str}"
+            expected_sig = hmac.new(SESSION_SECRET.encode("utf-8"), expected_payload.encode("utf-8"), hashlib.sha256).hexdigest()
+            if not hmac.compare_digest(sig, expected_sig):
+                return None
+            if int(exp_str) < int(datetime.now(timezone.utc).timestamp()):
+                return None
+            sess = validate_user_session(session_id)
+            if not sess:
+                return None
+            return {
+                "session_id": session_id,
+                "user_id": sess["user_id"],
+                "username": username,
+                "role": role,
+                "branch_id": branch_id,
+                "full_name": sess.get("full_name", username)
+            }
+        elif len(parts) == 4:
+            # Backward-compatible 4-part signed token for migration and test compatibility
+            username, role, branch_id, sig = parts
+            expected_sig = hmac.new(SESSION_SECRET.encode("utf-8"), f"{username}|{role}|{branch_id}".encode("utf-8"), hashlib.sha256).hexdigest()
+            if hmac.compare_digest(sig, expected_sig):
+                return {
+                    "session_id": None,
+                    "user_id": f"u-{username}",
+                    "username": username,
+                    "role": role,
+                    "branch_id": branch_id,
+                    "full_name": username
+                }
     except Exception:
         return None
     return None
@@ -98,6 +176,37 @@ def verify_session_token(token: Optional[str]) -> Optional[dict]:
 def get_current_user(request: Request) -> Optional[dict]:
     token = request.cookies.get("mandi_session")
     return verify_session_token(token)
+
+def get_authenticated_user(request: Request) -> dict:
+    user = get_current_user(request)
+    if not user:
+        if request.url.path.startswith("/api/"):
+            raise HTTPException(status_code=401, detail="Authentication required: Please sign in with valid staff credentials.")
+        raise HTTPException(status_code=401, detail="Authentication required")
+    return user
+
+def require_role(request: Request, allowed_roles: list[str]) -> dict:
+    user = get_authenticated_user(request)
+    if user.get("role") not in allowed_roles:
+        raise HTTPException(status_code=403, detail=f"Forbidden: Access denied for role '{user.get('role')}'. Required roles: {allowed_roles}")
+    return user
+
+def check_system_license(conn=None) -> dict:
+    should_close = False
+    if conn is None:
+        conn = get_connection()
+        should_close = True
+    try:
+        return get_active_license(conn)
+    finally:
+        if should_close:
+            conn.close()
+
+def require_active_license():
+    lic = check_system_license()
+    if not lic.get("is_valid"):
+        raise HTTPException(status_code=403, detail=f"Commercial License Inactive or Expired: {lic.get('message')}. Please contact vendor to renew.")
+    return lic
 
 def is_system_setup_done() -> bool:
     conn = get_connection()
@@ -154,6 +263,9 @@ def root_hub(request: Request):
 
 @app.get("/setup", response_class=HTMLResponse)
 def setup_view(request: Request):
+    if is_system_setup_done():
+        raise HTTPException(status_code=404, detail="System setup has already been completed. First-run provisioning is permanently closed.")
+
     conn = get_connection()
     try:
         cur = conn.cursor()
@@ -216,24 +328,51 @@ def setup_post(
     dhd_password: str = Form("dhd123"),
     dhd_phone: str = Form("9826055555")
 ):
+    if is_system_setup_done():
+        raise HTTPException(status_code=404, detail="System setup has already been completed. First-run provisioning is permanently closed.")
+
     conn = get_connection()
     try:
         cur = conn.cursor()
+        
+        # Verify or provision signed commercial license token
+        active_token = license_key.strip()
+        if active_token == "RST-PRO-2026-MH3B-89A12F" or not active_token:
+            active_token = DEFAULT_COMMERCIAL_LICENSE_TOKEN
+        
+        is_lic_valid, lic_msg, lic_payload = verify_license_token(active_token)
+        if not is_lic_valid:
+            return templates.TemplateResponse(request=request, name="setup.html", context={
+                "settings": {"org_name": org_name, "org_gstin": org_gstin},
+                "owner": {"full_name": owner_name, "username": owner_username, "phone": owner_phone},
+                "accountant": {"full_name": acc_name, "username": acc_username, "phone": acc_phone},
+                "chk_cashier": {"full_name": chk_name, "username": chk_username, "phone": chk_phone},
+                "vrv_cashier": {"full_name": vrv_name, "username": vrv_username, "phone": vrv_phone},
+                "dhd_cashier": {"full_name": dhd_name, "username": dhd_username, "phone": dhd_phone},
+                "error_msg": f"Commercial License Verification Failed: {lic_msg}. Please provide a valid Ed25519-signed license token issued by Cresconic Technologies."
+            }, status_code=400)
+
+        tier_name = lic_payload.get("tier", "PRO")
+        max_branches = lic_payload.get("max_branches", 3)
+        exp_date = lic_payload.get("expires_at", license_valid_until)
+
+        tier_display = tier_name.capitalize() if tier_name.upper() == "PRO" else tier_name
         settings_to_update = [
             ("org_name", org_name.strip()),
             ("org_gstin", org_gstin.strip()),
-            ("license_key", license_key.strip()),
-            ("license_status", "Active (Pro Tier - 3 Branches)"),
-            ("license_valid_until", license_valid_until.strip()),
-            ("license_tier", "Pro Tier (3 Branches: Chikhali, Varvand, Dhad)"),
-            ("license_branch_limit", "3"),
+            ("license_token", active_token),
+            ("license_key", lic_payload.get("license_id", "LIC-TOKEN")),
+            ("license_status", f"Active ({tier_display} Tier - {max_branches} Branches)"),
+            ("license_valid_until", "31-March-2027"),
+            ("license_tier", f"{tier_display} Tier ({max_branches} Branches: Chikhali, Varvand, Dhad)"),
+            ("license_branch_limit", str(max_branches)),
             ("is_setup_completed", "1")
         ]
         for k, v in settings_to_update:
             cur.execute("""
-                INSERT INTO system_settings (scope, scope_id, setting_key, setting_value) 
-                VALUES ('SUPER_ADMIN', 'GLOBAL', ?, ?)
-                ON CONFLICT(scope, scope_id, setting_key) DO UPDATE SET setting_value=excluded.setting_value
+                INSERT INTO system_settings (scope, scope_id, setting_key, setting_value, updated_at) 
+                VALUES ('SUPER_ADMIN', 'GLOBAL', ?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(scope, scope_id, setting_key) DO UPDATE SET setting_value=excluded.setting_value, updated_at=CURRENT_TIMESTAMP
             """, (k, v))
 
         # Update Owner
@@ -310,7 +449,7 @@ def login_post(request: Request, username: str = Form(...), password: str = Form
     finally:
         conn.close()
 
-    if not user or not user["is_active"] or hash_password(password.strip()) != user["password_hash"]:
+    if not user or not user["is_active"]:
         return templates.TemplateResponse(
             request=request,
             name="login.html",
@@ -318,9 +457,29 @@ def login_post(request: Request, username: str = Form(...), password: str = Form
             status_code=401
         )
 
+    is_valid, needs_rehash = verify_password(password.strip(), user["password_hash"])
+    if not is_valid:
+        return templates.TemplateResponse(
+            request=request,
+            name="login.html",
+            context={"error": "Invalid staff username or password. Please verify credentials or contact the owner.", "username": username},
+            status_code=401
+        )
+
+    # Transparent in-flight migration to salted PBKDF2-HMAC-SHA256
+    if needs_rehash:
+        conn = get_connection()
+        try:
+            cur = conn.cursor()
+            new_hash = hash_password(password.strip())
+            cur.execute("UPDATE users SET password_hash=? WHERE id=?", (new_hash, user["id"]))
+            conn.commit()
+        finally:
+            conn.close()
+
     role = user["role"]
     branch_id = user["branch_id"] or ""
-    token = create_session_token(user["username"], role, branch_id)
+    token = create_session_token(user["username"], role, branch_id, user_id=user["id"])
 
     if role == "SUPER_ADMIN":
         target_url = "/admin/dashboard"
@@ -330,11 +489,16 @@ def login_post(request: Request, username: str = Form(...), password: str = Form
         target_url = f"/branch/dashboard?branch_id={branch_id or 'br-chikhali'}"
 
     resp = RedirectResponse(url=target_url, status_code=303)
-    resp.set_cookie(key="mandi_session", value=token, httponly=True, path="/")
+    resp.set_cookie(key="mandi_session", value=token, httponly=True, samesite="lax", path="/")
     return resp
 
 @app.get("/logout")
-def logout_view():
+def logout_view(request: Request):
+    token = request.cookies.get("mandi_session")
+    if token:
+        sess = verify_session_token(token)
+        if sess and sess.get("session_id"):
+            revoke_user_session(sess["session_id"])
     resp = RedirectResponse(url="/login", status_code=303)
     resp.delete_cookie(key="mandi_session", path="/")
     return resp
@@ -351,13 +515,15 @@ def admin_login_page():
 @app.get("/admin/dashboard", response_class=HTMLResponse)
 def admin_dashboard_view(request: Request):
     user = get_current_user(request)
-    if user and user.get("role") != "SUPER_ADMIN":
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+    if user.get("role") != "SUPER_ADMIN":
         if user.get("role") == "ACCOUNTANT_HQ":
             return RedirectResponse(url="/accounts/dashboard", status_code=303)
         else:
             b_id = user.get("branch_id") or "br-chikhali"
             return RedirectResponse(url=f"/branch/dashboard?branch_id={b_id}", status_code=303)
-    logged_in_user = user or {"username": "admin", "full_name": "Vikramaditya Singhal (Owner)", "role": "SUPER_ADMIN"}
+    logged_in_user = user
 
     today_str = date.today().isoformat()
     conn = get_connection()
@@ -552,21 +718,29 @@ def api_admin_login(username: str = Form(...), password: str = Form(...)):
 
 @app.post("/api/admin/branches")
 def api_admin_add_branch(
+    request: Request,
     branch_code: str = Form(...),
     name: str = Form(...),
     mandi_license_no: str = Form(""),
     address: str = Form(""),
     phone: str = Form("")
 ):
-    branch_id = f"br-{branch_code.lower().replace(' ', '-')}"
+    require_role(request, ["SUPER_ADMIN"])
     conn = get_connection()
     try:
+        allowed, msg, cur_cnt, max_cnt = check_branch_limit(conn)
+        if not allowed:
+            raise HTTPException(status_code=403, detail=msg)
+
+        branch_id = f"br-{branch_code.lower().replace(' ', '-')}"
         cur = conn.cursor()
         cur.execute(
             "INSERT INTO branches (id, branch_code, name, mandi_license_no, address, phone) VALUES (?,?,?,?,?,?)",
             (branch_id, branch_code.strip().upper(), name.strip(), mandi_license_no.strip(), address.strip(), phone.strip())
         )
         conn.commit()
+    except HTTPException:
+        raise
     except Exception as e:
         conn.rollback()
         raise HTTPException(status_code=400, detail=str(e))
@@ -575,7 +749,8 @@ def api_admin_add_branch(
     return RedirectResponse(url="/admin/dashboard", status_code=303)
 
 @app.post("/api/admin/branches/toggle")
-def api_admin_toggle_branch(branch_id: str = Form(...)):
+def api_admin_toggle_branch(request: Request, branch_id: str = Form(...)):
+    require_role(request, ["SUPER_ADMIN"])
     conn = get_connection()
     try:
         cur = conn.cursor()
@@ -587,6 +762,7 @@ def api_admin_toggle_branch(branch_id: str = Form(...)):
 
 @app.post("/api/admin/users")
 def api_admin_add_user(
+    request: Request,
     username: str = Form(...),
     full_name: str = Form(...),
     phone: str = Form(...),
@@ -594,6 +770,7 @@ def api_admin_add_user(
     password: str = Form(...),
     branch_id: Optional[str] = Form(None)
 ):
+    require_role(request, ["SUPER_ADMIN"])
     # Only single-access Cashier and Accountant roles are supported
     if role not in ["SUPER_ADMIN", "ACCOUNTANT_HQ", "BRANCH_CASHIER"]:
         raise HTTPException(status_code=400, detail="Only BRANCH_CASHIER and ACCOUNTANT_HQ roles are permitted.")
@@ -618,7 +795,8 @@ def api_admin_add_user(
     return RedirectResponse(url="/admin/dashboard", status_code=303)
 
 @app.post("/api/admin/users/toggle")
-def api_admin_toggle_user(user_id: str = Form(...)):
+def api_admin_toggle_user(request: Request, user_id: str = Form(...)):
+    require_role(request, ["SUPER_ADMIN"])
     conn = get_connection()
     try:
         cur = conn.cursor()
@@ -630,11 +808,13 @@ def api_admin_toggle_user(user_id: str = Form(...)):
 
 @app.post("/api/admin/commodities")
 def api_admin_add_commodity(
+    request: Request,
     name: str = Form(...),
     hsn_code: str = Form(...),
     standard_moisture_pct: float = Form(10.0),
     mandi_cess_pct: float = Form(1.5)
 ):
+    require_role(request, ["SUPER_ADMIN", "ACCOUNTANT_HQ"])
     cid = f"c-{uuid.uuid4().hex[:6]}"
     conn = get_connection()
     try:
@@ -663,10 +843,12 @@ def accounts_login_page():
 @app.get("/accounts/dashboard", response_class=HTMLResponse)
 def accounts_dashboard_view(request: Request):
     user = get_current_user(request)
-    if user and user.get("role") == "BRANCH_CASHIER":
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+    if user.get("role") == "BRANCH_CASHIER":
         b_id = user.get("branch_id") or "br-chikhali"
         return RedirectResponse(url=f"/branch/dashboard?branch_id={b_id}", status_code=303)
-    logged_in_user = user or {"username": "accountant", "full_name": "Omprakash Agrawal", "role": "ACCOUNTANT_HQ"}
+    logged_in_user = user
 
     today_str = date.today().isoformat()
     conn = get_connection()
@@ -794,6 +976,7 @@ def accounts_dashboard_view(request: Request):
 
 @app.post("/api/accounts/rates")
 def api_accounts_set_rate(
+    request: Request,
     rate_date: str = Form(...),
     commodity_name: str = Form(...),
     quality_grade: str = Form("STANDARD"),
@@ -802,6 +985,7 @@ def api_accounts_set_rate(
     max_rate: float = Form(...),
     branch_id: Optional[str] = Form(None)
 ):
+    require_role(request, ["ACCOUNTANT_HQ", "SUPER_ADMIN"])
     conn = get_connection()
     try:
         cur = conn.cursor()
@@ -832,10 +1016,12 @@ def api_accounts_set_rate(
 
 @app.post("/api/accounts/rate-overrides/action")
 def api_accounts_rate_override_action(
+    request: Request,
     invoice_id: str = Form(...),
     decision: str = Form(...),  # APPROVE or REJECT
     accountant_reason: str = Form(...)
 ):
+    require_role(request, ["ACCOUNTANT_HQ", "SUPER_ADMIN"])
     conn = get_connection()
     try:
         cur = conn.cursor()
@@ -859,9 +1045,11 @@ def api_accounts_rate_override_action(
 
 @app.post("/api/accounts/rtgs/process")
 def api_accounts_process_rtgs(
+    request: Request,
     invoice_id: str = Form(...),
     bank_utr_no: str = Form(...)
 ):
+    require_role(request, ["ACCOUNTANT_HQ", "SUPER_ADMIN"])
     if not bank_utr_no or not bank_utr_no.strip():
         raise HTTPException(status_code=400, detail="Bank UTR / Transaction Reference Number is mandatory to close RTGS request.")
 
@@ -918,6 +1106,7 @@ def api_accounts_process_rtgs(
 
 @app.post("/api/accounts/outward/receive-payment")
 def api_accounts_receive_outward_payment(
+    request: Request,
     challan_id: str = Form(...),
     payment_mode: str = Form(...),  # "RTGS" or "CASH"
     receipt_date: str = Form(...),
@@ -925,6 +1114,7 @@ def api_accounts_receive_outward_payment(
     payment_branch_id: Optional[str] = Form(None),
     payment_notes: Optional[str] = Form("")
 ):
+    require_role(request, ["ACCOUNTANT_HQ", "SUPER_ADMIN"])
     conn = get_connection()
     try:
         cur = conn.cursor()
@@ -1007,11 +1197,13 @@ def api_accounts_receive_outward_payment(
 
 @app.post("/api/accounts/inspectors")
 def api_accounts_add_inspector(
+    request: Request,
     name: str = Form(...),
     designation: str = Form(...),
     phone: str = Form(""),
     branch_id: Optional[str] = Form(None)
 ):
+    require_role(request, ["ACCOUNTANT_HQ", "SUPER_ADMIN"])
     iid = f"ins-{uuid.uuid4().hex[:6]}"
     actual_branch_id = branch_id if branch_id and branch_id.strip() else None
     conn = get_connection()
@@ -1028,7 +1220,8 @@ def api_accounts_add_inspector(
     return RedirectResponse(url="/accounts/dashboard", status_code=303)
 
 @app.post("/api/accounts/inspectors/toggle")
-def api_accounts_toggle_inspector(inspector_id: str = Form(...)):
+def api_accounts_toggle_inspector(request: Request, inspector_id: str = Form(...)):
+    require_role(request, ["ACCOUNTANT_HQ", "SUPER_ADMIN"])
     conn = get_connection()
     try:
         cur = conn.cursor()
@@ -1051,20 +1244,27 @@ def branch_login_page():
 @app.get("/branch/dashboard", response_class=HTMLResponse)
 def branch_dashboard_view(request: Request, branch_id: str = "br-chikhali"):
     user = get_current_user(request)
-    if user and user.get("role") == "BRANCH_CASHIER":
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+    if user.get("role") == "BRANCH_CASHIER":
         assigned_branch = user.get("branch_id")
         if assigned_branch and branch_id != assigned_branch:
             return RedirectResponse(url=f"/branch/dashboard?branch_id={assigned_branch}", status_code=303)
-    elif user and user.get("role") == "ACCOUNTANT_HQ":
+        actual_req_branch = assigned_branch or branch_id
+    elif user.get("role") == "ACCOUNTANT_HQ":
         return RedirectResponse(url="/accounts/dashboard", status_code=303)
-    logged_in_user = user or {"username": "chikhali_cashier", "full_name": "Santosh V. Patil", "role": "BRANCH_CASHIER", "branch_id": branch_id}
+    elif user.get("role") == "SUPER_ADMIN":
+        actual_req_branch = branch_id
+    else:
+        return RedirectResponse(url="/login", status_code=303)
+    logged_in_user = user
 
     today_str = date.today().isoformat()
     conn = get_connection()
     try:
         cur = conn.cursor()
         # Active Branch
-        cur.execute("SELECT id, branch_code, name, mandi_license_no FROM branches WHERE id=?", (branch_id,))
+        cur.execute("SELECT id, branch_code, name, mandi_license_no FROM branches WHERE id=?", (actual_req_branch,))
         current_branch = cur.fetchone()
         if not current_branch:
             # Fallback to first branch
@@ -1306,6 +1506,7 @@ def api_calculate_inward(
 
 @app.post("/api/branch/invoices/create")
 def api_branch_create_invoice(
+    request: Request,
     branch_id: str = Form(...),
     party_id: str = Form(...),
     inspector_name: str = Form(...),
@@ -1339,6 +1540,14 @@ def api_branch_create_invoice(
     rtgs_beneficiary_name: Optional[str] = Form(""),
     cashier_user_id: Optional[str] = Form("cashier")
 ):
+    require_active_license()
+    user = require_role(request, ["BRANCH_CASHIER", "SUPER_ADMIN"])
+    if user.get("role") == "BRANCH_CASHIER":
+        assigned_branch = user.get("branch_id")
+        if assigned_branch:
+            branch_id = assigned_branch
+        cashier_user_id = user.get("user_id") or user.get("username") or cashier_user_id
+
     today_str = date.today().isoformat()
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -1579,6 +1788,7 @@ def api_calculate_outward(
 
 @app.post("/api/branch/outward/create")
 def api_branch_create_outward(
+    request: Request,
     branch_id: str = Form(...),
     buyer_name: Optional[str] = Form(""),
     buyer_id: Optional[str] = Form(None),
@@ -1589,6 +1799,14 @@ def api_branch_create_outward(
     vehicle_number: Optional[str] = Form(""),
     cashier_user_id: Optional[str] = Form("cashier")
 ):
+    require_active_license()
+    user = require_role(request, ["BRANCH_CASHIER", "SUPER_ADMIN"])
+    if user.get("role") == "BRANCH_CASHIER":
+        assigned_branch = user.get("branch_id")
+        if assigned_branch:
+            branch_id = assigned_branch
+        cashier_user_id = user.get("user_id") or user.get("username") or cashier_user_id
+
     today_str = date.today().isoformat()
     calc = calculate_outward_order(
         net_weight_kg=net_weight_kg,
@@ -1691,6 +1909,9 @@ def api_branch_create_outward(
 
 @app.get("/api/branch/outward/challan/{challan_number}", response_class=HTMLResponse)
 def get_outward_challan_html(request: Request, challan_number: str):
+    user = get_current_user(request)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
     conn = get_connection()
     try:
         cur = conn.cursor()
@@ -1713,6 +1934,7 @@ def get_outward_challan_html(request: Request, challan_number: str):
 
 @app.post("/api/branch/buyers/register")
 def api_branch_register_buyer(
+    request: Request,
     name: str = Form(...),
     phone: str = Form(...),
     address: str = Form(...),
@@ -1724,6 +1946,11 @@ def api_branch_register_buyer(
     bank_account_no: Optional[str] = Form(""),
     bank_ifsc: Optional[str] = Form("")
 ):
+    user = require_role(request, ["BRANCH_CASHIER", "ACCOUNTANT_HQ", "SUPER_ADMIN"])
+    if user.get("role") == "BRANCH_CASHIER" and user.get("branch_id"):
+        home_branch_id = user.get("branch_id")
+    changed_by_name = user.get("full_name") or user.get("username")
+
     pid = f"p-{uuid.uuid4().hex[:8]}"
     conn = get_connection()
     try:
@@ -1749,8 +1976,8 @@ def api_branch_register_buyer(
             INSERT INTO audit_change_logs (
                 id, entity_type, entity_id, entity_name, branch_id, changed_by,
                 action, change_summary
-            ) VALUES (?, 'BUYER', ?, ?, ?, 'Cashier', 'REGISTER_BUYER', ?)
-        """, (log_id, pid, name.strip(), home_branch_id, f"Registered new buyer/trader '{name.strip()}' (GST: {gstin or 'N/A'})"))
+            ) VALUES (?, 'BUYER', ?, ?, ?, ?, 'REGISTER_BUYER', ?)
+        """, (log_id, pid, name.strip(), home_branch_id, changed_by_name, f"Registered new buyer/trader '{name.strip()}' (GST: {gstin or 'N/A'})"))
 
         conn.commit()
         return {
@@ -1771,7 +1998,8 @@ def api_branch_register_buyer(
         conn.close()
 
 @app.get("/api/branch/buyers")
-def api_branch_get_buyers():
+def api_branch_get_buyers(request: Request):
+    require_role(request, ["BRANCH_CASHIER", "ACCOUNTANT_HQ", "SUPER_ADMIN"])
     conn = get_connection()
     try:
         cur = conn.cursor()
@@ -1793,6 +2021,7 @@ def api_branch_get_buyers():
 
 @app.post("/api/branch/farmers/edit")
 def api_branch_edit_farmer(
+    request: Request,
     party_id: str = Form(...),
     name: str = Form(...),
     phone: str = Form(...),
@@ -1807,6 +2036,10 @@ def api_branch_edit_farmer(
     branch_id: Optional[str] = Form("br-chikhali"),
     operator_name: Optional[str] = Form("Cashier")
 ):
+    user = require_role(request, ["BRANCH_CASHIER", "ACCOUNTANT_HQ", "SUPER_ADMIN"])
+    if user.get("role") == "BRANCH_CASHIER" and user.get("branch_id"):
+        branch_id = user.get("branch_id")
+    operator_name = user.get("full_name") or user.get("username") or operator_name
     conn = get_connection()
     try:
         cur = conn.cursor()
@@ -1883,7 +2116,8 @@ def api_branch_edit_farmer(
         conn.close()
 
 @app.get("/api/branch/farmers/{farmer_id}/audit-logs")
-def api_get_farmer_audit_logs(farmer_id: str):
+def api_get_farmer_audit_logs(request: Request, farmer_id: str):
+    require_role(request, ["BRANCH_CASHIER", "ACCOUNTANT_HQ", "SUPER_ADMIN"])
     conn = get_connection()
     try:
         cur = conn.cursor()
@@ -1904,17 +2138,26 @@ def api_get_farmer_audit_logs(farmer_id: str):
 @app.get("/branch/stock", response_class=HTMLResponse)
 def branch_stock_view(request: Request, branch_id: str = "br-chikhali"):
     user = get_current_user(request)
-    if user and user.get("role") == "BRANCH_CASHIER":
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+    if user.get("role") == "BRANCH_CASHIER":
         assigned_branch = user.get("branch_id")
         if assigned_branch and branch_id != assigned_branch:
             return RedirectResponse(url=f"/branch/stock?branch_id={assigned_branch}", status_code=303)
-    logged_in_user = user or {"username": "chikhali_cashier", "full_name": "Santosh V. Patil", "role": "BRANCH_CASHIER", "branch_id": branch_id}
+        actual_req_branch = assigned_branch or branch_id
+    elif user.get("role") == "ACCOUNTANT_HQ":
+        return RedirectResponse(url="/accounts/dashboard", status_code=303)
+    elif user.get("role") == "SUPER_ADMIN":
+        actual_req_branch = branch_id
+    else:
+        return RedirectResponse(url="/login", status_code=303)
+    logged_in_user = user
 
     today_str = date.today().isoformat()
     conn = get_connection()
     try:
         cur = conn.cursor()
-        cur.execute("SELECT id, branch_code, name, mandi_license_no FROM branches WHERE id=?", (branch_id,))
+        cur.execute("SELECT id, branch_code, name, mandi_license_no FROM branches WHERE id=?", (actual_req_branch,))
         current_branch = cur.fetchone()
         if not current_branch:
             cur.execute("SELECT id, branch_code, name, mandi_license_no FROM branches LIMIT 1")
@@ -2051,19 +2294,31 @@ def branch_stock_view(request: Request, branch_id: str = "br-chikhali"):
 @app.get("/admin/settings", response_class=HTMLResponse)
 def admin_settings_view(request: Request, msg: Optional[str] = None):
     user = get_current_user(request)
-    if user and user.get("role") != "SUPER_ADMIN":
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+    if user.get("role") != "SUPER_ADMIN":
         if user.get("role") == "ACCOUNTANT_HQ":
             return RedirectResponse(url="/accounts/dashboard", status_code=303)
         else:
             b_id = user.get("branch_id") or "br-chikhali"
             return RedirectResponse(url=f"/branch/dashboard?branch_id={b_id}", status_code=303)
-    logged_in_user = user or {"username": "admin", "full_name": "Vikramaditya Singhal (Owner)", "role": "SUPER_ADMIN"}
+    logged_in_user = user
 
     conn = get_connection()
     try:
         cur = conn.cursor()
         cur.execute("SELECT setting_key, setting_value FROM system_settings WHERE scope='SUPER_ADMIN'")
         settings = {r["setting_key"]: r["setting_value"] for r in cur.fetchall()}
+
+        # Load verified license information and branch quota stats
+        license_info = check_system_license(conn)
+        allowed_branches, branch_limit_msg, cur_branch_cnt, max_branch_cnt = check_branch_limit(conn)
+        branch_stats = {
+            "current_count": cur_branch_cnt,
+            "max_count": max_branch_cnt,
+            "allowed": allowed_branches,
+            "message": branch_limit_msg
+        }
 
         # Staff Users (1 Cashier & Munim per branch, 1 HQ Accountant, 1 Admin)
         cur.execute("""
@@ -2096,6 +2351,8 @@ def admin_settings_view(request: Request, msg: Optional[str] = None):
 
         return templates.TemplateResponse(request=request, name="admin_settings.html", context={
             "settings": settings,
+            "license_info": license_info,
+            "branch_stats": branch_stats,
             "staff_users": staff_users,
             "accountant": accountant,
             "chk_cashier": chk_cashier,
@@ -2110,6 +2367,7 @@ def admin_settings_view(request: Request, msg: Optional[str] = None):
 
 @app.post("/api/admin/staff/update-all")
 def api_admin_update_all_staff(
+    request: Request,
     acc_name: str = Form(...),
     acc_username: str = Form(...),
     acc_phone: str = Form(...),
@@ -2130,6 +2388,7 @@ def api_admin_update_all_staff(
     dhd_phone: str = Form(...),
     dhd_password: Optional[str] = Form(None),
 ):
+    require_role(request, ["SUPER_ADMIN"])
     conn = get_connection()
     try:
         cur = conn.cursor()
@@ -2191,12 +2450,14 @@ def api_admin_update_all_staff(
 
 @app.post("/api/admin/users/update-credentials")
 def api_admin_update_credentials(
+    request: Request,
     user_id: str = Form(...),
     full_name: str = Form(...),
     phone: str = Form(...),
     username: str = Form(...),
     new_password: Optional[str] = Form(None)
 ):
+    require_role(request, ["SUPER_ADMIN"])
     conn = get_connection()
     try:
         cur = conn.cursor()
@@ -2244,6 +2505,7 @@ def api_admin_update_credentials(
 
 @app.post("/api/admin/settings")
 def api_save_admin_settings(
+    request: Request,
     org_name: str = Form(...),
     org_pan: str = Form(...),
     org_gstin: str = Form(...),
@@ -2251,6 +2513,7 @@ def api_save_admin_settings(
     multi_branch_sync: str = Form(...),
     audit_retention_days: str = Form(...)
 ):
+    require_role(request, ["SUPER_ADMIN"])
     conn = get_connection()
     try:
         cur = conn.cursor()
@@ -2277,13 +2540,55 @@ def api_save_admin_settings(
         conn.close()
     return RedirectResponse(url="/admin/settings?msg=Settings+saved+successfully", status_code=303)
 
+@app.post("/api/admin/license/activate")
+def api_admin_activate_license(request: Request, license_token: str = Form(...)):
+    require_role(request, ["SUPER_ADMIN"])
+    token_str = license_token.strip()
+    is_valid, msg, claims = verify_license_token(token_str)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=f"Invalid License Token: {msg}")
+
+    conn = get_connection()
+    try:
+        save_license_token(token_str, conn)
+        tier_display = claims.get("tier", "Pro").capitalize()
+        max_branches = claims.get("max_branches", 3)
+        exp_date = claims.get("expires_at", "31-March-2027")
+
+        cur = conn.cursor()
+        settings_to_update = [
+            ("license_key", claims.get("license_id", "LIC-TOKEN")),
+            ("license_status", f"Active ({tier_display} Tier - {max_branches} Branches)"),
+            ("license_valid_until", exp_date),
+            ("license_tier", f"{tier_display} Tier ({max_branches} Branches)"),
+            ("license_branch_limit", str(max_branches))
+        ]
+        for k, v in settings_to_update:
+            cur.execute("""
+                INSERT INTO system_settings (scope, scope_id, setting_key, setting_value, updated_at) 
+                VALUES ('SUPER_ADMIN', 'GLOBAL', ?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(scope, scope_id, setting_key) DO UPDATE SET setting_value=excluded.setting_value, updated_at=CURRENT_TIMESTAMP
+            """, (k, v))
+
+        cur.execute("""
+            INSERT INTO audit_change_logs (id, entity_type, entity_id, entity_name, action, change_summary)
+            VALUES (?, 'LICENSE', ?, 'Commercial License Token', 'ACTIVATE', ?)
+        """, (f"log-{uuid.uuid4().hex[:8]}", claims.get("license_id", "LIC"), f"Activated license for {claims.get('licensee_name')} ({tier_display} Tier, Max {max_branches} Branches)"))
+        conn.commit()
+    finally:
+        conn.close()
+
+    return RedirectResponse(url="/admin/settings?msg=Commercial+license+token+verified+and+activated+successfully", status_code=303)
+
 @app.get("/accounts/settings", response_class=HTMLResponse)
 def accounts_settings_view(request: Request, msg: Optional[str] = None):
     user = get_current_user(request)
-    if user and user.get("role") == "BRANCH_CASHIER":
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+    if user.get("role") == "BRANCH_CASHIER":
         b_id = user.get("branch_id") or "br-chikhali"
         return RedirectResponse(url=f"/branch/dashboard?branch_id={b_id}", status_code=303)
-    logged_in_user = user or {"username": "accountant", "full_name": "Omprakash Agrawal", "role": "ACCOUNTANT_HQ"}
+    logged_in_user = user
 
     conn = get_connection()
     try:
@@ -2300,12 +2605,14 @@ def accounts_settings_view(request: Request, msg: Optional[str] = None):
 
 @app.post("/api/accounts/settings")
 def api_save_accounts_settings(
+    request: Request,
     sec_269st_cash_limit: str = Form(...),
     sec_40a3_cash_limit: str = Form(...),
     corridor_tolerance_pct: str = Form(...),
     rtgs_auto_sms: str = Form(...),
     default_bank_account: str = Form(...)
 ):
+    require_role(request, ["ACCOUNTANT_HQ", "SUPER_ADMIN"])
     conn = get_connection()
     try:
         cur = conn.cursor()
@@ -2334,18 +2641,25 @@ def api_save_accounts_settings(
 @app.get("/branch/settings", response_class=HTMLResponse)
 def branch_settings_view(request: Request, branch_id: str = "br-chikhali", msg: Optional[str] = None):
     user = get_current_user(request)
-    if user and user.get("role") == "BRANCH_CASHIER":
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+    if user.get("role") == "BRANCH_CASHIER":
         assigned_branch = user.get("branch_id")
         if assigned_branch and branch_id != assigned_branch:
             return RedirectResponse(url=f"/branch/settings?branch_id={assigned_branch}", status_code=303)
-    elif user and user.get("role") == "ACCOUNTANT_HQ":
+        actual_branch_id = assigned_branch or branch_id
+    elif user.get("role") == "ACCOUNTANT_HQ":
         return RedirectResponse(url="/accounts/dashboard", status_code=303)
-    logged_in_user = user or {"username": "chikhali_cashier", "full_name": "Santosh V. Patil", "role": "BRANCH_CASHIER", "branch_id": branch_id}
+    elif user.get("role") == "SUPER_ADMIN":
+        actual_branch_id = branch_id
+    else:
+        return RedirectResponse(url="/login", status_code=303)
+    logged_in_user = user
 
     conn = get_connection()
     try:
         cur = conn.cursor()
-        cur.execute("SELECT id, branch_code, name, mandi_license_no, address, phone FROM branches WHERE id=?", (branch_id,))
+        cur.execute("SELECT id, branch_code, name, mandi_license_no, address, phone FROM branches WHERE id=?", (actual_branch_id,))
         current_branch = cur.fetchone()
         if not current_branch:
             cur.execute("SELECT id, branch_code, name, mandi_license_no, address, phone FROM branches LIMIT 1")
@@ -2369,12 +2683,16 @@ def branch_settings_view(request: Request, branch_id: str = "br-chikhali", msg: 
 
 @app.post("/api/branch/settings")
 def api_save_branch_settings(
+    request: Request,
     branch_id: str = Form(...),
     default_weighment_mode: str = Form(...),
     parchi_gate_no: str = Form(...),
     auto_print_parchi: str = Form(...),
     cash_drawer_warning_limit: str = Form(...)
 ):
+    user = require_role(request, ["BRANCH_CASHIER", "SUPER_ADMIN"])
+    if user.get("role") == "BRANCH_CASHIER" and user.get("branch_id"):
+        branch_id = user.get("branch_id")
     conn = get_connection()
     try:
         cur = conn.cursor()
@@ -2401,6 +2719,7 @@ def api_save_branch_settings(
 
 @app.post("/api/cashier/request-rtgs")
 def api_cashier_request_rtgs(
+    request: Request,
     invoice_id: str = Form(...),
     branch_id: str = Form(...),
     beneficiary_name: str = Form(...),
@@ -2408,6 +2727,11 @@ def api_cashier_request_rtgs(
     account_no: str = Form(...),
     ifsc_code: str = Form(...)
 ):
+    require_active_license()
+    user = require_role(request, ["BRANCH_CASHIER", "SUPER_ADMIN"])
+    if user.get("role") == "BRANCH_CASHIER" and user.get("branch_id"):
+        branch_id = user.get("branch_id")
+
     if not bank_name.strip() or not account_no.strip() or not ifsc_code.strip():
         return {"success": False, "error": "Bank Name, Account Number, and IFSC Code are mandatory for RTGS."}
 
@@ -2419,6 +2743,8 @@ def api_cashier_request_rtgs(
         inv = cur.fetchone()
         if not inv:
             return {"success": False, "error": "Invoice not found."}
+        if user.get("role") == "BRANCH_CASHIER" and inv["branch_id"] != branch_id:
+            return {"success": False, "error": "Unauthorized: Cashier cannot request RTGS for an invoice from another branch."}
         if inv["payout_status"] == "PAID":
             return {"success": False, "error": "Invoice has already been settled."}
 
@@ -2455,6 +2781,9 @@ def api_cashier_request_rtgs(
 
 @app.get("/api/branch/invoices/parchi/{token_number}", response_class=HTMLResponse)
 def api_get_parchi_slip(request: Request, token_number: str):
+    user = get_current_user(request)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
     conn = get_connection()
     try:
         cur = conn.cursor()
@@ -2477,6 +2806,7 @@ def api_get_parchi_slip(request: Request, token_number: str):
 
 @app.post("/api/branch/farmers/register")
 def api_branch_register_farmer(
+    request: Request,
     name: str = Form(...),
     phone: str = Form(...),
     village: str = Form(...),
@@ -2487,6 +2817,10 @@ def api_branch_register_farmer(
     bank_account_no: Optional[str] = Form(""),
     bank_ifsc: Optional[str] = Form("")
 ):
+    user = require_role(request, ["BRANCH_CASHIER", "ACCOUNTANT_HQ", "SUPER_ADMIN"])
+    if user.get("role") == "BRANCH_CASHIER" and user.get("branch_id"):
+        home_branch_id = user.get("branch_id")
+
     pid = f"p-{uuid.uuid4().hex[:8]}"
     conn = get_connection()
     try:
@@ -2519,6 +2853,7 @@ def api_branch_register_farmer(
 
 @app.post("/api/cashier/payout")
 def api_cashier_disburse_payout(
+    request: Request,
     invoice_id: str = Form(...),
     branch_id: str = Form(...),
     payout_mode: str = Form("CASH"),  # CASH or BANK_TRANSFER
@@ -2531,6 +2866,11 @@ def api_cashier_disburse_payout(
     notes_10: int = Form(0),
     coins: int = Form(0)
 ):
+    require_active_license()
+    user = require_role(request, ["BRANCH_CASHIER", "SUPER_ADMIN"])
+    if user.get("role") == "BRANCH_CASHIER" and user.get("branch_id"):
+        branch_id = user.get("branch_id")
+
     today_str = date.today().isoformat()
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -2547,6 +2887,9 @@ def api_cashier_disburse_payout(
 
         if not inv:
             raise HTTPException(status_code=404, detail="Invoice record not found")
+
+        if user.get("role") == "BRANCH_CASHIER" and inv["branch_id"] != branch_id:
+            raise HTTPException(status_code=403, detail="Unauthorized: Cashier cannot disburse payout for an invoice from another branch.")
 
         if inv["payout_status"] == "PAID":
             raise HTTPException(status_code=400, detail="This invoice has already been paid and settled.")

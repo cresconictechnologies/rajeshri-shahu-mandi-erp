@@ -1,0 +1,322 @@
+"""
+Comprehensive Automated Test Suite for Commercial Licensing, Authentication,
+and Multi-Yard Role Isolation in Rajeshri Shahu Mandi & Commodity Procurement ERP.
+"""
+
+import os
+import sys
+import unittest
+import base64
+import json
+from datetime import datetime, timezone, timedelta
+from fastapi.testclient import TestClient
+
+# Ensure parent directory is in sys.path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from server import app, create_session_token, verify_session_token
+from database import get_connection, hash_password, verify_password
+from licensing import (
+    verify_license_token,
+    save_license_token,
+    get_active_license,
+    check_branch_limit,
+    DEFAULT_COMMERCIAL_LICENSE_TOKEN
+)
+from vendor_license_issuer import generate_signed_license_token
+
+
+class TestLicensingAndSecurity(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.unauth_client = TestClient(app, follow_redirects=False)
+
+    def test_01_unauthenticated_admin_dashboard_redirects_to_login(self):
+        """Unauthenticated GET /admin/dashboard must fail closed and redirect to /login."""
+        res = self.unauth_client.get("/admin/dashboard")
+        self.assertEqual(res.status_code, 303)
+        self.assertEqual(res.headers["location"], "/login")
+
+    def test_02_unauthenticated_staff_update_api_returns_401(self):
+        """Unauthenticated POST to administrative staff update API must return HTTP 401."""
+        res = self.unauth_client.post("/api/admin/staff/update-all", data={
+            "acc_name": "Test Accountant",
+            "acc_username": "accountant",
+            "acc_phone": "9826022222",
+            "chk_name": "Test Cashier",
+            "chk_username": "chikhali_cashier",
+            "chk_phone": "9826033333",
+            "vrv_name": "Test Varvand",
+            "vrv_username": "varvand_cashier",
+            "vrv_phone": "9826044444",
+            "dhd_name": "Test Dhad",
+            "dhd_username": "dhad_cashier",
+            "dhd_phone": "9826055555"
+        })
+        self.assertEqual(res.status_code, 401)
+        self.assertIn("Authentication required", res.json().get("detail", ""))
+
+    def test_03_unauthenticated_commodity_rates_api_returns_401(self):
+        """Unauthenticated POST to central accounts daily rate corridor API must return HTTP 401."""
+        res = self.unauth_client.post("/api/accounts/rates", data={
+            "rate_date": "2026-10-29",
+            "commodity_name": "Soyabean (Yellow)",
+            "quality_grade": "FAQ (Standard Mandi Lot)",
+            "min_rate": 4500,
+            "target_rate": 4650,
+            "max_rate": 4800
+        })
+        self.assertEqual(res.status_code, 401)
+        self.assertIn("Authentication required", res.json().get("detail", ""))
+
+    def test_04_unauthenticated_invoice_create_api_returns_401(self):
+        """Unauthenticated POST to inward invoice creation API must return HTTP 401."""
+        res = self.unauth_client.post("/api/branch/invoices/create", data={
+            "branch_id": "br-chikhali",
+            "party_id": "p-farmer-1",
+            "inspector_name": "Mahesh Patidar",
+            "commodity_name": "Soyabean (Yellow)",
+            "rate_per_quintal": 4650
+        })
+        self.assertEqual(res.status_code, 401)
+        self.assertIn("Authentication required", res.json().get("detail", ""))
+
+    def test_05_role_isolation_cashier_blocked_from_admin_and_accounts(self):
+        """Branch Cashier must be strictly blocked from Super Admin and Central Accounts portals."""
+        cashier_token = create_session_token("chikhali_cashier", "BRANCH_CASHIER", branch_id="br-chikhali")
+        client = TestClient(app, follow_redirects=False)
+        client.cookies.set("mandi_session", cashier_token)
+
+        # Cashier trying to access Super Admin dashboard -> redirected to own branch dashboard
+        res_admin = client.get("/admin/dashboard")
+        self.assertEqual(res_admin.status_code, 303)
+        self.assertIn("/branch/dashboard", res_admin.headers["location"])
+
+        # Cashier trying to access Central Accounts dashboard -> redirected to own branch dashboard
+        res_acc = client.get("/accounts/dashboard")
+        self.assertEqual(res_acc.status_code, 303)
+        self.assertIn("/branch/dashboard", res_acc.headers["location"])
+
+        # Cashier trying to invoke admin branch-creation API -> HTTP 403 Forbidden
+        res_add_branch = client.post("/api/admin/branches", data={
+            "branch_code": "BR-TEST",
+            "name": "Unauthorized Yard"
+        })
+        self.assertEqual(res_add_branch.status_code, 403)
+        self.assertIn("Forbidden", res_add_branch.json().get("detail", ""))
+
+    def test_06_branch_isolation_parameter_tampering_overridden(self):
+        """Cashier attempting to submit an invoice for another branch yard has branch_id forced to assigned yard."""
+        cashier_token = create_session_token("chikhali_cashier", "BRANCH_CASHIER", branch_id="br-chikhali")
+        client = TestClient(app, follow_redirects=False)
+        client.cookies.set("mandi_session", cashier_token)
+
+        # Chikhali cashier attempts to create invoice for Varvand yard
+        res = client.post("/api/branch/invoices/create", data={
+            "branch_id": "br-varvand",  # Tampered parameter
+            "party_id": "p-farmer-1",
+            "inspector_name": "Mahesh Patidar",
+            "commodity_name": "Wheat (Lokwan)",
+            "rate_per_quintal": 2750,
+            "weighment_mode": "MANUAL_YARD",
+            "yard_weight_kg": 2000
+        })
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertTrue(data["success"])
+        invoice_id = data["invoice_id"]
+
+        # Verify in database that invoice was stored under br-chikhali, NOT br-varvand
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT branch_id FROM purchase_invoices WHERE id=?", (invoice_id,))
+        row = cur.fetchone()
+        conn.close()
+        self.assertEqual(row["branch_id"], "br-chikhali", "Server must override tampered branch_id with cashier's session branch")
+
+    def test_07_setup_endpoint_returns_404_when_setup_completed(self):
+        """Once initial system provisioning is marked complete, /setup must return HTTP 404 permanently."""
+        # Ensure is_setup_completed is 1
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("UPDATE system_settings SET setting_value='1' WHERE scope='SUPER_ADMIN' AND setting_key='is_setup_completed'")
+        conn.commit()
+        conn.close()
+
+        res_get = self.unauth_client.get("/setup")
+        self.assertEqual(res_get.status_code, 404)
+        self.assertIn("First-run provisioning is permanently closed", res_get.json().get("detail", ""))
+
+        res_post = self.unauth_client.post("/setup", data={"org_name": "Attacker Enterprise"})
+        self.assertEqual(res_post.status_code, 404)
+
+    def test_08_valid_ed25519_signed_license_token_accepted(self):
+        """Valid vendor-signed Ed25519 commercial license token must verify successfully with all claims."""
+        token = generate_signed_license_token(
+            licensee_name="Rajeshri Shahu Trading Co.",
+            tier="ENTERPRISE",
+            max_branches=10,
+            valid_days=365
+        )
+        is_valid, msg, claims = verify_license_token(token)
+        self.assertTrue(is_valid, f"Signature verification failed: {msg}")
+        self.assertEqual(claims["tier"], "ENTERPRISE")
+        self.assertEqual(claims["max_branches"], 10)
+        self.assertEqual(claims["licensee_name"], "Rajeshri Shahu Trading Co.")
+
+    def test_09_tampered_or_invalid_license_token_rejected(self):
+        """A tampered license token (e.g. modified claims or invalid signature) must fail closed."""
+        valid_token = DEFAULT_COMMERCIAL_LICENSE_TOKEN
+        payload_b64, sig_b64 = valid_token.split(".")
+
+        # Decode payload, modify branch limit from 3 to 999, re-encode without vendor's private key
+        payload = json.loads(base64.urlsafe_b64decode(payload_b64.encode("utf-8")).decode("utf-8"))
+        payload["max_branches"] = 999
+        tampered_payload_b64 = base64.urlsafe_b64encode(json.dumps(payload).encode("utf-8")).decode("utf-8")
+        tampered_token = f"{tampered_payload_b64}.{sig_b64}"
+
+        is_valid, msg, claims = verify_license_token(tampered_token)
+        self.assertFalse(is_valid)
+        self.assertIn("Digital signature verification failed", msg)
+
+        # Super Admin API must also reject tampered token
+        admin_token = create_session_token("admin", "SUPER_ADMIN", user_id="u-admin")
+        client = TestClient(app, follow_redirects=False)
+        client.cookies.set("mandi_session", admin_token)
+
+        res = client.post("/api/admin/license/activate", data={"license_token": tampered_token})
+        self.assertEqual(res.status_code, 400)
+        self.assertIn("Invalid License Token", res.json().get("detail", ""))
+
+    def test_10_expired_license_blocks_business_operations(self):
+        """An expired commercial license token must block inward produce intake with HTTP 403."""
+        # Generate an expired license token (-10 days)
+        expired_token = generate_signed_license_token(
+            licensee_name="Rajeshri Shahu Trading Co.",
+            tier="PRO",
+            max_branches=3,
+            valid_days=-10
+        )
+        # Directly store expired token into database to simulate elapsed validity
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("UPDATE system_settings SET setting_value=? WHERE scope='SUPER_ADMIN' AND setting_key='license_token'", (expired_token,))
+        conn.commit()
+        conn.close()
+
+        cashier_token = create_session_token("chikhali_cashier", "BRANCH_CASHIER", branch_id="br-chikhali")
+        client = TestClient(app, follow_redirects=False)
+        client.cookies.set("mandi_session", cashier_token)
+
+        res_inv = client.post("/api/branch/invoices/create", data={
+            "branch_id": "br-chikhali",
+            "party_id": "p-farmer-1",
+            "inspector_name": "Mahesh Patidar",
+            "commodity_name": "Soyabean (Yellow)",
+            "rate_per_quintal": 4650
+        })
+        self.assertEqual(res_inv.status_code, 403)
+        self.assertIn("Commercial License Inactive or Expired", res_inv.json().get("detail", ""))
+
+        # Restore valid commercial license for subsequent tests
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("UPDATE system_settings SET setting_value=? WHERE scope='SUPER_ADMIN' AND setting_key='license_token'", (DEFAULT_COMMERCIAL_LICENSE_TOKEN,))
+        conn.commit()
+        conn.close()
+
+    def test_11_branch_creation_beyond_license_limit_rejected(self):
+        """Attempting to add active branches beyond the licensed max_branches quota must return HTTP 403."""
+        admin_token = create_session_token("admin", "SUPER_ADMIN", user_id="u-admin")
+        client = TestClient(app, follow_redirects=False)
+        client.cookies.set("mandi_session", admin_token)
+
+        # Default license allows max 3 branches. Current active branches = 3.
+        res = client.post("/api/admin/branches", data={
+            "branch_code": "BR-EXCESS",
+            "name": "Excess Yard 4",
+            "address": "Buldhana Road"
+        })
+        self.assertEqual(res.status_code, 403)
+        self.assertIn("branch limit reached", res.json().get("detail", "").lower())
+
+    def test_12_logout_revokes_session_in_database(self):
+        """Calling /logout must revoke the active session row in SQLite and prevent token reuse."""
+        client = TestClient(app, follow_redirects=False)
+        login_res = client.post("/login", data={"username": "accountant", "password": "accpassword123"})
+        if login_res.status_code != 303:
+            login_res = client.post("/login", data={"username": "accountant", "password": "acc123"})
+        self.assertEqual(login_res.status_code, 303)
+        cookie = login_res.cookies.get("mandi_session")
+        self.assertIsNotNone(cookie)
+
+        # Parse token to extract session_id
+        session_info = verify_session_token(cookie)
+        self.assertIsNotNone(session_info)
+        session_id = session_info["session_id"]
+        self.assertIsNotNone(session_id)
+
+        # Verify session is initially active
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT is_revoked FROM user_sessions WHERE session_id=?", (session_id,))
+        row = cur.fetchone()
+        conn.close()
+        self.assertEqual(row["is_revoked"], 0)
+
+        # Perform logout
+        logout_res = client.get("/logout")
+        self.assertEqual(logout_res.status_code, 303)
+
+        # Verify session is revoked in database
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT is_revoked FROM user_sessions WHERE session_id=?", (session_id,))
+        row = cur.fetchone()
+        conn.close()
+        self.assertEqual(row["is_revoked"], 1)
+
+        # Attempting to use the revoked cookie token must fail validation
+        self.assertIsNone(verify_session_token(cookie))
+
+    def test_13_legacy_password_transparently_rehashed_on_login(self):
+        """Logging in with a legacy unsalted SHA-256 password must transparently migrate it to salted PBKDF2."""
+        conn = get_connection()
+        cur = conn.cursor()
+        import hashlib
+        legacy_pass = "temporary_migration_pass_999"
+        legacy_hash = hashlib.sha256(legacy_pass.encode("utf-8")).hexdigest()
+        test_user_id = "u-migration-test"
+        cur.execute("DELETE FROM user_sessions WHERE user_id=?", (test_user_id,))
+        cur.execute("DELETE FROM users WHERE id=?", (test_user_id,))
+        cur.execute(
+            "INSERT INTO users (id, username, password_hash, role, full_name, phone, is_active) VALUES (?, ?, ?, 'BRANCH_CASHIER', 'Migration Test User', '9826000000', 1)",
+            (test_user_id, "migration_user", legacy_hash)
+        )
+        conn.commit()
+        conn.close()
+
+        # Login with plaintext password
+        client = TestClient(app, follow_redirects=False)
+        res = client.post("/login", data={"username": "migration_user", "password": legacy_pass})
+        self.assertEqual(res.status_code, 303)
+
+        # Verify that the password_hash was automatically re-hashed to PBKDF2
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT password_hash FROM users WHERE id=?", (test_user_id,))
+        new_hash = cur.fetchone()["password_hash"]
+        cur.execute("DELETE FROM user_sessions WHERE user_id=?", (test_user_id,))
+        cur.execute("DELETE FROM users WHERE id=?", (test_user_id,))
+        conn.commit()
+        conn.close()
+
+        self.assertTrue(new_hash.startswith("pbkdf2_sha256$600000$"), f"Expected PBKDF2 hash, got: {new_hash}")
+        is_valid, needs_rehash = verify_password(legacy_pass, new_hash)
+        self.assertTrue(is_valid)
+        self.assertFalse(needs_rehash, "Migrated PBKDF2 hash should not need further rehashing")
+
+
+if __name__ == "__main__":
+    unittest.main()

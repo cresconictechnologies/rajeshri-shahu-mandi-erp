@@ -8,7 +8,9 @@ import os
 import sys
 import shutil
 import hashlib
-from datetime import date, datetime
+import hmac
+import uuid
+from datetime import date, datetime, timezone, timedelta
 
 if getattr(sys, 'frozen', False):
     _APP_DIR = os.path.dirname(sys.executable)
@@ -33,25 +35,128 @@ def get_connection():
     return conn
 
 def hash_password(pwd: str) -> str:
-    return hashlib.sha256(pwd.encode('utf-8')).hexdigest()
+    """Cryptographic password hashing with 600,000 PBKDF2-HMAC-SHA256 iterations and per-user 16-byte random salt."""
+    if not pwd:
+        raise ValueError("Password cannot be empty.")
+    salt = os.urandom(16)
+    dk = hashlib.pbkdf2_hmac("sha256", pwd.encode("utf-8"), salt, 600000)
+    return f"pbkdf2_sha256$600000${salt.hex()}${dk.hex()}"
+
+def verify_password(pwd: str, stored_hash: str) -> tuple[bool, bool]:
+    """
+    Verifies a password against the stored hash.
+    Returns (is_valid, needs_rehash).
+    Transparently supports legacy un-salted SHA-256 hashes and flags needs_rehash=True for in-flight migration.
+    """
+    if not stored_hash or not pwd:
+        return False, False
+
+    if stored_hash.startswith("pbkdf2_sha256$"):
+        parts = stored_hash.split("$")
+        if len(parts) == 4:
+            _, iter_str, salt_hex, hash_hex = parts
+            try:
+                iterations = int(iter_str)
+                salt = bytes.fromhex(salt_hex)
+                expected_dk = bytes.fromhex(hash_hex)
+                dk = hashlib.pbkdf2_hmac("sha256", pwd.encode("utf-8"), salt, iterations)
+                return hmac.compare_digest(dk, expected_dk), False
+            except Exception:
+                return False, False
+
+    # Fallback to verify legacy single-round SHA-256
+    legacy_hash = hashlib.sha256(pwd.encode("utf-8")).hexdigest()
+    if hmac.compare_digest(legacy_hash, stored_hash):
+        return True, True  # Valid credentials, needs migration to PBKDF2
+
+    return False, False
+
+def create_user_session(user_id: str, username: str, role: str, branch_id: Optional[str] = None, duration_seconds: int = 43200) -> str:
+    """Creates a server-tracked session record in SQLite with a 12-hour expiry."""
+    session_id = uuid.uuid4().hex
+    expires_at = (datetime.now(timezone.utc) + timedelta(seconds=duration_seconds)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO user_sessions (session_id, user_id, username, role, branch_id, expires_at, is_revoked) VALUES (?,?,?,?,?,?,0)",
+            (session_id, user_id, username, role, branch_id, expires_at)
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return session_id
+
+def validate_user_session(session_id: str) -> Optional[dict]:
+    """Verifies that a session exists, is not revoked, has not expired, and belongs to an active user."""
+    if not session_id:
+        return None
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT s.*, u.is_active, u.full_name 
+            FROM user_sessions s
+            JOIN users u ON s.user_id = u.id
+            WHERE s.session_id=? AND s.is_revoked=0 AND u.is_active=1
+        """, (session_id,))
+        row = cur.fetchone()
+        if not row:
+            return None
+        
+        # Check expiry
+        exp_str = row["expires_at"]
+        exp_dt = datetime.fromisoformat(exp_str[:-1]).replace(tzinfo=timezone.utc) if exp_str.endswith("Z") else datetime.fromisoformat(exp_str).replace(tzinfo=timezone.utc)
+        if datetime.now(timezone.utc) > exp_dt:
+            cur.execute("UPDATE user_sessions SET is_revoked=1 WHERE session_id=?", (session_id,))
+            conn.commit()
+            return None
+        
+        return dict(row)
+    except Exception:
+        return None
+    finally:
+        conn.close()
+
+def revoke_user_session(session_id: str):
+    """Server-side session invalidation on logout."""
+    if not session_id:
+        return
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("UPDATE user_sessions SET is_revoked=1 WHERE session_id=?", (session_id,))
+        conn.commit()
+    finally:
+        conn.close()
 
 def login_admin(username: str, password: str) -> dict:
-    """Boundary-validated login. Returns real DB row or explicit failure."""
+    """Boundary-validated login with transparent PBKDF2 hash upgrade."""
     if not username or not password or len(username) > 64 or len(password) > 128:
         raise ValueError("Invalid input boundary: username/password length/null.")
     conn = get_connection()
     try:
         cur = conn.cursor()
-        pw_hash = hash_password(password)
         cur.execute(
-            "SELECT id, username, full_name, role, branch_id FROM users WHERE username=? AND password_hash=? AND is_active=1",
-            (username, pw_hash)
+            "SELECT id, username, full_name, role, branch_id, password_hash, is_active FROM users WHERE username=? AND is_active=1",
+            (username.strip(),)
         )
         row = cur.fetchone()
         if row is None:
-            return {"success": False, "reason": "AUTH_FAIL", "note": "Real DB check — no mock."}
+            return {"success": False, "reason": "AUTH_FAIL", "note": "User not found or inactive."}
+        
+        is_valid, needs_rehash = verify_password(password, row["password_hash"])
+        if not is_valid:
+            return {"success": False, "reason": "AUTH_FAIL", "note": "Invalid password."}
+
         if row["role"] != "SUPER_ADMIN":
-            return {"success": False, "reason": "ROLE_DENIED", "note": "Only SUPER_ADMIN allowed; boundary enforced."}
+            return {"success": False, "reason": "ROLE_DENIED", "note": "Only SUPER_ADMIN allowed."}
+
+        if needs_rehash:
+            new_hash = hash_password(password)
+            cur.execute("UPDATE users SET password_hash=? WHERE id=?", (new_hash, row["id"]))
+            conn.commit()
+
         return {"success": True, "user": dict(row)}
     finally:
         conn.close()
@@ -287,6 +392,20 @@ def init_db():
         PRIMARY KEY (scope, scope_id, setting_key)
     );
 
+    CREATE TABLE IF NOT EXISTS user_sessions (
+        session_id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id),
+        username TEXT NOT NULL,
+        role TEXT NOT NULL,
+        branch_id TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        expires_at TEXT NOT NULL,
+        is_revoked INTEGER DEFAULT 0
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_sessions_user ON user_sessions(user_id);
+    CREATE INDEX IF NOT EXISTS idx_sessions_active ON user_sessions(session_id, is_revoked);
+
     CREATE INDEX IF NOT EXISTS idx_invoice_branch ON purchase_invoices(branch_id);
     CREATE INDEX IF NOT EXISTS idx_invoice_party ON purchase_invoices(party_id);
     CREATE INDEX IF NOT EXISTS idx_ledger_party ON ledger_entries(party_id);
@@ -395,6 +514,18 @@ def init_db():
             ("BRANCH", "GLOBAL", "cash_drawer_warning_limit", "50000")
         ]
         cur.executemany("INSERT OR IGNORE INTO system_settings (scope, scope_id, setting_key, setting_value) VALUES (?,?,?,?)", default_settings)
+
+    # Ensure commercial license token is initialized in system_settings
+    cur.execute("SELECT setting_value FROM system_settings WHERE scope='SUPER_ADMIN' AND setting_key='license_token'")
+    if not cur.fetchone():
+        try:
+            from licensing import DEFAULT_COMMERCIAL_LICENSE_TOKEN
+            cur.execute("""
+                INSERT OR REPLACE INTO system_settings (scope, scope_id, setting_key, setting_value, updated_at)
+                VALUES ('SUPER_ADMIN', 'GLOBAL', 'license_token', ?, CURRENT_TIMESTAMP)
+            """, (DEFAULT_COMMERCIAL_LICENSE_TOKEN,))
+        except Exception as _lic_init_err:
+            sys.stderr.write(f"Notice: license token initialization deferred: {_lic_init_err}\n")
 
     # Seed default buyer companies/traders if none exist
     cur.execute("SELECT count(*) as cnt FROM parties WHERE party_type='BUYER'")

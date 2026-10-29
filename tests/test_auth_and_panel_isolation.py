@@ -20,6 +20,15 @@ class TestAuthAndPanelIsolation(unittest.TestCase):
 
     def test_01_owner_setup_page_and_license_activation(self):
         """Owner setup page must display 3 steps: Profile, Commercial License, and Staff generator."""
+        # Reset setup state for first-run simulation
+        conn = get_connection()
+        try:
+            cur = conn.cursor()
+            cur.execute("UPDATE system_settings SET setting_value='0' WHERE scope='SUPER_ADMIN' AND setting_key='is_setup_completed'")
+            conn.commit()
+        finally:
+            conn.close()
+
         res = self.following_client.get("/setup")
         self.assertEqual(res.status_code, 200)
         content = res.text
@@ -123,6 +132,8 @@ class TestAuthAndPanelIsolation(unittest.TestCase):
 
     def test_05_zero_stock_auto_hide(self):
         """In yard stock view, commodities with 0 quantity must be automatically hidden."""
+        token = create_session_token("chikhali_cashier", "BRANCH_CASHIER", branch_id="br-chikhali")
+        self.following_client.cookies.set("mandi_session", token)
         res = self.following_client.get("/branch/stock?branch_id=br-chikhali")
         self.assertEqual(res.status_code, 200)
         content = res.text

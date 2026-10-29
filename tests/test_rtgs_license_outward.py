@@ -11,13 +11,15 @@ from fastapi.testclient import TestClient
 import sqlite3
 import os
 import hashlib
-from server import app
-from database import DB_PATH, get_connection
+from server import app, create_session_token
+from database import DB_PATH, get_connection, verify_password
 
 class TestRtgsLicenseOutward(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.client = TestClient(app)
+        token = create_session_token("admin", "SUPER_ADMIN")
+        cls.client.cookies.set("mandi_session", token)
 
     def test_01_branch_dashboard_has_rtgs_tracker_tab_and_data(self):
         """Branch dashboard must feature the RTGS status tracker tab and show live UTRs."""
@@ -156,8 +158,8 @@ class TestRtgsLicenseOutward(unittest.TestCase):
         u = cur.fetchone()
         self.assertEqual(u["full_name"], "Santosh V. Patil (Chikhali Lead)")
         self.assertEqual(u["phone"], "9826099999")
-        expected_hash = hashlib.sha256(new_test_pass.encode("utf-8")).hexdigest()
-        self.assertEqual(u["password_hash"], expected_hash)
+        is_valid_pw, _ = verify_password(new_test_pass, u["password_hash"])
+        self.assertTrue(is_valid_pw, "Updated password hash must verify successfully")
 
         # Verify audit log entry
         cur.execute("SELECT * FROM audit_change_logs WHERE entity_type='USER' AND entity_id=? ORDER BY created_at DESC LIMIT 1", (uid,))

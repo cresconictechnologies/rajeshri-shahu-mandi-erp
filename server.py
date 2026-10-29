@@ -22,11 +22,15 @@ from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 
 # Ensure parent directory is in sys.path
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+if getattr(sys, 'frozen', False):
+    BASE_DIR = getattr(sys, '_MEIPASS', os.path.dirname(sys.executable))
+else:
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
-from database import get_connection, hash_password, DB_PATH, init_db
+from database import get_connection, hash_password, DB_PATH, init_db, login_admin
 from calculations import (
     calculate_inward_invoice,
     calculate_outward_order,
@@ -35,7 +39,6 @@ from calculations import (
     calculate_cash_payout_with_roundup,
     validate_cash_denominations
 )
-from admin_portal.admin_dashboard import login_admin, admin_dashboard_summary, CODEGRAPH_REF
 
 app = FastAPI(
     title="Mandi & Commodity Procurement ERP",

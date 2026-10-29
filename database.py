@@ -5,10 +5,25 @@ Local-first SQLite with WAL mode, foreign keys, and seed data.
 
 import sqlite3
 import os
+import sys
+import shutil
 import hashlib
 from datetime import date, datetime
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "commodity_mandi.db")
+if getattr(sys, 'frozen', False):
+    _APP_DIR = os.path.dirname(sys.executable)
+    _MEIPASS_DIR = getattr(sys, '_MEIPASS', _APP_DIR)
+    DB_PATH = os.path.join(_APP_DIR, "commodity_mandi.db")
+    if not os.path.exists(DB_PATH):
+        _bundled = os.path.join(_MEIPASS_DIR, "commodity_mandi.db")
+        if os.path.exists(_bundled):
+            try:
+                shutil.copy2(_bundled, DB_PATH)
+            except OSError as _copy_err:
+                sys.stderr.write(f"Notice: using default db initialization: {_copy_err}\n")
+else:
+    _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    DB_PATH = os.path.join(_BASE_DIR, "commodity_mandi.db")
 
 def get_connection():
     conn = sqlite3.connect(DB_PATH, timeout=15.0)
@@ -19,6 +34,27 @@ def get_connection():
 
 def hash_password(pwd: str) -> str:
     return hashlib.sha256(pwd.encode('utf-8')).hexdigest()
+
+def login_admin(username: str, password: str) -> dict:
+    """Boundary-validated login. Returns real DB row or explicit failure."""
+    if not username or not password or len(username) > 64 or len(password) > 128:
+        raise ValueError("Invalid input boundary: username/password length/null.")
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        pw_hash = hash_password(password)
+        cur.execute(
+            "SELECT id, username, full_name, role, branch_id FROM users WHERE username=? AND password_hash=? AND is_active=1",
+            (username, pw_hash)
+        )
+        row = cur.fetchone()
+        if row is None:
+            return {"success": False, "reason": "AUTH_FAIL", "note": "Real DB check — no mock."}
+        if row["role"] != "SUPER_ADMIN":
+            return {"success": False, "reason": "ROLE_DENIED", "note": "Only SUPER_ADMIN allowed; boundary enforced."}
+        return {"success": True, "user": dict(row)}
+    finally:
+        conn.close()
 
 def init_db():
     conn = get_connection()

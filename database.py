@@ -95,7 +95,7 @@ def validate_user_session(session_id: str) -> Optional[dict]:
     try:
         cur = conn.cursor()
         cur.execute("""
-            SELECT s.*, u.is_active, u.full_name 
+            SELECT s.*, u.is_active, u.full_name, u.role as authoritative_role, u.branch_id as authoritative_branch_id
             FROM user_sessions s
             JOIN users u ON s.user_id = u.id
             WHERE s.session_id=? AND s.is_revoked=0 AND u.is_active=1
@@ -130,6 +130,23 @@ def revoke_user_session(session_id: str):
     finally:
         conn.close()
 
+def revoke_user_sessions_by_user(user_id: str, conn=None):
+    """Server-side invalidation of all sessions for a specific user (e.g. on password reset or account deactivation)."""
+    if not user_id:
+        return
+    should_close = False
+    if conn is None:
+        conn = get_connection()
+        should_close = True
+    try:
+        cur = conn.cursor()
+        cur.execute("UPDATE user_sessions SET is_revoked=1 WHERE user_id=?", (user_id,))
+        if should_close:
+            conn.commit()
+    finally:
+        if should_close:
+            conn.close()
+
 def login_admin(username: str, password: str) -> dict:
     """Boundary-validated login with transparent PBKDF2 hash upgrade."""
     if not username or not password or len(username) > 64 or len(password) > 128:
@@ -157,7 +174,9 @@ def login_admin(username: str, password: str) -> dict:
             cur.execute("UPDATE users SET password_hash=? WHERE id=?", (new_hash, row["id"]))
             conn.commit()
 
-        return {"success": True, "user": dict(row)}
+        user_data = dict(row)
+        user_data.pop("password_hash", None)
+        return {"success": True, "user": user_data}
     finally:
         conn.close()
 

@@ -39,7 +39,8 @@ from database import (
     login_admin,
     create_user_session,
     validate_user_session,
-    revoke_user_session
+    revoke_user_session,
+    revoke_user_sessions_by_user
 )
 from licensing import (
     get_active_license,
@@ -148,27 +149,20 @@ def verify_session_token(token: Optional[str]) -> Optional[dict]:
             sess = validate_user_session(session_id)
             if not sess:
                 return None
+
+            # Enforce authoritative role and branch directly from the live database record
+            auth_role = sess.get("authoritative_role") or role
+            auth_branch = sess.get("authoritative_branch_id") if sess.get("authoritative_branch_id") is not None else branch_id
             return {
                 "session_id": session_id,
                 "user_id": sess["user_id"],
-                "username": username,
-                "role": role,
-                "branch_id": branch_id,
+                "username": sess["username"],
+                "role": auth_role,
+                "branch_id": auth_branch,
                 "full_name": sess.get("full_name", username)
             }
-        elif len(parts) == 4:
-            # Backward-compatible 4-part signed token for migration and test compatibility
-            username, role, branch_id, sig = parts
-            expected_sig = hmac.new(SESSION_SECRET.encode("utf-8"), f"{username}|{role}|{branch_id}".encode("utf-8"), hashlib.sha256).hexdigest()
-            if hmac.compare_digest(sig, expected_sig):
-                return {
-                    "session_id": None,
-                    "user_id": f"u-{username}",
-                    "username": username,
-                    "role": role,
-                    "branch_id": branch_id,
-                    "full_name": username
-                }
+        # Strictly reject untracked or legacy 4-part tokens without database sessions
+        return None
     except Exception:
         return None
     return None
@@ -754,8 +748,19 @@ def api_admin_toggle_branch(request: Request, branch_id: str = Form(...)):
     conn = get_connection()
     try:
         cur = conn.cursor()
+        cur.execute("SELECT is_active FROM branches WHERE id=?", (branch_id,))
+        b_row = cur.fetchone()
+        if b_row and b_row["is_active"] == 0:
+            allowed, msg, cur_cnt, max_cnt = check_branch_limit(conn)
+            if not allowed:
+                raise HTTPException(status_code=403, detail=msg)
         cur.execute("UPDATE branches SET is_active = CASE WHEN is_active=1 THEN 0 ELSE 1 END WHERE id=?", (branch_id,))
         conn.commit()
+    except HTTPException:
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
     finally:
         conn.close()
     return RedirectResponse(url="/admin/dashboard", status_code=303)
@@ -801,6 +806,7 @@ def api_admin_toggle_user(request: Request, user_id: str = Form(...)):
     try:
         cur = conn.cursor()
         cur.execute("UPDATE users SET is_active = CASE WHEN is_active=1 THEN 0 ELSE 1 END WHERE id=? AND role != 'SUPER_ADMIN'", (user_id,))
+        revoke_user_sessions_by_user(user_id, conn=conn)
         conn.commit()
     finally:
         conn.close()
@@ -2412,6 +2418,7 @@ def api_admin_update_all_staff(
                         SET full_name=?, username=?, phone=?, password_hash=?
                         WHERE id=?
                     """, (name, username, phone, hash_password(pwd.strip()), uid))
+                    revoke_user_sessions_by_user(uid, conn=conn)
                 else:
                     cur.execute("""
                         UPDATE users 
@@ -2477,6 +2484,7 @@ def api_admin_update_credentials(
                 SET full_name=?, phone=?, username=?, password_hash=?
                 WHERE id=?
             """, (clean_name, clean_phone, clean_user, new_hash, user_id))
+            revoke_user_sessions_by_user(user_id, conn=conn)
             action_desc = f"Updated staff details and changed password for '{clean_user}' ({clean_name})"
         else:
             cur.execute("""

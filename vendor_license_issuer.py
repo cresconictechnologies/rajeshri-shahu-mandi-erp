@@ -9,13 +9,23 @@ import os
 import json
 import base64
 import argparse
+from typing import Optional
 from datetime import datetime, timezone, timedelta
 
 from cryptography.hazmat.primitives.asymmetric import ed25519
 
-# Software Vendor Private Key (Kept offline by vendor)
-VENDOR_PRIVATE_KEY_HEX = "569a719042579dc1a64fd6bcdd1ef45526c3e8e82baad32380d2604468660096"
+# Software Vendor Private Key configuration (OFFLINE AIR-GAPPED ONLY - NEVER HARDCODE)
+# Private signing keys must be supplied via secure environment variable or --key-file.
 PRODUCT_CODE = "SHAHU_MANDI_ERP"
+
+def get_vendor_private_key(explicit_hex: Optional[str] = None) -> ed25519.Ed25519PrivateKey:
+    key_hex = explicit_hex or os.environ.get("VENDOR_ED25519_PRIVATE_KEY")
+    if not key_hex:
+        raise ValueError(
+            "Vendor private signing key required. Provide via VENDOR_ED25519_PRIVATE_KEY env var, "
+            "--key-file, or programmatic parameter."
+        )
+    return ed25519.Ed25519PrivateKey.from_private_bytes(bytes.fromhex(key_hex.strip()))
 
 def issue_license(
     licensee_name: str,
@@ -23,7 +33,8 @@ def issue_license(
     tier: str = "PRO",
     max_branches: int = 3,
     valid_days: int = 365,
-    features: list = None
+    features: list = None,
+    private_key_hex: Optional[str] = None
 ) -> str:
     if features is None:
         features = ["MULTI_BRANCH", "RTGS_DESK", "OUTWARD_CHALLAN", "AUDIT_LOGS"]
@@ -38,12 +49,13 @@ def issue_license(
         "tier": tier.upper(),
         "max_branches": int(max_branches),
         "issued_at": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "valid_from": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "expires_at": expires.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "features": features
     }
 
     payload_bytes = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    priv = ed25519.Ed25519PrivateKey.from_private_bytes(bytes.fromhex(VENDOR_PRIVATE_KEY_HEX))
+    priv = get_vendor_private_key(private_key_hex)
     sig = priv.sign(payload_bytes)
 
     token = (
@@ -58,14 +70,16 @@ def generate_signed_license_token(
     tier: str = "PRO",
     max_branches: int = 3,
     valid_days: int = 365,
-    license_id: str = "LIC-TEST-2026"
+    license_id: str = "LIC-TEST-2026",
+    private_key_hex: Optional[str] = None
 ) -> str:
     return issue_license(
         licensee_name=licensee_name,
         license_id=license_id,
         tier=tier,
         max_branches=max_branches,
-        valid_days=valid_days
+        valid_days=valid_days,
+        private_key_hex=private_key_hex
     )
 
 def inspect_license(token: str):
@@ -89,6 +103,8 @@ if __name__ == "__main__":
     parser.add_argument("--tier", default="PRO", help="License Tier (BASIC, PRO, ENTERPRISE)")
     parser.add_argument("--branches", type=int, default=3, help="Max Allowed Operating Branches")
     parser.add_argument("--days", type=int, default=365, help="Validity Days from Now")
+    parser.add_argument("--key-hex", help="Vendor Ed25519 Private Key in hex format")
+    parser.add_argument("--key-file", help="Path to secure file containing vendor private key hex")
     parser.add_argument("--inspect", help="Inspect an existing license token")
 
     args = parser.parse_args()
@@ -96,9 +112,18 @@ if __name__ == "__main__":
     if args.inspect:
         inspect_license(args.inspect)
     else:
-        tok = issue_license(args.name, args.id, args.tier, args.branches, args.days)
-        print("\nGenerated Commercial License Token:")
-        print("-" * 60)
-        print(tok)
-        print("-" * 60)
-        inspect_license(tok)
+        priv_hex = args.key_hex
+        if not priv_hex and args.key_file and os.path.exists(args.key_file):
+            with open(args.key_file, "r", encoding="utf-8") as f:
+                priv_hex = f.read().strip()
+        
+        try:
+            tok = issue_license(args.name, args.id, args.tier, args.branches, args.days, private_key_hex=priv_hex)
+            print("\nGenerated Commercial License Token:")
+            print("-" * 60)
+            print(tok)
+            print("-" * 60)
+            inspect_license(tok)
+        except Exception as e:
+            print(f"Error issuing license: {e}", file=sys.stderr)
+            sys.exit(1)

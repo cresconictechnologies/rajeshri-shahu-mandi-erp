@@ -15,14 +15,24 @@ from typing import Optional, Tuple, Dict, Any
 from cryptography.hazmat.primitives.asymmetric import ed25519
 from cryptography.exceptions import InvalidSignature
 
-# Embedded Official Vendor Public Key (Cresconic Technologies)
-VENDOR_PUBLIC_KEY_HEX = "1b6daad3bf761546b3c7433dbf823b6a696483868f8425eab6779f28310dfda8"
+# Embedded Vendor Public Key & Revocation Registry (Cresconic Technologies)
+# Retired / Compromised Keys (Strictly Revoked - Tokens signed with these are rejected)
+RETIRED_VENDOR_PUBLIC_KEYS = {
+    "1b6daad3bf761546b3c7433dbf823b6a696483868f8425eab6779f28310dfda8": "Compromised key - revoked on 2026-10-29"
+}
+
+# Active Vendor Public Key (Staging/Transition Key; final production key injected by release authority)
+ACTIVE_VENDOR_PUBLIC_KEY_HEX = os.environ.get(
+    "VENDOR_PUBLIC_KEY_HEX",
+    "542727fd468dd35f1570177f5b5d2fa47bb87189244fe06d1eeab24e8c457cde"
+)
+VENDOR_PUBLIC_KEY_HEX = ACTIVE_VENDOR_PUBLIC_KEY_HEX
 PRODUCT_CODE = "SHAHU_MANDI_ERP"
 
-# Default signed commercial license token for initial deployment
+# Default signed commercial license token for initial deployment (signed with active replacement key)
 DEFAULT_COMMERCIAL_LICENSE_TOKEN = (
-    "eyJleHBpcmVzX2F0IjoiMjAyNy0wMy0zMVQyMzo1OTo1OVoiLCJmZWF0dXJlcyI6WyJNVUxUSV9CUkFOQ0giLCJSVEdTX0RFU0siLCJPVVRXQVJEX0NIQUxMQU4iLCJBVURJVF9MT0dTIl0sImlzc3VlZF9hdCI6IjIwMjYtMDQtMDFUMDA6MDA6MDBaIiwibGljZW5zZV9pZCI6IkxJQy1SU1QtMjAyNi1NSDNCLTg5QTEyRiIsImxpY2Vuc2VlX25hbWUiOiJSYWplc2hyaSBTaGFodSBUcmFkaW5nIENvLiIsIm1heF9icmFuY2hlcyI6MywicHJvZHVjdCI6IlNIQUhVX01BTkRJX0VSUCIsInRpZXIiOiJQUk8ifQ==."
-    "Zd0k1Lz8JRi8C33R0lx_iVX9vZFwSJsr9G1QRx-US0jor8EtUtbjEfEVyihQrgr0cwUvk29Kp50Dsf__4n6HCQ=="
+    "eyJleHBpcmVzX2F0IjoiMjAyOC0xMi0zMVQyMzo1OTo1OVoiLCJmZWF0dXJlcyI6WyJNVUxUSV9CUkFOQ0giLCJSVEdTX0RFU0siLCJPVVRXQVJEX0NIQUxMQU4iLCJBVURJVF9MT0dTIl0sImlzc3VlZF9hdCI6IjIwMjYtMTAtMjlUMDA6MDA6MDBaIiwibGljZW5zZV9pZCI6IkxJQy1SU00tMjAyNi1ST1RBVEVELVYyIiwibGljZW5zZWVfbmFtZSI6IlJhamVzaHJpIFNoYWh1IFRyYWRpbmcgQ28uIiwibWF4X2JyYW5jaGVzIjozLCJwcm9kdWN0IjoiU0hBSFVfTUFORElfRVJQIiwidGllciI6IlBSTyIsInZhbGlkX2Zyb20iOiIyMDI2LTEwLTI5VDAwOjAwOjAwWiJ9."
+    "GlGrlsYdZ23C_mNl4yB7C0ABn0QbjnXoTKYI3x8yrWxXUW98LfFfwhvupNdQYeAHVtztlvOU8sFwstim4RAJAg=="
 )
 
 
@@ -55,7 +65,17 @@ def verify_license_token(token: str, custom_public_key_hex: Optional[str] = None
     except Exception as e:
         return False, f"Failed to base64-decode license token: {e}", None
 
-    # Verify signature
+    # Check against retired/revoked vendor keys first
+    for ret_hex, ret_reason in RETIRED_VENDOR_PUBLIC_KEYS.items():
+        try:
+            ret_pub = ed25519.Ed25519PublicKey.from_public_bytes(bytes.fromhex(ret_hex))
+            ret_pub.verify(sig_bytes, payload_bytes)
+            # Signature matches a revoked key! Fail closed immediately.
+            return False, f"Digital signature rejected: Token was signed by a retired or revoked vendor key ({ret_reason}). Please contact Cresconic Technologies for an updated license.", None
+        except Exception:
+            pass
+
+    # Verify signature against active key
     try:
         pub_hex = custom_public_key_hex or VENDOR_PUBLIC_KEY_HEX
         pub_key = ed25519.Ed25519PublicKey.from_public_bytes(bytes.fromhex(pub_hex))
@@ -75,7 +95,24 @@ def verify_license_token(token: str, custom_public_key_hex: Optional[str] = None
     if payload.get("product") != PRODUCT_CODE:
         return False, f"License is for product '{payload.get('product')}', but this application requires '{PRODUCT_CODE}'.", payload
 
-    # 2. Expiry check
+    now_utc = datetime.now(timezone.utc)
+
+    # 2. Not-yet-valid check
+    valid_from_str = payload.get("valid_from")
+    if valid_from_str:
+        try:
+            if valid_from_str.endswith("Z"):
+                valid_from = datetime.fromisoformat(valid_from_str[:-1]).replace(tzinfo=timezone.utc)
+            else:
+                valid_from = datetime.fromisoformat(valid_from_str)
+                if valid_from.tzinfo is None:
+                    valid_from = valid_from.replace(tzinfo=timezone.utc)
+            if now_utc < valid_from:
+                return False, f"Commercial license is not yet valid (valid from {valid_from.strftime('%Y-%m-%d %H:%M:%S UTC')}).", payload
+        except Exception as e:
+            return False, f"Invalid date format in license valid_from ({valid_from_str}): {e}", payload
+
+    # 3. Expiry check
     expires_at_str = payload.get("expires_at")
     if not expires_at_str:
         return False, "License does not contain an expiration date.", payload
@@ -89,7 +126,6 @@ def verify_license_token(token: str, custom_public_key_hex: Optional[str] = None
             if expires_at.tzinfo is None:
                 expires_at = expires_at.replace(tzinfo=timezone.utc)
 
-        now_utc = datetime.now(timezone.utc)
         if now_utc > expires_at:
             return False, f"Commercial license expired on {expires_at.strftime('%Y-%m-%d %H:%M:%S UTC')}.", payload
     except Exception as e:
@@ -166,11 +202,11 @@ def get_active_license(conn) -> Dict[str, Any]:
         "status": "ACTIVE",
         "is_valid": True,
         "message": f"Active Commercial License ({payload.get('tier', 'PRO')} Tier) — {days_left} days remaining",
-        "license_id": payload["license_id"],
-        "licensee_name": payload["licensee_name"],
-        "tier": payload["tier"],
-        "max_branches": int(payload["max_branches"]),
-        "expires_at": payload["expires_at"],
+        "license_id": payload.get("license_id", "LIC-TOKEN"),
+        "licensee_name": payload.get("licensee_name", settings.get("org_name", "Rajeshri Shahu Trading Co.")),
+        "tier": payload.get("tier", "PRO"),
+        "max_branches": int(payload.get("max_branches", 3)),
+        "expires_at": payload.get("expires_at"),
         "features": payload.get("features", []),
         "days_left": max(0, days_left),
         "token": token

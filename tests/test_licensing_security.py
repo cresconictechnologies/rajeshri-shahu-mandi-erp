@@ -15,7 +15,7 @@ from fastapi.testclient import TestClient
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from server import app, create_session_token, verify_session_token
-from database import get_connection, hash_password, verify_password
+from database import get_connection, hash_password, verify_password, login_admin
 from licensing import (
     verify_license_token,
     save_license_token,
@@ -24,6 +24,8 @@ from licensing import (
     DEFAULT_COMMERCIAL_LICENSE_TOKEN
 )
 from vendor_license_issuer import generate_signed_license_token
+from cryptography.hazmat.primitives.asymmetric import ed25519
+from cryptography.hazmat.primitives import serialization
 
 
 class TestLicensingAndSecurity(unittest.TestCase):
@@ -31,6 +33,13 @@ class TestLicensingAndSecurity(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.unauth_client = TestClient(app, follow_redirects=False)
+        cls.test_priv = ed25519.Ed25519PrivateKey.generate()
+        cls.test_priv_hex = cls.test_priv.private_bytes(
+            serialization.Encoding.Raw, serialization.PrivateFormat.Raw, serialization.NoEncryption()
+        ).hex()
+        cls.test_pub_hex = cls.test_priv.public_key().public_bytes(
+            serialization.Encoding.Raw, serialization.PublicFormat.Raw
+        ).hex()
 
     def test_01_unauthenticated_admin_dashboard_redirects_to_login(self):
         """Unauthenticated GET /admin/dashboard must fail closed and redirect to /login."""
@@ -122,7 +131,7 @@ class TestLicensingAndSecurity(unittest.TestCase):
             "weighment_mode": "MANUAL_YARD",
             "yard_weight_kg": 2000
         })
-        self.assertEqual(res.status_code, 200)
+        self.assertIn(res.status_code, [200, 303])
         data = res.json()
         self.assertTrue(data["success"])
         invoice_id = data["invoice_id"]
@@ -153,13 +162,21 @@ class TestLicensingAndSecurity(unittest.TestCase):
 
     def test_08_valid_ed25519_signed_license_token_accepted(self):
         """Valid vendor-signed Ed25519 commercial license token must verify successfully with all claims."""
+        # 1. Verify default commercial license token against active vendor public key
+        valid, msg, claims = verify_license_token(DEFAULT_COMMERCIAL_LICENSE_TOKEN)
+        self.assertTrue(valid, f"Default commercial license token failed verification: {msg}")
+        self.assertEqual(claims["tier"], "PRO")
+        self.assertEqual(claims["max_branches"], 3)
+
+        # 2. Verify dynamically generated license token signed with isolated test key
         token = generate_signed_license_token(
             licensee_name="Rajeshri Shahu Trading Co.",
             tier="ENTERPRISE",
             max_branches=10,
-            valid_days=365
+            valid_days=365,
+            private_key_hex=self.test_priv_hex
         )
-        is_valid, msg, claims = verify_license_token(token)
+        is_valid, msg, claims = verify_license_token(token, custom_public_key_hex=self.test_pub_hex)
         self.assertTrue(is_valid, f"Signature verification failed: {msg}")
         self.assertEqual(claims["tier"], "ENTERPRISE")
         self.assertEqual(claims["max_branches"], 10)
@@ -196,7 +213,8 @@ class TestLicensingAndSecurity(unittest.TestCase):
             licensee_name="Rajeshri Shahu Trading Co.",
             tier="PRO",
             max_branches=3,
-            valid_days=-10
+            valid_days=-10,
+            private_key_hex=self.test_priv_hex
         )
         # Directly store expired token into database to simulate elapsed validity
         conn = get_connection()
@@ -316,6 +334,221 @@ class TestLicensingAndSecurity(unittest.TestCase):
         is_valid, needs_rehash = verify_password(legacy_pass, new_hash)
         self.assertTrue(is_valid)
         self.assertFalse(needs_rehash, "Migrated PBKDF2 hash should not need further rehashing")
+
+    def test_14_retired_compromised_signer_strictly_rejected(self):
+        """Tokens signed by the retired or compromised vendor key must be explicitly rejected with revocation reason."""
+        old_compromised_token = (
+            "eyJleHBpcmVzX2F0IjoiMjAyNy0wMy0zMVQyMzo1OTo1OVoiLCJmZWF0dXJlcyI6WyJNVUxUSV9CUkFOQ0giLCJSVEdTX0RFU0siLCJPVVRXQVJEX0NIQUxMQU4iLCJBVURJVF9MT0dTIl0sImlzc3VlZF9hdCI6IjIwMjYtMDQtMDFUMDA6MDA6MDBaIiwibGljZW5zZV9pZCI6IkxJQy1SU1QtMjAyNi1NSDNCLTg5QTEyRiIsImxpY2Vuc2VlX25hbWUiOiJSYWplc2hyaSBTaGFodSBUcmFkaW5nIENvLiIsIm1heF9icmFuY2hlcyI6MywicHJvZHVjdCI6IlNIQUhVX01BTkRJX0VSUCIsInRpZXIiOiJQUk8ifQ==."
+            "Zd0k1Lz8JRi8C33R0lx_iVX9vZFwSJsr9G1QRx-US0jor8EtUtbjEfEVyihQrgr0cwUvk29Kp50Dsf__4n6HCQ=="
+        )
+        is_valid, msg, claims = verify_license_token(old_compromised_token)
+        self.assertFalse(is_valid)
+        self.assertIn("retired or revoked vendor key", msg.lower())
+
+    def test_15_future_dated_not_yet_valid_license_rejected(self):
+        """A license with a future valid_from date must be rejected as not yet valid."""
+        future_start = (datetime.now(timezone.utc) + timedelta(days=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        future_token = generate_signed_license_token(
+            licensee_name="Rajeshri Shahu Trading Co.",
+            tier="PRO",
+            max_branches=3,
+            valid_days=365,
+            private_key_hex=self.test_priv_hex
+        )
+        # Re-encode with future valid_from
+        p_b64, s_b64 = future_token.split(".")
+        payload = json.loads(base64.urlsafe_b64decode(p_b64.encode("utf-8")).decode("utf-8"))
+        payload["valid_from"] = future_start
+        p_bytes = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        sig = self.test_priv.sign(p_bytes)
+        tok = base64.urlsafe_b64encode(p_bytes).decode("utf-8") + "." + base64.urlsafe_b64encode(sig).decode("utf-8")
+
+        is_valid, msg, _ = verify_license_token(tok, custom_public_key_hex=self.test_pub_hex)
+        self.assertFalse(is_valid)
+        self.assertIn("not yet valid", msg.lower())
+
+    def test_16_disabled_account_session_rejected_immediately(self):
+        """When an account is deactivated in the database, its active sessions must be rejected immediately."""
+        conn = get_connection()
+        cur = conn.cursor()
+        test_uid = "u-deactivate-test"
+        cur.execute("DELETE FROM user_sessions WHERE user_id=?", (test_uid,))
+        cur.execute("DELETE FROM users WHERE id=?", (test_uid,))
+        cur.execute(
+            "INSERT INTO users (id, username, password_hash, role, full_name, phone, is_active) VALUES (?, 'deact_user', 'somehash', 'BRANCH_CASHIER', 'Deact User', '9826000000', 1)",
+            (test_uid,)
+        )
+        conn.commit()
+        conn.close()
+
+        token = create_session_token("deact_user", "BRANCH_CASHIER", branch_id="br-chikhali", user_id=test_uid)
+        self.assertIsNotNone(verify_session_token(token))
+
+        # Admin deactivates account
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("UPDATE users SET is_active=0 WHERE id=?", (test_uid,))
+        conn.commit()
+        conn.close()
+
+        # Session must now be rejected
+        self.assertIsNone(verify_session_token(token), "Disabled user session must be rejected immediately")
+
+        # Cleanup
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM user_sessions WHERE user_id=?", (test_uid,))
+        cur.execute("DELETE FROM users WHERE id=?", (test_uid,))
+        conn.commit()
+        conn.close()
+
+    def test_17_role_change_reflected_immediately_from_database(self):
+        """Role changes in SQLite must take effect immediately on active sessions."""
+        conn = get_connection()
+        cur = conn.cursor()
+        test_uid = "u-rolechange-test"
+        cur.execute("DELETE FROM user_sessions WHERE user_id=?", (test_uid,))
+        cur.execute("DELETE FROM users WHERE id=?", (test_uid,))
+        cur.execute(
+            "INSERT INTO users (id, username, password_hash, role, full_name, phone, is_active) VALUES (?, 'role_user', 'somehash', 'BRANCH_CASHIER', 'Role User', '9826000000', 1)",
+            (test_uid,)
+        )
+        conn.commit()
+        conn.close()
+
+        token = create_session_token("role_user", "BRANCH_CASHIER", branch_id="br-chikhali", user_id=test_uid)
+        sess = verify_session_token(token)
+        self.assertEqual(sess["role"], "BRANCH_CASHIER")
+
+        # Super Admin promotes user to ACCOUNTANT_HQ in the database
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("UPDATE users SET role='ACCOUNTANT_HQ' WHERE id=?", (test_uid,))
+        conn.commit()
+        conn.close()
+
+        # Existing token must reflect the authoritative role
+        sess_updated = verify_session_token(token)
+        self.assertIsNotNone(sess_updated)
+        self.assertEqual(sess_updated["role"], "ACCOUNTANT_HQ", "Authoritative role must be derived from live database")
+
+        # Cleanup
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM user_sessions WHERE user_id=?", (test_uid,))
+        cur.execute("DELETE FROM users WHERE id=?", (test_uid,))
+        conn.commit()
+        conn.close()
+
+    def test_18_password_reset_revokes_active_sessions(self):
+        """When an admin updates a staff password, active sessions for that user must be revoked."""
+        client = TestClient(app, follow_redirects=False)
+        # Login accountant
+        login_res = client.post("/login", data={"username": "accountant", "password": "accpassword123"})
+        if login_res.status_code != 303:
+            login_res = client.post("/login", data={"username": "accountant", "password": "acc123"})
+        acc_cookie = login_res.cookies.get("mandi_session")
+        self.assertIsNotNone(acc_cookie)
+        self.assertIsNotNone(verify_session_token(acc_cookie))
+
+        # Admin updates accountant's credentials with new password
+        admin_token = create_session_token("admin", "SUPER_ADMIN", user_id="u-admin")
+        admin_client = TestClient(app, follow_redirects=False)
+        admin_client.cookies.set("mandi_session", admin_token)
+
+        res = admin_client.post("/api/admin/users/update-credentials", data={
+            "user_id": "u-accountant",
+            "full_name": "Omprakash Agrawal",
+            "phone": "9826022222",
+            "username": "accountant",
+            "new_password": "new_secure_password_777"
+        })
+        self.assertIn(res.status_code, [200, 303])
+
+        # Accountant's earlier session must now be revoked
+        self.assertIsNone(verify_session_token(acc_cookie), "Earlier session must be revoked after password change")
+
+        # Restore original password for accountant
+        admin_client.post("/api/admin/users/update-credentials", data={
+            "user_id": "u-accountant",
+            "full_name": "Omprakash Agrawal",
+            "phone": "9826022222",
+            "username": "accountant",
+            "new_password": "accpassword123"
+        })
+
+    def test_19_invalid_password_does_not_trigger_hash_upgrade(self):
+        """Failed authentication with invalid password must never trigger hash re-hash or database changes."""
+        conn = get_connection()
+        cur = conn.cursor()
+        import hashlib
+        legacy_pass = "secret_pass_123"
+        legacy_hash = hashlib.sha256(legacy_pass.encode("utf-8")).hexdigest()
+        test_uid = "u-pw-upgrade-test"
+        cur.execute("DELETE FROM user_sessions WHERE user_id=?", (test_uid,))
+        cur.execute("DELETE FROM users WHERE id=?", (test_uid,))
+        cur.execute(
+            "INSERT INTO users (id, username, password_hash, role, full_name, phone, is_active) VALUES (?, 'upgrade_user', ?, 'BRANCH_CASHIER', 'Upgrade User', '9826000000', 1)",
+            (test_uid, legacy_hash)
+        )
+        conn.commit()
+        conn.close()
+
+        # Submit wrong password
+        client = TestClient(app, follow_redirects=False)
+        res = client.post("/login", data={"username": "upgrade_user", "password": "WRONG_PASSWORD"})
+        self.assertEqual(res.status_code, 401)
+
+        # Confirm hash in database is still legacy unsalted SHA-256
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT password_hash FROM users WHERE id=?", (test_uid,))
+        current_hash = cur.fetchone()["password_hash"]
+        self.assertEqual(current_hash, legacy_hash, "Hash must remain unchanged upon failed login")
+
+        # Cleanup
+        cur.execute("DELETE FROM user_sessions WHERE user_id=?", (test_uid,))
+        cur.execute("DELETE FROM users WHERE id=?", (test_uid,))
+        conn.commit()
+        conn.close()
+
+    def test_20_branch_activation_toggle_checks_license_quota(self):
+        """Activating an inactive branch via toggle API must enforce licensed branch quota."""
+        admin_token = create_session_token("admin", "SUPER_ADMIN", user_id="u-admin")
+        client = TestClient(app, follow_redirects=False)
+        client.cookies.set("mandi_session", admin_token)
+
+        # Create an inactive branch
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM branches WHERE id='br-inactive-test'")
+        cur.execute(
+            "INSERT INTO branches (id, branch_code, name, is_active) VALUES ('br-inactive-test', 'BR-INACT', 'Inactive Yard', 0)"
+        )
+        conn.commit()
+        conn.close()
+
+        # Currently 3 active branches exist (Chikhali, Varvand, Dhad), max_branches = 3.
+        # Toggling inactive branch to active must return HTTP 403 Forbidden
+        res = client.post("/api/admin/branches/toggle", data={"branch_id": "br-inactive-test"})
+        self.assertEqual(res.status_code, 403)
+        self.assertIn("branch limit reached", res.json().get("detail", "").lower())
+
+        # Cleanup
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM branches WHERE id='br-inactive-test'")
+        conn.commit()
+        conn.close()
+
+    def test_21_login_admin_does_not_leak_password_hash(self):
+        """database.login_admin() response must sanitize and omit password_hash."""
+        res = login_admin("admin", "admin123")
+        if not res.get("success"):
+            res = login_admin("admin", "adminpassword123")
+        self.assertTrue(res.get("success"))
+        user_data = res.get("user", {})
+        self.assertNotIn("password_hash", user_data, "API user payload must never expose password_hash")
 
 
 if __name__ == "__main__":

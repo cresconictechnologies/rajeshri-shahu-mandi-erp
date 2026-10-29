@@ -35,8 +35,8 @@ The commercial licensing model uses **Ed25519** (Edwards-curve Digital Signature
 - **Algorithm:** `ed25519`
 - **Vendor Public Key (Embedded in ERP `licensing.py`):**  
   `1b6daad3bf761546b3c7433dbf823b6a696483868f8425eab6779f28310dfda8`
-- **Vendor Private Key (Kept Offline in `vendor_license_issuer.py`):**  
-  `569a719042579dc1a64fd6bcdd1ef45526c3e8e82baad32380d2604468660096`
+- **Vendor Private Key (Offline Air-Gapped Key):**  
+  `[REDACTED_VENDOR_PRIVATE_KEY_HELD_OFFLINE]`
 - **Token Format:**  
   `base64url(canonical_payload_json).base64url(ed25519_signature)`
 

@@ -10,6 +10,7 @@ venv/
 instance_secret.key
 *_backup*.db
 *.bak
+vendor_license_issuer.py
 
 build/
 *.spec

@@ -2081,15 +2081,113 @@ def admin_settings_view(request: Request, msg: Optional[str] = None):
 
         cur.execute("SELECT * FROM audit_change_logs ORDER BY created_at DESC LIMIT 50")
         audit_logs = [dict(r) for r in cur.fetchall()]
+
+        cur.execute("SELECT * FROM users WHERE role='ACCOUNTANT_HQ' LIMIT 1")
+        accountant = cur.fetchone()
+
+        cur.execute("SELECT * FROM users WHERE role='BRANCH_CASHIER' AND branch_id='br-chikhali' LIMIT 1")
+        chk_cashier = cur.fetchone()
+
+        cur.execute("SELECT * FROM users WHERE role='BRANCH_CASHIER' AND branch_id='br-varvand' LIMIT 1")
+        vrv_cashier = cur.fetchone()
+
+        cur.execute("SELECT * FROM users WHERE role='BRANCH_CASHIER' AND branch_id='br-dhad' LIMIT 1")
+        dhd_cashier = cur.fetchone()
+
         return templates.TemplateResponse(request=request, name="admin_settings.html", context={
             "settings": settings,
             "staff_users": staff_users,
+            "accountant": accountant,
+            "chk_cashier": chk_cashier,
+            "vrv_cashier": vrv_cashier,
+            "dhd_cashier": dhd_cashier,
             "audit_logs": audit_logs,
             "message": msg,
             "logged_in_user": logged_in_user
         })
     finally:
         conn.close()
+
+@app.post("/api/admin/staff/update-all")
+def api_admin_update_all_staff(
+    acc_name: str = Form(...),
+    acc_username: str = Form(...),
+    acc_phone: str = Form(...),
+    acc_password: Optional[str] = Form(None),
+
+    chk_name: str = Form(...),
+    chk_username: str = Form(...),
+    chk_phone: str = Form(...),
+    chk_password: Optional[str] = Form(None),
+
+    vrv_name: str = Form(...),
+    vrv_username: str = Form(...),
+    vrv_phone: str = Form(...),
+    vrv_password: Optional[str] = Form(None),
+
+    dhd_name: str = Form(...),
+    dhd_username: str = Form(...),
+    dhd_phone: str = Form(...),
+    dhd_password: Optional[str] = Form(None),
+):
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        staff_data = [
+            ("ACCOUNTANT_HQ", None, acc_name.strip(), acc_username.strip(), acc_phone.strip(), acc_password),
+            ("BRANCH_CASHIER", "br-chikhali", chk_name.strip(), chk_username.strip(), chk_phone.strip(), chk_password),
+            ("BRANCH_CASHIER", "br-varvand", vrv_name.strip(), vrv_username.strip(), vrv_phone.strip(), vrv_password),
+            ("BRANCH_CASHIER", "br-dhad", dhd_name.strip(), dhd_username.strip(), dhd_phone.strip(), dhd_password),
+        ]
+        for role, branch_id, name, username, phone, pwd in staff_data:
+            if branch_id:
+                cur.execute("SELECT id FROM users WHERE role=? AND branch_id=? LIMIT 1", (role, branch_id))
+            else:
+                cur.execute("SELECT id FROM users WHERE role=? LIMIT 1", (role,))
+            user_row = cur.fetchone()
+            if user_row:
+                uid = user_row["id"]
+                if pwd and pwd.strip():
+                    cur.execute("""
+                        UPDATE users 
+                        SET full_name=?, username=?, phone=?, password_hash=?
+                        WHERE id=?
+                    """, (name, username, phone, hash_password(pwd.strip()), uid))
+                else:
+                    cur.execute("""
+                        UPDATE users 
+                        SET full_name=?, username=?, phone=?
+                        WHERE id=?
+                    """, (name, username, phone, uid))
+                
+                # Also update corresponding munim account if present
+                if branch_id:
+                    if pwd and pwd.strip():
+                        cur.execute("""
+                            UPDATE users
+                            SET full_name=?, phone=?, password_hash=?
+                            WHERE branch_id=? AND role='BRANCH_MUNIM'
+                        """, (name, phone, hash_password(pwd.strip()), branch_id))
+                    else:
+                        cur.execute("""
+                            UPDATE users
+                            SET full_name=?, phone=?
+                            WHERE branch_id=? AND role='BRANCH_MUNIM'
+                        """, (name, phone, branch_id))
+
+        cur.execute("""
+            INSERT INTO audit_change_logs (id, entity_type, entity_id, entity_name, action, change_summary)
+            VALUES (?, 'USER', 'STAFF_ALL', 'All Staff Credentials', 'UPDATE', 'Super Admin updated staff credentials and passwords')
+        """, (f"log-{uuid.uuid4().hex[:8]}",))
+
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=400, detail=f"Failed to update staff credentials: {e}")
+    finally:
+        conn.close()
+
+    return RedirectResponse(url="/admin/settings?msg=Staff+credentials+and+passwords+updated+successfully.+Panel+isolation+enforced.", status_code=303)
 
 @app.post("/api/admin/users/update-credentials")
 def api_admin_update_credentials(

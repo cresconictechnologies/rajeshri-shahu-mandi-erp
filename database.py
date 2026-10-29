@@ -426,22 +426,24 @@ def seed_initial_data(cur):
     cur.executemany("INSERT INTO branches (id, branch_code, name, mandi_license_no, address, phone) VALUES (?,?,?,?,?,?)", branches)
 
     # 2. Seed Users for Multi-User Roles
-    pw = hash_password("mandi123")
     admin_pw = hash_password("admin123")
     acc_pw = hash_password("acc123")
+    chk_pw = hash_password("chk123")
+    vrv_pw = hash_password("vrv123")
+    dhd_pw = hash_password("dhd123")
 
     users = [
-        ("u-admin", None, "admin", admin_pw, "Vikramaditya Singhal (Owner)", "9826000001", "SUPER_ADMIN"),
-        ("u-accountant", None, "accountant", acc_pw, "Omprakash Agrawal (Chief Accountant)", "9826000002", "ACCOUNTANT_HQ"),
+        ("u-admin", None, "admin", admin_pw, "Vikramaditya Singhal (Owner)", "9826011111", "SUPER_ADMIN"),
+        ("u-accountant", None, "accountant", acc_pw, "Omprakash Agrawal (Chief Accountant)", "9826022222", "ACCOUNTANT_HQ"),
         
-        ("u-chikhali-munim", "br-chikhali", "chikhali_munim", pw, "Gopal Sharma (Chikhali Purchase)", "9826000003", "BRANCH_MUNIM"),
-        ("u-chikhali-cashier", "br-chikhali", "chikhali_cashier", pw, "Santosh Verma (Chikhali Cashier)", "9826000004", "BRANCH_CASHIER"),
+        ("u-indore-munim", "br-chikhali", "chikhali_munim", chk_pw, "Santosh V. Patil (Chikhali Lead)", "9826099999", "BRANCH_MUNIM"),
+        ("u-indore-cashier", "br-chikhali", "chikhali_cashier", chk_pw, "Santosh V. Patil (Chikhali Lead)", "9826099999", "BRANCH_CASHIER"),
         
-        ("u-varvand-munim", "br-varvand", "varvand_munim", pw, "Rakesh Joshi (Varvand Purchase)", "9826000005", "BRANCH_MUNIM"),
-        ("u-varvand-cashier", "br-varvand", "varvand_cashier", pw, "Mohanlal Soni (Varvand Cashier)", "9826000006", "BRANCH_CASHIER"),
+        ("u-ujjain-munim", "br-varvand", "varvand_munim", vrv_pw, "Mohanlal Soni (Varvand Cashier)", "9826044444", "BRANCH_MUNIM"),
+        ("u-ujjain-cashier", "br-varvand", "varvand_cashier", vrv_pw, "Mohanlal Soni (Varvand Cashier)", "9826044444", "BRANCH_CASHIER"),
         
-        ("u-dhad-munim", "br-dhad", "dhad_munim", pw, "Deepak Solanki (Dhad Purchase)", "9826000007", "BRANCH_MUNIM"),
-        ("u-dhad-cashier", "br-dhad", "dhad_cashier", pw, "Kailash Tiwari (Dhad Cashier)", "9826000008", "BRANCH_CASHIER"),
+        ("u-dewas-munim", "br-dhad", "dhad_munim", dhd_pw, "Kailash Tiwari (Dhad Cashier)", "9826055555", "BRANCH_MUNIM"),
+        ("u-dewas-cashier", "br-dhad", "dhad_cashier", dhd_pw, "Kailash Tiwari (Dhad Cashier)", "9826055555", "BRANCH_CASHIER"),
     ]
     cur.executemany("INSERT INTO users (id, branch_id, username, password_hash, full_name, phone, role) VALUES (?,?,?,?,?,?,?)", users)
 

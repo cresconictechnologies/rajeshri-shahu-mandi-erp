@@ -91,7 +91,145 @@
                     </form>
                 </div>
 
-                <!-- STAFF & BRANCH LOGINS MANAGEMENT -->
+                <!-- STEP 3: GENERATE & ASSIGN STAFF CREDENTIALS -->
+                <div class="card" style="margin-top:20px; border-top:4px solid #7c3aed;">
+                    <div class="card-header">
+                        <div>
+                            <h2 style="display:flex; align-items:center; gap:8px;">
+                                <span>👥</span> Step 3: Generate Staff Credentials (Accountant & Branch Cashiers)
+                            </h2>
+                            <p style="font-size:13px; color:var(--text-muted); margin-top:3px;">
+                                Configure the names and initial passwords for your Central Accountant and 1 Cashier/Munim per branch yard. By assigning passwords here, no staff member can open or access another user's panel.
+                            </p>
+                        </div>
+                        <span class="badge-pill badge-purple">Strict Panel Isolation</span>
+                    </div>
+
+                    <form method="POST" action="/api/admin/staff/update-all" style="margin-top:14px;">
+                        <!-- 1. Central Accountant -->
+                        <div class="staff-card" style="background:#f8fafc; border:1.5px solid var(--card-border); border-radius:12px; padding:16px; margin-bottom:16px;">
+                            <div class="staff-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid #e2e8f0;">
+                                <strong style="font-size:14.5px; color:var(--text-primary); display:flex; align-items:center; gap:6px;">
+                                    <span>💼</span> Central HQ Accountant
+                                </strong>
+                                <span class="badge-pill badge-blue">Central Financial Authority</span>
+                            </div>
+                            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap:12px;">
+                                <div>
+                                    <label style="font-size:12px; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">Full Name</label>
+                                    <input type="text" name="acc_name" value="{{ accountant.full_name if accountant else 'Omprakash Agrawal (Chief Accountant)' }}" required style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:600;">
+                                </div>
+                                <div>
+                                    <label style="font-size:12px; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">Login Username</label>
+                                    <input type="text" name="acc_username" value="{{ accountant.username if accountant else 'accountant' }}" required style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; background:#f1f5f9; font-weight:700; color:#0284c7;">
+                                </div>
+                                <div>
+                                    <label style="font-size:12px; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">Password (Set or Keep Current)</label>
+                                    <input type="text" name="acc_password" placeholder="acc123" value="acc123" required style="width:100%; padding:8px 10px; border:1.5px solid #f59e0b; border-radius:6px; font-size:13px; font-weight:700; color:#b45309; background:#fffbeb;">
+                                </div>
+                                <div>
+                                    <label style="font-size:12px; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">Mobile Number</label>
+                                    <input type="text" name="acc_phone" value="{{ accountant.phone if accountant else '9826022222' }}" required style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 2. Chikhali Branch Cashier -->
+                        <div class="staff-card" style="background:#f8fafc; border:1.5px solid var(--card-border); border-radius:12px; padding:16px; margin-bottom:16px;">
+                            <div class="staff-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid #e2e8f0;">
+                                <strong style="font-size:14.5px; color:var(--text-primary); display:flex; align-items:center; gap:6px;">
+                                    <span>🌾</span> Chikhali Branch — Single Cashier & Munim
+                                </strong>
+                                <span class="badge-pill badge-green">BR-CHK Yard</span>
+                            </div>
+                            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap:12px;">
+                                <div>
+                                    <label style="font-size:12px; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">Cashier & Munim Name</label>
+                                    <input type="text" name="chk_name" value="{{ chk_cashier.full_name if chk_cashier else 'Santosh V. Patil (Chikhali Lead)' }}" required style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:600;">
+                                </div>
+                                <div>
+                                    <label style="font-size:12px; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">Login Username</label>
+                                    <input type="text" name="chk_username" value="{{ chk_cashier.username if chk_cashier else 'chikhali_cashier' }}" required style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; background:#f1f5f9; font-weight:700; color:#0284c7;">
+                                </div>
+                                <div>
+                                    <label style="font-size:12px; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">Password</label>
+                                    <input type="text" name="chk_password" placeholder="chk123" value="chk123" required style="width:100%; padding:8px 10px; border:1.5px solid #f59e0b; border-radius:6px; font-size:13px; font-weight:700; color:#b45309; background:#fffbeb;">
+                                </div>
+                                <div>
+                                    <label style="font-size:12px; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">Mobile Number</label>
+                                    <input type="text" name="chk_phone" value="{{ chk_cashier.phone if chk_cashier else '9826099999' }}" required style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 3. Varvand Branch Cashier -->
+                        <div class="staff-card" style="background:#f8fafc; border:1.5px solid var(--card-border); border-radius:12px; padding:16px; margin-bottom:16px;">
+                            <div class="staff-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid #e2e8f0;">
+                                <strong style="font-size:14.5px; color:var(--text-primary); display:flex; align-items:center; gap:6px;">
+                                    <span>🌾</span> Varvand Branch — Single Cashier & Munim
+                                </strong>
+                                <span class="badge-pill badge-green">BR-VRV Yard</span>
+                            </div>
+                            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap:12px;">
+                                <div>
+                                    <label style="font-size:12px; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">Cashier & Munim Name</label>
+                                    <input type="text" name="vrv_name" value="{{ vrv_cashier.full_name if vrv_cashier else 'Mohanlal Soni (Varvand Cashier)' }}" required style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:600;">
+                                </div>
+                                <div>
+                                    <label style="font-size:12px; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">Login Username</label>
+                                    <input type="text" name="vrv_username" value="{{ vrv_cashier.username if vrv_cashier else 'varvand_cashier' }}" required style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; background:#f1f5f9; font-weight:700; color:#0284c7;">
+                                </div>
+                                <div>
+                                    <label style="font-size:12px; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">Password</label>
+                                    <input type="text" name="vrv_password" placeholder="vrv123" value="vrv123" required style="width:100%; padding:8px 10px; border:1.5px solid #f59e0b; border-radius:6px; font-size:13px; font-weight:700; color:#b45309; background:#fffbeb;">
+                                </div>
+                                <div>
+                                    <label style="font-size:12px; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">Mobile Number</label>
+                                    <input type="text" name="vrv_phone" value="{{ vrv_cashier.phone if vrv_cashier else '9826044444' }}" required style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 4. Dhad Branch Cashier -->
+                        <div class="staff-card" style="background:#f8fafc; border:1.5px solid var(--card-border); border-radius:12px; padding:16px; margin-bottom:16px;">
+                            <div class="staff-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid #e2e8f0;">
+                                <strong style="font-size:14.5px; color:var(--text-primary); display:flex; align-items:center; gap:6px;">
+                                    <span>🌾</span> Dhad Branch — Single Cashier & Munim
+                                </strong>
+                                <span class="badge-pill badge-green">BR-DHD Yard</span>
+                            </div>
+                            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap:12px;">
+                                <div>
+                                    <label style="font-size:12px; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">Cashier & Munim Name</label>
+                                    <input type="text" name="dhd_name" value="{{ dhd_cashier.full_name if dhd_cashier else 'Kailash Tiwari (Dhad Cashier)' }}" required style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:600;">
+                                </div>
+                                <div>
+                                    <label style="font-size:12px; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">Login Username</label>
+                                    <input type="text" name="dhd_username" value="{{ dhd_cashier.username if dhd_cashier else 'dhad_cashier' }}" required style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; background:#f1f5f9; font-weight:700; color:#0284c7;">
+                                </div>
+                                <div>
+                                    <label style="font-size:12px; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">Password</label>
+                                    <input type="text" name="dhd_password" placeholder="dhd123" value="dhd123" required style="width:100%; padding:8px 10px; border:1.5px solid #f59e0b; border-radius:6px; font-size:13px; font-weight:700; color:#b45309; background:#fffbeb;">
+                                </div>
+                                <div>
+                                    <label style="font-size:12px; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">Mobile Number</label>
+                                    <input type="text" name="dhd_phone" value="{{ dhd_cashier.phone if dhd_cashier else '9826055555' }}" required style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="display:flex; justify-content:space-between; align-items:center; padding-top:14px; border-top:1.5px solid #e2e8f0; margin-top:16px;">
+                            <div style="font-size:12.5px; color:var(--text-muted);">
+                                🔒 Passwords are encrypted with SHA-256 and enforce strict role-based panel separation.
+                            </div>
+                            <button type="submit" class="btn btn-admin" style="font-weight:800; padding:11px 26px; font-size:14px;">
+                                💾 Save Staff Credentials & Enforce Panel Passwords
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- STAFF & BRANCH LOGINS SUMMARY TABLE -->
                 <div class="card" style="margin-top:20px;">
                     <div class="card-header">
                         <div>

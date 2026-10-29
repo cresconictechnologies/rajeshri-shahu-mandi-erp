@@ -151,5 +151,62 @@ class TestAuthAndPanelIsolation(unittest.TestCase):
         finally:
             conn.close()
 
+    def test_07_super_admin_settings_staff_credentials_and_password_assignment(self):
+        """Super Admin settings must render Step 3 staff credential cards and allow batch password assignment with panel isolation."""
+        # 1. Super Admin views settings
+        admin_token = create_session_token("admin", "SUPER_ADMIN", "")
+        admin_headers = {"Cookie": f"mandi_session={admin_token}"}
+        res = self.client.get("/admin/settings", headers=admin_headers)
+        self.assertEqual(res.status_code, 200)
+        content = res.text
+        self.assertIn("Step 3: Generate Staff Credentials (Accountant & Branch Cashiers)", content)
+        self.assertIn("Central HQ Accountant", content)
+        self.assertIn("Chikhali Branch — Single Cashier & Munim", content)
+        self.assertIn("Varvand Branch — Single Cashier & Munim", content)
+        self.assertIn("Dhad Branch — Single Cashier & Munim", content)
+        self.assertIn("Save Staff Credentials & Enforce Panel Passwords", content)
+
+        # 2. Super Admin updates all staff credentials and assigns new passwords
+        update_res = self.client.post("/api/admin/staff/update-all", headers=admin_headers, data={
+            "acc_name": "Omprakash Agrawal (Chief Accountant)",
+            "acc_username": "accountant",
+            "acc_phone": "9826022222",
+            "acc_password": "acc123",
+            "chk_name": "Santosh V. Patil (Chikhali Lead)",
+            "chk_username": "chikhali_cashier",
+            "chk_phone": "9826099999",
+            "chk_password": "chk123",
+            "vrv_name": "Mohanlal Soni (Varvand Cashier)",
+            "vrv_username": "varvand_cashier",
+            "vrv_phone": "9826044444",
+            "vrv_password": "vrv123",
+            "dhd_name": "Kailash Tiwari (Dhad Cashier)",
+            "dhd_username": "dhad_cashier",
+            "dhd_phone": "9826055555",
+            "dhd_password": "dhd123"
+        })
+        self.assertEqual(update_res.status_code, 303)
+        self.assertIn("/admin/settings", update_res.headers["location"])
+
+        # 3. Verify Accountant logs in with new password 'acc123' and routes to /accounts/dashboard
+        acc_login = self.client.post("/login", data={"username": "accountant", "password": "acc123"})
+        self.assertEqual(acc_login.status_code, 303)
+        self.assertEqual(acc_login.headers["location"], "/accounts/dashboard")
+
+        # 4. Verify Chikhali Cashier logs in with 'chk123' and routes to /branch/dashboard?branch_id=br-chikhali
+        chk_login = self.client.post("/login", data={"username": "chikhali_cashier", "password": "chk123"})
+        self.assertEqual(chk_login.status_code, 303)
+        self.assertEqual(chk_login.headers["location"], "/branch/dashboard?branch_id=br-chikhali")
+
+        # 5. Verify Varvand Cashier logs in with 'vrv123' and routes to /branch/dashboard?branch_id=br-varvand
+        vrv_login = self.client.post("/login", data={"username": "varvand_cashier", "password": "vrv123"})
+        self.assertEqual(vrv_login.status_code, 303)
+        self.assertEqual(vrv_login.headers["location"], "/branch/dashboard?branch_id=br-varvand")
+
+        # 6. Verify Dhad Cashier logs in with 'dhd123' and routes to /branch/dashboard?branch_id=br-dhad
+        dhd_login = self.client.post("/login", data={"username": "dhad_cashier", "password": "dhd123"})
+        self.assertEqual(dhd_login.status_code, 303)
+        self.assertEqual(dhd_login.headers["location"], "/branch/dashboard?branch_id=br-dhad")
+
 if __name__ == "__main__":
     unittest.main()

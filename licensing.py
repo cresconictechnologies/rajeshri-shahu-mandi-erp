@@ -16,28 +16,60 @@ from cryptography.hazmat.primitives.asymmetric import ed25519
 from cryptography.exceptions import InvalidSignature
 
 # Embedded Vendor Public Key & Revocation Registry (Cresconic Technologies)
-# Retired / Compromised Keys (Strictly Revoked - Tokens signed with these are rejected)
+# 1. Retired / Compromised Keys (Strictly Revoked - Tokens signed with these are rejected)
 RETIRED_VENDOR_PUBLIC_KEYS = {
     "1b6daad3bf761546b3c7433dbf823b6a696483868f8425eab6779f28310dfda8": "Compromised key - revoked on 2026-10-29"
 }
 
-# Active Vendor Public Key (Staging/Transition Key; final production key injected by release authority)
-ACTIVE_VENDOR_PUBLIC_KEY_HEX = os.environ.get(
-    "VENDOR_PUBLIC_KEY_HEX",
-    "542727fd468dd35f1570177f5b5d2fa47bb87189244fe06d1eeab24e8c457cde"
-)
-VENDOR_PUBLIC_KEY_HEX = ACTIVE_VENDOR_PUBLIC_KEY_HEX
+# 2. Production Vendor Public Verification Key
+# To be set via VENDOR_PRODUCTION_PUBLIC_KEY_HEX env var or injected here during the official production key ceremony.
+PRODUCTION_VENDOR_PUBLIC_KEY_HEX: Optional[str] = os.environ.get("VENDOR_PRODUCTION_PUBLIC_KEY_HEX", None)
+
+# 3. Pre-Release Staging / Integration Verification Key (Pre-Release & Local Test Suite Only)
+# Under no circumstances should this key be trusted as an undocumented production fallback.
+STAGING_VENDOR_PUBLIC_KEY_HEX = "542727fd468dd35f1570177f5b5d2fa47bb87189244fe06d1eeab24e8c457cde"
+
 PRODUCT_CODE = "SHAHU_MANDI_ERP"
 
-# Default signed commercial license token for initial deployment (signed with active replacement key)
-DEFAULT_COMMERCIAL_LICENSE_TOKEN = (
+# Staging commercial license token for pre-release validation
+STAGING_COMMERCIAL_LICENSE_TOKEN = (
     "eyJleHBpcmVzX2F0IjoiMjAyOC0xMi0zMVQyMzo1OTo1OVoiLCJmZWF0dXJlcyI6WyJNVUxUSV9CUkFOQ0giLCJSVEdTX0RFU0siLCJPVVRXQVJEX0NIQUxMQU4iLCJBVURJVF9MT0dTIl0sImlzc3VlZF9hdCI6IjIwMjYtMTAtMjlUMDA6MDA6MDBaIiwibGljZW5zZV9pZCI6IkxJQy1SU00tMjAyNi1ST1RBVEVELVYyIiwibGljZW5zZWVfbmFtZSI6IlJhamVzaHJpIFNoYWh1IFRyYWRpbmcgQ28uIiwibWF4X2JyYW5jaGVzIjozLCJwcm9kdWN0IjoiU0hBSFVfTUFORElfRVJQIiwidGllciI6IlBSTyIsInZhbGlkX2Zyb20iOiIyMDI2LTEwLTI5VDAwOjAwOjAwWiJ9."
     "GlGrlsYdZ23C_mNl4yB7C0ABn0QbjnXoTKYI3x8yrWxXUW98LfFfwhvupNdQYeAHVtztlvOU8sFwstim4RAJAg=="
 )
+DEFAULT_COMMERCIAL_LICENSE_TOKEN = STAGING_COMMERCIAL_LICENSE_TOKEN
 
 
-def get_public_key() -> ed25519.Ed25519PublicKey:
-    return ed25519.Ed25519PublicKey.from_public_bytes(bytes.fromhex(VENDOR_PUBLIC_KEY_HEX))
+def get_active_vendor_public_key_hex() -> Optional[str]:
+    """
+    Resolves the authoritative public verification key:
+    1. VENDOR_PRODUCTION_PUBLIC_KEY_HEX environment variable or embedded constant.
+    2. VENDOR_PUBLIC_KEY_HEX generic override.
+    3. In production mode (MANDI_ERP_ENV=production), returns None if no production key is configured (fails closed gracefully).
+    4. In staging/development/test mode, falls back to STAGING_VENDOR_PUBLIC_KEY_HEX.
+    """
+    if os.environ.get("VENDOR_PRODUCTION_PUBLIC_KEY_HEX"):
+        return os.environ.get("VENDOR_PRODUCTION_PUBLIC_KEY_HEX").strip()
+    if PRODUCTION_VENDOR_PUBLIC_KEY_HEX:
+        return PRODUCTION_VENDOR_PUBLIC_KEY_HEX.strip()
+    if os.environ.get("VENDOR_PUBLIC_KEY_HEX"):
+        return os.environ.get("VENDOR_PUBLIC_KEY_HEX").strip()
+
+    erp_env = os.environ.get("MANDI_ERP_ENV", "").lower()
+    if erp_env == "production":
+        # Strict production: Never use staging key as undocumented fallback
+        return None
+
+    return STAGING_VENDOR_PUBLIC_KEY_HEX
+
+
+def get_public_key() -> Optional[ed25519.Ed25519PublicKey]:
+    pub_hex = get_active_vendor_public_key_hex()
+    if not pub_hex:
+        return None
+    try:
+        return ed25519.Ed25519PublicKey.from_public_bytes(bytes.fromhex(pub_hex))
+    except Exception:
+        return None
 
 
 def verify_license_token(token: str, custom_public_key_hex: Optional[str] = None) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
@@ -77,7 +109,10 @@ def verify_license_token(token: str, custom_public_key_hex: Optional[str] = None
 
     # Verify signature against active key
     try:
-        pub_hex = custom_public_key_hex or VENDOR_PUBLIC_KEY_HEX
+        pub_hex = custom_public_key_hex or get_active_vendor_public_key_hex()
+        if not pub_hex:
+            return False, "License verification unavailable: Official vendor production public verification key is not configured.", None
+
         pub_key = ed25519.Ed25519PublicKey.from_public_bytes(bytes.fromhex(pub_hex))
         pub_key.verify(sig_bytes, payload_bytes)
     except InvalidSignature:
@@ -149,9 +184,9 @@ def get_active_license(conn) -> Dict[str, Any]:
 
     token = settings.get("license_token")
 
-    # If license_token is not yet saved, check if we need to auto-activate the default commercial token
-    if not token and settings.get("is_setup_completed") == "1":
-        # Check if default token is valid and initialize it
+    # In non-production environments, auto-activate default staging token if setup was completed without an explicit token
+    erp_env = os.environ.get("MANDI_ERP_ENV", "").lower()
+    if not token and settings.get("is_setup_completed") == "1" and erp_env != "production":
         valid, msg, payload = verify_license_token(DEFAULT_COMMERCIAL_LICENSE_TOKEN)
         if valid:
             token = DEFAULT_COMMERCIAL_LICENSE_TOKEN

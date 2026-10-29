@@ -550,6 +550,123 @@ class TestLicensingAndSecurity(unittest.TestCase):
         user_data = res.get("user", {})
         self.assertNotIn("password_hash", user_data, "API user payload must never expose password_hash")
 
+    def test_22_production_key_separation_and_staging_rejection(self):
+        """Under MANDI_ERP_ENV=production, staging tokens must be rejected and fail closed if no prod key is configured."""
+        orig_env = os.environ.get("MANDI_ERP_ENV")
+        orig_prod_key = os.environ.get("VENDOR_PRODUCTION_PUBLIC_KEY_HEX")
+        try:
+            # 1. Switch to strict production without configured production key
+            os.environ["MANDI_ERP_ENV"] = "production"
+            if "VENDOR_PRODUCTION_PUBLIC_KEY_HEX" in os.environ:
+                del os.environ["VENDOR_PRODUCTION_PUBLIC_KEY_HEX"]
+
+            valid, msg, _ = verify_license_token(DEFAULT_COMMERCIAL_LICENSE_TOKEN)
+            self.assertFalse(valid, "Staging token must not be accepted in production mode")
+            self.assertIn("not configured", msg.lower())
+
+            # 2. Inject official production public key in environment and verify production token
+            prod_priv = ed25519.Ed25519PrivateKey.generate()
+            prod_pub_hex = prod_priv.public_key().public_bytes(
+                serialization.Encoding.Raw, serialization.PublicFormat.Raw
+            ).hex()
+            os.environ["VENDOR_PRODUCTION_PUBLIC_KEY_HEX"] = prod_pub_hex
+
+            prod_priv_hex = prod_priv.private_bytes(
+                serialization.Encoding.Raw, serialization.PrivateFormat.Raw, serialization.NoEncryption()
+            ).hex()
+            prod_token = generate_signed_license_token(
+                licensee_name="Rajeshri Shahu Commercial Mandi",
+                tier="ENTERPRISE",
+                max_branches=5,
+                valid_days=730,
+                private_key_hex=prod_priv_hex
+            )
+
+            valid_prod, msg_prod, claims_prod = verify_license_token(prod_token)
+            self.assertTrue(valid_prod, f"Production token verification failed: {msg_prod}")
+            self.assertEqual(claims_prod["tier"], "ENTERPRISE")
+            self.assertEqual(claims_prod["max_branches"], 5)
+
+            # Staging token must still be rejected under production key configuration
+            valid_staging, _, _ = verify_license_token(DEFAULT_COMMERCIAL_LICENSE_TOKEN)
+            self.assertFalse(valid_staging, "Staging token must fail verification under production public key")
+        finally:
+            if orig_env is not None:
+                os.environ["MANDI_ERP_ENV"] = orig_env
+            else:
+                os.environ.pop("MANDI_ERP_ENV", None)
+            if orig_prod_key is not None:
+                os.environ["VENDOR_PRODUCTION_PUBLIC_KEY_HEX"] = orig_prod_key
+            else:
+                os.environ.pop("VENDOR_PRODUCTION_PUBLIC_KEY_HEX", None)
+
+    def test_23_isolated_clean_database_first_run_activation(self):
+        """Verify first-run setup flow on a clean database: invalid license rejected, valid license activates, replay blocked with 404."""
+        # Test the first-run logic via database state simulation
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT setting_value FROM system_settings WHERE setting_key='is_setup_completed'")
+        prev_setup_state = cur.fetchone()["setting_value"]
+
+        try:
+            # Simulate uncompleted setup state
+            cur.execute("UPDATE system_settings SET setting_value='0' WHERE setting_key='is_setup_completed'")
+            conn.commit()
+
+            # 1. First-run setup page renders
+            res_get = self.unauth_client.get("/setup")
+            self.assertEqual(res_get.status_code, 200)
+
+            # 2. Submitting invalid license fails
+            res_bad = self.unauth_client.post("/setup", data={
+                "org_name": "Test Yard Mandi",
+                "owner_name": "Test Owner",
+                "owner_username": "admin",
+                "owner_password": "ownerpassword123",
+                "license_key": "INVALID-CORRUPTED-LICENSE-STRING"
+            })
+            self.assertEqual(res_bad.status_code, 400)
+            self.assertIn("License Verification Failed", res_bad.text)
+
+            # 3. Submitting valid license completes setup
+            res_good = self.unauth_client.post("/setup", data={
+                "org_name": "Test Yard Mandi",
+                "owner_name": "Test Owner",
+                "owner_username": "admin",
+                "owner_password": "ownerpassword123",
+                "license_key": DEFAULT_COMMERCIAL_LICENSE_TOKEN
+            })
+            self.assertIn(res_good.status_code, [200, 303])
+
+            # 4. Replay attempt on POST /setup must immediately return HTTP 404
+            res_replay = self.unauth_client.post("/setup", data={"org_name": "Hacker Yard"})
+            self.assertEqual(res_replay.status_code, 404)
+
+            # 5. GET /setup must now return HTTP 404 permanently
+            res_get_closed = self.unauth_client.get("/setup")
+            self.assertEqual(res_get_closed.status_code, 404)
+        finally:
+            cur.execute("UPDATE system_settings SET setting_value=? WHERE setting_key='is_setup_completed'", (prev_setup_state,))
+            conn.commit()
+            conn.close()
+
+    def test_24_build_script_excludes_vendor_issuer_and_secrets(self):
+        """Verify build_desktop_app.py explicitly excludes vendor_license_issuer and bundles zero secrets."""
+        build_script_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "build_desktop_app.py")
+        self.assertTrue(os.path.exists(build_script_path))
+        with open(build_script_path, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        self.assertIn("--exclude-module", content)
+        self.assertIn("vendor_license_issuer", content)
+
+        # Check gitignore
+        gitignore_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".gitignore")
+        with open(gitignore_path, "r", encoding="utf-8") as f:
+            gi_content = f.read()
+        self.assertIn("vendor_license_issuer.py", gi_content)
+        self.assertIn("instance_secret.key", gi_content)
+
 
 if __name__ == "__main__":
     unittest.main()

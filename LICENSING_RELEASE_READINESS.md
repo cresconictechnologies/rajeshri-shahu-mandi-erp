@@ -16,7 +16,9 @@ An exhaustive, independent verification of the **Rajeshri Shahu Mandi & Commodit
 2. **Key Rotation Architecture Implemented:** Replaced the retired key with an active staging/transition public verification key. `vendor_license_issuer.py` was sanitized to eliminate all hardcoded private keys, requiring an air-gapped environment variable or secure `--key-file`.
 3. **Session Hardening & State Invalidation:** Eliminated legacy 4-part unauthenticated token bypass. Enforced 6-part HMAC session tokens verified against SQLite `user_sessions`. Modifying user roles or branches in the database takes effect immediately. Disabling accounts or resetting staff passwords immediately revokes active sessions.
 4. **Endpoint Hardening:** Discovered and eliminated a data leak in `login_admin()` (which previously exposed `password_hash`). Hardened `api_admin_toggle_branch()` to enforce license branch quotas when activating dormant branches.
-5. **100% Test Suite Verification:** **79 out of 79 automated tests passing** (0 failures, 0 errors, 0 skipped) across all 8 test suites.
+5. **100% Test Suite Verification:** **82 out of 82 automated tests passing** (0 failures, 0 errors, 0 skipped) across all 8 test suites.
+6. **Key Separation & Packaging Hardened:** Separated production from staging verification keys. Under `MANDI_ERP_ENV="production"`, the application fails closed safely if no production key is configured. PyInstaller build script strictly excludes `vendor_license_issuer`.
+7. **Release Runbooks Delivered:** Authored `GIT_SECRET_CLEANUP_RUNBOOK.md` (for non-destructive remote history scrubbing) and `PRODUCTION_RELEASE_RUNBOOK.md` (for offline operator key ceremony and packaging).
 
 ---
 
@@ -211,6 +213,9 @@ test_18_password_reset_revokes_active_sessions (test_licensing_security.TestLice
 test_19_invalid_password_does_not_trigger_hash_upgrade (test_licensing_security.TestLicensingAndSecurity) ... ok
 test_20_branch_activation_toggle_checks_license_quota (test_licensing_security.TestLicensingAndSecurity) ... ok
 test_21_login_admin_does_not_leak_password_hash (test_licensing_security.TestLicensingAndSecurity) ... ok
+test_22_production_key_separation_and_staging_rejection (test_licensing_security.TestLicensingAndSecurity) ... ok
+test_23_isolated_clean_database_first_run_activation (test_licensing_security.TestLicensingAndSecurity) ... ok
+test_24_build_script_excludes_vendor_issuer_and_secrets (test_licensing_security.TestLicensingAndSecurity) ... ok
 test_branch_stock_page (test_new_features.TestNewMandiFeatures) ... ok
 test_buyer_company_registration_and_outward_dispatch (test_new_features.TestNewMandiFeatures) ... ok
 test_central_accounts_settings (test_new_features.TestNewMandiFeatures) ... ok
@@ -234,26 +239,29 @@ test_07_anti_slop_clean_architecture_audit (test_security_and_system_audit.TestS
 test_08_xss_protection_and_json_embedding (test_security_and_system_audit.TestSecurityAndSystemAudit) ... ok
 
 ----------------------------------------------------------------------
-Ran 79 tests in 19.736s
+Ran 82 tests in 25.970s
 
 OK
 ```
 
 ---
 
-## 7. Remaining Release Blockers (Pre-Production Checklist)
+## 7. Remaining Release Blockers (Pre-Production Checklist) & Operational Runbooks
 
-Before releasing the software installer to customers, the following three human-controlled operational blockers must be resolved:
+Before releasing the software installer to customers, the following three human-controlled operational blockers must be resolved according to the provided runbooks:
 
-1. **Blocker 1: Official Vendor Air-Gapped Key Ceremony:**
+1. **Blocker 1: Official Vendor Air-Gapped Key Ceremony & Token Generation:**
+   - **Procedure Reference:** [`PRODUCTION_RELEASE_RUNBOOK.md`](file:///c:/projects/tests/commoditi%20software/PRODUCTION_RELEASE_RUNBOOK.md) (Section 1: Air-Gapped Key Ceremony).
    - The vendor organization (Cresconic Technologies release engineering) must generate the final production Ed25519 key pair on an offline, air-gapped machine.
-   - The production public key hex must be set in `licensing.py` as `VENDOR_PUBLIC_KEY_HEX` before freezing the production installer.
-   - The production private key must be safely stored in the vendor's secure vault/HSM and **never** placed into source code.
+   - The production public key hex must be set in `licensing.py` as `PRODUCTION_VENDOR_PUBLIC_KEY_HEX` (or passed via `VENDOR_PRODUCTION_PUBLIC_KEY_HEX`) before freezing the production installer.
+   - The production private key must be safely stored in the vendor's secure vault/HSM and **never** placed into source code, Git, or distributed binaries.
 2. **Blocker 2: Git History Secret Scrubbing on Remote Repository:**
-   - Although the working tree has been redacted and the compromised key blacklisted, commit `7390ac0` in the remote repository `https://github.com/cresconictechnologies/rajeshri-shahu-mandi-erp.git` retains the historical string in Git history.
-   - The repository owner must run `git filter-repo` or BFG Repo-Cleaner to purge commit `7390ac0` from history, or rotate GitHub repository credentials and force-push the cleaned tree.
+   - **Procedure Reference:** [`GIT_SECRET_CLEANUP_RUNBOOK.md`](file:///c:/projects/tests/commoditi%20software/GIT_SECRET_CLEANUP_RUNBOOK.md).
+   - Although the working tree has been redacted and the compromised key blacklisted in `licensing.py`, commit `7390ac0` in the remote repository `https://github.com/cresconictechnologies/rajeshri-shahu-mandi-erp.git` retains the historical string in Git tree objects.
+   - The repository owner must execute the non-destructive backup and `git-filter-repo` scrubbing process documented in `GIT_SECRET_CLEANUP_RUNBOOK.md`, verify using non-disclosing inspection commands, and force-push the purged tree.
 3. **Blocker 3: Rebuild PyInstaller Desktop Executable:**
-   - Run `python build_desktop_app.py` after Blockers 1 and 2 to re-compile `Rajeshri_Shahu_Mandi_ERP.exe` with the clean, production-configured binaries.
+   - **Procedure Reference:** [`PRODUCTION_RELEASE_RUNBOOK.md`](file:///c:/projects/tests/commoditi%20software/PRODUCTION_RELEASE_RUNBOOK.md) (Section 3: Production Desktop Packaging).
+   - Run `python build_desktop_app.py` after Blockers 1 and 2 to re-compile `Rajeshri_Shahu_Mandi_ERP.exe` with the clean, production-configured binaries (which strictly excludes `vendor_license_issuer.py` and bundles `licensing` and `cryptography`).
 
 ---
 
@@ -261,4 +269,4 @@ Before releasing the software installer to customers, the following three human-
 
 ### Decision: **`READY AFTER LISTED BLOCKERS`**
 
-The codebase and runtime logic are fully verified, robust, and mathematically sound. As soon as the human release authority conducts the air-gapped production key ceremony and scrubs the Git history, the software is approved for commercial deployment.
+The codebase, licensing security architecture, authentication boundaries, and runtime logic are fully verified with 82 passing automated tests, robust fail-closed mechanics, and zero unhandled exceptions. As soon as the human release authority executes the air-gapped production key ceremony and scrubs the Git history per the attached runbooks, the software is approved for commercial deployment.

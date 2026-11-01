@@ -27,7 +27,7 @@
             font-size: 12px;
             font-weight: 800;
             text-transform: uppercase;
-            color: #d97706;
+            color: #b45309;
             white-space: nowrap;
         }
         .rate-chip {
@@ -87,9 +87,9 @@
             <span class="nav-pill" style="background:#fef3c7; color:#b45309; border-color:#fde68a; font-weight:700;">
                 👤 {{ logged_in_user.full_name if logged_in_user else 'Cashier & Munim' }}
             </span>
-            <a href="/inspector/portal" target="_blank" class="nav-pill" style="background:#059669; color:#fff; font-weight:700;">🔬 Inspector QC Portal</a>
-            <button type="button" onclick="openInspectorQrModal()" class="nav-pill" style="background:#0d9488; color:#fff; font-weight:700; border:none; cursor:pointer;">📲 Mobile App QR</button>
-            <a href="/branch/stock?branch_id={{ current_branch.id }}" class="nav-pill" style="background:#0284c7; color:#fff; font-weight:700;">📦 Yard Stock</a>
+            <a href="/inspector/portal" target="_blank" class="nav-pill" style="background:#047857; color:#fff; font-weight:700;">🔬 Inspector QC Portal</a>
+            <button type="button" onclick="openInspectorQrModal()" class="nav-pill" style="background:#0f766e; color:#fff; font-weight:700; border:none; cursor:pointer;">📲 Mobile App QR</button>
+            <a href="/branch/stock?branch_id={{ current_branch.id }}" class="nav-pill" style="background:#0369a1; color:#fff; font-weight:700;">📦 Yard Stock</a>
             <a href="/branch/settings?branch_id={{ current_branch.id }}" class="nav-pill">⚙️ Settings</a>
             <a href="/logout" class="nav-pill" style="background:#fef2f2; color:#b91c1c; border-color:#fecaca; font-weight:700;">🚪 Logout</a>
         </div>
@@ -100,7 +100,7 @@
         <span class="title">⚡ Today's HQ Buying Corridor:</span>
         {% for r in daily_rates %}
         <div class="rate-chip">
-            {{ r.commodity_name }}: <strong>₹{{ "{:,.0f}".format(r.min_rate_per_qtl) }} – ₹{{ "{:,.0f}".format(r.max_rate_per_qtl) }}</strong> <span style="color:#d97706; font-weight:700; font-size:11.5px;">(Target: ₹{{ "{:,.0f}".format(r.target_rate_per_qtl) }})</span>
+            {{ r.commodity_name }}: <strong>₹{{ "{:,.0f}".format(r.min_rate_per_qtl) }} – ₹{{ "{:,.0f}".format(r.max_rate_per_qtl) }}</strong> <span style="color:#b45309; font-weight:700; font-size:11.5px;">(Target: ₹{{ "{:,.0f}".format(r.target_rate_per_qtl) }})</span>
         </div>
         {% endfor %}
     </div>
@@ -168,12 +168,12 @@
                         <div class="commodity-stat-col">
                             <span class="commodity-stat-lbl">Yard Stock In Hand</span>
                             <strong class="commodity-stat-val">{{ "%.2f"|format(c.yard_stock_qtl or 0.0) }} <span style="font-size:12px; font-weight:700;">Qtl</span></strong>
-                            <span class="commodity-stat-sub" style="color:#059669;">({{ c.yard_stock_mt or 0.0 }} MT)</span>
+                            <span class="commodity-stat-sub" style="color:#047857;">({{ c.yard_stock_mt or 0.0 }} MT)</span>
                         </div>
                         <div class="commodity-stat-col target-rate-col">
                             <span class="commodity-stat-lbl">Today's Target Rate</span>
-                            <strong class="commodity-stat-val" style="color:#d97706;">₹{{ "{:,.0f}".format(c.target_rate or 0.0) }}</strong>
-                            <span class="commodity-stat-sub" style="color:var(--text-muted); font-size:10.5px;">Avg Buy: ₹{{ "{:,.2f}".format(c.avg_buying_price or 0.0) }}</span>
+                            <strong class="commodity-stat-val" style="color:#b45309;">₹{{ "{:,.0f}".format(c.target_rate or 0.0) }}</strong>
+                            <span class="commodity-stat-sub" style="color:var(--text-muted); font-size:11.5px;">Avg Buy: ₹{{ "{:,.2f}".format(c.avg_buying_price or 0.0) }}</span>
                         </div>
                     </div>
 
@@ -1023,7 +1023,7 @@
 
     <!-- MODAL 0: PENDING QC TICKETS & INSPECTOR VERIFICATION DESK -->
     <div id="qcInspectionModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.65); z-index:9999; backdrop-filter:blur(3px); align-items:center; justify-content:center;">
-        <div style="background:#ffffff; border-radius:14px; max-width:840px; width:92%; max-height:90vh; overflow-y:auto; box-shadow:0 20px 40px rgba(0,0,0,0.25); border:1px solid #cbd5e1; padding:22px; margin:auto;">
+        <div style="background:#ffffff; border-radius:14px; max-width:840px; width:92%; max-height:90vh; overflow-y:auto; box-shadow:0 10px 25px -5px rgba(15,23,42,0.15); border:1px solid #cbd5e1; padding:22px; margin:auto;">
             <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1.5px solid #e2e8f0; padding-bottom:12px; margin-bottom:16px;">
                 <div>
                     <h3 style="margin:0; font-size:17px; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:8px;">
@@ -1052,15 +1052,15 @@
             </div>
 
             <!-- Detailed Ticket Inspector Proof Card (When a ticket is selected) -->
-            <div id="qcTicketDetailBox" style="display:none; border:2px solid #059669; border-radius:12px; padding:18px; background:#f8fafc; margin-top:16px;">
+            <div id="qcTicketDetailBox" style="display:none; border:2px solid #047857; border-radius:12px; padding:18px; background:#f8fafc; margin-top:16px;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; border-bottom:1px solid #e2e8f0; padding-bottom:10px;">
                     <div>
-                        <span class="badge-pill badge-green" id="modalTicketGrade" style="background:#059669; color:#fff; font-weight:800;">Grade 1 (Premium FAQ)</span>
+                        <span class="badge-pill badge-green" id="modalTicketGrade" style="background:#047857; color:#fff; font-weight:800;">Grade 1 (Premium FAQ)</span>
                         <h4 style="margin:6px 0 0; font-size:16px; color:#0f172a;" id="modalTicketNo">Ticket #QC-CHK-261101-89F1</h4>
                     </div>
                     <div style="text-align:right;">
                         <div style="font-size:11px; color:#64748b; font-weight:700;">SUGGESTED RATE</div>
-                        <div style="font-size:20px; font-weight:900; color:#059669;" id="modalTicketRate">₹ 4,700 / Qtl</div>
+                        <div style="font-size:20px; font-weight:900; color:#047857;" id="modalTicketRate">₹ 4,700 / Qtl</div>
                     </div>
                 </div>
 
@@ -1073,18 +1073,18 @@
                             <div style="font-size:11px; font-weight:800; color:#065f46; margin-top:2px;">Verified Staff Account</div>
                         </div>
                         <div style="font-size:12.5px; font-weight:800; color:#0f172a;" id="modalInspectorNameText">Babulal Meena</div>
-                        <div style="font-size:10px; color:#059669; font-weight:700;">No Sign Required</div>
-                        <img id="modalInspectorSignImg" src="" style="display:none; max-height:40px; margin-top:4px;" alt="Inspector Signature">
+                        <div style="font-size:11px; color:#047857; font-weight:700;">No Sign Required</div>
+                        <img id="modalInspectorSignImg" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E" style="display:none; max-height:40px; margin-top:4px;" alt="Inspector Signature">
                     </div>
                     <div style="background:#fff; border:1px solid #cbd5e1; border-radius:8px; padding:8px;">
                         <div style="font-size:11px; font-weight:800; color:#0f172a; margin-bottom:6px;">📸 MOISTURE METER LCD</div>
-                        <img id="modalMeterPhotoImg" src="" style="max-height:85px; max-width:100%; object-fit:cover; border-radius:4px;" alt="Moisture Meter">
-                        <div style="font-size:11px; color:#059669; font-weight:800; margin-top:4px;" id="modalMoistureText">11.2% (OCR Verified)</div>
+                        <img id="modalMeterPhotoImg" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E" style="max-height:85px; max-width:100%; object-fit:cover; border-radius:4px;" alt="Moisture Meter">
+                        <div style="font-size:11px; color:#047857; font-weight:800; margin-top:4px;" id="modalMoistureText">11.2% (OCR Verified)</div>
                     </div>
                     <div style="background:#fff; border:1px solid #cbd5e1; border-radius:8px; padding:8px;">
                         <div style="font-size:11px; font-weight:800; color:#0f172a; margin-bottom:6px;">🌾 GRAIN SAMPLE</div>
-                        <img id="modalGrainPhotoImg" src="" style="max-height:85px; max-width:100%; object-fit:cover; border-radius:4px;" alt="Grain Sample">
-                        <div style="font-size:11px; color:#d97706; font-weight:800; margin-top:4px;" id="modalBreedText">JS-335 (96% Pure)</div>
+                        <img id="modalGrainPhotoImg" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E" style="max-height:85px; max-width:100%; object-fit:cover; border-radius:4px;" alt="Grain Sample">
+                        <div style="font-size:11px; color:#b45309; font-weight:800; margin-top:4px;" id="modalBreedText">JS-335 (96% Pure)</div>
                     </div>
                 </div>
 
@@ -2439,7 +2439,7 @@
     </script>
     <!-- MODAL: INSPECTOR MOBILE APP QR CODE -->
     <div id="inspectorQrModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.75); z-index:99999; justify-content:center; align-items:center; padding:16px; box-sizing:border-box;">
-        <div style="background:#ffffff; max-width:440px; width:100%; border-radius:18px; padding:24px; box-shadow:0 24px 48px rgba(0,0,0,0.35); text-align:center; border:1.5px solid #cbd5e1;">
+        <div style="background:#ffffff; max-width:440px; width:100%; border-radius:18px; padding:24px; box-shadow:0 10px 25px -5px rgba(15,23,42,0.15); text-align:center; border:1.5px solid #cbd5e1;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; border-bottom:1.5px solid #f1f5f9; padding-bottom:12px;">
                 <div style="display:flex; align-items:center; gap:8px;">
                     <span style="font-size:22px;">📲</span>
@@ -2453,7 +2453,7 @@
             </p>
 
             <div style="display:inline-block; padding:12px; background:#f8fafc; border:1.5px solid #e2e8f0; border-radius:14px; margin-bottom:16px;">
-                <img id="inspectorQrImg" src="" alt="Scan QR Code" style="width:200px; height:200px; display:block; border-radius:8px;">
+                <img id="inspectorQrImg" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E" alt="Scan QR Code" style="width:200px; height:200px; display:block; border-radius:8px;">
             </div>
 
             <div style="display:flex; gap:8px; margin-bottom:16px;">

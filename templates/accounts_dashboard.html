@@ -41,8 +41,8 @@
             <span class="nav-pill" style="background:#ecfdf5; color:#065f46; border-color:#a7f3d0; font-weight:700;">
                 👤 {{ logged_in_user.full_name if logged_in_user else 'Chief Accountant' }}
             </span>
-            <a href="/inspector/portal" target="_blank" class="nav-pill" style="background:#059669; color:#fff; font-weight:700;">🔬 QC Portal</a>
-            <button type="button" onclick="openInspectorQrModal()" class="nav-pill" style="background:#0d9488; color:#fff; font-weight:700; border:none; cursor:pointer;">📲 Mobile App QR</button>
+            <a href="/inspector/portal" target="_blank" class="nav-pill" style="background:#047857; color:#fff; font-weight:700;">🔬 QC Portal</a>
+            <button type="button" onclick="openInspectorQrModal()" class="nav-pill" style="background:#0f766e; color:#fff; font-weight:700; border:none; cursor:pointer;">📲 Mobile App QR</button>
             <a href="/accounts/settings" class="nav-pill">⚙️ Accounts Settings</a>
             <a href="/branch/stock" class="nav-pill">📦 Consolidated Stock</a>
             <a href="/logout" class="nav-pill" style="background:#fef2f2; color:#b91c1c; border-color:#fecaca; font-weight:700;">🚪 Logout</a>
@@ -73,7 +73,7 @@
         <!-- COMMODITY CARDS IN ACCOUNTS -->
         <div class="commodity-selection-section">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
-                <label style="font-size:12.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; color:#059669;">
+                <label style="font-size:12.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; color:#047857;">
                     ⚡ Click Commodity Card to Update Rates:
                 </label>
                 <span style="font-size:12px; color:var(--text-muted); font-weight:600;">Click any card to load its current rates into the editor below</span>
@@ -87,7 +87,7 @@
                      data-max="{{ c.max_rate }}"
                      data-grade="{{ c.grade }}"
                      onclick="selectAccountCommodity(this)">
-                    <div class="card-selected-badge" style="background:#059669;">✓ Loaded</div>
+                    <div class="card-selected-badge" style="background:#047857;">✓ Loaded</div>
                     <div class="commodity-card-top">
                         <span class="card-icon">
                             {% if 'Soya' in c.name %}🌱
@@ -108,8 +108,8 @@
                             <strong class="rate-val">₹{{ "{:,.0f}".format(c.min_rate) }}</strong>
                         </div>
                         <div class="rate-col target-rate-col" style="background:#ecfdf5; border-color:#a7f3d0;">
-                            <span class="rate-lbl" style="color:#059669;">Target</span>
-                            <strong class="rate-val" style="color:#059669;">₹{{ "{:,.0f}".format(c.target_rate) }}</strong>
+                            <span class="rate-lbl" style="color:#047857;">Target</span>
+                            <strong class="rate-val" style="color:#047857;">₹{{ "{:,.0f}".format(c.target_rate) }}</strong>
                         </div>
                         <div class="rate-col">
                             <span class="rate-lbl">Ceiling</span>
@@ -193,7 +193,7 @@
                         <td><strong>{{ r.commodity_name }}</strong></td>
                         <td><span class="badge-pill badge-green">{{ r.quality_grade }}</span></td>
                         <td>₹{{ "{:,.2f}".format(r.min_rate_per_qtl) }}</td>
-                        <td><strong style="color:#059669;">₹{{ "{:,.2f}".format(r.target_rate_per_qtl) }}</strong></td>
+                        <td><strong style="color:#047857;">₹{{ "{:,.2f}".format(r.target_rate_per_qtl) }}</strong></td>
                         <td>₹{{ "{:,.2f}".format(r.max_rate_per_qtl) }}</td>
                         <td style="font-size:12px; color:var(--text-muted);">{{ r.updated_at }}</td>
                     </tr>
@@ -227,7 +227,7 @@
                 <tbody>
                     {% for po in pending_overrides %}
                     <tr>
-                        <td><code style="font-weight:700; color:#0284c7;">{{ po.token_number }}</code></td>
+                        <td><code style="font-weight:700; color:#0369a1;">{{ po.token_number }}</code></td>
                         <td><strong>{{ po.branch_name }}</strong></td>
                         <td>{{ po.party_name }}</td>
                         <td>{{ po.commodity_name }}</td>
@@ -282,7 +282,7 @@
                 <tbody>
                     {% for r in pending_rtgs %}
                     <tr>
-                        <td><code style="font-weight:700; color:#0284c7;">{{ r.token_number }}</code></td>
+                        <td><code style="font-weight:700; color:#0369a1;">{{ r.token_number }}</code></td>
                         <td><strong>{{ r.branch_name }}</strong></td>
                         <td>
                             <strong>{{ r.party_name }}</strong><br>
@@ -297,18 +297,18 @@
                             </div>
                         </td>
                         <td>
-                            <strong style="font-size:16px; color:#059669;">₹{{ "{:,.2f}".format(r.net_payable_amount) }}</strong>
+                            <strong style="font-size:16px; color:#047857;">₹{{ "{:,.2f}".format(r.net_payable_amount) }}</strong>
                         </td>
                         <td>
                             <form action="/api/accounts/rtgs/process" method="POST" style="display:flex; flex-direction:column; gap:6px;">
                                 <input type="hidden" name="invoice_id" value="{{ r.id }}">
                                 <div style="display:flex; gap:6px;">
-                                    <input type="text" name="bank_utr_no" placeholder="Bank UTR # (e.g. SBIN12345)" required style="padding:6px 10px; font-size:12.5px; border:1.5px solid #059669; border-radius:6px; width:190px;">
+                                    <input type="text" name="bank_utr_no" placeholder="Bank UTR # (e.g. SBIN12345)" required style="padding:6px 10px; font-size:12.5px; border:1.5px solid #047857; border-radius:6px; width:190px;">
                                     <button type="submit" class="btn btn-accounts btn-sm" style="white-space:nowrap;">
                                         ✓ Disburse & Close
                                     </button>
                                 </div>
-                                <span style="font-size:10.5px; color:var(--text-muted);">Request only closes when valid UTR is submitted.</span>
+                                <span style="font-size:11.5px; color:var(--text-muted);">Request only closes when valid UTR is submitted.</span>
                             </form>
                         </td>
                     </tr>
@@ -349,8 +349,8 @@
                         <input type="text" name="phone" placeholder="98260XXXXX">
                     </div>
                     <div class="form-group">
-                        <label style="color:#059669;">Assigned Yard * (Mandatory)</label>
-                        <select name="branch_id" required style="border:1.5px solid #059669; font-weight:700;">
+                        <label style="color:#047857;">Assigned Yard * (Mandatory)</label>
+                        <select name="branch_id" required style="border:1.5px solid #047857; font-weight:700;">
                             <option value="" disabled selected>-- Select Yard (Mandatory) --</option>
                             {% for b in branches %}
                             <option value="{{ b.id }}">{{ b.name }} ({{ b.branch_code }})</option>
@@ -465,7 +465,7 @@
                         <td><code style="font-weight:700;">{{ l.voucher_id }}</code></td>
                         <td><strong>{{ l.account_name }}</strong></td>
                         <td style="font-weight:600; color:#0f172a;">{% if l.debit_amount > 0 %}₹{{ "{:,.2f}".format(l.debit_amount) }}{% else %}-{% endif %}</td>
-                        <td style="font-weight:600; color:#059669;">{% if l.credit_amount > 0 %}₹{{ "{:,.2f}".format(l.credit_amount) }}{% else %}-{% endif %}</td>
+                        <td style="font-weight:600; color:#047857;">{% if l.credit_amount > 0 %}₹{{ "{:,.2f}".format(l.credit_amount) }}{% else %}-{% endif %}</td>
                         <td style="font-size:12.5px; color:var(--text-muted);">{{ l.narration }}</td>
                     </tr>
                     {% endfor %}
@@ -490,7 +490,7 @@
                 <div class="stat-icon">✅</div>
                 <div class="stat-content">
                     <span class="stat-label">Received Collections</span>
-                    <strong class="stat-value" style="color:#059669;">₹{{ "{:,.2f}".format(total_outward_received) }}</strong>
+                    <strong class="stat-value" style="color:#047857;">₹{{ "{:,.2f}".format(total_outward_received) }}</strong>
                     <span class="stat-help">Bank & Cash Cleared</span>
                 </div>
             </div>
@@ -536,11 +536,11 @@
                         {% if outward_orders %}
                         {% for o in outward_orders %}
                         <tr>
-                            <td><code style="font-weight:700; color:#0284c7;">{{ o.challan_number }}</code></td>
+                            <td><code style="font-weight:700; color:#0369a1;">{{ o.challan_number }}</code></td>
                             <td style="font-size:12px; color:var(--text-muted);">{{ o.order_date }}</td>
                             <td><strong>{{ o.branch_name }}</strong></td>
                             <td><strong>{{ o.buyer_name }}</strong></td>
-                            <td>{{ o.commodity_name }}<br><span style="font-size:11.5px; color:#059669; font-weight:700;">{{ "%.2f"|format(o.net_quintals) }} Qtl</span></td>
+                            <td>{{ o.commodity_name }}<br><span style="font-size:11.5px; color:#047857; font-weight:700;">{{ "%.2f"|format(o.net_quintals) }} Qtl</span></td>
                             <td><strong style="font-size:14px; color:#0f172a;">₹{{ "{:,.2f}".format(o.total_bill_amount) }}</strong></td>
                             <td>
                                 {% if o.payment_status == 'RECEIVED' %}
@@ -553,12 +553,12 @@
                                 {% if o.payment_status == 'RECEIVED' %}
                                     {% if o.payment_mode == 'RTGS' %}
                                     <div style="font-size:12px;">
-                                        <span class="badge-pill badge-blue" style="font-size:10.5px;">RTGS</span>
+                                        <span class="badge-pill badge-blue" style="font-size:11.5px;">RTGS</span>
                                         <strong>UTR:</strong> <code>{{ o.utr_number or '—' }}</code>
                                     </div>
                                     {% elif o.payment_mode == 'CASH' %}
                                     <div style="font-size:12px;">
-                                        <span class="badge-pill badge-purple" style="font-size:10.5px;">CASH</span>
+                                        <span class="badge-pill badge-purple" style="font-size:11.5px;">CASH</span>
                                         <strong>At:</strong> {{ o.payment_branch_name or 'Branch' }}
                                     </div>
                                     {% else %}
@@ -575,7 +575,7 @@
                                     💰 Receive Payment
                                 </button>
                                 {% else %}
-                                <span style="color:#059669; font-size:12.5px; font-weight:700;">✓ Settled</span>
+                                <span style="color:#047857; font-size:12.5px; font-weight:700;">✓ Settled</span>
                                 {% endif %}
                             </td>
                         </tr>
@@ -610,15 +610,15 @@
                 <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px 14px; margin-bottom:16px;">
                     <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:4px;">
                         <span style="color:var(--text-muted);">Challan Number:</span>
-                        <code id="modal_disp_challan" style="font-weight:800; color:#0284c7;"></code>
+                        <code id="modal_disp_challan" style="font-weight:800; color:#0369a1;"></code>
                     </div>
                     <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:4px;">
                         <span style="color:var(--text-muted);">Buyer / Trader:</span>
                         <strong id="modal_disp_buyer" style="color:#0f172a;"></strong>
                     </div>
                     <div style="display:flex; justify-content:space-between; font-size:15px; border-top:1px dashed #cbd5e1; padding-top:6px; margin-top:6px;">
-                        <span style="font-weight:700; color:#059669;">Amount Receivable:</span>
-                        <strong id="modal_disp_amount" style="font-weight:900; color:#059669;"></strong>
+                        <span style="font-weight:700; color:#047857;">Amount Receivable:</span>
+                        <strong id="modal_disp_amount" style="font-weight:900; color:#047857;"></strong>
                     </div>
                 </div>
 
@@ -633,15 +633,15 @@
 
                     <!-- IF RTGS: UTR FIELD -->
                     <div id="rtgs_fields_box" class="form-group">
-                        <label style="font-size:12.5px; font-weight:700; color:#059669;">Bank UTR Number * (Mandatory for RTGS)</label>
-                        <input type="text" id="modal_utr_number" name="utr_number" placeholder="e.g. SBIN20261028994" style="width:100%; padding:9px 12px; border:1.5px solid #059669; border-radius:8px; text-transform:uppercase; font-weight:700;">
+                        <label style="font-size:12.5px; font-weight:700; color:#047857;">Bank UTR Number * (Mandatory for RTGS)</label>
+                        <input type="text" id="modal_utr_number" name="utr_number" placeholder="e.g. SBIN20261028994" style="width:100%; padding:9px 12px; border:1.5px solid #047857; border-radius:8px; text-transform:uppercase; font-weight:700;">
                         <small style="color:var(--text-muted); font-size:11px;">Credited to Mandi Central Bank Account.</small>
                     </div>
 
                     <!-- IF CASH: BRANCH SELECTOR -->
                     <div id="cash_fields_box" class="form-group" style="display:none;">
-                        <label style="font-size:12.5px; font-weight:700; color:#7c3aed;">Receiving Branch Drawer *</label>
-                        <select id="modal_payment_branch_id" name="payment_branch_id" style="width:100%; padding:9px 12px; border:1.5px solid #7c3aed; border-radius:8px; font-weight:700;">
+                        <label style="font-size:12.5px; font-weight:700; color:#0f766e;">Receiving Branch Drawer *</label>
+                        <select id="modal_payment_branch_id" name="payment_branch_id" style="width:100%; padding:9px 12px; border:1.5px solid #0f766e; border-radius:8px; font-weight:700;">
                             {% for b in branches %}
                             <option value="{{ b.id }}">{{ b.name }} ({{ b.branch_code }})</option>
                             {% endfor %}
@@ -697,8 +697,8 @@
                         <input type="text" id="edit_phone" name="phone" style="width:100%; padding:9px 12px; border:1.5px solid var(--input-border); border-radius:8px;">
                     </div>
                     <div class="form-group" style="grid-column: span 2;">
-                        <label style="font-size:12.5px; font-weight:700; color:#059669;">Assigned Branch Yard * (Locked to Yard)</label>
-                        <select id="edit_branch_id" name="branch_id" required style="width:100%; padding:9px 12px; border:1.5px solid #059669; border-radius:8px; font-weight:700;">
+                        <label style="font-size:12.5px; font-weight:700; color:#047857;">Assigned Branch Yard * (Locked to Yard)</label>
+                        <select id="edit_branch_id" name="branch_id" required style="width:100%; padding:9px 12px; border:1.5px solid #047857; border-radius:8px; font-weight:700;">
                             {% for b in branches %}
                             <option value="{{ b.id }}">{{ b.name }} ({{ b.branch_code }})</option>
                             {% endfor %}
@@ -834,7 +834,7 @@
     </script>
     <!-- MODAL: INSPECTOR MOBILE APP QR CODE -->
     <div id="inspectorQrModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.75); z-index:99999; justify-content:center; align-items:center; padding:16px; box-sizing:border-box;">
-        <div style="background:#ffffff; max-width:440px; width:100%; border-radius:18px; padding:24px; box-shadow:0 24px 48px rgba(0,0,0,0.35); text-align:center; border:1.5px solid #cbd5e1;">
+        <div style="background:#ffffff; max-width:440px; width:100%; border-radius:18px; padding:24px; box-shadow:0 10px 25px -5px rgba(15,23,42,0.15); text-align:center; border:1.5px solid #cbd5e1;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; border-bottom:1.5px solid #f1f5f9; padding-bottom:12px;">
                 <div style="display:flex; align-items:center; gap:8px;">
                     <span style="font-size:22px;">📲</span>
@@ -848,7 +848,7 @@
             </p>
 
             <div style="display:inline-block; padding:12px; background:#f8fafc; border:1.5px solid #e2e8f0; border-radius:14px; margin-bottom:16px;">
-                <img id="inspectorQrImg" src="" alt="Scan QR Code" style="width:200px; height:200px; display:block; border-radius:8px;">
+                <img id="inspectorQrImg" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E" alt="Scan QR Code" style="width:200px; height:200px; display:block; border-radius:8px;">
             </div>
 
             <div style="display:flex; gap:8px; margin-bottom:16px;">
@@ -863,7 +863,7 @@
                 3. Icon is added to your phone's Home Screen with full camera OCR!
             </div>
 
-            <button type="button" onclick="closeInspectorQrModal()" style="width:100%; background:#059669; color:#fff; border:none; padding:11px; border-radius:10px; font-weight:800; font-size:13.5px; cursor:pointer;">
+            <button type="button" onclick="closeInspectorQrModal()" style="width:100%; background:#047857; color:#fff; border:none; padding:11px; border-radius:10px; font-weight:800; font-size:13.5px; cursor:pointer;">
                 Done
             </button>
         </div>

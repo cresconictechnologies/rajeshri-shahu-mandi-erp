@@ -406,7 +406,7 @@
             </div>
             <input type="file" id="meterPhotoInput" accept="image/*" capture="environment" style="display:none;" onchange="handleMeterPhoto(event)">
 
-            <img id="meterPhotoPreview" class="preview-img" alt="Moisture Meter Screen Preview">
+            <img id="meterPhotoPreview" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E" class="preview-img" alt="Moisture Meter Screen Preview">
 
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:14px;">
                 <div class="form-row" style="margin-bottom:0;">
@@ -442,7 +442,7 @@
             </div>
             <input type="file" id="grainPhotoInput" accept="image/*" capture="environment" style="display:none;" onchange="handleGrainPhoto(event)">
 
-            <img id="grainPhotoPreview" class="preview-img" alt="Grain Bowl Sample Preview">
+            <img id="grainPhotoPreview" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E" class="preview-img" alt="Grain Bowl Sample Preview">
 
             <div style="margin-top:14px;">
                 <button type="button" class="btn-action" id="btnAnalyzeSample" onclick="runGrainAnalysis()">
@@ -559,15 +559,15 @@
                     <div style="font-size:10px; font-weight:700; color:#64748b; margin-bottom:4px;">INSPECTOR AUTH</div>
                     <div style="font-size:22px; margin-top:2px;">🛡️</div>
                     <div style="font-size:11px; font-weight:800; color:#065f46; margin-top:2px;" id="slipInspectorDisplay">{{ user.full_name if user else 'Yard Inspector' }}</div>
-                    <div style="font-size:9.5px; color:#059669; font-weight:700;">Verified QC Login</div>
+                    <div style="font-size:11px; color:#047857; font-weight:700;">Verified QC Login</div>
                 </div>
                 <div style="border:1px solid #e2e8f0; border-radius:8px; padding:6px; background:#f8fafc;">
-                    <div style="font-size:10px; font-weight:700; color:#64748b; margin-bottom:4px;">MOISTURE LCD</div>
-                    <img id="ticketMeterImg" src="" style="max-height:55px; max-width:100%; object-fit:cover; border-radius:4px;" alt="Meter">
+                    <div style="font-size:11px; font-weight:700; color:#475569; margin-bottom:4px;">MOISTURE LCD</div>
+                    <img id="ticketMeterImg" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E" style="max-height:55px; max-width:100%; object-fit:cover; border-radius:4px;" alt="Meter">
                 </div>
                 <div style="border:1px solid #e2e8f0; border-radius:8px; padding:6px; background:#f8fafc;">
-                    <div style="font-size:10px; font-weight:700; color:#64748b; margin-bottom:4px;">GRAIN SAMPLE</div>
-                    <img id="ticketGrainImg" src="" style="max-height:55px; max-width:100%; object-fit:cover; border-radius:4px;" alt="Grains">
+                    <div style="font-size:11px; font-weight:700; color:#475569; margin-bottom:4px;">GRAIN SAMPLE</div>
+                    <img id="ticketGrainImg" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E" style="max-height:55px; max-width:100%; object-fit:cover; border-radius:4px;" alt="Grains">
                 </div>
             </div>
 

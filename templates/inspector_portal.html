@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Inspector QC Portal — Mandi Quality Assaying</title>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Mandi QC">
+    <meta name="theme-color" content="#0f172a">
+    <link rel="icon" type="image/png" href="/static/icons/icon-192.png">
+    <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+    <link rel="stylesheet" href="/static/theme.css">
+    <style>
+        body {
+            background: #f1f5f9;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            color: #0f172a;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .app-header {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            color: #ffffff;
+            padding: 16px 20px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .app-header h1 {
+            font-size: 17px;
+            font-weight: 800;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            letter-spacing: -0.3px;
+        }
+        .header-sub {
+            font-size: 11px;
+            color: #94a3b8;
+            font-weight: 500;
+            margin-top: 2px;
+        }
+        .container {
+            max-width: 680px;
+            margin: 0 auto;
+            padding: 16px 14px 100px;
+        }
+        .step-card {
+            background: #ffffff;
+            border-radius: 14px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 2px 8px rgba(15,23,42,0.05);
+            padding: 20px 18px;
+            margin-bottom: 18px;
+            transition: all 0.2s ease;
+        }
+        .step-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1.5px solid #f1f5f9;
+        }
+        .step-badge {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #d97706;
+            color: #ffffff;
+            font-weight: 800;
+            font-size: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .step-badge.done {
+            background: #059669;
+        }
+        .step-title {
+            font-size: 15.5px;
+            font-weight: 800;
+            color: #0f172a;
+            margin: 0;
+        }
+        .step-desc {
+            font-size: 12px;
+            color: #64748b;
+            margin-top: 2px;
+        }
+        .form-row {
+            margin-bottom: 14px;
+        }
+        .form-row label {
+            display: block;
+            font-size: 13px;
+            font-weight: 700;
+            color: #334155;
+            margin-bottom: 6px;
+        }
+        .form-row input, .form-row select {
+            width: 100%;
+            padding: 12px 14px;
+            font-size: 15px;
+            border-radius: 10px;
+            border: 1.5px solid #cbd5e1;
+            background: #f8fafc;
+            color: #0f172a;
+            box-sizing: border-box;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .form-row input:focus, .form-row select:focus {
+            border-color: #d97706;
+            background: #ffffff;
+        }
+        .capture-box {
+            border: 2px dashed #94a3b8;
+            border-radius: 12px;
+            background: #f8fafc;
+            padding: 24px 16px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .capture-box:hover {
+            border-color: #d97706;
+            background: #fffbeb;
+        }
+        .btn-capture {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            background: #d97706;
+            color: #ffffff;
+            font-weight: 700;
+            font-size: 14px;
+            padding: 12px 20px;
+            border-radius: 10px;
+            border: none;
+            cursor: pointer;
+            width: 100%;
+            box-shadow: 0 2px 6px rgba(217,119,6,0.3);
+        }
+        .btn-action {
+            background: #059669;
+            color: #ffffff;
+            font-weight: 800;
+            font-size: 15px;
+            padding: 14px;
+            border-radius: 10px;
+            border: none;
+            width: 100%;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(5,150,105,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .btn-action:disabled {
+            background: #94a3b8;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        .btn-clear {
+            background: #ef4444;
+            color: #fff;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .preview-img {
+            max-width: 100%;
+            max-height: 220px;
+            border-radius: 8px;
+            border: 1px solid #cbd5e1;
+            margin-top: 10px;
+            display: none;
+        }
+        .metric-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 14px;
+        }
+        .metric-cell {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 10px 12px;
+        }
+        .metric-lbl {
+            font-size: 11px;
+            color: #64748b;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        .metric-val {
+            font-size: 16px;
+            font-weight: 800;
+            color: #0f172a;
+            margin-top: 4px;
+        }
+        .corridor-banner {
+            background: #ecfdf5;
+            border: 1.5px solid #a7f3d0;
+            border-radius: 10px;
+            padding: 14px;
+            margin-top: 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .rate-highlight {
+            font-size: 22px;
+            font-weight: 900;
+            color: #065f46;
+        }
+        .badge-faq {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 11.5px;
+            font-weight: 800;
+            color: #fff;
+            background: #059669;
+        }
+        .ticket-modal {
+            background: #fff;
+            border-radius: 14px;
+            border: 2px solid #059669;
+            padding: 22px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            display: none;
+            margin-top: 20px;
+        }
+        .slip-preview {
+            background: #fdfdfd;
+            border: 1.5px dashed #64748b;
+            border-radius: 8px;
+            padding: 16px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 12px;
+            line-height: 1.45;
+            white-space: pre-wrap;
+            color: #1e293b;
+            margin-top: 14px;
+            overflow-x: auto;
+        }
+        .notice-pill {
+            background: #fffbeb;
+            border: 1px solid #fde68a;
+            color: #92400e;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 12.5px;
+            font-weight: 600;
+            margin-top: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        @media print {
+            body * { visibility: hidden; }
+            #printableTicket, #printableTicket * { visibility: visible; }
+            #printableTicket { position: absolute; left: 0; top: 0; width: 100%; border: none; box-shadow: none; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <header class="app-header">
+        <div>
+            <h1>🌾 Mandi QC Assayer Mobile</h1>
+            <div class="header-sub">
+                👤 <strong>{{ user.full_name if user else 'Yard Inspector' }}</strong> • 📍 <strong>{{ active_branch.name if active_branch else 'Mandi Yard' }}</strong>
+            </div>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+            {% if is_admin %}
+            <select id="branchSelector" onchange="switchBranch(this.value)" style="background:#334155; color:#fff; border:1px solid #475569; padding:6px 10px; border-radius:8px; font-size:12px; font-weight:700;">
+                {% for b in branches %}
+                <option value="{{ b.id }}" {% if b.id == active_branch_id %}selected{% endif %}>{{ b.name }} ({{ b.branch_code }})</option>
+                {% endfor %}
+            </select>
+            {% else %}
+            <input type="hidden" id="branchSelector" value="{{ active_branch_id }}">
+            <span style="background:#065f46; color:#a7f3d0; font-size:11px; font-weight:800; padding:4px 8px; border-radius:6px; border:1px solid #059669;">
+                ✓ Verified QC
+            </span>
+            {% endif %}
+            <button type="button" onclick="openChangePasswordModal()" style="color:#e2e8f0; background:#334155; border:1px solid #475569; padding:6px 11px; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:5px;">
+                <span>🔑</span> <span>Password</span>
+            </button>
+            <a href="/logout" style="color:#fca5a5; text-decoration:none; font-size:12px; font-weight:700; background:#334155; padding:6px 10px; border-radius:8px;">Logout</a>
+        </div>
+    </header>
+
+    <div class="container">
+
+        <!-- PWA ANDROID APP INSTALL BANNER -->
+        <div id="pwaInstallBanner" style="display:none; background: linear-gradient(135deg, #065f46 0%, #047857 100%); color: #ffffff; padding: 12px 16px; border-radius: 12px; margin-bottom: 16px; box-shadow: 0 4px 12px rgba(6,95,70,0.25); align-items: center; justify-content: space-between; gap: 12px; border: 1.5px solid #10b981;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <img src="/static/icons/icon-192.png" alt="App Icon" style="width: 40px; height: 40px; border-radius: 10px; border: 1.5px solid rgba(255,255,255,0.4); box-shadow: 0 2px 6px rgba(0,0,0,0.2);">
+                <div>
+                    <div style="font-weight: 800; font-size: 14px; line-height: 1.2;">Install Mandi QC Android App</div>
+                    <div style="font-size: 11px; color: #a7f3d0; margin-top: 2px;">Offline camera OCR & fast home screen launch</div>
+                </div>
+            </div>
+            <button type="button" id="btnInstallPwa" onclick="installAndroidPwa()" style="background: #ffffff; color: #065f46; border: none; padding: 8px 14px; border-radius: 8px; font-weight: 800; font-size: 12.5px; cursor: pointer; white-space: nowrap; box-shadow: 0 2px 6px rgba(0,0,0,0.15);">
+                📲 Install App
+            </button>
+        </div>
+
+        <!-- ======================================================== -->
+        <!-- STEP 1: FARMER & INTAKE LOT DETAILS (NO SIGNATURE NEEDED) -->
+        <!-- ======================================================== -->
+        <div class="step-card" id="step1Card">
+            <div class="step-header">
+                <div class="step-badge" id="step1Badge">1</div>
+                <div>
+                    <h2 class="step-title">Farmer Details & Intake Lot</h2>
+                    <div class="step-desc">Enter farmer's identity and vehicle number to issue digital QC ticket.</div>
+                </div>
+            </div>
+
+            <!-- Inspector Authenticated Session Badge -->
+            <div style="background:#f8fafc; border:1.5px solid #e2e8f0; border-radius:10px; padding:12px 14px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <span style="font-size:22px;">🛡️</span>
+                    <div>
+                        <div style="font-size:11px; text-transform:uppercase; color:#64748b; font-weight:800;">Authenticated Quality Inspector</div>
+                        <div style="font-size:14.5px; font-weight:800; color:#0f172a;">{{ user.full_name if user else 'Yard Inspector' }}</div>
+                        <div style="font-size:11px; color:#059669; font-weight:700;">Yard: {{ active_branch.name if active_branch else 'Mandi Yard' }}</div>
+                    </div>
+                </div>
+                <div style="text-align:right;">
+                    <span style="font-size:11px; background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; padding:4px 10px; border-radius:999px; font-weight:800;">
+                        ✓ No Sign Required
+                    </span>
+                    <div style="font-size:10.5px; color:#64748b; margin-top:4px;">Auto-Segregated User</div>
+                </div>
+            </div>
+
+            <input type="hidden" id="inspectorName" value="{{ user.full_name if user else 'Yard Inspector' }}">
+            <input type="hidden" id="inspectorId" value="{{ user.user_id if user else '' }}">
+
+            <div class="form-row">
+                <label>Farmer Full Name / शेतकरी नाव *</label>
+                <input type="text" id="farmerName" placeholder="e.g. Rameshwar Patel / गजानन पाटील" required autofocus>
+            </div>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                <div class="form-row">
+                    <label>Farmer Mobile No.</label>
+                    <input type="tel" id="farmerPhone" placeholder="10-digit mobile" maxlength="10">
+                </div>
+                <div class="form-row">
+                    <label>Vehicle / Trolley No. *</label>
+                    <input type="text" id="vehicleNo" placeholder="MH-28-AB-1234" required style="text-transform:uppercase;">
+                </div>
+            </div>
+
+            <div class="form-row" style="margin-bottom:0;">
+                <label>Commodity / कृषी उत्पन्न *</label>
+                <select id="commodityName" onchange="updateCommodityStandards()">
+                    {% for c in commodities %}
+                    <option value="{{ c.name }}" {% if loop.first %}selected{% endif %}>{{ c.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <!-- ======================================================== -->
+        <!-- STEP 2: MOISTURE METER DIGITAL LCD OCR SCANNING -->
+        <!-- ======================================================== -->
+        <div class="step-card" id="step2Card">
+            <div class="step-header">
+                <div class="step-badge" id="step2Badge">2</div>
+                <div>
+                    <h2 class="step-title">Moisture Meter Digital LCD OCR</h2>
+                    <div class="step-desc">Measure moisture in physical tester, snap display photo, OCR reads value.</div>
+                </div>
+            </div>
+
+            <div class="capture-box" onclick="document.getElementById('meterPhotoInput').click()">
+                <div style="font-size:32px; margin-bottom:6px;">📸</div>
+                <div style="font-weight:700; font-size:14px; color:#0f172a;">Capture Meter LCD Display</div>
+                <div style="font-size:11.5px; color:#64748b; margin-top:4px;">Snap photo of Indosaw, AgraTronix, or Kett digital screen</div>
+            </div>
+            <input type="file" id="meterPhotoInput" accept="image/*" capture="environment" style="display:none;" onchange="handleMeterPhoto(event)">
+
+            <img id="meterPhotoPreview" class="preview-img" alt="Moisture Meter Screen Preview">
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:14px;">
+                <div class="form-row" style="margin-bottom:0;">
+                    <label>Detected Moisture % (Nami)</label>
+                    <input type="number" step="0.1" id="moisturePct" value="11.2" style="font-size:18px; font-weight:800; color:#059669;">
+                </div>
+                <div class="form-row" style="margin-bottom:0;">
+                    <label>OCR Confidence</label>
+                    <div id="ocrConfidenceBadge" style="background:#ecfdf5; border:1.5px solid #a7f3d0; border-radius:10px; padding:12px; color:#065f46; font-weight:800; text-align:center;">
+                        94% Verified
+                    </div>
+                </div>
+            </div>
+            <div id="meterDetectText" style="font-size:11px; color:#64748b; margin-top:6px;">Auto-detected: Digital Mandi Moisture Tester LCD</div>
+        </div>
+
+        <!-- ======================================================== -->
+        <!-- STEP 3: GRAIN BOWL PHOTO & COMPUTER VISION ASSAYING -->
+        <!-- ======================================================== -->
+        <div class="step-card" id="step3Card">
+            <div class="step-header">
+                <div class="step-badge" id="step3Badge">3</div>
+                <div>
+                    <h2 class="step-title">Grain Bowl Photo & AI Quality Assaying</h2>
+                    <div class="step-desc">Photo sample in tray: assesses purity, rain damage, sand, green seeds & rates.</div>
+                </div>
+            </div>
+
+            <div class="capture-box" onclick="document.getElementById('grainPhotoInput').click()">
+                <div style="font-size:32px; margin-bottom:6px;">🌾</div>
+                <div style="font-weight:700; font-size:14px; color:#0f172a;">Capture Sample Bowl Grains</div>
+                <div style="font-size:11.5px; color:#64748b; margin-top:4px;">Spread grains evenly in clean tray under normal daylight</div>
+            </div>
+            <input type="file" id="grainPhotoInput" accept="image/*" capture="environment" style="display:none;" onchange="handleGrainPhoto(event)">
+
+            <img id="grainPhotoPreview" class="preview-img" alt="Grain Bowl Sample Preview">
+
+            <div style="margin-top:14px;">
+                <button type="button" class="btn-action" id="btnAnalyzeSample" onclick="runGrainAnalysis()">
+                    ⚡ Run Computer Vision Quality Assaying & Price Check
+                </button>
+            </div>
+
+            <!-- Analysis Output Dashboard -->
+            <div id="analysisDashboard" style="display:none; margin-top:16px;">
+                <div class="metric-grid">
+                    <div class="metric-cell">
+                        <div class="metric-lbl">Foreign Matter / Karda</div>
+                        <div class="metric-val" id="resKarda">0.8 %</div>
+                        <small style="font-size:10px; color:#64748b;">Stones, sand, mud</small>
+                    </div>
+                    <div class="metric-cell">
+                        <div class="metric-lbl">Rain / Weather Damage</div>
+                        <div class="metric-val" id="resDamaged">1.2 %</div>
+                        <small style="font-size:10px; color:#64748b;">Mold, black spots</small>
+                    </div>
+                    <div class="metric-cell">
+                        <div class="metric-lbl">Immature Green Seeds</div>
+                        <div class="metric-val" id="resGreen">1.0 %</div>
+                        <small style="font-size:10px; color:#64748b;">Chlorophyll content</small>
+                    </div>
+                    <div class="metric-cell">
+                        <div class="metric-lbl">Broken & Split Dal</div>
+                        <div class="metric-val" id="resBroken">1.5 %</div>
+                        <small style="font-size:10px; color:#64748b;">Mechanical fractures</small>
+                    </div>
+                    <div class="metric-cell">
+                        <div class="metric-lbl">Dominant Breed</div>
+                        <div class="metric-val" id="resBreed" style="font-size:14px; color:#d97706;">JS-335 Bold</div>
+                        <small style="font-size:10px; color:#64748b;" id="resBreedStatus">Pure Lot</small>
+                    </div>
+                    <div class="metric-cell">
+                        <div class="metric-lbl">Breed Purity Score</div>
+                        <div class="metric-val" id="resPurity">96.5 %</div>
+                        <small style="font-size:10px; color:#64748b;" id="resAdmixture">Admixture: 3.5%</small>
+                    </div>
+                </div>
+
+                <!-- Price Corridor & Suggested Rate -->
+                <div class="corridor-banner">
+                    <div>
+                        <span class="badge-faq" id="resFaqGrade">Grade 1 (Premium FAQ)</span>
+                        <div style="font-size:11.5px; color:#065f46; font-weight:700; margin-top:4px;">
+                            Corridor: <span id="resCorridorSpan">Rs. 4,400 - Rs. 4,800</span>
+                        </div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="font-size:11px; color:#065f46; font-weight:700;">SUGGESTED BUYING RATE</div>
+                        <div class="rate-highlight" id="resSuggestedRate">₹ 4,700</div>
+                        <small style="font-size:10.5px; color:#065f46; font-weight:600;">per Quintal</small>
+                    </div>
+                </div>
+
+                <div id="alertsContainer" style="margin-top:10px;"></div>
+            </div>
+        </div>
+
+        <!-- ======================================================== -->
+        <!-- STEP 4: GENERATE DIGITAL QC SLIP FOR CASHIER HANDOFF -->
+        <!-- ======================================================== -->
+        <div style="margin-top:20px;">
+            <button type="button" class="btn-action" id="btnSubmitQC" style="background:#0f172a; padding:16px; font-size:16px;" onclick="submitCompleteInspection()">
+                📜 Issue Tamper-Proof Digital QC Slip to Farmer
+            </button>
+        </div>
+
+        <div class="notice-pill">
+            <span>ℹ️</span>
+            <span>Inspector writes the issued Ticket Number on farmer's token. Farmer brings token to Cashier desk for instant verification and cash/RTGS payment.</span>
+        </div>
+
+        <!-- Generated Certificate / Slip Modal Display -->
+        <div class="ticket-modal" id="printableTicket">
+            <!-- Bold High-Visibility QC Ticket Callout -->
+            <div style="background:linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color:#ffffff; border-radius:14px; padding:20px 16px; text-align:center; border:2.5px solid #facc15; box-shadow:0 8px 24px rgba(0,0,0,0.25); margin-bottom:16px;">
+                <div style="font-size:11.5px; font-weight:800; color:#94a3b8; text-transform:uppercase; letter-spacing:1.5px;">
+                    🌾 MANDI APMC DIGITAL QC TICKET NUMBER
+                </div>
+                <div id="ticketNumberDisplay" style="font-size:32px; font-weight:900; color:#fde047; letter-spacing:2px; margin:10px 0; font-family:monospace;">
+                    QC-CHK-261101-89F1
+                </div>
+                <div style="background:#059669; color:#ffffff; padding:8px 16px; border-radius:999px; font-size:13px; font-weight:800; display:inline-flex; align-items:center; gap:6px;">
+                    ✍️ Inspector: Write this Ticket Number on Farmer's Physical Slip
+                </div>
+                <div style="font-size:11px; color:#94a3b8; margin-top:8px;">
+                    No inspector signature required • Identity verified by dedicated staff login
+                </div>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #059669; padding-bottom:10px;">
+                <div>
+                    <h3 style="margin:0; font-size:16px; font-weight:800; color:#065f46;">✅ Digital QC Certificate Issued</h3>
+                    <div style="font-size:12px; color:#64748b; font-weight:600;" id="ticketSubTitle">Ready for Cashier Verification</div>
+                </div>
+                <span class="badge-faq" id="ticketGradeBadge">FAQ Grade 1</span>
+            </div>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:14px; font-size:13px;">
+                <div><strong>Farmer:</strong> <span id="slipFarmerDisplay">-</span></div>
+                <div><strong>Vehicle:</strong> <span id="slipVehicleDisplay">-</span></div>
+                <div><strong>Commodity:</strong> <span id="slipCommodityDisplay">-</span></div>
+                <div><strong>Moisture:</strong> <span id="slipMoistureDisplay">-</span></div>
+                <div><strong>Breed:</strong> <span id="slipBreedDisplay">-</span></div>
+                <div><strong>Approved Rate:</strong> <span id="slipRateDisplay" style="color:#059669; font-weight:800;">-</span></div>
+            </div>
+
+            <!-- Visual Evidence: Photos + Verified Inspector Badge -->
+            <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-top:14px; text-align:center;">
+                <div style="border:1px solid #e2e8f0; border-radius:8px; padding:6px; background:#f8fafc;">
+                    <div style="font-size:10px; font-weight:700; color:#64748b; margin-bottom:4px;">INSPECTOR AUTH</div>
+                    <div style="font-size:22px; margin-top:2px;">🛡️</div>
+                    <div style="font-size:11px; font-weight:800; color:#065f46; margin-top:2px;" id="slipInspectorDisplay">{{ user.full_name if user else 'Yard Inspector' }}</div>
+                    <div style="font-size:9.5px; color:#059669; font-weight:700;">Verified QC Login</div>
+                </div>
+                <div style="border:1px solid #e2e8f0; border-radius:8px; padding:6px; background:#f8fafc;">
+                    <div style="font-size:10px; font-weight:700; color:#64748b; margin-bottom:4px;">MOISTURE LCD</div>
+                    <img id="ticketMeterImg" src="" style="max-height:55px; max-width:100%; object-fit:cover; border-radius:4px;" alt="Meter">
+                </div>
+                <div style="border:1px solid #e2e8f0; border-radius:8px; padding:6px; background:#f8fafc;">
+                    <div style="font-size:10px; font-weight:700; color:#64748b; margin-bottom:4px;">GRAIN SAMPLE</div>
+                    <img id="ticketGrainImg" src="" style="max-height:55px; max-width:100%; object-fit:cover; border-radius:4px;" alt="Grains">
+                </div>
+            </div>
+
+            <!-- Formatted 80mm Slip Preview -->
+            <pre class="slip-preview" id="formattedSlipPreview"></pre>
+
+            <div style="display:flex; gap:10px; margin-top:16px;">
+                <button type="button" class="btn-action" style="flex:1; background:#059669;" onclick="window.print()">
+                    🖨️ Print 80mm Thermal Slip
+                </button>
+                <button type="button" class="btn-action" style="flex:1; background:#d97706;" onclick="resetForNextFarmer()">
+                    ➕ Next Farmer Lot
+                </button>
+            </div>
+        </div>
+
+        <!-- ======================================================== -->
+        <!-- MY RECENT ASSAYED LOTS (STRICTLY ISOLATED TO THIS INSPECTOR) -->
+        <!-- ======================================================== -->
+        <div class="step-card" style="margin-top:20px; background:#f8fafc; border:1px solid #e2e8f0;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <div>
+                    <h3 style="margin:0; font-size:15px; font-weight:800; color:#0f172a;">📋 My Assayed Lots Today</h3>
+                    <div style="font-size:11.5px; color:#64748b;">Showing lots assayed exclusively by {{ user.full_name if user else 'you' }}</div>
+                </div>
+                <span style="background:#e0e7ff; color:#3730a3; font-size:11px; font-weight:800; padding:3px 8px; border-radius:999px;">
+                    {{ recent_tickets|length }} lots
+                </span>
+            </div>
+
+            {% if recent_tickets %}
+            <div style="display:flex; flex-direction:column; gap:8px;">
+                {% for t in recent_tickets %}
+                <div style="background:#ffffff; border:1px solid #cbd5e1; border-radius:8px; padding:10px 12px; display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                        <div style="display:flex; align-items:center; gap:6px;">
+                            <code style="font-size:12px; font-weight:800; color:#0284c7;">{{ t.ticket_no }}</code>
+                            {% if t.status == 'LINKED' %}
+                            <span style="font-size:10px; background:#dcfce7; color:#15803d; font-weight:700; padding:1px 6px; border-radius:4px;">PAID / INVOICED</span>
+                            {% else %}
+                            <span style="font-size:10px; background:#fef3c7; color:#b45309; font-weight:700; padding:1px 6px; border-radius:4px;">PENDING CASHIER</span>
+                            {% endif %}
+                        </div>
+                        <div style="font-size:12.5px; font-weight:700; color:#1e293b; margin-top:3px;">
+                            {{ t.farmer_name }} • {{ t.vehicle_no }}
+                        </div>
+                        <div style="font-size:11px; color:#64748b;">
+                            {{ t.commodity_name }} ({{ t.moisture_pct }}% moist) • ₹ {{ "{:,.0f}".format(t.suggested_buying_rate_per_qtl) }}/Qtl
+                        </div>
+                    </div>
+                    <div>
+                        <a href="/inspector/report/{{ t.ticket_no }}" target="_blank" style="text-decoration:none; background:#0f172a; color:#ffffff; font-size:11px; font-weight:700; padding:6px 10px; border-radius:6px; display:inline-block;">
+                            🖨️ Slip
+                        </a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div style="text-align:center; padding:16px 8px; color:#94a3b8; font-size:12.5px;">
+                No lots assayed yet in your shift. Submit your first lot above.
+            </div>
+            {% endif %}
+        </div>
+
+    </div>
+
+    <!-- Interactive Scripting -->
+    <script>
+        function switchBranch(branchId) {
+            window.location.href = `/inspector/portal?branch_id=${branchId}`;
+        }
+
+        // Global State for Photos and Analysis
+        let meterPhotoBase64 = "";
+        let grainPhotoBase64 = "";
+        let currentAnalysis = null;
+        let currentCorridor = null;
+
+        // Step 2: Handle Moisture Meter Photo
+        async function handleMeterPhoto(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                meterPhotoBase64 = e.target.result;
+                const preview = document.getElementById("meterPhotoPreview");
+                preview.src = meterPhotoBase64;
+                preview.style.display = "block";
+
+                // Call Moisture OCR API
+                const formData = new FormData();
+                formData.append("meter_photo", file);
+                try {
+                    const res = await fetch("/api/inspector/ocr-moisture", {
+                        method: "POST",
+                        body: formData
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        document.getElementById("moisturePct").value = data.moisture_pct;
+                        document.getElementById("ocrConfidenceBadge").innerText = `${Math.round(data.confidence * 100)}% OCR Verified`;
+                        document.getElementById("meterDetectText").innerText = `Detected: ${data.meter_model_detected} (Readout: ${data.ocr_raw_text})`;
+                        document.getElementById("step2Badge").classList.add("done");
+                    }
+                } catch(err) {
+                    console.error("OCR API error:", err);
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Step 3: Handle Grain Bowl Photo
+        function handleGrainPhoto(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                grainPhotoBase64 = e.target.result;
+                const preview = document.getElementById("grainPhotoPreview");
+                preview.src = grainPhotoBase64;
+                preview.style.display = "block";
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Run Computer Vision Analysis
+        async function runGrainAnalysis() {
+            const btn = document.getElementById("btnAnalyzeSample");
+            btn.disabled = true;
+            btn.innerText = "⏳ Assaying Grains & Checking Corridor...";
+
+            const fileInput = document.getElementById("grainPhotoInput");
+            const formData = new FormData();
+            formData.append("commodity_name", document.getElementById("commodityName").value);
+            formData.append("moisture_pct", document.getElementById("moisturePct").value || "11.2");
+            formData.append("branch_id", document.getElementById("branchSelector").value);
+
+            if (fileInput.files[0]) {
+                formData.append("grain_photo", fileInput.files[0]);
+            } else if (grainPhotoBase64) {
+                formData.append("grain_photo_b64", grainPhotoBase64);
+            }
+
+            try {
+                const res = await fetch("/api/inspector/analyze-sample", {
+                    method: "POST",
+                    body: formData
+                });
+                const data = await res.json();
+                if (data.success) {
+                    currentAnalysis = data.analysis;
+                    currentCorridor = data.corridor;
+
+                    // Populate UI
+                    document.getElementById("resKarda").innerText = `${currentAnalysis.karda_pct.toFixed(2)} %`;
+                    document.getElementById("resDamaged").innerText = `${currentAnalysis.damaged_pct.toFixed(2)} %`;
+                    document.getElementById("resGreen").innerText = `${currentAnalysis.green_seeds_pct.toFixed(2)} %`;
+                    document.getElementById("resBroken").innerText = `${currentAnalysis.broken_split_pct.toFixed(2)} %`;
+                    document.getElementById("resBreed").innerText = currentAnalysis.dominant_breed;
+                    document.getElementById("resBreedStatus").innerText = currentAnalysis.breed_status;
+                    document.getElementById("resPurity").innerText = `${currentAnalysis.breed_purity_pct.toFixed(1)} %`;
+                    document.getElementById("resAdmixture").innerText = `Admixture: ${currentAnalysis.admixture_pct.toFixed(1)}%`;
+
+                    document.getElementById("resFaqGrade").innerText = currentCorridor.grade_label;
+                    document.getElementById("resFaqGrade").style.background = currentCorridor.badge_color;
+                    document.getElementById("resCorridorSpan").innerText = `Rs. ${currentCorridor.corridor_min_rate.toLocaleString()} - Rs. ${currentCorridor.corridor_max_rate.toLocaleString()}`;
+                    document.getElementById("resSuggestedRate").innerText = `₹ ${currentCorridor.suggested_buying_rate_per_qtl.toLocaleString()}`;
+
+                    // Alerts
+                    const alertsDiv = document.getElementById("alertsContainer");
+                    alertsDiv.innerHTML = "";
+                    if (currentCorridor.refraction_alerts && currentCorridor.refraction_alerts.length > 0) {
+                        currentCorridor.refraction_alerts.forEach(a => {
+                            const p = document.createElement("div");
+                            p.style.cssText = "font-size:12px; color:#b91c1c; background:#fef2f2; border:1px solid #fecaca; padding:6px 10px; border-radius:6px; margin-top:4px;";
+                            p.innerText = "⚠️ " + a;
+                            alertsDiv.appendChild(p);
+                        });
+                    }
+
+                    document.getElementById("analysisDashboard").style.display = "block";
+                    document.getElementById("step3Badge").classList.add("done");
+                }
+            } catch(err) {
+                alert("Error during grain analysis: " + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "⚡ Re-Run Computer Vision Quality Assaying";
+            }
+        }
+
+        // Step 4: Submit Complete Inspection & Issue Ticket
+        async function submitCompleteInspection() {
+            const farmerName = document.getElementById("farmerName").value.trim();
+            const vehicleNo = document.getElementById("vehicleNo").value.trim();
+            if (!farmerName) {
+                alert("Please enter Farmer Full Name at Step 1!");
+                document.getElementById("farmerName").focus();
+                return;
+            }
+            if (!vehicleNo) {
+                alert("Please enter Vehicle Number at Step 1!");
+                document.getElementById("vehicleNo").focus();
+                return;
+            }
+
+            // Ensure grain analysis was executed
+            if (!currentAnalysis || !currentCorridor) {
+                alert("Please run grain sample quality analysis at Step 3 first!");
+                return;
+            }
+
+            const btn = document.getElementById("btnSubmitQC");
+            btn.disabled = true;
+            btn.innerText = "⏳ Generating Digital QC Ticket & Syncing Database...";
+
+            const payload = new FormData();
+            payload.append("branch_id", document.getElementById("branchSelector").value);
+            payload.append("farmer_name", farmerName);
+            payload.append("farmer_phone", document.getElementById("farmerPhone").value.trim());
+            payload.append("vehicle_no", vehicleNo);
+            payload.append("commodity_name", document.getElementById("commodityName").value);
+            payload.append("inspector_name", document.getElementById("inspectorName")?.value || "Yard Inspector");
+            payload.append("inspector_id", document.getElementById("inspectorId")?.value || "");
+            payload.append("inspector_signature", "");
+
+            payload.append("moisture_pct", document.getElementById("moisturePct").value || "11.2");
+            payload.append("karda_pct", currentAnalysis.karda_pct);
+            payload.append("damaged_pct", currentAnalysis.damaged_pct);
+            payload.append("green_seeds_pct", currentAnalysis.green_seeds_pct);
+            payload.append("broken_split_pct", currentAnalysis.broken_split_pct);
+            payload.append("shriveled_pct", currentAnalysis.shriveled_pct);
+            payload.append("uniformity_index", currentAnalysis.uniformity_index);
+            payload.append("dominant_breed", currentAnalysis.dominant_breed);
+            payload.append("breed_purity_pct", currentAnalysis.breed_purity_pct);
+            payload.append("admixture_pct", currentAnalysis.admixture_pct);
+            payload.append("breed_status", currentAnalysis.breed_status);
+
+            payload.append("faq_grade", currentCorridor.faq_grade);
+            payload.append("grade_label", currentCorridor.grade_label);
+            payload.append("corridor_min_rate", currentCorridor.corridor_min_rate);
+            payload.append("corridor_target_rate", currentCorridor.corridor_target_rate);
+            payload.append("corridor_max_rate", currentCorridor.corridor_max_rate);
+            payload.append("suggested_buying_rate_per_qtl", currentCorridor.suggested_buying_rate_per_qtl);
+
+            if (meterPhotoBase64) payload.append("meter_photo_path", meterPhotoBase64);
+            if (grainPhotoBase64) payload.append("grain_photo_path", grainPhotoBase64);
+
+            try {
+                const res = await fetch("/api/inspector/submit-qc", {
+                    method: "POST",
+                    body: payload
+                });
+                const data = await res.json();
+                if (data.success) {
+                    const ticket = data.ticket;
+                    document.getElementById("ticketNumberDisplay").innerText = ticket.ticket_no;
+                    document.getElementById("ticketGradeBadge").innerText = ticket.grade_label;
+                    document.getElementById("slipFarmerDisplay").innerText = ticket.farmer_name;
+                    document.getElementById("slipVehicleDisplay").innerText = ticket.vehicle_no;
+                    document.getElementById("slipCommodityDisplay").innerText = ticket.commodity_name;
+                    document.getElementById("slipMoistureDisplay").innerText = `${ticket.moisture_pct}% (OCR Verified)`;
+                    document.getElementById("slipBreedDisplay").innerText = `${ticket.dominant_breed} (${ticket.breed_purity_pct}%)`;
+                    document.getElementById("slipRateDisplay").innerText = `₹ ${ticket.suggested_buying_rate_per_qtl.toLocaleString()} / Qtl`;
+                    document.getElementById("slipInspectorDisplay").innerText = ticket.inspector_name;
+
+                    // Show images
+                    if (ticket.meter_photo_path) document.getElementById("ticketMeterImg").src = ticket.meter_photo_path;
+                    if (ticket.grain_photo_path) document.getElementById("ticketGrainImg").src = ticket.grain_photo_path;
+
+                    // Set thermal slip text
+                    document.getElementById("formattedSlipPreview").innerText = data.slip_text;
+
+                    const modal = document.getElementById("printableTicket");
+                    modal.style.display = "block";
+                    modal.scrollIntoView({ behavior: 'smooth' });
+                } else {
+                    alert("Submission failed: " + (data.error || "Unknown error"));
+                }
+            } catch(err) {
+                alert("Error submitting QC inspection: " + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "📜 Issue Tamper-Proof Digital QC Slip to Farmer";
+            }
+        }
+
+        function resetForNextFarmer() {
+            if (confirm("Reset portal for the next farmer sample?")) {
+                document.getElementById("farmerName").value = "";
+                document.getElementById("farmerPhone").value = "";
+                document.getElementById("vehicleNo").value = "";
+                document.getElementById("meterPhotoPreview").style.display = "none";
+                document.getElementById("grainPhotoPreview").style.display = "none";
+                document.getElementById("analysisDashboard").style.display = "none";
+                document.getElementById("printableTicket").style.display = "none";
+                meterPhotoBase64 = "";
+                grainPhotoBase64 = "";
+                currentAnalysis = null;
+                currentCorridor = null;
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        }
+
+        function updateCommodityStandards() {
+            // Triggered on commodity dropdown change
+            if (grainPhotoBase64) {
+                runGrainAnalysis();
+            }
+        }
+
+        function openChangePasswordModal() {
+            document.getElementById('current_password').value = '';
+            document.getElementById('new_password').value = '';
+            document.getElementById('confirm_password').value = '';
+            const alertBox = document.getElementById('pwAlert');
+            alertBox.style.display = 'none';
+            document.getElementById('changePasswordModal').style.display = 'flex';
+        }
+
+        function closeChangePasswordModal() {
+            document.getElementById('changePasswordModal').style.display = 'none';
+        }
+
+        async function submitChangePassword(e) {
+            e.preventDefault();
+            const curr = document.getElementById('current_password').value;
+            const n = document.getElementById('new_password').value;
+            const c = document.getElementById('confirm_password').value;
+            const alertBox = document.getElementById('pwAlert');
+            const btn = document.getElementById('pwSubmitBtn');
+
+            if (n !== c) {
+                alertBox.style.display = 'block';
+                alertBox.style.background = '#fef2f2';
+                alertBox.style.color = '#b91c1c';
+                alertBox.style.border = '1px solid #f87171';
+                alertBox.innerText = 'New password and confirmation do not match.';
+                return;
+            }
+            if (n.length < 6) {
+                alertBox.style.display = 'block';
+                alertBox.style.background = '#fef2f2';
+                alertBox.style.color = '#b91c1c';
+                alertBox.style.border = '1px solid #f87171';
+                alertBox.innerText = 'New password must be at least 6 characters.';
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerText = 'Updating...';
+            try {
+                const formData = new FormData();
+                formData.append('current_password', curr);
+                formData.append('new_password', n);
+                formData.append('confirm_password', c);
+
+                const res = await fetch('/api/inspector/change-password', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    alertBox.style.display = 'block';
+                    alertBox.style.background = '#ecfdf5';
+                    alertBox.style.color = '#065f46';
+                    alertBox.style.border = '1px solid #a7f3d0';
+                    alertBox.innerText = '✓ ' + (data.message || 'Password changed successfully!');
+                    setTimeout(() => {
+                        closeChangePasswordModal();
+                    }, 1400);
+                } else {
+                    alertBox.style.display = 'block';
+                    alertBox.style.background = '#fef2f2';
+                    alertBox.style.color = '#b91c1c';
+                    alertBox.style.border = '1px solid #f87171';
+                    alertBox.innerText = data.detail || data.error || 'Failed to update password.';
+                }
+            } catch(err) {
+                alertBox.style.display = 'block';
+                alertBox.style.background = '#fef2f2';
+                alertBox.style.color = '#b91c1c';
+                alertBox.style.border = '1px solid #f87171';
+                alertBox.innerText = 'Network error: ' + err.message;
+            } finally {
+                btn.disabled = false;
+                btn.innerText = 'Update Password';
+            }
+        }
+        // ---------------------------------------------------------------------
+        // PWA ANDROID APP INSTALLATION & SERVICE WORKER
+        // ---------------------------------------------------------------------
+        let deferredPrompt = null;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            const banner = document.getElementById('pwaInstallBanner');
+            if (banner) banner.style.display = 'flex';
+        });
+
+        function installAndroidPwa() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                        const banner = document.getElementById('pwaInstallBanner');
+                        if (banner) banner.style.display = 'none';
+                    }
+                    deferredPrompt = null;
+                });
+            } else {
+                alert("To install on Android:\n1. Open in Google Chrome\n2. Tap the menu (⋮) at top right\n3. Tap 'Install app' or 'Add to Home screen'\n4. Open directly from your home screen as a standalone app!");
+            }
+        }
+
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js').catch(err => {
+                    console.log('SW registration error:', err);
+                });
+            });
+        }
+    </script>
+
+    <!-- MODAL: CHANGE INSPECTOR PASSWORD -->
+    <div id="changePasswordModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.7); z-index:9999; justify-content:center; align-items:center; padding:16px; box-sizing:border-box;">
+        <div style="background:#ffffff; max-width:440px; width:100%; border-radius:16px; padding:22px; box-shadow:0 20px 40px rgba(0,0,0,0.3); border:1.5px solid #cbd5e1;">
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1.5px solid #f1f5f9; padding-bottom:12px; margin-bottom:16px;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span style="font-size:20px;">🔑</span>
+                    <h3 style="margin:0; font-size:16.5px; font-weight:800; color:#0f172a;">Change Inspector Password</h3>
+                </div>
+                <button type="button" onclick="closeChangePasswordModal()" style="background:none; border:none; font-size:20px; cursor:pointer; color:#64748b; line-height:1;">✕</button>
+            </div>
+
+            <div id="pwAlert" style="display:none; padding:10px 14px; border-radius:8px; font-size:12.5px; font-weight:700; margin-bottom:14px;"></div>
+
+            <form id="changePasswordForm" onsubmit="submitChangePassword(event)">
+                <div class="form-row" style="margin-bottom:14px;">
+                    <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Current Password *</label>
+                    <input type="password" id="current_password" required style="width:100%; padding:10px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-size:14px; box-sizing:border-box;">
+                </div>
+                <div class="form-row" style="margin-bottom:14px;">
+                    <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">New Password * (Min 6 chars)</label>
+                    <input type="password" id="new_password" required minlength="6" style="width:100%; padding:10px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-size:14px; box-sizing:border-box;">
+                </div>
+                <div class="form-row" style="margin-bottom:18px;">
+                    <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Confirm New Password *</label>
+                    <input type="password" id="confirm_password" required minlength="6" style="width:100%; padding:10px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-size:14px; box-sizing:border-box;">
+                </div>
+
+                <div style="display:flex; justify-content:flex-end; gap:10px; border-top:1px solid #f1f5f9; padding-top:14px;">
+                    <button type="button" onclick="closeChangePasswordModal()" style="background:#f1f5f9; color:#475569; border:none; padding:10px 16px; border-radius:8px; font-weight:700; font-size:13px; cursor:pointer;">Cancel</button>
+                    <button type="submit" id="pwSubmitBtn" style="background:#059669; color:#ffffff; border:none; padding:10px 20px; border-radius:8px; font-weight:800; font-size:13px; cursor:pointer;">Update Password</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

@@ -87,6 +87,8 @@
             <span class="nav-pill" style="background:#fef3c7; color:#b45309; border-color:#fde68a; font-weight:700;">
                 👤 {{ logged_in_user.full_name if logged_in_user else 'Cashier & Munim' }}
             </span>
+            <a href="/inspector/portal" target="_blank" class="nav-pill" style="background:#059669; color:#fff; font-weight:700;">🔬 Inspector QC Portal</a>
+            <button type="button" onclick="openInspectorQrModal()" class="nav-pill" style="background:#0d9488; color:#fff; font-weight:700; border:none; cursor:pointer;">📲 Mobile App QR</button>
             <a href="/branch/stock?branch_id={{ current_branch.id }}" class="nav-pill" style="background:#0284c7; color:#fff; font-weight:700;">📦 Yard Stock</a>
             <a href="/branch/settings?branch_id={{ current_branch.id }}" class="nav-pill">⚙️ Settings</a>
             <a href="/logout" class="nav-pill" style="background:#fef2f2; color:#b91c1c; border-color:#fecaca; font-weight:700;">🚪 Logout</a>
@@ -220,8 +222,38 @@
                     <input type="hidden" id="commodity_name" name="commodity_name" value="{{ commodity_cards[0].name if commodity_cards else 'Soyabean (Yellow)' }}">
                     <input type="hidden" id="weighment_mode" name="weighment_mode" value="MANUAL_YARD">
                     <input type="hidden" id="settlement_mode" name="settlement_mode" value="CASH">
+                    <input type="hidden" id="inward_qc_ticket_no" name="qc_ticket_no" value="">
+                    <input type="hidden" id="inward_dominant_breed" name="dominant_breed" value="">
+                    <input type="hidden" id="inward_breed_purity_pct" name="breed_purity_pct" value="">
+                    <input type="hidden" id="inward_karda_pct" name="karda_percentage" value="0.0">
 
                     <div class="form-grid">
+                        <!-- Digital QC Assaying & Inspection Verification Banner -->
+                        <div class="form-group form-full" style="background:#f0fdf4; border:1.5px solid #86efac; border-radius:10px; padding:12px 14px; margin-bottom:6px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <span style="font-size:20px;">🔬</span>
+                                    <div>
+                                        <div style="font-size:13.5px; font-weight:800; color:#14532d;">Yard Quality Assaying & Inspector Verification</div>
+                                        <div style="font-size:11.5px; color:#166534;" id="qcStatusBannerText">Check farmer's name, QC ticket number, authenticated inspector & moisture meter photo before payment.</div>
+                                    </div>
+                                </div>
+                                <div style="display:flex; gap:8px;">
+                                    <button type="button" class="btn btn-branch" onclick="openQCInspectionModal()" style="padding:6px 14px; font-size:12px; font-weight:800; background:#059669; border-color:#059669;">
+                                        🔍 Fetch Pending QC Tickets <span class="badge" id="pendingQCCountBadge" style="background:#fff; color:#059669; border-radius:10px; padding:1px 6px; font-size:11px; margin-left:4px;">0</span>
+                                    </button>
+                                    <a href="/inspector/portal" target="_blank" class="btn btn-secondary" style="padding:6px 12px; font-size:12px; font-weight:700; text-decoration:none;">
+                                        📱 Open Inspector App
+                                    </a>
+                                </div>
+                            </div>
+                            <div id="verifiedQCBadgeContainer" style="display:none; margin-top:10px; padding:8px 12px; background:#dcfce7; border-radius:8px; border:1px solid #4ade80;">
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <div style="font-size:12px; font-weight:800; color:#14532d;" id="verifiedQCText"></div>
+                                    <button type="button" onclick="openQCInspectionModal()" style="background:transparent; border:none; color:#15803d; font-size:11px; font-weight:800; cursor:pointer; text-decoration:underline;">View Proof Photos</button>
+                                </div>
+                            </div>
+                        </div>
                         <!-- Farmer Selector + Action Buttons -->
                         <div class="form-group form-full">
                             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
@@ -274,6 +306,12 @@
                             </div>
                         </div>
 
+                        <!-- Vehicle / Trolley Number -->
+                        <div class="form-group">
+                            <label>Vehicle / Trolley Number *</label>
+                            <input type="text" id="vehicle_number" name="vehicle_number" placeholder="e.g. MH-28-AB-1234" style="text-transform:uppercase; font-weight:700;">
+                        </div>
+
                         <!-- Weighment Mode Toggle -->
                         <div class="form-group form-full">
                             <label>Weighment Method</label>
@@ -304,10 +342,6 @@
                                 <div class="form-group">
                                     <label>External Slip Number</label>
                                     <input type="text" id="external_slip_number" name="external_slip_number" placeholder="e.g. K-9012">
-                                </div>
-                                <div class="form-group">
-                                    <label>Vehicle Number</label>
-                                    <input type="text" id="vehicle_number" name="vehicle_number" placeholder="MP-09-GA-4521">
                                 </div>
                                 <div class="form-group">
                                     <label>Gross Loaded Weight (Kg)</label>
@@ -986,6 +1020,99 @@
     <!-- ============================================== -->
     <!-- MODALS SECTION -->
     <!-- ============================================== -->
+
+    <!-- MODAL 0: PENDING QC TICKETS & INSPECTOR VERIFICATION DESK -->
+    <div id="qcInspectionModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.65); z-index:9999; backdrop-filter:blur(3px); align-items:center; justify-content:center;">
+        <div style="background:#ffffff; border-radius:14px; max-width:840px; width:92%; max-height:90vh; overflow-y:auto; box-shadow:0 20px 40px rgba(0,0,0,0.25); border:1px solid #cbd5e1; padding:22px; margin:auto;">
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1.5px solid #e2e8f0; padding-bottom:12px; margin-bottom:16px;">
+                <div>
+                    <h3 style="margin:0; font-size:17px; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:8px;">
+                        <span>🔬</span> Quality Assaying & Inspector Verification Desk
+                    </h3>
+                    <div style="font-size:12px; color:#64748b; margin-top:2px;">
+                        Verify Farmer Name, Inspector Signature & Moisture Meter Display Photo before Payment
+                    </div>
+                </div>
+                <button type="button" onclick="closeQCInspectionModal()" style="background:#f1f5f9; border:none; border-radius:6px; font-size:18px; width:32px; height:32px; cursor:pointer;">✕</button>
+            </div>
+
+            <!-- List of Pending Tickets -->
+            <div id="qcTicketsListContainer">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                    <div style="font-size:13px; font-weight:700; color:#334155;">
+                        Pending Quality Tickets from Mandi Yard:
+                    </div>
+                    <button type="button" class="btn btn-secondary" onclick="fetchPendingQCTickets()" style="padding:4px 10px; font-size:11.5px; font-weight:700;">
+                        🔄 Refresh Tickets
+                    </button>
+                </div>
+                <div id="qcTicketsTableWrapper" style="overflow-x:auto;">
+                    <!-- Dynamically populated tickets table -->
+                </div>
+            </div>
+
+            <!-- Detailed Ticket Inspector Proof Card (When a ticket is selected) -->
+            <div id="qcTicketDetailBox" style="display:none; border:2px solid #059669; border-radius:12px; padding:18px; background:#f8fafc; margin-top:16px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; border-bottom:1px solid #e2e8f0; padding-bottom:10px;">
+                    <div>
+                        <span class="badge-pill badge-green" id="modalTicketGrade" style="background:#059669; color:#fff; font-weight:800;">Grade 1 (Premium FAQ)</span>
+                        <h4 style="margin:6px 0 0; font-size:16px; color:#0f172a;" id="modalTicketNo">Ticket #QC-CHK-261101-89F1</h4>
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="font-size:11px; color:#64748b; font-weight:700;">SUGGESTED RATE</div>
+                        <div style="font-size:20px; font-weight:900; color:#059669;" id="modalTicketRate">₹ 4,700 / Qtl</div>
+                    </div>
+                </div>
+
+                <!-- Proof Photos & Inspector Signature -->
+                <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:14px; text-align:center;">
+                    <div style="background:#fff; border:1px solid #cbd5e1; border-radius:8px; padding:8px;">
+                        <div style="font-size:11px; font-weight:800; color:#0f172a; margin-bottom:6px;">👤 INSPECTOR VERIFIED LOGIN</div>
+                        <div style="padding:10px 4px; background:#ecfdf5; border:1px solid #a7f3d0; border-radius:6px; margin:4px 0;">
+                            <div style="font-size:20px;">🛡️</div>
+                            <div style="font-size:11px; font-weight:800; color:#065f46; margin-top:2px;">Verified Staff Account</div>
+                        </div>
+                        <div style="font-size:12.5px; font-weight:800; color:#0f172a;" id="modalInspectorNameText">Babulal Meena</div>
+                        <div style="font-size:10px; color:#059669; font-weight:700;">No Sign Required</div>
+                        <img id="modalInspectorSignImg" src="" style="display:none; max-height:40px; margin-top:4px;" alt="Inspector Signature">
+                    </div>
+                    <div style="background:#fff; border:1px solid #cbd5e1; border-radius:8px; padding:8px;">
+                        <div style="font-size:11px; font-weight:800; color:#0f172a; margin-bottom:6px;">📸 MOISTURE METER LCD</div>
+                        <img id="modalMeterPhotoImg" src="" style="max-height:85px; max-width:100%; object-fit:cover; border-radius:4px;" alt="Moisture Meter">
+                        <div style="font-size:11px; color:#059669; font-weight:800; margin-top:4px;" id="modalMoistureText">11.2% (OCR Verified)</div>
+                    </div>
+                    <div style="background:#fff; border:1px solid #cbd5e1; border-radius:8px; padding:8px;">
+                        <div style="font-size:11px; font-weight:800; color:#0f172a; margin-bottom:6px;">🌾 GRAIN SAMPLE</div>
+                        <img id="modalGrainPhotoImg" src="" style="max-height:85px; max-width:100%; object-fit:cover; border-radius:4px;" alt="Grain Sample">
+                        <div style="font-size:11px; color:#d97706; font-weight:800; margin-top:4px;" id="modalBreedText">JS-335 (96% Pure)</div>
+                    </div>
+                </div>
+
+                <!-- Quality Breakdown Table -->
+                <div style="background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:12px; margin-bottom:14px;">
+                    <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:10px; font-size:12.5px;">
+                        <div><span style="color:#64748b;">Farmer:</span> <strong id="modalFarmerText">-</strong></div>
+                        <div><span style="color:#64748b;">Vehicle:</span> <strong id="modalVehicleText">-</strong></div>
+                        <div><span style="color:#64748b;">Commodity:</span> <strong id="modalCommodityText">-</strong></div>
+                        <div><span style="color:#64748b;">Foreign Matter:</span> <strong id="modalKardaText">-</strong></div>
+                        <div><span style="color:#64748b;">Rain Damaged:</span> <strong id="modalDamagedText">-</strong></div>
+                        <div><span style="color:#64748b;">Green Seeds:</span> <strong id="modalGreenText">-</strong></div>
+                        <div><span style="color:#64748b;">Broken / Split:</span> <strong id="modalBrokenText">-</strong></div>
+                        <div><span style="color:#64748b;">Uniformity:</span> <strong id="modalUniformityText">-</strong></div>
+                    </div>
+                </div>
+
+                <div style="display:flex; gap:10px;">
+                    <button type="button" class="btn btn-branch" style="flex:2; padding:12px; font-weight:800; font-size:14px; background:#059669; border-color:#059669;" onclick="applySelectedQCToForm()">
+                        ✅ Verify & Apply QC Ticket to Weighment Form
+                    </button>
+                    <button type="button" class="btn btn-secondary" style="flex:1; padding:12px; font-weight:700;" onclick="closeDetailCard()">
+                        Back to List
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- MODAL 1: REGISTER NEW FARMER -->
     <div id="farmerModal" class="modal-overlay">
@@ -1921,7 +2048,383 @@
             });
         }
 
+        // ==============================================
+        // QC ASSAYING & INSPECTOR VERIFICATION SCRIPTS
+        // ==============================================
+        let pendingQCTicketsList = [];
+        let selectedQCTicketData = null;
+
+        function openQCInspectionModal() {
+            const modal = document.getElementById('qcInspectionModal');
+            if (modal) {
+                modal.style.display = 'flex';
+                fetchPendingQCTickets();
+            }
+        }
+
+        function closeQCInspectionModal() {
+            const modal = document.getElementById('qcInspectionModal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        function closeDetailCard() {
+            document.getElementById('qcTicketDetailBox').style.display = 'none';
+            document.getElementById('qcTicketsListContainer').style.display = 'block';
+        }
+
+        async function fetchPendingQCTickets() {
+            const branchId = document.getElementById('branch_id')?.value || '';
+            try {
+                const res = await fetch(`/api/inspector/tickets/pending?branch_id=${branchId}`);
+                const data = await res.json();
+                if (data.success) {
+                    pendingQCTicketsList = data.tickets || [];
+                    const badge = document.getElementById('pendingQCCountBadge');
+                    if (badge) badge.innerText = pendingQCTicketsList.length;
+
+                    renderQCTicketsTable(pendingQCTicketsList);
+                }
+            } catch (err) {
+                console.error("Failed to fetch QC tickets:", err);
+            }
+        }
+
+        function escapeHtml(str) {
+            if (str === null || str === undefined) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function renderQCTicketsTable(tickets) {
+            const wrapper = document.getElementById('qcTicketsTableWrapper');
+            if (!wrapper) return;
+
+            if (!tickets || tickets.length === 0) {
+                wrapper.innerHTML = `
+                    <div style="text-align:center; padding:30px 10px; color:#64748b;">
+                        <div style="font-size:32px; margin-bottom:8px;">🌾</div>
+                        <div style="font-weight:700;">No Pending Quality Tickets</div>
+                        <div style="font-size:12px; margin-top:4px;">Yard inspector has not submitted any new tickets for this branch today.</div>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = `
+                <table style="width:100%; border-collapse:collapse; font-size:12.5px; text-align:left;">
+                    <thead>
+                        <tr style="background:#f1f5f9; border-bottom:2px solid #cbd5e1; color:#334155;">
+                            <th style="padding:10px 8px;">Ticket No</th>
+                            <th style="padding:10px 8px;">Farmer Name</th>
+                            <th style="padding:10px 8px;">Vehicle No</th>
+                            <th style="padding:10px 8px;">Commodity</th>
+                            <th style="padding:10px 8px;">Moisture</th>
+                            <th style="padding:10px 8px;">Grade</th>
+                            <th style="padding:10px 8px; text-align:right;">Suggested Rate</th>
+                            <th style="padding:10px 8px; text-align:center;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            tickets.forEach((t, idx) => {
+                html += `
+                    <tr style="border-bottom:1px solid #e2e8f0;">
+                        <td style="padding:10px 8px; font-weight:800; color:#0f172a;">${escapeHtml(t.ticket_no)}</td>
+                        <td style="padding:10px 8px; font-weight:700; color:#1e293b;">${escapeHtml(t.farmer_name)}</td>
+                        <td style="padding:10px 8px;"><code>${escapeHtml(t.vehicle_no)}</code></td>
+                        <td style="padding:10px 8px;">${escapeHtml(t.commodity_name)}</td>
+                        <td style="padding:10px 8px;">${Number(t.moisture_pct || 0).toFixed(1)}%</td>
+                        <td style="padding:10px 8px;"><span class="badge-pill badge-green" style="font-size:11px;">${escapeHtml(t.grade_label || t.faq_grade || 'Grade 1')}</span></td>
+                        <td style="padding:10px 8px; text-align:right; font-weight:800; color:#059669;">₹${Number(t.suggested_buying_rate_per_qtl || 0).toLocaleString()}</td>
+                        <td style="padding:10px 8px; text-align:center;">
+                            <div style="display:flex; gap:6px; justify-content:center;">
+                                <button type="button" class="btn btn-branch" onclick="showTicketDetail(${idx})" style="padding:5px 10px; font-size:11px; font-weight:700; background:#0284c7; border-color:#0284c7; white-space:nowrap;">
+                                    🔍 Review & Verify
+                                </button>
+                                <button type="button" class="btn btn-branch" onclick="applySelectedQCToForm(${idx})" style="padding:5px 10px; font-size:11px; font-weight:700; background:#059669; border-color:#059669; white-space:nowrap;" title="Directly apply details to form">
+                                    ⚡ Apply to Form
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            html += `</tbody></table>`;
+            wrapper.innerHTML = html;
+        }
+
+        function showTicketDetail(index) {
+            const ticket = pendingQCTicketsList[index];
+            if (!ticket) return;
+            selectedQCTicketData = ticket;
+
+            const setTxt = (id, val) => {
+                const el = document.getElementById(id);
+                if (el) el.innerText = (val !== null && val !== undefined) ? String(val) : '-';
+            };
+
+            setTxt('modalTicketGrade', ticket.grade_label || ticket.faq_grade || 'Grade 1 (Premium FAQ)');
+            setTxt('modalTicketNo', `Ticket #${ticket.ticket_no}`);
+            setTxt('modalTicketRate', `₹ ${Number(ticket.suggested_buying_rate_per_qtl || 0).toLocaleString()} / Qtl`);
+
+            setTxt('modalFarmerText', ticket.farmer_name);
+            setTxt('modalVehicleText', ticket.vehicle_no);
+            setTxt('modalCommodityText', ticket.commodity_name);
+            setTxt('modalKardaText', `${ticket.karda_pct || 0}%`);
+            setTxt('modalDamagedText', `${ticket.damaged_pct || 0}%`);
+            setTxt('modalGreenText', `${ticket.green_seeds_pct || 0}%`);
+            setTxt('modalBrokenText', `${ticket.broken_split_pct || 0}%`);
+            setTxt('modalUniformityText', `${ticket.uniformity_index || 95}%`);
+
+            setTxt('modalInspectorNameText', ticket.inspector_name || 'Yard Inspector');
+            setTxt('modalMoistureText', `${ticket.moisture_pct || 0}% (OCR Verified)`);
+            setTxt('modalBreedText', `${ticket.dominant_breed || 'Standard'} (${ticket.breed_purity_pct || 100}% Pure)`);
+
+            const signImg = document.getElementById('modalInspectorSignImg');
+            if (signImg) {
+                if (ticket.inspector_signature) {
+                    signImg.src = ticket.inspector_signature;
+                    signImg.style.display = 'inline-block';
+                } else {
+                    signImg.style.display = 'none';
+                }
+            }
+
+            const meterImg = document.getElementById('modalMeterPhotoImg');
+            if (meterImg) {
+                if (ticket.meter_photo_path) {
+                    meterImg.src = ticket.meter_photo_path;
+                    meterImg.style.display = 'inline-block';
+                } else {
+                    meterImg.style.display = 'none';
+                }
+            }
+
+            const grainImg = document.getElementById('modalGrainPhotoImg');
+            if (grainImg) {
+                if (ticket.grain_photo_path) {
+                    grainImg.src = ticket.grain_photo_path;
+                    grainImg.style.display = 'inline-block';
+                } else {
+                    grainImg.style.display = 'none';
+                }
+            }
+
+            const listCont = document.getElementById('qcTicketsListContainer');
+            if (listCont) listCont.style.display = 'none';
+            const detailBox = document.getElementById('qcTicketDetailBox');
+            if (detailBox) detailBox.style.display = 'block';
+        }
+
+        function applySelectedQCToForm(ticketIndex) {
+            let t = selectedQCTicketData;
+            if (typeof ticketIndex === 'number' && pendingQCTicketsList[ticketIndex]) {
+                t = pendingQCTicketsList[ticketIndex];
+                selectedQCTicketData = t;
+            }
+            if (!t) return;
+
+            // 1. QC Ticket hidden fields
+            const qcTicketInput = document.getElementById('inward_qc_ticket_no');
+            if (qcTicketInput) qcTicketInput.value = t.ticket_no;
+
+            const breedInput = document.getElementById('inward_dominant_breed');
+            if (breedInput) breedInput.value = t.dominant_breed || '';
+
+            const purityInput = document.getElementById('inward_breed_purity_pct');
+            if (purityInput) purityInput.value = t.breed_purity_pct || 100.0;
+
+            const kardaHidden = document.getElementById('inward_karda_pct');
+            if (kardaHidden) kardaHidden.value = t.karda_pct || 0.0;
+
+            // 2. Vehicle / Trolley Number
+            const vehicleInput = document.getElementById('vehicle_number');
+            if (vehicleInput && t.vehicle_no) {
+                vehicleInput.value = t.vehicle_no;
+            }
+
+            // 3. Select Matching Commodity Card first (to configure corridor defaults)
+            if (t.commodity_name) {
+                const commCards = document.querySelectorAll('.commodity-card');
+                let foundCard = false;
+                for (const card of commCards) {
+                    if (card.dataset.name && card.dataset.name.trim().toLowerCase() === t.commodity_name.trim().toLowerCase()) {
+                        selectCommodityCard(card);
+                        foundCard = true;
+                        break;
+                    }
+                }
+                if (!foundCard) {
+                    for (const card of commCards) {
+                        if (card.dataset.name && (card.dataset.name.toLowerCase().includes(t.commodity_name.toLowerCase()) || t.commodity_name.toLowerCase().includes(card.dataset.name.toLowerCase()))) {
+                            selectCommodityCard(card);
+                            break;
+                        }
+                    }
+                }
+                // Explicitly set commodity inputs
+                const commInput = document.getElementById('commodity_name');
+                if (commInput) commInput.value = t.commodity_name;
+                const formCommName = document.getElementById('formCommodityName');
+                if (formCommName) formCommName.innerText = t.commodity_name;
+            }
+
+            // 4. Moisture Percentage (Assayed from Moisture Meter OCR)
+            const moistureInput = document.getElementById('moisture_percentage');
+            if (moistureInput && t.moisture_pct !== undefined && t.moisture_pct !== null) {
+                moistureInput.value = parseFloat(t.moisture_pct).toFixed(1);
+            }
+
+            // 5. Approved Rate (from QC Corridor calculation)
+            const rateInput = document.getElementById('rate_per_quintal');
+            if (rateInput && t.suggested_buying_rate_per_qtl) {
+                rateInput.value = Math.round(t.suggested_buying_rate_per_qtl);
+            }
+
+            // 6. Inspector Name
+            const inspectorSel = document.getElementById('inspector_name');
+            if (inspectorSel && t.inspector_name) {
+                let inspectorFound = false;
+                for (let i = 0; i < inspectorSel.options.length; i++) {
+                    if (inspectorSel.options[i].value === t.inspector_name || inspectorSel.options[i].text.includes(t.inspector_name)) {
+                        inspectorSel.selectedIndex = i;
+                        inspectorFound = true;
+                        break;
+                    }
+                }
+                if (!inspectorFound) {
+                    const newOpt = document.createElement('option');
+                    newOpt.value = t.inspector_name;
+                    newOpt.text = `${t.inspector_name} (Yard Inspector)`;
+                    inspectorSel.add(newOpt);
+                    inspectorSel.value = t.inspector_name;
+                }
+            }
+
+            // 7. Farmer / Cultivator Selection
+            const partySel = document.getElementById('party_id');
+            if (partySel && t.farmer_name) {
+                const normFarmer = t.farmer_name.toLowerCase().trim();
+                const farmerPhone = (t.farmer_phone || '').trim();
+                let farmerFound = false;
+
+                for (let i = 0; i < partySel.options.length; i++) {
+                    const opt = partySel.options[i];
+                    const optText = opt.text.toLowerCase();
+                    const optPhone = (opt.dataset.phone || '').trim();
+                    if ((farmerPhone && optPhone && optPhone === farmerPhone) || optText.includes(normFarmer)) {
+                        partySel.selectedIndex = i;
+                        handlePartyChange();
+                        farmerFound = true;
+                        break;
+                    }
+                }
+
+                if (!farmerFound) {
+                    // Create option immediately so Cashier sees farmer name populated
+                    const tempId = `p-farmer-${Date.now()}`;
+                    const newOpt = document.createElement('option');
+                    newOpt.value = tempId;
+                    newOpt.dataset.type = 'FARMER';
+                    newOpt.dataset.name = t.farmer_name;
+                    newOpt.dataset.phone = t.farmer_phone || '';
+                    newOpt.text = `🌾 ${t.farmer_name} (Farmer from QC #${t.ticket_no}) — ${t.farmer_phone || 'Phone Pending'}`;
+                    partySel.add(newOpt, 0);
+                    partySel.selectedIndex = 0;
+                    handlePartyChange();
+
+                    // Pre-fill RTGS beneficiary name as well
+                    const rtgsBen = document.getElementById('rtgs_beneficiary_name');
+                    if (rtgsBen) rtgsBen.value = t.farmer_name;
+
+                    // Automatically register in SQLite parties table in background so database FK is satisfied
+                    const regData = new FormData();
+                    regData.append('name', t.farmer_name);
+                    regData.append('phone', t.farmer_phone || '9999999999');
+                    regData.append('village', 'Yard Arrival');
+                    regData.append('khasra_record_no', `QC-${t.ticket_no.split('-').pop()}`);
+                    const bIdInput = document.getElementById('branch_id');
+                    if (bIdInput) regData.append('home_branch_id', bIdInput.value);
+
+                    fetch('/api/branch/farmers/register', {
+                        method: 'POST',
+                        body: regData
+                    }).then(r => r.json()).then(data => {
+                        if (data && data.party && data.party.id) {
+                            newOpt.value = data.party.id;
+                        }
+                    }).catch(e => console.warn('Farmer auto-registration note:', e));
+                }
+            }
+
+            // 8. Verified QC Status Banner & Badge
+            const badgeContainer = document.getElementById('verifiedQCBadgeContainer');
+            const verifiedText = document.getElementById('verifiedQCText');
+            if (badgeContainer && verifiedText) {
+                verifiedText.innerHTML = `✅ <strong>QC Attached:</strong> Ticket #${t.ticket_no} • Farmer: ${t.farmer_name} • Vehicle: ${t.vehicle_no} • Rate: ₹${Number(t.suggested_buying_rate_per_qtl).toLocaleString()}/Qtl • Inspector: ${t.inspector_name}`;
+                badgeContainer.style.display = 'block';
+            }
+
+            const statusBanner = document.getElementById('qcStatusBannerText');
+            if (statusBanner) {
+                statusBanner.innerHTML = `✅ <strong>QC Ticket #${t.ticket_no} Verified & Attached:</strong> All moisture refractions, rate, and vehicle details auto-populated from Inspector assay.`;
+            }
+
+            // 9. Trigger rate corridor check and live invoice calculations
+            if (typeof checkRateAndRecalculate === 'function') {
+                checkRateAndRecalculate();
+            } else if (typeof recalculate === 'function') {
+                recalculate();
+            }
+
+            // 10. Close Modal and smoothly scroll to the form
+            closeQCInspectionModal();
+            const formElem = document.getElementById('unifiedPurchaseForm');
+            if (formElem) {
+                formElem.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+
+        // ---------------------------------------------------------------------
+        // INSPECTOR MOBILE APP QR CODE MODAL
+        // ---------------------------------------------------------------------
+        function openInspectorQrModal() {
+            const modal = document.getElementById('inspectorQrModal');
+            const urlInput = document.getElementById('inspectorQrUrl');
+            const qrImg = document.getElementById('inspectorQrImg');
+            
+            // Build the absolute URL for the inspector portal
+            const targetUrl = window.location.origin + '/inspector/portal';
+            if (urlInput) urlInput.value = targetUrl;
+            if (qrImg) {
+                qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + encodeURIComponent(targetUrl);
+            }
+            if (modal) modal.style.display = 'flex';
+        }
+
+        function closeInspectorQrModal() {
+            const modal = document.getElementById('inspectorQrModal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        function copyInspectorUrl() {
+            const urlInput = document.getElementById('inspectorQrUrl');
+            if (urlInput) {
+                urlInput.select();
+                navigator.clipboard.writeText(urlInput.value).then(() => {
+                    alert('✓ URL copied to clipboard: ' + urlInput.value);
+                });
+            }
+        }
+
         window.onload = function() {
+            fetchPendingQCTickets();
             const firstCard = document.querySelector('.commodity-card');
             if (firstCard) {
                 selectCommodityCard(firstCard);
@@ -1934,5 +2437,41 @@
             if (buyerSel) handleBuyerSelect(buyerSel);
         };
     </script>
+    <!-- MODAL: INSPECTOR MOBILE APP QR CODE -->
+    <div id="inspectorQrModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.75); z-index:99999; justify-content:center; align-items:center; padding:16px; box-sizing:border-box;">
+        <div style="background:#ffffff; max-width:440px; width:100%; border-radius:18px; padding:24px; box-shadow:0 24px 48px rgba(0,0,0,0.35); text-align:center; border:1.5px solid #cbd5e1;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; border-bottom:1.5px solid #f1f5f9; padding-bottom:12px;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span style="font-size:22px;">📲</span>
+                    <h3 style="margin:0; font-size:16.5px; font-weight:800; color:#0f172a;">Inspector Android Mobile App</h3>
+                </div>
+                <button type="button" onclick="closeInspectorQrModal()" style="background:none; border:none; font-size:22px; cursor:pointer; color:#64748b; line-height:1;">✕</button>
+            </div>
+
+            <p style="font-size:12.5px; color:#64748b; margin:0 0 16px;">
+                Scan with any Android phone camera or visit link in Chrome to install the offline Mandi QC App:
+            </p>
+
+            <div style="display:inline-block; padding:12px; background:#f8fafc; border:1.5px solid #e2e8f0; border-radius:14px; margin-bottom:16px;">
+                <img id="inspectorQrImg" src="" alt="Scan QR Code" style="width:200px; height:200px; display:block; border-radius:8px;">
+            </div>
+
+            <div style="display:flex; gap:8px; margin-bottom:16px;">
+                <input type="text" id="inspectorQrUrl" readonly style="flex:1; padding:8px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-size:12px; background:#f1f5f9; color:#334155; font-weight:600;">
+                <button type="button" onclick="copyInspectorUrl()" style="background:#0f172a; color:#fff; border:none; padding:8px 14px; border-radius:8px; font-weight:700; font-size:12px; cursor:pointer;">Copy</button>
+            </div>
+
+            <div style="background:#ecfdf5; border:1px solid #a7f3d0; border-radius:10px; padding:10px 12px; text-align:left; font-size:11.5px; color:#065f46; line-height:1.4; margin-bottom:16px;">
+                <strong>💡 Quick 1-Tap Installation on Android:</strong><br>
+                1. Open link on phone in Google Chrome<br>
+                2. Tap the <strong>"📲 Install App"</strong> banner or Chrome menu (⋮) → <em>"Install App"</em><br>
+                3. Icon is added to your phone's Home Screen with full camera OCR!
+            </div>
+
+            <button type="button" onclick="closeInspectorQrModal()" style="width:100%; background:#059669; color:#fff; border:none; padding:11px; border-radius:10px; font-weight:800; font-size:13.5px; cursor:pointer;">
+                Done
+            </button>
+        </div>
+    </div>
 </body>
 </html>

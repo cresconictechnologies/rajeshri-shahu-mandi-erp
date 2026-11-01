@@ -17,6 +17,7 @@ cmd = [
     "--collect-all", "uvicorn",
     "--collect-all", "fastapi",
     "--collect-all", "starlette",
+    "--collect-all", "PIL",
     "--exclude-module", "vendor_license_issuer",
     "--hidden-import", "clr",
     "--hidden-import", "clr_loader",
@@ -26,8 +27,10 @@ cmd = [
     "--hidden-import", "jinja2",
     "--hidden-import", "database",
     "--hidden-import", "calculations",
+    "--hidden-import", "quality_engine",
     "--hidden-import", "licensing",
     "--hidden-import", "cryptography",
+    "--hidden-import", "PIL",
     "--hidden-import", "server",
     os.path.join(current_dir, "desktop_app.py")
 ]

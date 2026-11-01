@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QC Certificate — {{ ticket.ticket_no }}</title>
+    <style>
+        body {
+            font-family: 'Courier New', Courier, monospace;
+            background: #f8fafc;
+            color: #0f172a;
+            margin: 0;
+            padding: 20px;
+        }
+        .cert-card {
+            max-width: 580px;
+            margin: 0 auto;
+            background: #ffffff;
+            border: 2px solid #0f172a;
+            padding: 24px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+        .header {
+            text-align: center;
+            border-bottom: 2px solid #0f172a;
+            padding-bottom: 12px;
+            margin-bottom: 14px;
+        }
+        .header h1 {
+            font-size: 16px;
+            margin: 0;
+            text-transform: uppercase;
+            font-weight: 900;
+        }
+        .header p {
+            font-size: 11px;
+            margin: 4px 0 0 0;
+            color: #475569;
+        }
+        .meta-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            margin-bottom: 14px;
+        }
+        .meta-table td {
+            padding: 4px 6px;
+        }
+        .factors-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            margin: 14px 0;
+            border-top: 1px dashed #64748b;
+            border-bottom: 1px dashed #64748b;
+        }
+        .factors-table th, .factors-table td {
+            padding: 6px 4px;
+            text-align: left;
+        }
+        .factors-table th {
+            border-bottom: 1px solid #0f172a;
+        }
+        .photos-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+            margin: 14px 0;
+            text-align: center;
+        }
+        .photo-box {
+            border: 1px solid #cbd5e1;
+            padding: 6px;
+            background: #f8fafc;
+            border-radius: 4px;
+        }
+        .photo-box img {
+            max-width: 100%;
+            max-height: 80px;
+            object-fit: cover;
+            border-radius: 2px;
+        }
+        .photo-lbl {
+            font-size: 9.5px;
+            font-weight: 700;
+            margin-bottom: 4px;
+            color: #475569;
+        }
+        .rate-box {
+            background: #ecfdf5;
+            border: 1.5px solid #059669;
+            padding: 10px;
+            text-align: center;
+            margin: 14px 0;
+        }
+        .rate-box .amt {
+            font-size: 20px;
+            font-weight: 900;
+            color: #065f46;
+        }
+        .footer {
+            text-align: center;
+            font-size: 10px;
+            color: #64748b;
+            border-top: 1px solid #cbd5e1;
+            padding-top: 10px;
+            margin-top: 16px;
+        }
+        .print-btn {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            background: #0f172a;
+            color: #fff;
+            border: none;
+            font-weight: 800;
+            font-size: 14px;
+            cursor: pointer;
+            margin-top: 16px;
+        }
+        @media print {
+            body { background: #fff; padding: 0; }
+            .cert-card { border: none; box-shadow: none; max-width: 100%; }
+            .print-btn { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="cert-card">
+        <div class="header">
+            <h1>Rajeshri Shahu Mandi & Commodity Trading</h1>
+            <p>APMC Yard Quality Assaying Certificate • Certificate #{{ ticket.ticket_no }}</p>
+        </div>
+
+        <table class="meta-table">
+            <tr>
+                <td><strong>Date & Time:</strong> {{ ticket.created_at }}</td>
+                <td><strong>Status:</strong> {{ ticket.status }}</td>
+            </tr>
+            <tr>
+                <td><strong>Farmer Name:</strong> {{ ticket.farmer_name }}</td>
+                <td><strong>Vehicle No:</strong> {{ ticket.vehicle_no }}</td>
+            </tr>
+            <tr>
+                <td><strong>Commodity:</strong> {{ ticket.commodity_name }}</td>
+                <td><strong>Inspector:</strong> {{ ticket.inspector_name }}</td>
+            </tr>
+            <tr>
+                <td><strong>Dominant Breed:</strong> {{ ticket.dominant_breed }}</td>
+                <td><strong>Breed Purity:</strong> {{ ticket.breed_purity_pct }}% ({{ ticket.breed_status }})</td>
+            </tr>
+        </table>
+
+        <div class="photos-grid">
+            <div class="photo-box">
+                <div class="photo-lbl">INSPECTOR AUTHENTICATION</div>
+                <div style="padding:10px 4px; background:#ecfdf5; border:1px solid #a7f3d0; border-radius:4px;">
+                    <div style="font-size:16px;">🛡️</div>
+                    <div style="font-size:10.5px; font-weight:800; color:#065f46; margin-top:2px;">Verified Staff Login</div>
+                    <div style="font-size:10px; color:#1e293b; font-weight:700;">{{ ticket.inspector_name }}</div>
+                </div>
+            </div>
+            <div class="photo-box">
+                <div class="photo-lbl">MOISTURE METER LCD</div>
+                {% if ticket.meter_photo_path %}
+                <img src="{{ ticket.meter_photo_path }}" alt="Meter Display">
+                {% else %}
+                <div style="font-size:10px; color:#94a3b8; padding:20px 0;">[OCR Recorded]</div>
+                {% endif %}
+            </div>
+            <div class="photo-box">
+                <div class="photo-lbl">GRAIN BOWL SAMPLE</div>
+                {% if ticket.grain_photo_path %}
+                <img src="{{ ticket.grain_photo_path }}" alt="Grain Sample">
+                {% else %}
+                <div style="font-size:10px; color:#94a3b8; padding:20px 0;">[CV Assayed]</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <table class="factors-table">
+            <thead>
+                <tr>
+                    <th>Parameter</th>
+                    <th>Value</th>
+                    <th>APMC Limit</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Moisture (Nami) %</td>
+                    <td><strong>{{ ticket.moisture_pct }}%</strong></td>
+                    <td>10.0% standard</td>
+                    <td>{% if ticket.moisture_pct > 12.0 %}High Moisture{% else %}Pass{% endif %}</td>
+                </tr>
+                <tr>
+                    <td>Foreign Matter (Karda) %</td>
+                    <td><strong>{{ ticket.karda_pct }}%</strong></td>
+                    <td>2.0% max</td>
+                    <td>{% if ticket.karda_pct > 2.0 %}Deduction Applied{% else %}Pass{% endif %}</td>
+                </tr>
+                <tr>
+                    <td>Rain & Weather Damaged %</td>
+                    <td><strong>{{ ticket.damaged_pct }}%</strong></td>
+                    <td>3.0% max</td>
+                    <td>{% if ticket.damaged_pct > 3.0 %}Cut Applied{% else %}Pass{% endif %}</td>
+                </tr>
+                <tr>
+                    <td>Immature Green Seeds %</td>
+                    <td><strong>{{ ticket.green_seeds_pct }}%</strong></td>
+                    <td>3.0% max</td>
+                    <td>{% if ticket.green_seeds_pct > 3.0 %}Cut Applied{% else %}Pass{% endif %}</td>
+                </tr>
+                <tr>
+                    <td>Broken & Split Seeds %</td>
+                    <td><strong>{{ ticket.broken_split_pct }}%</strong></td>
+                    <td>3.0% max</td>
+                    <td>Pass</td>
+                </tr>
+                <tr>
+                    <td>Size Uniformity Index %</td>
+                    <td><strong>{{ ticket.uniformity_index }}%</strong></td>
+                    <td>80.0% min</td>
+                    <td>Pass</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="rate-box">
+            <div style="font-size:11px; font-weight:700; color:#065f46; text-transform:uppercase;">APMC {{ ticket.grade_label }}</div>
+            <div class="amt">Rs. {{ "{:,.2f}".format(ticket.suggested_buying_rate_per_qtl) }} / Qtl</div>
+            <div style="font-size:11px; color:#065f46; margin-top:3px;">
+                Today's Corridor: Rs. {{ "{:,.0f}".format(ticket.corridor_min_rate) }} — Rs. {{ "{:,.0f}".format(ticket.corridor_max_rate) }}
+            </div>
+        </div>
+
+        <div style="font-size:11px; color:#334155; line-height:1.5;">
+            <div>• Farmer Hamali: Rs. 25.00 / 100 Kg statutory standard.</div>
+            <div>• Mandi Cess: 0% (APMC Deregulated Mandi Rule).</div>
+            <div>• Cashier Desk will verify QC Ticket Number, Inspector Authenticated Login, and Moisture Meter Photo before payment settlement.</div>
+        </div>
+
+        <div class="footer">
+            Verified by Mandi Computer Vision Assayer • Tamper-Proof Audit Trail
+        </div>
+
+        <button class="print-btn" onclick="window.print()">🖨️ Print Certificate (80mm / A4)</button>
+    </div>
+
+</body>
+</html>

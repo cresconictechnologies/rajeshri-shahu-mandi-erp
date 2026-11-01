@@ -11,12 +11,15 @@ import json
 import hashlib
 import hmac
 import base64
+import io
+import time
 from datetime import date, datetime, timezone, timedelta
-from typing import Optional
+from typing import Optional, Tuple, List, Dict, Any
+from PIL import Image
 
 import uvicorn
-from fastapi import FastAPI, Request, HTTPException, Form, Depends
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi import FastAPI, Request, HTTPException, Form, Depends, UploadFile, File
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
@@ -40,7 +43,11 @@ from database import (
     create_user_session,
     validate_user_session,
     revoke_user_session,
-    revoke_user_sessions_by_user
+    revoke_user_sessions_by_user,
+    save_quality_inspection,
+    get_pending_quality_inspections,
+    get_quality_inspection_by_ticket,
+    link_qc_to_invoice
 )
 from licensing import (
     get_active_license,
@@ -56,6 +63,14 @@ from calculations import (
     check_rate_corridor,
     calculate_cash_payout_with_roundup,
     validate_cash_denominations
+)
+from quality_engine import (
+    read_moisture_meter_display,
+    analyze_grain_sample_image,
+    calculate_mandi_corridor_rate,
+    generate_qc_ticket_number,
+    format_qc_slip_text,
+    COMMODITY_STANDARDS
 )
 
 # Security guardrail: reject test database override in production mode
@@ -76,6 +91,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "SAMEORIGIN"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
+
 # Ensure database tables exist
 init_db()
 
@@ -84,6 +108,20 @@ STATIC_DIR = os.path.join(BASE_DIR, "static")
 if not os.path.exists(STATIC_DIR):
     os.makedirs(STATIC_DIR, exist_ok=True)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+@app.get("/manifest.json", include_in_schema=False)
+def get_pwa_manifest():
+    manifest_path = os.path.join(STATIC_DIR, "manifest.json")
+    if os.path.exists(manifest_path):
+        return FileResponse(manifest_path, media_type="application/manifest+json")
+    raise HTTPException(status_code=404, detail="Manifest not found")
+
+@app.get("/sw.js", include_in_schema=False)
+def get_service_worker():
+    sw_path = os.path.join(STATIC_DIR, "sw.js")
+    if os.path.exists(sw_path):
+        return FileResponse(sw_path, media_type="application/javascript")
+    raise HTTPException(status_code=404, detail="Service worker not found")
 
 TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
@@ -252,6 +290,8 @@ def root_hub(request: Request):
             return RedirectResponse(url="/admin/dashboard", status_code=303)
         elif role == "ACCOUNTANT_HQ":
             return RedirectResponse(url="/accounts/dashboard", status_code=303)
+        elif role == "QUALITY_INSPECTOR":
+            return RedirectResponse(url="/inspector/portal", status_code=303)
         else:
             b_id = user.get("branch_id") or "br-chikhali"
             return RedirectResponse(url=f"/branch/dashboard?branch_id={b_id}", status_code=303)
@@ -449,13 +489,54 @@ def login_view(request: Request):
             return RedirectResponse(url="/admin/dashboard", status_code=303)
         elif role == "ACCOUNTANT_HQ":
             return RedirectResponse(url="/accounts/dashboard", status_code=303)
+        elif role == "QUALITY_INSPECTOR":
+            return RedirectResponse(url="/inspector/portal", status_code=303)
         else:
             b_id = user.get("branch_id") or "br-chikhali"
             return RedirectResponse(url=f"/branch/dashboard?branch_id={b_id}", status_code=303)
     return templates.TemplateResponse(request=request, name="login.html", context={"error": None})
 
+_FAILED_LOGIN_ATTEMPTS: Dict[str, List[float]] = {}
+MAX_FAILED_LOGINS = 5
+LOCKOUT_WINDOW_SECONDS = 60.0
+
+def _get_client_ip(request: Request) -> str:
+    if request.client and request.client.host:
+        return request.client.host
+    return "127.0.0.1"
+
+def check_login_rate_limit(key: str) -> bool:
+    now = time.time()
+    attempts = _FAILED_LOGIN_ATTEMPTS.get(key, [])
+    attempts = [t for t in attempts if now - t < LOCKOUT_WINDOW_SECONDS]
+    _FAILED_LOGIN_ATTEMPTS[key] = attempts
+    return len(attempts) >= MAX_FAILED_LOGINS
+
+def record_failed_login(key: str):
+    now = time.time()
+    attempts = _FAILED_LOGIN_ATTEMPTS.get(key, [])
+    attempts = [t for t in attempts if now - t < LOCKOUT_WINDOW_SECONDS]
+    attempts.append(now)
+    _FAILED_LOGIN_ATTEMPTS[key] = attempts
+
+def clear_failed_logins(key: str):
+    _FAILED_LOGIN_ATTEMPTS.pop(key, None)
+
 @app.post("/login", response_class=HTMLResponse)
 def login_post(request: Request, username: str = Form(...), password: str = Form(...)):
+    client_ip = _get_client_ip(request)
+    rate_key = f"{username.strip().lower()}:{client_ip}"
+    if check_login_rate_limit(rate_key):
+        return templates.TemplateResponse(
+            request=request,
+            name="login.html",
+            context={
+                "error": "Too many consecutive failed login attempts. Account temporarily locked for 60 seconds to protect security.",
+                "username": username
+            },
+            status_code=429
+        )
+
     conn = get_connection()
     try:
         cur = conn.cursor()
@@ -465,6 +546,7 @@ def login_post(request: Request, username: str = Form(...), password: str = Form
         conn.close()
 
     if not user or not user["is_active"]:
+        record_failed_login(rate_key)
         return templates.TemplateResponse(
             request=request,
             name="login.html",
@@ -474,12 +556,15 @@ def login_post(request: Request, username: str = Form(...), password: str = Form
 
     is_valid, needs_rehash = verify_password(password.strip(), user["password_hash"])
     if not is_valid:
+        record_failed_login(rate_key)
         return templates.TemplateResponse(
             request=request,
             name="login.html",
             context={"error": "Invalid staff username or password. Please verify credentials or contact the owner.", "username": username},
             status_code=401
         )
+
+    clear_failed_logins(rate_key)
 
     # Transparent in-flight migration to salted PBKDF2-HMAC-SHA256
     if needs_rehash:
@@ -500,6 +585,8 @@ def login_post(request: Request, username: str = Form(...), password: str = Form
         target_url = "/admin/dashboard"
     elif role == "ACCOUNTANT_HQ":
         target_url = "/accounts/dashboard"
+    elif role == "QUALITY_INSPECTOR":
+        target_url = "/inspector/portal"
     else:
         target_url = f"/branch/dashboard?branch_id={branch_id or 'br-chikhali'}"
 
@@ -695,6 +782,16 @@ def admin_dashboard_view(request: Request):
         total_quintals = sum_row[0]
         total_disbursed = sum_row[1]
 
+        # Query all quality inspections across all branches for cloud audit desk
+        cur.execute("""
+            SELECT q.*, b.name as branch_name, b.branch_code, inv.token_number, inv.payout_status as invoice_payout_status
+            FROM quality_inspections q
+            LEFT JOIN branches b ON q.branch_id = b.id
+            LEFT JOIN purchase_invoices inv ON q.invoice_id = inv.id
+            ORDER BY q.created_at DESC
+        """)
+        inspections = [dict(r) for r in cur.fetchall()]
+
         stats = {
             "branches_active": branches_active,
             "users_active": users_active,
@@ -705,7 +802,8 @@ def admin_dashboard_view(request: Request):
             "total_pnl_pct": total_pnl_pct,
             "total_market_valuation": total_portfolio_market_val,
             "total_portfolio_cost": total_portfolio_cost,
-            "active_stock_commodities_count": len(commodity_stock_cards)
+            "active_stock_commodities_count": len(commodity_stock_cards),
+            "total_inspections": len(inspections)
         }
     finally:
         conn.close()
@@ -720,9 +818,40 @@ def admin_dashboard_view(request: Request):
             "users": users,
             "commodities": commodities,
             "commodity_stock_cards": commodity_stock_cards,
+            "inspections": inspections,
             "logged_in_user": logged_in_user
         }
     )
+
+@app.get("/api/admin/inspections")
+def api_admin_get_inspections(request: Request, branch_id: Optional[str] = None):
+    """Returns all quality inspections across branches with photos, signatures, and refractions for central audit."""
+    require_active_license()
+    require_role(request, ["SUPER_ADMIN", "ACCOUNTANT_HQ"])
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        if branch_id:
+            cur.execute("""
+                SELECT q.*, b.name as branch_name, b.branch_code, inv.token_number, inv.payout_status as invoice_payout_status
+                FROM quality_inspections q
+                LEFT JOIN branches b ON q.branch_id = b.id
+                LEFT JOIN purchase_invoices inv ON q.invoice_id = inv.id
+                WHERE q.branch_id=?
+                ORDER BY q.created_at DESC
+            """, (branch_id,))
+        else:
+            cur.execute("""
+                SELECT q.*, b.name as branch_name, b.branch_code, inv.token_number, inv.payout_status as invoice_payout_status
+                FROM quality_inspections q
+                LEFT JOIN branches b ON q.branch_id = b.id
+                LEFT JOIN purchase_invoices inv ON q.invoice_id = inv.id
+                ORDER BY q.created_at DESC
+            """)
+        rows = [dict(r) for r in cur.fetchall()]
+        return {"success": True, "count": len(rows), "inspections": rows}
+    finally:
+        conn.close()
 
 @app.post("/api/admin/login")
 def api_admin_login(username: str = Form(...), password: str = Form(...)):
@@ -797,13 +926,15 @@ def api_admin_add_user(
     branch_id: Optional[str] = Form(None)
 ):
     require_role(request, ["SUPER_ADMIN"])
-    # Only single-access Cashier and Accountant roles are supported
-    if role not in ["SUPER_ADMIN", "ACCOUNTANT_HQ", "BRANCH_CASHIER"]:
-        raise HTTPException(status_code=400, detail="Only BRANCH_CASHIER and ACCOUNTANT_HQ roles are permitted.")
+    if role not in ["SUPER_ADMIN", "ACCOUNTANT_HQ", "BRANCH_CASHIER", "QUALITY_INSPECTOR"]:
+        raise HTTPException(status_code=400, detail="Only QUALITY_INSPECTOR, BRANCH_CASHIER, and ACCOUNTANT_HQ roles are permitted.")
+
+    actual_branch_id = branch_id if branch_id and branch_id.strip() else None
+    if role in ["BRANCH_CASHIER", "QUALITY_INSPECTOR"] and not actual_branch_id:
+        raise HTTPException(status_code=400, detail=f"Branch assignment is required for role {role}.")
 
     user_id = f"u-{uuid.uuid4().hex[:8]}"
     pw_hash = hash_password(password)
-    actual_branch_id = branch_id if branch_id and branch_id.strip() else None
 
     conn = get_connection()
     try:
@@ -812,6 +943,11 @@ def api_admin_add_user(
             "INSERT INTO users (id, branch_id, username, password_hash, full_name, phone, role) VALUES (?,?,?,?,?,?,?)",
             (user_id, actual_branch_id, username.strip(), pw_hash, full_name.strip(), phone.strip(), role)
         )
+        if role == "QUALITY_INSPECTOR":
+            cur.execute("""
+                INSERT OR IGNORE INTO inspectors (id, branch_id, name, phone, designation)
+                VALUES (?, ?, ?, ?, 'Quality Assayer')
+            """, (user_id, actual_branch_id, full_name.strip(), phone.strip()))
         conn.commit()
     except Exception as e:
         conn.rollback()
@@ -904,10 +1040,13 @@ def accounts_dashboard_view(request: Request):
 
         # Inspectors
         cur.execute("""
-            SELECT i.id, i.name, i.designation, i.phone, i.is_active, b.name as branch_name
+            SELECT i.id, i.name, i.designation, i.phone, i.is_active, i.branch_id,
+                   b.name as branch_name, b.branch_code,
+                   COALESCE(u.username, i.id) as username
             FROM inspectors i
             LEFT JOIN branches b ON i.branch_id = b.id
-            ORDER BY i.name ASC
+            LEFT JOIN users u ON u.id = i.id OR u.username = i.id
+            ORDER BY b.name ASC, i.name ASC
         """)
         inspectors = cur.fetchall()
 
@@ -1226,25 +1365,177 @@ def api_accounts_receive_outward_payment(
 def api_accounts_add_inspector(
     request: Request,
     name: str = Form(...),
-    designation: str = Form(...),
+    designation: str = Form("Quality Inspector"),
     phone: str = Form(""),
-    branch_id: Optional[str] = Form(None)
+    branch_id: Optional[str] = Form(None),
+    username: Optional[str] = Form(None),
+    password: Optional[str] = Form(None)
 ):
     require_role(request, ["ACCOUNTANT_HQ", "SUPER_ADMIN"])
-    iid = f"ins-{uuid.uuid4().hex[:6]}"
-    actual_branch_id = branch_id if branch_id and branch_id.strip() else None
+    clean_name = name.strip()
+    clean_desig = designation.strip() or "Quality Inspector"
+    clean_phone = phone.strip()
+    clean_branch = branch_id.strip() if branch_id and branch_id.strip() else None
+
+    if not clean_branch:
+        raise HTTPException(status_code=400, detail="Branch assignment is mandatory for Quality Inspectors.")
+
+    iid = f"u-qc-{uuid.uuid4().hex[:6]}"
+    clean_username = username.strip() if username and username.strip() else f"qc_{uuid.uuid4().hex[:6]}"
+    clean_pw = password.strip() if password and password.strip() else "qc12345"
+    if len(clean_pw) < 6:
+        raise HTTPException(status_code=400, detail="Initial password must be at least 6 characters.")
+
     conn = get_connection()
     try:
         cur = conn.cursor()
-        cur.execute(
-            "INSERT INTO inspectors (id, branch_id, name, designation, phone) VALUES (?,?,?,?,?)",
-            (iid, actual_branch_id, name.strip(), designation.strip(), phone.strip())
-        )
+        # Verify branch exists
+        cur.execute("SELECT id, name FROM branches WHERE id=?", (clean_branch,))
+        branch_row = cur.fetchone()
+        if not branch_row:
+            raise HTTPException(status_code=400, detail="Selected branch does not exist.")
+
+        # Check unique username
+        cur.execute("SELECT id FROM users WHERE username=?", (clean_username,))
+        if cur.fetchone():
+            raise HTTPException(status_code=400, detail=f"Username '{clean_username}' already exists. Please choose a unique username.")
+
+        pw_hash = hash_password(clean_pw)
+
+        # Insert into users
+        cur.execute("""
+            INSERT INTO users (id, branch_id, username, password_hash, full_name, phone, role, is_active)
+            VALUES (?, ?, ?, ?, ?, ?, 'QUALITY_INSPECTOR', 1)
+        """, (iid, clean_branch, clean_username, pw_hash, clean_name, clean_phone))
+
+        # Insert into inspectors
+        cur.execute("""
+            INSERT INTO inspectors (id, branch_id, name, designation, phone, is_active)
+            VALUES (?, ?, ?, ?, ?, 1)
+        """, (iid, clean_branch, clean_name, clean_desig, clean_phone))
+
+        # Audit log
+        cur.execute("""
+            INSERT INTO audit_change_logs (id, entity_type, entity_id, entity_name, branch_id, changed_by, action, change_summary)
+            VALUES (?, 'INSPECTOR', ?, ?, ?, 'accountant', 'CREATE_QC', ?)
+        """, (f"log-{uuid.uuid4().hex[:8]}", iid, clean_name, clean_branch, f"Accountant created QC Inspector {clean_name} ({clean_username}) for {branch_row['name']}"))
+
         conn.commit()
+    except HTTPException:
+        conn.rollback()
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
     finally:
         conn.close()
 
-    return RedirectResponse(url="/accounts/dashboard", status_code=303)
+    return RedirectResponse(url="/accounts/dashboard#tab-inspectors", status_code=303)
+
+
+@app.post("/api/accounts/inspectors/update")
+def api_accounts_update_inspector(
+    request: Request,
+    inspector_id: str = Form(...),
+    name: str = Form(...),
+    designation: str = Form("Quality Inspector"),
+    phone: str = Form(""),
+    branch_id: str = Form(...),
+    username: Optional[str] = Form(None),
+    new_password: Optional[str] = Form(None)
+):
+    require_role(request, ["ACCOUNTANT_HQ", "SUPER_ADMIN"])
+    clean_id = inspector_id.strip()
+    clean_name = name.strip()
+    clean_desig = designation.strip() or "Quality Inspector"
+    clean_phone = phone.strip()
+    clean_branch = branch_id.strip() if branch_id and branch_id.strip() else None
+    clean_username = username.strip() if username and username.strip() else None
+    clean_new_pw = new_password.strip() if new_password and new_password.strip() else None
+
+    if not clean_branch:
+        raise HTTPException(status_code=400, detail="Branch assignment is mandatory for Quality Inspectors.")
+
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        # Verify branch exists
+        cur.execute("SELECT id, name FROM branches WHERE id=?", (clean_branch,))
+        branch_row = cur.fetchone()
+        if not branch_row:
+            raise HTTPException(status_code=400, detail="Selected branch does not exist.")
+
+        # Check inspector exists
+        cur.execute("SELECT * FROM inspectors WHERE id=?", (clean_id,))
+        ins_row = cur.fetchone()
+        if not ins_row:
+            raise HTTPException(status_code=404, detail="Inspector record not found.")
+
+        # Update inspectors table
+        cur.execute("""
+            UPDATE inspectors
+            SET name=?, designation=?, phone=?, branch_id=?
+            WHERE id=?
+        """, (clean_name, clean_desig, clean_phone, clean_branch, clean_id))
+
+        # Check matching user in users table
+        cur.execute("SELECT id, username FROM users WHERE id=? OR username=?", (clean_id, clean_id))
+        user_row = cur.fetchone()
+
+        if user_row:
+            u_id = user_row["id"]
+            if clean_username and clean_username != user_row["username"]:
+                cur.execute("SELECT id FROM users WHERE username=? AND id != ?", (clean_username, u_id))
+                if cur.fetchone():
+                    raise HTTPException(status_code=400, detail=f"Username '{clean_username}' already in use.")
+                cur.execute("UPDATE users SET username=? WHERE id=?", (clean_username, u_id))
+
+            cur.execute("""
+                UPDATE users
+                SET full_name=?, phone=?, branch_id=?
+                WHERE id=?
+            """, (clean_name, clean_phone, clean_branch, u_id))
+
+            if clean_new_pw:
+                if len(clean_new_pw) < 6:
+                    raise HTTPException(status_code=400, detail="New password must be at least 6 characters.")
+                new_hash = hash_password(clean_new_pw)
+                cur.execute("UPDATE users SET password_hash=? WHERE id=?", (new_hash, u_id))
+                revoke_user_sessions_by_user(u_id, conn=conn)
+        else:
+            # Legacy inspector without a user row - create one now
+            u_name = clean_username or f"qc_{clean_id.replace('-', '_')}"
+            cur.execute("SELECT id FROM users WHERE username=?", (u_name,))
+            if cur.fetchone():
+                u_name = f"{u_name}_{uuid.uuid4().hex[:4]}"
+            init_pw = clean_new_pw if clean_new_pw and len(clean_new_pw) >= 6 else "qc12345"
+            new_hash = hash_password(init_pw)
+            cur.execute("""
+                INSERT INTO users (id, branch_id, username, password_hash, full_name, phone, role, is_active)
+                VALUES (?, ?, ?, ?, ?, ?, 'QUALITY_INSPECTOR', 1)
+            """, (clean_id, clean_branch, u_name, new_hash, clean_name, clean_phone))
+
+        summary = f"Accountant updated QC Inspector {clean_name} (Branch: {branch_row['name']})"
+        if clean_new_pw:
+            summary += " and reset password"
+
+        cur.execute("""
+            INSERT INTO audit_change_logs (id, entity_type, entity_id, entity_name, branch_id, changed_by, action, change_summary)
+            VALUES (?, 'INSPECTOR', ?, ?, ?, 'accountant', 'UPDATE_QC', ?)
+        """, (f"log-{uuid.uuid4().hex[:8]}", clean_id, clean_name, clean_branch, summary))
+
+        conn.commit()
+    except HTTPException:
+        conn.rollback()
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        conn.close()
+
+    return RedirectResponse(url="/accounts/dashboard#tab-inspectors", status_code=303)
+
 
 @app.post("/api/accounts/inspectors/toggle")
 def api_accounts_toggle_inspector(request: Request, inspector_id: str = Form(...)):
@@ -1253,11 +1544,13 @@ def api_accounts_toggle_inspector(request: Request, inspector_id: str = Form(...
     try:
         cur = conn.cursor()
         cur.execute("UPDATE inspectors SET is_active = CASE WHEN is_active=1 THEN 0 ELSE 1 END WHERE id=?", (inspector_id,))
+        cur.execute("UPDATE users SET is_active = CASE WHEN is_active=1 THEN 0 ELSE 1 END WHERE id=? OR username=?", (inspector_id, inspector_id))
+        revoke_user_sessions_by_user(inspector_id, conn=conn)
         conn.commit()
     finally:
         conn.close()
 
-    return RedirectResponse(url="/accounts/dashboard", status_code=303)
+    return RedirectResponse(url="/accounts/dashboard#tab-inspectors", status_code=303)
 
 
 # --------------------------------------------------------------------------
@@ -1565,7 +1858,10 @@ def api_branch_create_invoice(
     rtgs_account_no: Optional[str] = Form(""),
     rtgs_ifsc_code: Optional[str] = Form(""),
     rtgs_beneficiary_name: Optional[str] = Form(""),
-    cashier_user_id: Optional[str] = Form("cashier")
+    cashier_user_id: Optional[str] = Form("cashier"),
+    qc_ticket_no: Optional[str] = Form(None),
+    dominant_breed: Optional[str] = Form(None),
+    breed_purity_pct: Optional[float] = Form(None)
 ):
     require_active_license()
     user = require_role(request, ["BRANCH_CASHIER", "SUPER_ADMIN"])
@@ -1678,7 +1974,8 @@ def api_branch_create_invoice(
                 hamali_charge, tulai_charge, silai_charge, bardana_deduction, mandi_cess_amount,
                 advance_adjusted, interest_adjusted, net_payable_amount, rounded_net_payable,
                 round_off_amount, payout_status, inspector_name,
-                rtgs_bank_name, rtgs_account_no, rtgs_ifsc_code, rtgs_beneficiary_name, rtgs_requested_at
+                rtgs_bank_name, rtgs_account_no, rtgs_ifsc_code, rtgs_beneficiary_name, rtgs_requested_at,
+                qc_ticket_no, dominant_breed, breed_purity_pct
             ) VALUES (
                 ?, ?, ?, ?, ?, ?, ?,
                 'STANDARD', ?, ?, ?, ?,
@@ -1689,7 +1986,8 @@ def api_branch_create_invoice(
                 ?, ?, ?, ?, ?,
                 ?, ?, ?, ?,
                 ?, ?, ?,
-                ?, ?, ?, ?, ?
+                ?, ?, ?, ?, ?,
+                ?, ?, ?
             )
         """, (
             invoice_id, branch_id, token_number, today_str, party_id, commodity_name, hsn_code,
@@ -1705,8 +2003,15 @@ def api_branch_create_invoice(
             rtgs_account_no.strip() if rtgs_account_no else "",
             rtgs_ifsc_code.strip().upper() if rtgs_ifsc_code else "",
             rtgs_beneficiary_name.strip() if rtgs_beneficiary_name else "",
-            now_str if settlement_mode == "RTGS" else None
+            now_str if settlement_mode == "RTGS" else None,
+            qc_ticket_no.strip() if qc_ticket_no else None,
+            dominant_breed.strip() if dominant_breed else None,
+            float(breed_purity_pct) if breed_purity_pct is not None else 100.0
         ))
+
+        # Link QC ticket if provided
+        if qc_ticket_no and qc_ticket_no.strip():
+            cur.execute("UPDATE quality_inspections SET status='LINKED', invoice_id=? WHERE ticket_no=?", (invoice_id, qc_ticket_no.strip()))
 
         # IF CASH SETTLEMENT: Record Cashier Payout, update cash drawer, write ledger
         voucher_id = None
@@ -1788,7 +2093,8 @@ def api_branch_create_invoice(
             "net_payable_amount": calc["net_payable_amount"],
             "rounded_payout": payable_rounded,
             "hamali_charge": calc["hamali_charge"],
-            "rate_override_status": rate_override_status
+            "rate_override_status": rate_override_status,
+            "qc_ticket_no": qc_ticket_no
         }
     except Exception as e:
         conn.rollback()
@@ -3072,6 +3378,439 @@ def api_cashier_disburse_payout(
         return {"success": False, "error": str(e)}
     finally:
         conn.close()
+
+
+# --------------------------------------------------------------------------
+# QUALITY INSPECTION, COMPUTER VISION ASSAYING & DIGITAL QC SLIP ENDPOINTS
+# --------------------------------------------------------------------------
+
+def save_qc_image_data(file_bytes_or_b64: Any, prefix: str = "qc") -> Tuple[str, bytes]:
+    """Saves uploaded file or base64 data to static/uploads/qc/ and returns relative URL and raw bytes."""
+    upload_dir = os.path.join(STATIC_DIR, "uploads", "qc")
+    os.makedirs(upload_dir, exist_ok=True)
+    clean_prefix = "".join(c for c in prefix if c.isalnum()) or "qc"
+    filename = f"{clean_prefix}_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}.jpg"
+    filepath = os.path.join(upload_dir, filename)
+    public_url = f"/static/uploads/qc/{filename}"
+
+    raw_bytes = b""
+    if hasattr(file_bytes_or_b64, "read"):
+        raw_bytes = file_bytes_or_b64.read()
+    elif isinstance(file_bytes_or_b64, (bytes, bytearray)):
+        raw_bytes = bytes(file_bytes_or_b64)
+    elif isinstance(file_bytes_or_b64, str) and file_bytes_or_b64:
+        s = file_bytes_or_b64
+        if "base64," in s:
+            s = s.split("base64,")[1]
+        try:
+            raw_bytes = base64.b64decode(s)
+        except Exception:
+            raw_bytes = b""
+
+    # Input validation: cap file size to 10MB to prevent DoS
+    MAX_IMAGE_SIZE = 10 * 1024 * 1024
+    if not raw_bytes or len(raw_bytes) > MAX_IMAGE_SIZE:
+        return "", b""
+
+    # Validate image format using PIL
+    try:
+        with Image.open(io.BytesIO(raw_bytes)) as img:
+            img.verify()
+    except Exception:
+        return "", b""
+
+    with open(filepath, "wb") as f:
+        f.write(raw_bytes)
+    return public_url, raw_bytes
+
+
+@app.get("/inspector", response_class=HTMLResponse)
+@app.get("/inspector/app", response_class=HTMLResponse)
+@app.get("/inspector/login", response_class=HTMLResponse)
+def inspector_login_page():
+    return RedirectResponse(url="/inspector/portal", status_code=303)
+
+
+@app.get("/inspector/portal", response_class=HTMLResponse)
+def get_inspector_portal(request: Request, branch_id: Optional[str] = None):
+    """Mobile-first Progressive Web App portal for Mandi Quality Inspectors."""
+    require_active_license()
+    user = get_current_user(request)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+    if user.get("role") not in ["QUALITY_INSPECTOR", "SUPER_ADMIN", "ACCOUNTANT_HQ", "BRANCH_MUNIM", "BRANCH_CASHIER"]:
+        raise HTTPException(status_code=403, detail="Forbidden: Quality Inspector access required.")
+
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM branches WHERE is_active=1 ORDER BY branch_code ASC, name ASC")
+        branches = [dict(r) for r in cur.fetchall()]
+
+        # Automatic User Segregation:
+        # If user is QUALITY_INSPECTOR, strictly enforce their assigned branch
+        if user.get("role") == "QUALITY_INSPECTOR":
+            active_branch_id = user.get("branch_id")
+        else:
+            active_branch_id = branch_id or (user.get("branch_id") if user else None)
+
+        if not active_branch_id and branches:
+            active_branch_id = branches[0]["id"]
+
+        active_branch = next((b for b in branches if b["id"] == active_branch_id), branches[0] if branches else None)
+
+        cur.execute("SELECT * FROM commodities WHERE is_active=1 ORDER BY name ASC")
+        commodities = [dict(r) for r in cur.fetchall()]
+
+        cur.execute("SELECT * FROM inspectors WHERE is_active=1 ORDER BY name ASC")
+        inspectors = [dict(r) for r in cur.fetchall()]
+
+        # Strict Inspector Isolation:
+        # Quality Inspectors only see lots assayed by themselves in their assigned yard
+        if user.get("role") == "QUALITY_INSPECTOR":
+            cur.execute("""
+                SELECT * FROM quality_inspections 
+                WHERE branch_id=? AND (inspector_id=? OR inspector_name=?)
+                ORDER BY created_at DESC LIMIT 20
+            """, (active_branch_id, user.get("user_id"), user.get("full_name")))
+        else:
+            cur.execute("""
+                SELECT * FROM quality_inspections 
+                WHERE branch_id=?
+                ORDER BY created_at DESC LIMIT 20
+            """, (active_branch_id,))
+        recent_tickets = [dict(r) for r in cur.fetchall()]
+
+        today_str = date.today().isoformat()
+        cur.execute("""
+            SELECT * FROM daily_commodity_rates 
+            WHERE (branch_id=? OR branch_id IS NULL)
+            ORDER BY CASE WHEN rate_date=? THEN 0 ELSE 1 END, rate_date DESC
+        """, (active_branch_id, today_str))
+        rates = [dict(r) for r in cur.fetchall()]
+
+        return templates.TemplateResponse(
+            request=request,
+            name="inspector_portal.html",
+            context={
+                "request": request,
+                "user": user,
+                "active_branch": active_branch,
+                "active_branch_id": active_branch_id,
+                "branches": branches,
+                "commodities": commodities,
+                "inspectors": inspectors,
+                "rates": rates,
+                "recent_tickets": recent_tickets,
+                "commodity_standards": COMMODITY_STANDARDS,
+                "is_admin": user.get("role") == "SUPER_ADMIN"
+            }
+        )
+    finally:
+        conn.close()
+
+
+@app.post("/api/inspector/ocr-moisture")
+async def api_inspector_ocr_moisture(
+    request: Request,
+    meter_photo: Optional[UploadFile] = File(None),
+    meter_photo_b64: Optional[str] = Form(None)
+):
+    """
+    Extracts moisture % from photo of physical digital moisture meter LCD screen via computer vision OCR.
+    """
+    require_active_license()
+    require_role(request, ["QUALITY_INSPECTOR", "BRANCH_CASHIER", "BRANCH_MUNIM", "ACCOUNTANT_HQ", "SUPER_ADMIN"])
+    raw_bytes = b""
+    photo_url = ""
+    if meter_photo and meter_photo.filename:
+        content = await meter_photo.read()
+        photo_url, raw_bytes = save_qc_image_data(content, prefix="meter")
+    elif meter_photo_b64:
+        photo_url, raw_bytes = save_qc_image_data(meter_photo_b64, prefix="meter")
+
+    ocr_result = read_moisture_meter_display(raw_bytes if raw_bytes else None)
+    return {
+        "success": True,
+        "moisture_pct": ocr_result["moisture_pct"],
+        "ocr_raw_text": ocr_result.get("ocr_raw_text", f"{ocr_result['moisture_pct']}%"),
+        "confidence": ocr_result.get("confidence", 0.92),
+        "meter_model_detected": ocr_result.get("meter_model_detected", "Digital Mandi Assayer LCD"),
+        "meter_photo_url": photo_url
+    }
+
+
+@app.post("/api/inspector/analyze-sample")
+async def api_inspector_analyze_sample(
+    request: Request,
+    commodity_name: str = Form("Soyabean (Yellow)"),
+    moisture_pct: float = Form(11.2),
+    branch_id: Optional[str] = Form(None),
+    grain_photo: Optional[UploadFile] = File(None),
+    grain_photo_b64: Optional[str] = Form(None)
+):
+    """
+    Computer Vision grain assaying engine: evaluates varietal breed purity, rain/weather damage,
+    karda/sand, green seeds, broken seeds, shriveled seeds, and matches against live mandi corridor rates.
+    """
+    require_active_license()
+    user = require_role(request, ["QUALITY_INSPECTOR", "BRANCH_CASHIER", "BRANCH_MUNIM", "ACCOUNTANT_HQ", "SUPER_ADMIN"])
+    if user.get("role") in ["QUALITY_INSPECTOR", "BRANCH_CASHIER", "BRANCH_MUNIM"]:
+        branch_id = user.get("branch_id") or branch_id
+    raw_bytes = b""
+    photo_url = ""
+    if grain_photo and grain_photo.filename:
+        content = await grain_photo.read()
+        photo_url, raw_bytes = save_qc_image_data(content, prefix="grain")
+    elif grain_photo_b64:
+        photo_url, raw_bytes = save_qc_image_data(grain_photo_b64, prefix="grain")
+
+    analysis = analyze_grain_sample_image(raw_bytes if raw_bytes else None, commodity_name, moisture_pct)
+
+    today_str = date.today().isoformat()
+    conn = get_connection()
+    min_rate, target_rate, max_rate = None, None, None
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT min_rate_per_qtl, target_rate_per_qtl, max_rate_per_qtl 
+            FROM daily_commodity_rates 
+            WHERE commodity_name=? AND (branch_id=? OR branch_id IS NULL)
+            ORDER BY CASE WHEN rate_date=? THEN 0 ELSE 1 END, rate_date DESC
+            LIMIT 1
+        """, (commodity_name, branch_id, today_str))
+        r_row = cur.fetchone()
+        if r_row:
+            min_rate = r_row["min_rate_per_qtl"]
+            target_rate = r_row["target_rate_per_qtl"]
+            max_rate = r_row["max_rate_per_qtl"]
+    finally:
+        conn.close()
+
+    corridor = calculate_mandi_corridor_rate(commodity_name, analysis, min_rate, target_rate, max_rate)
+
+    return {
+        "success": True,
+        "analysis": analysis,
+        "corridor": corridor,
+        "grain_photo_url": photo_url
+    }
+
+
+@app.post("/api/inspector/submit-qc")
+async def api_inspector_submit_qc(
+    request: Request,
+    branch_id: str = Form(...),
+    farmer_name: str = Form(...),
+    vehicle_no: str = Form(...),
+    commodity_name: str = Form(...),
+    moisture_pct: float = Form(10.0),
+    farmer_phone: Optional[str] = Form(""),
+    inspector_id: Optional[str] = Form(""),
+    inspector_name: Optional[str] = Form(""),
+    inspector_signature: Optional[str] = Form(""),
+    karda_pct: float = Form(0.0),
+    damaged_pct: float = Form(0.0),
+    green_seeds_pct: float = Form(0.0),
+    broken_split_pct: float = Form(0.0),
+    shriveled_pct: float = Form(0.0),
+    uniformity_index: float = Form(95.0),
+    dominant_breed: Optional[str] = Form(""),
+    breed_purity_pct: float = Form(100.0),
+    admixture_pct: float = Form(0.0),
+    breed_status: Optional[str] = Form("PURE_BREED (Pure Lot)"),
+    faq_grade: Optional[str] = Form("FAQ_GRADE_1"),
+    grade_label: Optional[str] = Form("Grade 1 (Premium FAQ)"),
+    suggested_rate_cut_per_qtl: float = Form(0.0),
+    corridor_min_rate: float = Form(0.0),
+    corridor_target_rate: float = Form(0.0),
+    corridor_max_rate: float = Form(0.0),
+    suggested_buying_rate_per_qtl: float = Form(0.0),
+    sample_weight_grams: float = Form(250.0),
+    total_seeds_analyzed: int = Form(500),
+    meter_photo_path: Optional[str] = Form(""),
+    grain_photo_path: Optional[str] = Form(""),
+    inspection_notes: Optional[str] = Form("")
+):
+    """
+    Submits a tamper-proof quality inspection record to SQLite, saves photos and inspector session details,
+    and returns unique ticket number with printable 80mm slip.
+    """
+    require_active_license()
+    require_role(request, ["QUALITY_INSPECTOR", "BRANCH_CASHIER", "BRANCH_MUNIM", "ACCOUNTANT_HQ", "SUPER_ADMIN"])
+    user = get_current_user(request)
+    if user:
+        if user.get("role") == "QUALITY_INSPECTOR":
+            inspector_name = user.get("full_name") or inspector_name
+            inspector_id = user.get("user_id") or inspector_id
+            branch_id = user.get("branch_id") or branch_id
+        elif not inspector_name:
+            inspector_name = user.get("full_name") or "Yard Inspector"
+            inspector_id = user.get("user_id") or inspector_id
+
+    sig_url = inspector_signature or ""
+    if sig_url and "base64," in sig_url:
+        sig_url, _ = save_qc_image_data(sig_url, prefix="sign")
+    elif not sig_url:
+        sig_url = None
+
+    qc_payload = {
+        "branch_id": branch_id,
+        "farmer_name": farmer_name.strip(),
+        "farmer_phone": (farmer_phone or "").strip(),
+        "vehicle_no": vehicle_no.strip().upper(),
+        "commodity_name": commodity_name.strip(),
+        "inspector_id": inspector_id or None,
+        "inspector_name": (inspector_name or "").strip() or "Yard Inspector",
+        "inspector_signature": sig_url,
+        "moisture_pct": moisture_pct,
+        "karda_pct": karda_pct,
+        "damaged_pct": damaged_pct,
+        "green_seeds_pct": green_seeds_pct,
+        "broken_split_pct": broken_split_pct,
+        "shriveled_pct": shriveled_pct,
+        "uniformity_index": uniformity_index,
+        "dominant_breed": dominant_breed or "Standard",
+        "breed_purity_pct": breed_purity_pct,
+        "admixture_pct": admixture_pct,
+        "breed_status": breed_status or "PURE_BREED",
+        "faq_grade": faq_grade or "FAQ_GRADE_1",
+        "grade_label": grade_label or "Grade 1 (Premium FAQ)",
+        "suggested_rate_cut_per_qtl": suggested_rate_cut_per_qtl,
+        "corridor_min_rate": corridor_min_rate,
+        "corridor_target_rate": corridor_target_rate,
+        "corridor_max_rate": corridor_max_rate,
+        "suggested_buying_rate_per_qtl": suggested_buying_rate_per_qtl,
+        "sample_weight_grams": sample_weight_grams,
+        "total_seeds_analyzed": total_seeds_analyzed,
+        "meter_photo_path": meter_photo_path,
+        "grain_photo_path": grain_photo_path,
+        "inspection_notes": inspection_notes
+    }
+
+    record = save_quality_inspection(qc_payload)
+    slip_text = format_qc_slip_text(record)
+
+    return {
+        "success": True,
+        "ticket": record,
+        "slip_text": slip_text
+    }
+
+
+@app.get("/api/inspector/tickets/pending")
+def api_get_pending_qc_tickets(request: Request, branch_id: Optional[str] = None):
+    """Returns unlinked quality inspections for the branch cashier desk to review and attach."""
+    require_active_license()
+    user = require_role(request, ["BRANCH_CASHIER", "BRANCH_MUNIM", "ACCOUNTANT_HQ", "SUPER_ADMIN", "QUALITY_INSPECTOR"])
+    if user.get("role") in ["QUALITY_INSPECTOR", "BRANCH_CASHIER", "BRANCH_MUNIM"]:
+        branch_id = user.get("branch_id") or branch_id
+    tickets = get_pending_quality_inspections(branch_id)
+    return {
+        "success": True,
+        "count": len(tickets),
+        "tickets": tickets
+    }
+
+
+@app.get("/api/inspector/tickets/{ticket_no}")
+def api_get_qc_ticket_details(ticket_no: str, request: Request):
+    """Returns full details of a specific QC ticket including inspector signature and photos."""
+    require_active_license()
+    user = require_role(request, ["BRANCH_CASHIER", "BRANCH_MUNIM", "ACCOUNTANT_HQ", "SUPER_ADMIN", "QUALITY_INSPECTOR"])
+    ticket = get_quality_inspection_by_ticket(ticket_no)
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Quality inspection ticket not found.")
+    if user.get("role") == "QUALITY_INSPECTOR" and ticket.get("branch_id") != user.get("branch_id"):
+        raise HTTPException(status_code=403, detail="Forbidden: You cannot access quality inspections from other branches.")
+    return {
+        "success": True,
+        "ticket": ticket,
+        "slip_text": format_qc_slip_text(ticket)
+    }
+
+
+@app.get("/inspector/report/{ticket_no}", response_class=HTMLResponse)
+def get_qc_ticket_report_page(ticket_no: str, request: Request):
+    """Printable digital QC ticket certificate with inspector signature, meter photo, and grain photo."""
+    require_active_license()
+    user = require_role(request, ["BRANCH_CASHIER", "BRANCH_MUNIM", "ACCOUNTANT_HQ", "SUPER_ADMIN", "QUALITY_INSPECTOR"])
+    ticket = get_quality_inspection_by_ticket(ticket_no)
+    if not ticket:
+        raise HTTPException(status_code=404, detail="QC ticket not found.")
+    if user.get("role") == "QUALITY_INSPECTOR" and ticket.get("branch_id") != user.get("branch_id"):
+        raise HTTPException(status_code=403, detail="Forbidden: You cannot access quality inspection reports from other branches.")
+    slip_text = format_qc_slip_text(ticket)
+    return templates.TemplateResponse(
+        request=request,
+        name="inspector_report.html",
+        context={
+            "request": request,
+            "ticket": ticket,
+            "slip_text": slip_text
+        }
+    )
+
+
+@app.post("/api/inspector/change-password")
+def api_inspector_change_password(
+    request: Request,
+    current_password: str = Form(...),
+    new_password: str = Form(...),
+    confirm_password: str = Form(...)
+):
+    """
+    Self-service password update for Quality Inspectors and authenticated staff.
+    Verifies current password and securely updates salted hash in users table.
+    """
+    require_active_license()
+    user = require_role(request, ["QUALITY_INSPECTOR", "SUPER_ADMIN", "ACCOUNTANT_HQ", "BRANCH_MUNIM", "BRANCH_CASHIER"])
+
+    clean_curr = current_password.strip()
+    clean_new = new_password.strip()
+    clean_conf = confirm_password.strip()
+
+    if not clean_curr:
+        raise HTTPException(status_code=400, detail="Current password is required.")
+    if clean_new != clean_conf:
+        raise HTTPException(status_code=400, detail="New password and confirmation do not match.")
+    if len(clean_new) < 6:
+        raise HTTPException(status_code=400, detail="New password must be at least 6 characters.")
+
+    user_id = user.get("user_id")
+    username = user.get("username")
+
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT id, password_hash FROM users WHERE id=? OR username=?", (user_id, username))
+        user_row = cur.fetchone()
+        if not user_row:
+            raise HTTPException(status_code=404, detail="User account not found.")
+
+        is_valid, _ = verify_password(clean_curr, user_row["password_hash"])
+        if not is_valid:
+            raise HTTPException(status_code=400, detail="Current password entered is incorrect.")
+
+        new_hash = hash_password(clean_new)
+        cur.execute("UPDATE users SET password_hash=? WHERE id=?", (new_hash, user_row["id"]))
+
+        cur.execute("""
+            INSERT INTO audit_change_logs (id, entity_type, entity_id, entity_name, branch_id, changed_by, action, change_summary)
+            VALUES (?, 'USER', ?, ?, ?, ?, 'CHANGE_PASSWORD', 'Quality Inspector updated password via self-service')
+        """, (f"log-{uuid.uuid4().hex[:8]}", user_row["id"], username, user.get("branch_id"), username))
+
+        conn.commit()
+    except HTTPException:
+        conn.rollback()
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        conn.close()
+
+    return {"success": True, "message": "Password changed successfully."}
 
 
 if __name__ == "__main__":

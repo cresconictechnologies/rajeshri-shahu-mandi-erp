@@ -41,6 +41,8 @@
             <span class="nav-pill" style="background:#ecfdf5; color:#065f46; border-color:#a7f3d0; font-weight:700;">
                 👤 {{ logged_in_user.full_name if logged_in_user else 'Chief Accountant' }}
             </span>
+            <a href="/inspector/portal" target="_blank" class="nav-pill" style="background:#059669; color:#fff; font-weight:700;">🔬 QC Portal</a>
+            <button type="button" onclick="openInspectorQrModal()" class="nav-pill" style="background:#0d9488; color:#fff; font-weight:700; border:none; cursor:pointer;">📲 Mobile App QR</button>
             <a href="/accounts/settings" class="nav-pill">⚙️ Accounts Settings</a>
             <a href="/branch/stock" class="nav-pill">📦 Consolidated Stock</a>
             <a href="/logout" class="nav-pill" style="background:#fef2f2; color:#b91c1c; border-color:#fecaca; font-weight:700;">🚪 Logout</a>
@@ -325,33 +327,52 @@
     <div id="tab-inspectors" class="tab-content">
         <div class="card">
             <div class="card-header">
-                <h2><span>🔍</span> Add Quality Inspector (Feeds Branch Dropdown)</h2>
+                <div>
+                    <h2><span>🔍</span> Add Quality Inspector & Credentials</h2>
+                    <p style="font-size:12px; color:var(--text-muted); margin:4px 0 0 0;">
+                        Assign a mandatory branch yard and set unique mobile app credentials. Inspectors cannot alter their branch.
+                    </p>
+                </div>
             </div>
             <form action="/api/accounts/inspectors" method="POST">
-                <div class="form-row">
+                <div class="form-row" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:14px; margin-bottom:12px;">
                     <div class="form-group">
-                        <label>Inspector Full Name</label>
+                        <label>Inspector Full Name *</label>
                         <input type="text" name="name" placeholder="Ramesh Chandra Sharma" required>
                     </div>
                     <div class="form-group">
-                        <label>Designation / Role</label>
-                        <input type="text" name="designation" placeholder="Chief Assayer / Mandi Sampler" required>
+                        <label>Designation / Role *</label>
+                        <input type="text" name="designation" value="Quality Inspector" placeholder="Quality Inspector" required>
                     </div>
                     <div class="form-group">
                         <label>Mobile Number</label>
                         <input type="text" name="phone" placeholder="98260XXXXX">
                     </div>
                     <div class="form-group">
-                        <label>Branch Assignment</label>
-                        <select name="branch_id">
-                            <option value="">All Branches (Universal Assayer)</option>
+                        <label style="color:#059669;">Assigned Yard * (Mandatory)</label>
+                        <select name="branch_id" required style="border:1.5px solid #059669; font-weight:700;">
+                            <option value="" disabled selected>-- Select Yard (Mandatory) --</option>
                             {% for b in branches %}
-                            <option value="{{ b.id }}">{{ b.name }}</option>
+                            <option value="{{ b.id }}">{{ b.name }} ({{ b.branch_code }})</option>
                             {% endfor %}
                         </select>
                     </div>
-                    <div class="form-group" style="display:flex; align-items:flex-end;">
-                        <button type="submit" class="btn btn-accounts" style="width:100%;">+ Add to Dropdown</button>
+                </div>
+                <div class="form-row" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:14px; align-items:flex-end;">
+                    <div class="form-group">
+                        <label>Login Username *</label>
+                        <input type="text" name="username" placeholder="e.g. qc_chk_1" required pattern="[a-zA-Z0-9_.-]{3,32}" title="3-32 letters, numbers, or underscores">
+                        <small style="color:var(--text-muted); font-size:11px;">Must be unique across branches</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Initial Password *</label>
+                        <input type="password" name="password" placeholder="Min 6 characters" required minlength="6">
+                        <small style="color:var(--text-muted); font-size:11px;">Can be changed by inspector in-app</small>
+                    </div>
+                    <div class="form-group">
+                        <button type="submit" class="btn btn-accounts" style="width:100%; height:42px; font-weight:800;">
+                            + Create Inspector & Credentials
+                        </button>
                     </div>
                 </div>
             </form>
@@ -359,40 +380,55 @@
 
         <div class="card">
             <div class="card-header">
-                <h2><span>👥</span> Pre-Approved Quality Inspectors</h2>
+                <h2><span>👥</span> Pre-Approved Quality Inspectors & Credentials</h2>
             </div>
             <table>
                 <thead>
                     <tr>
                         <th>Inspector Name</th>
+                        <th>Login Username</th>
                         <th>Designation</th>
                         <th>Phone</th>
-                        <th>Assigned Branch</th>
+                        <th>Assigned Branch Yard</th>
                         <th>Status</th>
-                        <th>Action</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for ins in inspectors %}
                     <tr>
                         <td><strong>{{ ins.name }}</strong></td>
+                        <td>
+                            <code style="background:#f1f5f9; color:#0284c7; padding:3px 8px; border-radius:6px; font-weight:800; font-size:12px;">{{ ins.username or ins.id }}</code>
+                        </td>
                         <td>{{ ins.designation }}</td>
                         <td>{{ ins.phone or '-' }}</td>
-                        <td>{{ ins.branch_name or 'Universal (All Branches)' }}</td>
+                        <td>
+                            <span class="badge-pill badge-blue" style="font-weight:700;">
+                                📍 {{ ins.branch_name or 'Unassigned' }}
+                            </span>
+                        </td>
                         <td>
                             {% if ins.is_active %}
-                                <span class="badge-pill badge-green">Active in Dropdown</span>
+                                <span class="badge-pill badge-green">Active</span>
                             {% else %}
                                 <span class="badge-pill badge-red">Inactive</span>
                             {% endif %}
                         </td>
                         <td>
-                            <form action="/api/accounts/inspectors/toggle" method="POST" style="display:inline;">
-                                <input type="hidden" name="inspector_id" value="{{ ins.id }}">
-                                <button type="submit" class="btn btn-sm {% if ins.is_active %}btn-danger{% else %}btn-secondary{% endif %}">
-                                    {% if ins.is_active %}Remove{% else %}Enable{% endif %}
+                            <div style="display:flex; gap:6px; align-items:center;">
+                                <button type="button" class="btn btn-sm btn-secondary"
+                                    onclick="openEditInspectorModal('{{ ins.id }}', '{{ ins.name|escape }}', '{{ ins.designation|escape }}', '{{ ins.phone or '' }}', '{{ ins.branch_id or '' }}', '{{ ins.username or '' }}')"
+                                    style="font-weight:700; white-space:nowrap;">
+                                    ✏️ Edit / Reset PW
                                 </button>
-                            </form>
+                                <form action="/api/accounts/inspectors/toggle" method="POST" style="display:inline; margin:0;">
+                                    <input type="hidden" name="inspector_id" value="{{ ins.id }}">
+                                    <button type="submit" class="btn btn-sm {% if ins.is_active %}btn-danger{% else %}btn-secondary{% endif %}" style="white-space:nowrap;">
+                                        {% if ins.is_active %}Deactivate{% else %}Activate{% endif %}
+                                    </button>
+                                </form>
+                            </div>
                         </td>
                     </tr>
                     {% endfor %}
@@ -634,12 +670,82 @@
         </div>
     </div>
 
+    <!-- MODAL: EDIT QUALITY INSPECTOR & CREDENTIALS -->
+    <div id="editInspectorModal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.6); z-index:9999; justify-content:center; align-items:center;">
+        <div class="modal" style="background:#ffffff; max-width:540px; width:92%; border-radius:14px; padding:22px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1.5px solid #e2e8f0; padding-bottom:12px;">
+                <h2 style="font-size:18px; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:8px;">
+                    <span>✏️</span> Edit Inspector & Credentials
+                </h2>
+                <button type="button" onclick="closeEditInspectorModal()" style="background:none; border:none; font-size:20px; cursor:pointer; color:#64748b;">✕</button>
+            </div>
+
+            <form action="/api/accounts/inspectors/update" method="POST" style="margin-top:16px;">
+                <input type="hidden" id="edit_inspector_id" name="inspector_id">
+
+                <div class="form-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label style="font-size:12.5px; font-weight:700;">Inspector Full Name *</label>
+                        <input type="text" id="edit_name" name="name" required style="width:100%; padding:9px 12px; border:1.5px solid var(--input-border); border-radius:8px;">
+                    </div>
+                    <div class="form-group">
+                        <label style="font-size:12.5px; font-weight:700;">Designation / Role *</label>
+                        <input type="text" id="edit_designation" name="designation" required style="width:100%; padding:9px 12px; border:1.5px solid var(--input-border); border-radius:8px;">
+                    </div>
+                    <div class="form-group">
+                        <label style="font-size:12.5px; font-weight:700;">Mobile Number</label>
+                        <input type="text" id="edit_phone" name="phone" style="width:100%; padding:9px 12px; border:1.5px solid var(--input-border); border-radius:8px;">
+                    </div>
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label style="font-size:12.5px; font-weight:700; color:#059669;">Assigned Branch Yard * (Locked to Yard)</label>
+                        <select id="edit_branch_id" name="branch_id" required style="width:100%; padding:9px 12px; border:1.5px solid #059669; border-radius:8px; font-weight:700;">
+                            {% for b in branches %}
+                            <option value="{{ b.id }}">{{ b.name }} ({{ b.branch_code }})</option>
+                            {% endfor %}
+                        </select>
+                        <small style="color:var(--text-muted); font-size:11px;">Inspector cannot alter this branch from mobile login.</small>
+                    </div>
+                    <div class="form-group">
+                        <label style="font-size:12.5px; font-weight:700;">Login Username *</label>
+                        <input type="text" id="edit_username" name="username" required style="width:100%; padding:9px 12px; border:1.5px solid var(--input-border); border-radius:8px; font-weight:700;">
+                    </div>
+                    <div class="form-group">
+                        <label style="font-size:12.5px; font-weight:700; color:#d97706;">Reset Password (Optional)</label>
+                        <input type="password" id="edit_password" name="new_password" placeholder="Leave blank to keep current" minlength="6" style="width:100%; padding:9px 12px; border:1.5px solid var(--input-border); border-radius:8px;">
+                    </div>
+                </div>
+
+                <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px; border-top:1px solid #e2e8f0; padding-top:14px;">
+                    <button type="button" class="btn btn-secondary" onclick="closeEditInspectorModal()">Cancel</button>
+                    <button type="submit" class="btn btn-accounts" style="font-weight:800; padding:10px 22px;">
+                        ✓ Save Inspector Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
         function showTab(tabId) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
             document.getElementById(tabId).classList.add('active');
             event.target.classList.add('active');
+        }
+
+        function openEditInspectorModal(id, name, designation, phone, branchId, username) {
+            document.getElementById('edit_inspector_id').value = id;
+            document.getElementById('edit_name').value = name;
+            document.getElementById('edit_designation').value = designation;
+            document.getElementById('edit_phone').value = phone || '';
+            document.getElementById('edit_branch_id').value = branchId || '';
+            document.getElementById('edit_username').value = username || '';
+            document.getElementById('edit_password').value = '';
+            document.getElementById('editInspectorModal').style.display = 'flex';
+        }
+
+        function closeEditInspectorModal() {
+            document.getElementById('editInspectorModal').style.display = 'none';
         }
 
         function selectAccountCommodity(card) {
@@ -690,10 +796,77 @@
             }
         }
 
+        // ---------------------------------------------------------------------
+        // INSPECTOR MOBILE APP QR CODE MODAL
+        // ---------------------------------------------------------------------
+        function openInspectorQrModal() {
+            const modal = document.getElementById('inspectorQrModal');
+            const urlInput = document.getElementById('inspectorQrUrl');
+            const qrImg = document.getElementById('inspectorQrImg');
+            
+            const targetUrl = window.location.origin + '/inspector/portal';
+            if (urlInput) urlInput.value = targetUrl;
+            if (qrImg) {
+                qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + encodeURIComponent(targetUrl);
+            }
+            if (modal) modal.style.display = 'flex';
+        }
+
+        function closeInspectorQrModal() {
+            const modal = document.getElementById('inspectorQrModal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        function copyInspectorUrl() {
+            const urlInput = document.getElementById('inspectorQrUrl');
+            if (urlInput) {
+                urlInput.select();
+                navigator.clipboard.writeText(urlInput.value).then(() => {
+                    alert('✓ URL copied to clipboard: ' + urlInput.value);
+                });
+            }
+        }
+
         window.onload = function() {
             const first = document.querySelector('.commodity-card');
             if (first) selectAccountCommodity(first);
         };
     </script>
+    <!-- MODAL: INSPECTOR MOBILE APP QR CODE -->
+    <div id="inspectorQrModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.75); z-index:99999; justify-content:center; align-items:center; padding:16px; box-sizing:border-box;">
+        <div style="background:#ffffff; max-width:440px; width:100%; border-radius:18px; padding:24px; box-shadow:0 24px 48px rgba(0,0,0,0.35); text-align:center; border:1.5px solid #cbd5e1;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; border-bottom:1.5px solid #f1f5f9; padding-bottom:12px;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span style="font-size:22px;">📲</span>
+                    <h3 style="margin:0; font-size:16.5px; font-weight:800; color:#0f172a;">Inspector Android Mobile App</h3>
+                </div>
+                <button type="button" onclick="closeInspectorQrModal()" style="background:none; border:none; font-size:22px; cursor:pointer; color:#64748b; line-height:1;">✕</button>
+            </div>
+
+            <p style="font-size:12.5px; color:#64748b; margin:0 0 16px;">
+                Scan with any Android phone camera or visit link in Chrome to install the offline Mandi QC App:
+            </p>
+
+            <div style="display:inline-block; padding:12px; background:#f8fafc; border:1.5px solid #e2e8f0; border-radius:14px; margin-bottom:16px;">
+                <img id="inspectorQrImg" src="" alt="Scan QR Code" style="width:200px; height:200px; display:block; border-radius:8px;">
+            </div>
+
+            <div style="display:flex; gap:8px; margin-bottom:16px;">
+                <input type="text" id="inspectorQrUrl" readonly style="flex:1; padding:8px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-size:12px; background:#f1f5f9; color:#334155; font-weight:600;">
+                <button type="button" onclick="copyInspectorUrl()" style="background:#0f172a; color:#fff; border:none; padding:8px 14px; border-radius:8px; font-weight:700; font-size:12px; cursor:pointer;">Copy</button>
+            </div>
+
+            <div style="background:#ecfdf5; border:1px solid #a7f3d0; border-radius:10px; padding:10px 12px; text-align:left; font-size:11.5px; color:#065f46; line-height:1.4; margin-bottom:16px;">
+                <strong>💡 Quick 1-Tap Installation on Android:</strong><br>
+                1. Open link on phone in Google Chrome<br>
+                2. Tap the <strong>"📲 Install App"</strong> banner or Chrome menu (⋮) → <em>"Install App"</em><br>
+                3. Icon is added to your phone's Home Screen with full camera OCR!
+            </div>
+
+            <button type="button" onclick="closeInspectorQrModal()" style="width:100%; background:#059669; color:#fff; border:none; padding:11px; border-radius:10px; font-weight:800; font-size:13.5px; cursor:pointer;">
+                Done
+            </button>
+        </div>
+    </div>
 </body>
 </html>

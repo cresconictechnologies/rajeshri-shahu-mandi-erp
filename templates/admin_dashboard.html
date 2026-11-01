@@ -161,6 +161,7 @@
     <!-- TABS NAVIGATION -->
     <div class="tabs">
         <button class="tab-btn active" onclick="showTab('tab-procurement')">Recent Purchases</button>
+        <button class="tab-btn" onclick="showTab('tab-qc-audit')">🔬 Quality & Photo Audit ({{ inspections|length }})</button>
         <button class="tab-btn" onclick="showTab('tab-branches')">Branch Management</button>
         <button class="tab-btn" onclick="showTab('tab-users')">User Access Control</button>
         <button class="tab-btn" onclick="showTab('tab-commodities')">Commodity Master</button>
@@ -320,6 +321,7 @@
                     <div class="form-group">
                         <label>Role</label>
                         <select name="role" required>
+                            <option value="QUALITY_INSPECTOR">Quality Inspector (Mandi Yard Assayer)</option>
                             <option value="BRANCH_CASHIER">Branch Cashier & Yard Operator</option>
                             <option value="ACCOUNTANT_HQ">Central HQ Accountant</option>
                         </select>
@@ -365,7 +367,17 @@
                     <tr>
                         <td><code style="font-weight:700;">{{ u.username }}</code></td>
                         <td><strong>{{ u.full_name }}</strong></td>
-                        <td><span class="badge-pill badge-amber">{{ u.role }}</span></td>
+                        <td>
+                            {% if u.role == 'QUALITY_INSPECTOR' %}
+                            <span class="badge-pill" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a; font-weight:800;">QUALITY_INSPECTOR</span>
+                            {% elif u.role == 'SUPER_ADMIN' %}
+                            <span class="badge-pill badge-purple">SUPER_ADMIN</span>
+                            {% elif u.role == 'ACCOUNTANT_HQ' %}
+                            <span class="badge-pill badge-blue">ACCOUNTANT_HQ</span>
+                            {% else %}
+                            <span class="badge-pill badge-green">{{ u.role }}</span>
+                            {% endif %}
+                        </td>
                         <td>{{ u.branch_name or 'HQ / Central' }}</td>
                         <td>{{ u.phone }}</td>
                         <td>
@@ -445,6 +457,150 @@
                     {% endfor %}
                 </tbody>
             </table>
+        </div>
+    </div>
+
+    <!-- TAB 5: ALL-BRANCH QUALITY & PHOTO AUDIT DESK -->
+    <div id="tab-qc-audit" class="tab-content">
+        <div class="card">
+            <div class="card-header">
+                <div>
+                    <h2><span>🔬</span> All-Branch Quality Assaying & Visual Evidence Audit</h2>
+                    <p style="font-size:12.5px; color:var(--text-muted); margin-top:3px;">
+                        Central Mandi Headquarters Real-Time Feed • High-Resolution Photos of Moisture Meter Displays, Grain Samples & Inspector Signatures
+                    </p>
+                </div>
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <span class="badge-pill badge-green">{{ inspections|length }} Total Assays</span>
+                    <a href="/inspector/portal" target="_blank" class="btn btn-sm btn-admin" style="text-decoration:none;">📱 Open Inspector PWA</a>
+                </div>
+            </div>
+
+            <!-- Audit Metrics Strip -->
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px; margin-bottom:18px;">
+                <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px; text-align:center;">
+                    <div style="font-size:11px; text-transform:uppercase; color:var(--text-muted); font-weight:800;">Total Mandi Yard Assays</div>
+                    <div style="font-size:20px; font-weight:900; color:#0f172a; margin-top:2px;">{{ inspections|length }}</div>
+                </div>
+                <div style="background:#ecfdf5; border:1px solid #a7f3d0; border-radius:10px; padding:12px; text-align:center;">
+                    <div style="font-size:11px; text-transform:uppercase; color:#065f46; font-weight:800;">Weighed & Linked to Invoices</div>
+                    <div style="font-size:20px; font-weight:900; color:#059669; margin-top:2px;">
+                        {{ inspections | selectattr('status', 'equalto', 'LINKED') | list | length }}
+                    </div>
+                </div>
+                <div style="background:#fffbeb; border:1px solid #fde68a; border-radius:10px; padding:12px; text-align:center;">
+                    <div style="font-size:11px; text-transform:uppercase; color:#92400e; font-weight:800;">Pending Inward Intake</div>
+                    <div style="font-size:20px; font-weight:900; color:#d97706; margin-top:2px;">
+                        {{ inspections | selectattr('status', 'equalto', 'PENDING') | list | length }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Inspections Table with Visual Evidence -->
+            <div class="table-container" style="overflow-x:auto;">
+                <table style="width:100%; border-collapse:collapse; font-size:12.5px;">
+                    <thead>
+                        <tr style="background:#f1f5f9; text-align:left;">
+                            <th style="padding:10px 8px;">Ticket / Date</th>
+                            <th style="padding:10px 8px;">Branch Yard</th>
+                            <th style="padding:10px 8px;">Farmer & Vehicle</th>
+                            <th style="padding:10px 8px;">Commodity & Breed</th>
+                            <th style="padding:10px 8px; text-align:center;">Moisture LCD Photo</th>
+                            <th style="padding:10px 8px; text-align:center;">Grain Sample Photo</th>
+                            <th style="padding:10px 8px; text-align:center;">Inspector Signature</th>
+                            <th style="padding:10px 8px;">Grade & Suggested Rate</th>
+                            <th style="padding:10px 8px;">Settlement Status</th>
+                            <th style="padding:10px 8px; text-align:center;">Certificate</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if inspections %}
+                        {% for q in inspections %}
+                        <tr style="border-bottom:1px solid #e2e8f0;">
+                            <td style="padding:10px 8px;">
+                                <strong style="color:#0f172a;">{{ q.ticket_no }}</strong>
+                                <div style="font-size:11px; color:#64748b;">{{ q.created_at[:16] }}</div>
+                            </td>
+                            <td style="padding:10px 8px;">
+                                <strong>{{ q.branch_name or 'Chikhali' }}</strong>
+                                <div style="font-size:11px; color:#64748b;"><code>{{ q.branch_code or 'BR-CHL' }}</code></div>
+                            </td>
+                            <td style="padding:10px 8px;">
+                                <div style="font-weight:700; color:#1e293b;">{{ q.farmer_name }}</div>
+                                <div style="font-size:11px; color:#64748b;"><code>{{ q.vehicle_no }}</code></div>
+                            </td>
+                            <td style="padding:10px 8px;">
+                                <strong>{{ q.commodity_name }}</strong>
+                                <div style="font-size:11px; color:#d97706; font-weight:700;">{{ q.dominant_breed or 'Standard' }} ({{ q.breed_purity_pct }}%)</div>
+                            </td>
+                            <td style="padding:10px 8px; text-align:center;">
+                                <div style="font-weight:800; color:#059669; margin-bottom:4px;">{{ q.moisture_pct }}%</div>
+                                {% if q.meter_photo_path %}
+                                <img src="{{ q.meter_photo_path }}" alt="Meter LCD" style="width:48px; height:36px; object-fit:cover; border-radius:4px; border:1px solid #cbd5e1; cursor:pointer;" onclick="openPhotoZoom('{{ q.meter_photo_path }}', 'Moisture Meter LCD — {{ q.ticket_no }} ({{ q.moisture_pct }}%)')">
+                                {% else %}
+                                <span style="font-size:11px; color:#94a3b8;">[OCR]</span>
+                                {% endif %}
+                            </td>
+                            <td style="padding:10px 8px; text-align:center;">
+                                <div style="font-size:11px; color:#64748b; margin-bottom:4px;">Karda: {{ q.karda_pct }}%</div>
+                                {% if q.grain_photo_path %}
+                                <img src="{{ q.grain_photo_path }}" alt="Grain Sample" style="width:48px; height:36px; object-fit:cover; border-radius:4px; border:1px solid #cbd5e1; cursor:pointer;" onclick="openPhotoZoom('{{ q.grain_photo_path }}', 'Grain Bowl Sample — {{ q.ticket_no }} ({{ q.commodity_name }})')">
+                                {% else %}
+                                <span style="font-size:11px; color:#94a3b8;">[Sample]</span>
+                                {% endif %}
+                            </td>
+                            <td style="padding:10px 8px; text-align:center;">
+                                <div style="font-size:12px; font-weight:700; color:#0f172a; margin-bottom:3px;">{{ q.inspector_name or 'Inspector' }}</div>
+                                <span class="badge-pill badge-green" style="font-size:10px; font-weight:800;">✓ Verified QC Login</span>
+                            </td>
+                            <td style="padding:10px 8px;">
+                                <span class="badge-pill badge-green" style="font-size:11px;">{{ q.grade_label }}</span>
+                                <div style="font-size:12.5px; font-weight:800; color:#059669; margin-top:3px;">₹{{ "{:,.2f}".format(q.suggested_buying_rate_per_qtl) }} / Qtl</div>
+                            </td>
+                            <td style="padding:10px 8px;">
+                                {% if q.status == 'LINKED' %}
+                                    <span class="badge-pill badge-blue">WEIGHED ({{ q.token_number }})</span>
+                                    <div style="font-size:11px; color:#059669; font-weight:700; margin-top:2px;">{{ q.invoice_payout_status or 'PROCESSED' }}</div>
+                                {% else %}
+                                    <span class="badge-pill badge-amber">PENDING INTAKE</span>
+                                {% endif %}
+                            </td>
+                            <td style="padding:10px 8px; text-align:center;">
+                                <a href="/inspector/report/{{ q.ticket_no }}" target="_blank" class="btn btn-sm btn-secondary" style="text-decoration:none; padding:4px 8px; font-size:11.5px; font-weight:700;">
+                                    📜 View Slip
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% else %}
+                        <tr>
+                            <td colspan="10" style="text-align:center; padding:30px; color:#64748b;">
+                                <div style="font-size:32px; margin-bottom:8px;">🌾</div>
+                                <div style="font-weight:700;">No Quality Assaying Inspections Recorded Yet</div>
+                                <div style="font-size:12px; margin-top:4px;">Yard quality inspectors will submit grain sample photos and moisture meter readings from the mobile app.</div>
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: HIGH-RESOLUTION PHOTO ZOOM VIEWER -->
+    <div id="qcPhotoZoomModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.85); z-index:10000; align-items:center; justify-content:center; padding:20px; backdrop-filter:blur(5px);" onclick="closePhotoZoom()">
+        <div style="background:#ffffff; border-radius:14px; max-width:720px; width:100%; max-height:90vh; overflow:hidden; box-shadow:0 25px 50px rgba(0,0,0,0.5); border:1px solid #cbd5e1; text-align:center; padding:18px;" onclick="event.stopPropagation()">
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #e2e8f0; padding-bottom:10px; margin-bottom:14px;">
+                <h3 id="photoZoomTitle" style="margin:0; font-size:15px; font-weight:800; color:#0f172a;">Evidence Photo</h3>
+                <button type="button" onclick="closePhotoZoom()" style="background:#f1f5f9; border:none; font-size:18px; cursor:pointer; width:30px; height:30px; border-radius:6px;">✕</button>
+            </div>
+            <div style="background:#0f172a; border-radius:8px; padding:10px; display:flex; align-items:center; justify-content:center; min-height:300px;">
+                <img id="photoZoomImg" src="" style="max-width:100%; max-height:65vh; object-fit:contain; border-radius:4px;" alt="Zoomed Photo">
+            </div>
+            <div style="margin-top:14px; display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-size:11.5px; color:#64748b;">Mandi Quality Computer Vision Evidence File</span>
+                <button type="button" class="btn btn-secondary" onclick="closePhotoZoom()">Close</button>
+            </div>
         </div>
     </div>
 
@@ -553,6 +709,16 @@
 
         function closeBranchStockModal() {
             document.getElementById('branchStockModal').style.display = 'none';
+        }
+
+        function openPhotoZoom(src, title) {
+            document.getElementById('photoZoomImg').src = src;
+            document.getElementById('photoZoomTitle').innerText = title || 'Evidence Photo';
+            document.getElementById('qcPhotoZoomModal').style.display = 'flex';
+        }
+
+        function closePhotoZoom() {
+            document.getElementById('qcPhotoZoomModal').style.display = 'none';
         }
     </script>
 </body>

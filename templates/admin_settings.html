@@ -265,6 +265,8 @@
                                         <span class="badge-pill badge-purple">Owner / Master Admin</span>
                                         {% elif u.role == 'ACCOUNTANT_HQ' %}
                                         <span class="badge-pill badge-blue">Chief Accountant (HQ)</span>
+                                        {% elif u.role == 'QUALITY_INSPECTOR' %}
+                                        <span class="badge-pill" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a; font-weight:800;">Quality Inspector</span>
                                         {% else %}
                                         <span class="badge-pill badge-green">Branch Cashier & Munim</span>
                                         {% endif %}

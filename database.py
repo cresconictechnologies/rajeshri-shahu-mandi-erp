@@ -205,6 +205,100 @@ def login_admin(username: str, password: str) -> dict:
     finally:
         conn.close()
 
+def save_quality_inspection(qc_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Inserts a new quality inspection record into SQLite and returns the full ticket."""
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        qc_id = qc_data.get("id") or f"qc-{uuid.uuid4().hex[:8]}"
+        ticket_no = qc_data.get("ticket_no")
+        if not ticket_no:
+            branch_id = qc_data.get("branch_id", "br-chikhali")
+            cur.execute("SELECT branch_code FROM branches WHERE id=?", (branch_id,))
+            brow = cur.fetchone()
+            bcode = brow["branch_code"].split("-")[-1] if brow else "CHK"
+            now_str = datetime.now().strftime("%y%m%d")
+            rnd = uuid.uuid4().hex[:4].upper()
+            ticket_no = f"QC-{bcode}-{now_str}-{rnd}"
+
+        if qc_data.get("inspector_id"):
+            cur.execute("SELECT id FROM inspectors WHERE id=?", (qc_data["inspector_id"],))
+            if not cur.fetchone():
+                cur.execute(
+                    "INSERT OR IGNORE INTO inspectors (id, branch_id, name, designation, phone) VALUES (?,?,?,?,?)",
+                    (qc_data["inspector_id"], qc_data.get("branch_id"), qc_data.get("inspector_name") or "Yard Inspector", "Quality Inspector", "")
+                )
+
+        cur.execute("""
+            INSERT INTO quality_inspections (
+                id, ticket_no, branch_id, inspector_id, inspector_name,
+                vehicle_no, farmer_name, farmer_phone, commodity_id, commodity_name,
+                moisture_pct, moisture_cut_kg, karda_pct, damaged_pct,
+                green_seeds_pct, broken_split_pct, shriveled_pct, uniformity_index,
+                dominant_breed, breed_purity_pct, admixture_pct, breed_status,
+                faq_grade, grade_label, suggested_rate_cut_per_qtl,
+                corridor_min_rate, corridor_target_rate, corridor_max_rate,
+                suggested_buying_rate_per_qtl, sample_weight_grams, total_seeds_analyzed,
+                meter_photo_path, grain_photo_path, photo_path, inspector_signature, status, inspection_notes
+            ) VALUES (?,?,?,?,?, ?,?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?, ?,?,?,?, ?,?,?,?,?,?, 'PENDING', ?)
+        """, (
+            qc_id, ticket_no, qc_data.get("branch_id"), qc_data.get("inspector_id"), qc_data.get("inspector_name"),
+            qc_data.get("vehicle_no", "").strip().upper(), qc_data.get("farmer_name", "").strip(), qc_data.get("farmer_phone"),
+            qc_data.get("commodity_id"), qc_data.get("commodity_name"),
+            float(qc_data.get("moisture_pct", 10.0)), float(qc_data.get("moisture_cut_kg", 0.0)),
+            float(qc_data.get("karda_pct", 0.0)), float(qc_data.get("damaged_pct", 0.0)),
+            float(qc_data.get("green_seeds_pct", 0.0)), float(qc_data.get("broken_split_pct", 0.0)),
+            float(qc_data.get("shriveled_pct", 0.0)), float(qc_data.get("uniformity_index", 95.0)),
+            qc_data.get("dominant_breed"), float(qc_data.get("breed_purity_pct", 100.0)), float(qc_data.get("admixture_pct", 0.0)),
+            qc_data.get("breed_status", "PURE_BREED"), qc_data.get("faq_grade", "FAQ_GRADE_1"), qc_data.get("grade_label", "Grade 1 (Premium FAQ)"),
+            float(qc_data.get("suggested_rate_cut_per_qtl", 0.0)), float(qc_data.get("corridor_min_rate", 0.0)),
+            float(qc_data.get("corridor_target_rate", 0.0)), float(qc_data.get("corridor_max_rate", 0.0)),
+            float(qc_data.get("suggested_buying_rate_per_qtl", 0.0)), float(qc_data.get("sample_weight_grams", 250.0)),
+            int(qc_data.get("total_seeds_analyzed", 500)), qc_data.get("meter_photo_path"),
+            qc_data.get("grain_photo_path"), qc_data.get("photo_path"), qc_data.get("inspector_signature"), qc_data.get("inspection_notes")
+        ))
+        conn.commit()
+
+        cur.execute("SELECT * FROM quality_inspections WHERE id=?", (qc_id,))
+        return dict(cur.fetchone())
+    finally:
+        conn.close()
+
+def get_pending_quality_inspections(branch_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    """Returns unlinked quality inspections for the branch cashier desk."""
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        if branch_id:
+            cur.execute("SELECT * FROM quality_inspections WHERE branch_id=? AND status='PENDING' ORDER BY created_at DESC", (branch_id,))
+        else:
+            cur.execute("SELECT * FROM quality_inspections WHERE status='PENDING' ORDER BY created_at DESC")
+        return [dict(r) for r in cur.fetchall()]
+    finally:
+        conn.close()
+
+def get_quality_inspection_by_ticket(ticket_no: str) -> Optional[Dict[str, Any]]:
+    """Returns a specific quality inspection by ticket code."""
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM quality_inspections WHERE ticket_no=?", (ticket_no,))
+        row = cur.fetchone()
+        return dict(row) if row else None
+    finally:
+        conn.close()
+
+def link_qc_to_invoice(ticket_no: str, invoice_id: str) -> bool:
+    """Marks a QC ticket as completed and linked to a purchase invoice."""
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("UPDATE quality_inspections SET status='LINKED', invoice_id=? WHERE ticket_no=?", (invoice_id, ticket_no))
+        conn.commit()
+        return cur.rowcount > 0
+    finally:
+        conn.close()
+
 def init_db():
     conn = get_connection()
     cur = conn.cursor()
@@ -228,7 +322,7 @@ def init_db():
         password_hash TEXT NOT NULL,
         full_name TEXT NOT NULL,
         phone TEXT NOT NULL,
-        role TEXT NOT NULL CHECK (role IN ('SUPER_ADMIN', 'ACCOUNTANT_HQ', 'BRANCH_MUNIM', 'BRANCH_CASHIER')),
+        role TEXT NOT NULL CHECK (role IN ('SUPER_ADMIN', 'ACCOUNTANT_HQ', 'BRANCH_MUNIM', 'BRANCH_CASHIER', 'QUALITY_INSPECTOR')),
         is_active INTEGER DEFAULT 1,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
@@ -276,6 +370,7 @@ def init_db():
         hsn_code TEXT NOT NULL,
         quality_grade TEXT DEFAULT 'STANDARD',
         vehicle_number TEXT,
+        qc_ticket_no TEXT,
         
         weighment_mode TEXT DEFAULT 'MANUAL_YARD' CHECK (weighment_mode IN ('MANUAL_EXTERNAL', 'DIGITAL_SCALE', 'MANUAL_YARD', 'WEIGHBRIDGE')),
         external_kanta_name TEXT,
@@ -447,8 +542,54 @@ def init_db():
         is_revoked INTEGER DEFAULT 0
     );
 
+    CREATE TABLE IF NOT EXISTS quality_inspections (
+        id TEXT PRIMARY KEY,
+        ticket_no TEXT UNIQUE NOT NULL,
+        branch_id TEXT NOT NULL REFERENCES branches(id),
+        inspector_id TEXT REFERENCES inspectors(id),
+        inspector_name TEXT,
+        vehicle_no TEXT NOT NULL,
+        farmer_name TEXT NOT NULL,
+        farmer_phone TEXT,
+        commodity_id TEXT REFERENCES commodities(id),
+        commodity_name TEXT NOT NULL,
+        moisture_pct REAL NOT NULL,
+        moisture_cut_kg REAL DEFAULT 0.0,
+        karda_pct REAL DEFAULT 0.0,
+        damaged_pct REAL DEFAULT 0.0,
+        green_seeds_pct REAL DEFAULT 0.0,
+        broken_split_pct REAL DEFAULT 0.0,
+        shriveled_pct REAL DEFAULT 0.0,
+        uniformity_index REAL DEFAULT 95.0,
+        dominant_breed TEXT,
+        breed_purity_pct REAL DEFAULT 100.0,
+        admixture_pct REAL DEFAULT 0.0,
+        breed_status TEXT DEFAULT 'PURE_BREED',
+        faq_grade TEXT DEFAULT 'FAQ_GRADE_1',
+        grade_label TEXT DEFAULT 'Grade 1 (Premium FAQ)',
+        suggested_rate_cut_per_qtl REAL DEFAULT 0.0,
+        corridor_min_rate REAL DEFAULT 0.0,
+        corridor_target_rate REAL DEFAULT 0.0,
+        corridor_max_rate REAL DEFAULT 0.0,
+        suggested_buying_rate_per_qtl REAL DEFAULT 0.0,
+        sample_weight_grams REAL DEFAULT 250.0,
+        total_seeds_analyzed INTEGER DEFAULT 500,
+        meter_photo_path TEXT,
+        grain_photo_path TEXT,
+        photo_path TEXT,
+        inspector_signature TEXT,
+        status TEXT DEFAULT 'PENDING',
+        invoice_id TEXT REFERENCES purchase_invoices(id),
+        inspection_notes TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
     CREATE INDEX IF NOT EXISTS idx_sessions_user ON user_sessions(user_id);
     CREATE INDEX IF NOT EXISTS idx_sessions_active ON user_sessions(session_id, is_revoked);
+
+    CREATE INDEX IF NOT EXISTS idx_qc_branch ON quality_inspections(branch_id);
+    CREATE INDEX IF NOT EXISTS idx_qc_vehicle ON quality_inspections(vehicle_no);
+    CREATE INDEX IF NOT EXISTS idx_qc_status ON quality_inspections(status);
 
     CREATE INDEX IF NOT EXISTS idx_invoice_branch ON purchase_invoices(branch_id);
     CREATE INDEX IF NOT EXISTS idx_invoice_party ON purchase_invoices(party_id);
@@ -491,10 +632,73 @@ def init_db():
         ("rtgs_utr_no", "TEXT"),
         ("rtgs_requested_at", "TEXT"),
         ("rtgs_completed_at", "TEXT"),
-        ("rtgs_completed_by", "TEXT")
+        ("rtgs_completed_by", "TEXT"),
+        ("qc_ticket_no", "TEXT"),
+        ("dominant_breed", "TEXT"),
+        ("breed_purity_pct", "REAL DEFAULT 100.0")
     ]:
         if col not in existing_invoice_cols:
             cur.execute(f"ALTER TABLE purchase_invoices ADD COLUMN {col} {definition}")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_invoice_qc_ticket ON purchase_invoices(qc_ticket_no);")
+
+    # Safe migrations for columns in quality_inspections
+    cur.execute("PRAGMA table_info(quality_inspections);")
+    existing_qc_cols = {row['name'] for row in cur.fetchall()}
+    for col, definition in [
+        ("corridor_min_rate", "REAL DEFAULT 0.0"),
+        ("corridor_target_rate", "REAL DEFAULT 0.0"),
+        ("corridor_max_rate", "REAL DEFAULT 0.0"),
+        ("suggested_buying_rate_per_qtl", "REAL DEFAULT 0.0"),
+        ("meter_photo_path", "TEXT"),
+        ("grain_photo_path", "TEXT"),
+        ("inspector_signature", "TEXT")
+    ]:
+        if col not in existing_qc_cols:
+            cur.execute(f"ALTER TABLE quality_inspections ADD COLUMN {col} {definition}")
+
+    # Ensure users table allows 'QUALITY_INSPECTOR'
+    cur.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='users'")
+    u_row = cur.fetchone()
+    if u_row and "QUALITY_INSPECTOR" not in u_row['sql']:
+        cur.execute("PRAGMA foreign_keys=OFF")
+        cur.execute("""
+            CREATE TABLE users_temp (
+                id TEXT PRIMARY KEY,
+                branch_id TEXT REFERENCES branches(id),
+                username TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                full_name TEXT NOT NULL,
+                phone TEXT NOT NULL,
+                role TEXT NOT NULL CHECK (role IN ('SUPER_ADMIN', 'ACCOUNTANT_HQ', 'BRANCH_MUNIM', 'BRANCH_CASHIER', 'QUALITY_INSPECTOR')),
+                is_active INTEGER DEFAULT 1,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        cur.execute("INSERT INTO users_temp SELECT id, branch_id, username, password_hash, full_name, phone, role, is_active, created_at FROM users")
+        cur.execute("DROP TABLE users")
+        cur.execute("ALTER TABLE users_temp RENAME TO users")
+        cur.execute("PRAGMA foreign_keys=ON")
+
+    # Seed dedicated Quality Inspector users across yards if branches are provisioned
+    cur.execute("SELECT id FROM branches WHERE id='br-chikhali'")
+    if cur.fetchone():
+        qc_pw = hash_password("qc123")
+        qc_users = [
+            ("u-qc-chikhali", "br-chikhali", "qc_chikhali", qc_pw, "Babulal Meena", "9826077771", "QUALITY_INSPECTOR"),
+            ("u-qc-varvand", "br-varvand", "qc_varvand", qc_pw, "Govind Solanki", "9826077772", "QUALITY_INSPECTOR"),
+            ("u-qc-dhad", "br-dhad", "qc_dhad", qc_pw, "Narayan Sharma", "9826077773", "QUALITY_INSPECTOR"),
+            ("u-qc-head", "br-chikhali", "qc_head", qc_pw, "Mahesh Patidar", "9826077774", "QUALITY_INSPECTOR"),
+        ]
+        cur.executemany("INSERT OR IGNORE INTO users (id, branch_id, username, password_hash, full_name, phone, role) VALUES (?,?,?,?,?,?,?)", qc_users)
+
+        # Seed matching entries into inspectors table
+        inspectors_seed = [
+            ("u-qc-chikhali", "br-chikhali", "Babulal Meena", "Quality Inspector (Chikhali Yard)", "9826077771"),
+            ("u-qc-varvand", "br-varvand", "Govind Solanki", "Quality Inspector (Varvand Yard)", "9826077772"),
+            ("u-qc-dhad", "br-dhad", "Narayan Sharma", "Quality Inspector (Dhad Yard)", "9826077773"),
+            ("u-qc-head", "br-chikhali", "Mahesh Patidar", "Chief Quality Assayer", "9826077774"),
+        ]
+        cur.executemany("INSERT OR IGNORE INTO inspectors (id, branch_id, name, designation, phone) VALUES (?,?,?,?,?)", inspectors_seed)
 
     # Seed statutory commodities master data (Application Master Configuration) if empty
     cur.execute("SELECT count(*) as cnt FROM commodities")
@@ -564,6 +768,7 @@ def seed_test_fixtures(conn=None):
     chk_pw = hash_password("chk123")
     vrv_pw = hash_password("vrv123")
     dhd_pw = hash_password("dhd123")
+    qc_pw = hash_password("qc123")
 
     users = [
         ("u-admin", None, "admin", admin_pw, "Vikramaditya Singhal (Owner)", "9826011111", "SUPER_ADMIN"),
@@ -574,6 +779,10 @@ def seed_test_fixtures(conn=None):
         ("u-ujjain-cashier", "br-varvand", "varvand_cashier", vrv_pw, "Mohanlal Soni (Varvand Cashier)", "9826044444", "BRANCH_CASHIER"),
         ("u-dewas-munim", "br-dhad", "dhad_munim", dhd_pw, "Kailash Tiwari (Dhad Cashier)", "9826055555", "BRANCH_MUNIM"),
         ("u-dewas-cashier", "br-dhad", "dhad_cashier", dhd_pw, "Kailash Tiwari (Dhad Cashier)", "9826055555", "BRANCH_CASHIER"),
+        ("u-qc-chikhali", "br-chikhali", "qc_chikhali", qc_pw, "Babulal Meena", "9826077771", "QUALITY_INSPECTOR"),
+        ("u-qc-varvand", "br-varvand", "qc_varvand", qc_pw, "Govind Solanki", "9826077772", "QUALITY_INSPECTOR"),
+        ("u-qc-dhad", "br-dhad", "qc_dhad", qc_pw, "Narayan Sharma", "9826077773", "QUALITY_INSPECTOR"),
+        ("u-qc-head", "br-chikhali", "qc_head", qc_pw, "Mahesh Patidar", "9826077774", "QUALITY_INSPECTOR"),
     ]
     cur.executemany("INSERT OR IGNORE INTO users (id, branch_id, username, password_hash, full_name, phone, role) VALUES (?,?,?,?,?,?,?)", users)
 
@@ -624,6 +833,10 @@ def seed_test_fixtures(conn=None):
         ("ins-3", "br-chikhali", "Babulal Meena", "Chikhali Yard Sampler", "9826033333"),
         ("ins-4", "br-varvand", "Govind Solanki", "Varvand Quality Inspector", "9826044444"),
         ("ins-5", "br-dhad", "Narayan Sharma", "Dhad Assayer", "9826055555"),
+        ("u-qc-chikhali", "br-chikhali", "Babulal Meena", "Quality Inspector (Chikhali Yard)", "9826077771"),
+        ("u-qc-varvand", "br-varvand", "Govind Solanki", "Quality Inspector (Varvand Yard)", "9826077772"),
+        ("u-qc-dhad", "br-dhad", "Narayan Sharma", "Quality Inspector (Dhad Yard)", "9826077773"),
+        ("u-qc-head", "br-chikhali", "Mahesh Patidar", "Chief Quality Assayer", "9826077774"),
     ]
     cur.executemany("INSERT OR IGNORE INTO inspectors (id, branch_id, name, designation, phone) VALUES (?,?,?,?,?)", inspectors)
 

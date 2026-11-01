@@ -17,3 +17,6 @@ vendor_license_issuer.py
 build/
 *.spec
 dist/
+
+static/uploads/
+

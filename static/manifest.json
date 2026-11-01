@@ -1,13 +1,13 @@
 {
   "name": "Rajeshri Shahu Mandi Quality Assaying",
-  "short_name": "Mandi QC",
+  "short_name": "Mandi QC Assayer",
   "description": "APMC Digital Quality Assaying & Tamper-Proof Slip Generator for Quality Inspectors",
   "start_url": "/inspector/portal",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#0f172a",
-  "theme_color": "#0f172a",
+  "background_color": "#ffffff",
+  "theme_color": "#059669",
   "icons": [
     {
       "src": "/static/icons/icon-192.png",

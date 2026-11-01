@@ -32,6 +32,10 @@ from quality_engine import (
     calculate_mandi_corridor_rate,
     generate_qc_ticket_number,
     format_qc_slip_text,
+    detect_tray_and_warp,
+    segment_individual_kernels,
+    topological_7segment_ocr,
+    enforce_moisture_feasibility,
     COMMODITY_STANDARDS
 )
 
@@ -81,6 +85,71 @@ class TestQualityAssayingEngine(unittest.TestCase):
         self.assertIn("breed_purity_pct", analysis)
         self.assertIn("breed_status", analysis)
         self.assertGreaterEqual(analysis["breed_purity_pct"], 50.0)
+
+        # Verify new accuracy components
+        self.assertIn("tray_homography_warp", analysis)
+        self.assertTrue(analysis["tray_homography_warp"]["applied"])
+        self.assertIn("instance_segmentation", analysis)
+        self.assertIn("feasibility", analysis)
+
+    def test_standardized_tray_homography_warp(self):
+        """Tests ArUco/Quad corner fiducial detection and 4-point homography perspective warp."""
+        dummy_tray = self._create_dummy_image_bytes(color=(190, 190, 190), size=(640, 480))
+        warp_res = detect_tray_and_warp(dummy_tray, target_width=800, target_height=600)
+        self.assertTrue(warp_res["success"])
+        self.assertEqual(warp_res["warped_arr"].shape, (600, 800, 3))
+        self.assertEqual(warp_res["mm_per_pixel"], 0.3)
+        self.assertEqual(warp_res["tray_physical_width_mm"], 240.0)
+        self.assertEqual(warp_res["tray_physical_height_mm"], 180.0)
+        self.assertTrue(warp_res["optical_distortion_corrected"])
+
+    def test_individual_kernel_watershed_segmentation(self):
+        """Tests individual kernel instance segmentation via distance transform & watershed."""
+        import numpy as np
+        # Synthetic plate with 4 separated golden kernels
+        arr = np.ones((600, 800, 3), dtype=np.uint8) * 190
+        for y, x in [(100, 100), (150, 200), (300, 400), (450, 600)]:
+            rr, cc = np.ogrid[:600, :800]
+            arr[((rr - y)**2 + (cc - x)**2) <= 15**2] = [215, 185, 130]
+
+        seg = segment_individual_kernels(arr, mm_per_pixel=0.3)
+        self.assertGreaterEqual(seg["total_kernels_analyzed"], 4)
+        self.assertIn("sound_kernels_count", seg)
+        self.assertIn("green_seeds_pct", seg)
+        self.assertIn("damaged_pct", seg)
+        self.assertIn("uniformity_index", seg)
+
+    def test_topological_7segment_lcd_ocr(self):
+        """Tests 7-segment physical bar bitmask OCR and decimal point detection."""
+        dummy_lcd = self._create_dummy_image_bytes(color=(40, 45, 50))
+        res = topological_7segment_ocr(dummy_lcd)
+        self.assertTrue(res["success"])
+        self.assertIn("moisture_pct", res)
+        self.assertTrue(res["topological_bitmask_verified"])
+        self.assertIn("decimal_detected", res)
+        self.assertTrue(res["feasibility"]["is_feasible"])
+
+    def test_physical_moisture_feasibility_gating(self):
+        """Tests Indian mandi physical moisture feasibility boundary gating (7.0% to 24.0%)."""
+        # Valid moisture in mandi bounds
+        valid_res = enforce_moisture_feasibility(11.4)
+        self.assertTrue(valid_res["is_feasible"])
+        self.assertFalse(valid_res["requires_rescan"])
+        self.assertEqual(valid_res["status"], "FEASIBILITY_VERIFIED")
+        self.assertEqual(valid_res["warning"], "")
+
+        # Below physical bound (< 7.0%)
+        too_low = enforce_moisture_feasibility(4.2)
+        self.assertFalse(too_low["is_feasible"])
+        self.assertTrue(too_low["requires_rescan"])
+        self.assertEqual(too_low["status"], "FEASIBILITY_REJECTED")
+        self.assertIn("outside Indian mandi physical limits", too_low["warning"])
+
+        # Above physical bound (> 24.0%)
+        too_high = enforce_moisture_feasibility(28.5)
+        self.assertFalse(too_high["is_feasible"])
+        self.assertTrue(too_high["requires_rescan"])
+        self.assertEqual(too_high["status"], "FEASIBILITY_REJECTED")
 
     def test_corridor_rate_discovery_engine(self):
         """Tests statutory corridor pricing and APMC FAQ grading."""

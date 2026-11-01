@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">Mandi QC Inspector</string>
+    <string name="default_server_url">http://192.168.1.100:8080/inspector/portal</string>
+    <string name="fallback_cloud_url">https://mandi-erp-tracker.vercel.app</string>
+    <string name="menu_server_settings">Server IP Settings</string>
+    <string name="menu_refresh">Refresh Yard Desk</string>
+    <string name="save_settings">Connect to Yard Server</string>
+    <string name="server_url_hint">http://192.168.x.x:8080 or domain</string>
+</resources>

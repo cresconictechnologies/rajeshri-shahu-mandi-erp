@@ -301,14 +301,15 @@ def detect_tray_and_warp(
 # ---------------------------------------------------------------------------
 def segment_individual_kernels(
     rgb_arr: np.ndarray,
-    mm_per_pixel: float = 0.30
+    mm_per_pixel: float = 0.30,
+    commodity_name: str = ""
 ) -> Dict[str, Any]:
     """
-    Individual Kernel Instance Segmentation:
-    Replaces global pixel histograms with discrete watershed instance segmentation.
-    Isolates touching seeds into individual polygon contours, measures length-to-width
-    aspect ratios via PCA/eigenvalues, and calculates chlorophyll green and fungal necrosis
-    per kernel to match physical AGMARK lab handpicking refractions.
+    Individual Kernel Instance Segmentation & Multi-Spectral Admixture Profiling:
+    Replaces global pixel histograms with discrete watershed instance segmentation
+    and normalized chromaticity color invariance. Isolates touching seeds into individual
+    polygon contours, measures aspect ratios, and identifies foreign grain admixtures
+    (e.g. Yellow Soybeans in Desi Chana) to match physical AGMARK lab handpicking refractions.
     """
     arr = rgb_arr.astype(np.float32)
     r = arr[:, :, 0]
@@ -316,18 +317,51 @@ def segment_individual_kernels(
     b = arr[:, :, 2]
 
     luminance = 0.299 * r + 0.587 * g + 0.114 * b
-    # Grain mask: distinguishes grain pigments from matte-grey tray
-    grain_mask = (luminance > 45) & (luminance < 232)
+    total_rgb = r + g + b + 1e-5
+    norm_r = r / total_rgb
+    norm_g = g / total_rgb
+    norm_b = b / total_rgb
+    gr_ratio = g / (r + 1e-5)
+    diff_rb = np.abs(r - b)
+
+    # Floor Decoupling: Light grey/white tile floor or tray border has low saturation (norm_r < 0.38, diff_rb < 28) and bright
+    is_floor = (norm_r < 0.38) & (diff_rb < 28) & (luminance > 125)
+    grain_mask = ((luminance > 40) & (luminance < 235) & (~is_floor)) | (norm_r > 0.40)
     total_grain_pixels = float(np.sum(grain_mask)) + 1e-5
 
     # 1. Distance transform to separate touching grains
     dist = ndimage.distance_transform_edt(grain_mask)
 
     # 2. Peak local maxima to locate discrete seed centers
-    local_max = (ndimage.maximum_filter(dist, size=9) == dist) & (dist > 3)
+    local_max = (ndimage.maximum_filter(dist, size=11) == dist) & (dist > 3.5)
     markers, num_kernels = ndimage.label(local_max)
 
-    # 3. Watershed segmentation
+    # 3. Multi-Spectral Admixture & Foreign Grain Detection
+    is_chana = "chana" in commodity_name.lower() or "harbhara" in commodity_name.lower()
+    if is_chana:
+        # Yellow Soybeans in Desi Chana:
+        is_admixture = grain_mask & (gr_ratio > 0.79) & (gr_ratio < 0.96) & (total_rgb > 360) & (norm_b > 0.20)
+        admixture_type = "Soybean / Yellow Food Grain Admixture"
+    else:
+        # Dark seed / wild weed admixture in Soyabean or Wheat
+        is_admixture = grain_mask & (luminance < 65) & (diff_rb < 25)
+        admixture_type = "Foreign Seed Admixture"
+
+    adm_count = 0
+    adm_area = 0.0
+    if HAS_OPENCV:
+        try:
+            kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+            adm_clean = cv2.morphologyEx(is_admixture.astype(np.uint8) * 255, cv2.MORPH_OPEN, kernel)
+            num_adm, _, stats_adm, _ = cv2.connectedComponentsWithStats(adm_clean)
+            adm_count = sum(1 for i in range(1, num_adm) if stats_adm[i, cv2.CC_STAT_AREA] >= 65)
+            adm_area = float(sum(stats_adm[i, cv2.CC_STAT_AREA] for i in range(1, num_adm) if stats_adm[i, cv2.CC_STAT_AREA] >= 65))
+        except Exception:
+            adm_area = float(np.sum(is_admixture))
+    else:
+        adm_area = float(np.sum(is_admixture))
+
+    # Watershed segmentation
     if num_kernels > 0:
         kernel_labels = ndimage.watershed_ift((255 - np.clip(dist * 8, 0, 255)).astype(np.uint8), markers)
         kernel_labels *= grain_mask.astype(kernel_labels.dtype)
@@ -355,7 +389,6 @@ def segment_individual_kernels(
         kernel_areas.append(area_px)
         coords = np.argwhere(mask_i)
 
-        # Aspect ratio via covariance eigenvalues (Length L / Width W)
         if len(coords) >= 4:
             cov = np.cov(coords, rowvar=False)
             evals = np.linalg.eigvalsh(cov)
@@ -366,7 +399,6 @@ def segment_individual_kernels(
             aspect_ratio = 1.0
         aspect_ratios.append(aspect_ratio)
 
-        # Extract per-seed spectral metrics
         seed_r = r[mask_i]
         seed_g = g[mask_i]
         seed_b = b[mask_i]
@@ -390,39 +422,45 @@ def segment_individual_kernels(
         else:
             sound_count += 1
 
-    valid_seeds_count = max(len(unique_labels), int(total_grain_pixels / 310) + 140)
+    valid_seeds_count = max(len(unique_labels), int(total_grain_pixels / 320) + 120)
 
-    # 1. Green / Immature Seeds (Chlorophyll spectral peak)
+    # 1. Green / Immature Seeds
     green_condition = grain_mask & (g > (r * 1.05)) & (g > b * 1.12) & (g > 55)
     raw_green = (float(np.sum(green_condition)) / total_grain_pixels) * 100.0
     pct_green = min(12.0, max(0.1, round(raw_green * 1.1, 2)))
 
-    # 2. Rain & Weather Damage (Fungal necrosis, mold, dark stains)
+    # 2. Rain & Weather Damage (Fungal necrosis, mold)
     diff_all = np.maximum(np.maximum(r, g), b) - np.minimum(np.minimum(r, g), b) + 1e-5
-    dark_damaged_condition = grain_mask & (luminance < 75) & (diff_all < 40)
+    dark_damaged_condition = grain_mask & (luminance < 72) & (diff_all < 35)
     raw_damaged = (float(np.sum(dark_damaged_condition)) / total_grain_pixels) * 100.0
-    pct_damaged = min(15.0, max(0.2, round(raw_damaged * 1.15, 2)))
+    pct_damaged = min(15.0, max(0.2, round(raw_damaged * 0.95 + 0.35, 2)))
 
-    # 3. Foreign Matter / Karda (Sand, pebbles, stones, chaff, mud balls)
-    dark_inorganics = (luminance < 40)
+    # 3. Foreign Matter / Karda
+    dark_inorganics = grain_mask & (luminance < 42) & (diff_rb < 22)
     raw_karda = (float(np.sum(dark_inorganics)) / total_grain_pixels) * 100.0
-    pct_karda = min(8.0, max(0.2, round(raw_karda * 2.2, 2)))
+    pct_karda = min(8.0, max(0.2, round(raw_karda * 1.8 + 0.3, 2)))
 
-    # 4. Broken & Split Dal Grains (Sharp specular fracture edges)
+    # 4. Broken & Split Dal Grains
     edge_contrast = np.abs(r[:, 1:] - r[:, :-1]) + np.abs(g[:, 1:] - g[:, :-1])
     fracture_edges = grain_mask[:, 1:] & (edge_contrast > 65)
     raw_broken = (float(np.sum(fracture_edges)) / total_grain_pixels) * 100.0
-    pct_broken = min(7.5, max(0.3, round(raw_broken * 0.9, 2)))
+    pct_broken = min(7.5, max(0.3, round(raw_broken * 0.85, 2)))
 
     # 5. Shrivelled & Wrinkled Seeds
     pct_shriveled = round(max(0.2, (pct_damaged * 0.35) + (pct_green * 0.30)), 2)
 
-    # Reconcile kernel counts from instance percentages
+    # 6. Admixture of other food grains
+    pct_admixture = min(25.0, round((adm_area / total_grain_pixels) * 100.0, 2)) if total_grain_pixels > 0 else 0.0
+
+    # 7. Breed Purity Score
+    purity_pct = round(max(60.0, min(99.0, 100.0 - (pct_admixture * 1.35) - (pct_damaged * 0.25))), 1)
+
+    # Reconcile kernel counts
     damaged_count = int(round((pct_damaged / 100.0) * valid_seeds_count))
     green_count = int(round((pct_green / 100.0) * valid_seeds_count))
     broken_count = int(round((pct_broken / 100.0) * valid_seeds_count))
     shriveled_count = int(round((pct_shriveled / 100.0) * valid_seeds_count))
-    sound_count = max(0, valid_seeds_count - (damaged_count + green_count + broken_count + shriveled_count))
+    sound_count = max(0, valid_seeds_count - (damaged_count + green_count + broken_count + shriveled_count + adm_count))
 
     # Kernel Size Uniformity Index
     if kernel_areas:
@@ -445,8 +483,12 @@ def segment_individual_kernels(
         "broken_split_pct": pct_broken,
         "shriveled_pct": pct_shriveled,
         "karda_pct": pct_karda,
+        "admixture_pct": pct_admixture,
+        "admixture_seeds_count": adm_count,
+        "admixture_type": admixture_type,
+        "breed_purity_pct": purity_pct,
         "uniformity_index": uniformity_index,
-        "segmentation_method": "Watershed Individual Kernel Instance Profiling"
+        "segmentation_method": "Multi-Spectral Normalized Chromaticity & Watershed Instance Profiling"
     }
 
 
@@ -602,8 +644,8 @@ def analyze_grain_sample_image(
     warped_rgb = tray_warp["warped_arr"]
     mm_per_pixel = tray_warp.get("mm_per_pixel", 0.30)
 
-    # 2. Individual Kernel Instance Segmentation (Watershed)
-    seg_result = segment_individual_kernels(warped_rgb, mm_per_pixel=mm_per_pixel)
+    # 2. Individual Kernel Instance Segmentation (Watershed & Multi-Spectral Norm-Chroma)
+    seg_result = segment_individual_kernels(warped_rgb, mm_per_pixel=mm_per_pixel, commodity_name=commodity_name)
 
     karda_pct = seg_result["karda_pct"]
     damaged_pct = seg_result["damaged_pct"]
@@ -617,16 +659,17 @@ def analyze_grain_sample_image(
     breeds_list = std.get("standard_breeds", ["Standard Cultivar"])
     dominant_breed = breeds_list[0]
 
-    purity_penalty = (green_seeds_pct * 1.25) + (damaged_pct * 0.85) + (broken_split_pct * 0.5)
-    breed_purity_pct = round(max(60.0, min(98.5, 98.5 - purity_penalty)), 1)
-    admixture_pct = round(100.0 - breed_purity_pct, 1)
+    admixture_pct = seg_result.get("admixture_pct", 0.0)
+    breed_purity_pct = seg_result.get("breed_purity_pct", 95.0)
+    admixture_count = seg_result.get("admixture_seeds_count", 0)
+    admixture_type = seg_result.get("admixture_type", "Standard Cultivar")
 
     if breed_purity_pct >= 92.0:
-        breed_status = "PURE_BREED (Pure Lot)"
+        breed_status = "FAQ Grade 1 (Pure Lot)"
     elif breed_purity_pct >= 82.0:
-        breed_status = "SLIGHTLY_MIXED (Minor Admixture)"
+        breed_status = "FAQ Grade 2 (Moderate Admixture)"
     else:
-        breed_status = "HEAVILY_MIXED (Mixed Lot)"
+        breed_status = "Sub-Standard (Mixed Lot)"
 
     # 4. Moisture Feasibility Gating
     moisture_pct = measured_moisture if (measured_moisture is not None and measured_moisture > 0) else 11.2
@@ -650,6 +693,8 @@ def analyze_grain_sample_image(
         "dominant_breed": dominant_breed,
         "breed_purity_pct": breed_purity_pct,
         "admixture_pct": admixture_pct,
+        "admixture_seeds_count": admixture_count,
+        "admixture_type": admixture_type,
         "breed_status": breed_status,
         "tray_homography_warp": {
             "applied": True,
@@ -662,7 +707,8 @@ def analyze_grain_sample_image(
             "green_kernels_count": seg_result["green_kernels_count"],
             "damaged_kernels_count": seg_result["damaged_kernels_count"],
             "broken_kernels_count": seg_result["broken_kernels_count"],
-            "shriveled_kernels_count": seg_result["shriveled_kernels_count"]
+            "shriveled_kernels_count": seg_result["shriveled_kernels_count"],
+            "admixture_kernels_count": admixture_count
         },
         "feasibility": feasibility
     }

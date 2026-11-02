@@ -805,16 +805,33 @@
         // ---------------------------------------------------------------------
         // INSPECTOR MOBILE APP QR CODE MODAL
         // ---------------------------------------------------------------------
-        function openInspectorQrModal() {
-            const modal = document.getElementById('inspectorQrModal');
+        let activeQrMode = 'cloud';
+        function setQrMode(mode) {
+            activeQrMode = mode;
+            const btnCloud = document.getElementById('qrBtnCloud');
+            const btnLan = document.getElementById('qrBtnLan');
             const urlInput = document.getElementById('inspectorQrUrl');
             const qrImg = document.getElementById('inspectorQrImg');
             
-            const targetUrl = window.location.origin + '/inspector/portal';
+            let targetUrl = 'https://mandi-erp-tracker.vercel.app/app';
+            if (mode === 'lan') {
+                const host = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost' ? '192.168.0.140' : window.location.hostname;
+                targetUrl = 'http://' + host + ':8080/inspector/portal';
+                if (btnLan) { btnLan.style.background = '#047857'; btnLan.style.color = '#fff'; }
+                if (btnCloud) { btnCloud.style.background = '#f1f5f9'; btnCloud.style.color = '#475569'; }
+            } else {
+                if (btnCloud) { btnCloud.style.background = '#047857'; btnCloud.style.color = '#fff'; }
+                if (btnLan) { btnLan.style.background = '#f1f5f9'; btnLan.style.color = '#475569'; }
+            }
             if (urlInput) urlInput.value = targetUrl;
             if (qrImg) {
                 qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + encodeURIComponent(targetUrl);
             }
+        }
+
+        function openInspectorQrModal() {
+            const modal = document.getElementById('inspectorQrModal');
+            setQrMode('cloud');
             if (modal) modal.style.display = 'flex';
         }
 
@@ -849,8 +866,17 @@
                 <button type="button" onclick="closeInspectorQrModal()" style="background:none; border:none; font-size:22px; cursor:pointer; color:#64748b; line-height:1;">✕</button>
             </div>
 
-            <p style="font-size:12.5px; color:#64748b; margin:0 0 16px;">
-                Scan with any Android phone camera or visit link in Chrome to install the offline Mandi QC App:
+            <div style="display:flex; gap:8px; margin-bottom:14px; background:#f1f5f9; padding:4px; border-radius:10px;">
+                <button type="button" id="qrBtnCloud" onclick="setQrMode('cloud')" style="flex:1; border:none; padding:7px 10px; border-radius:8px; font-size:11.5px; font-weight:800; cursor:pointer; background:#047857; color:#fff; transition:all 0.15s;">
+                    🌐 Cloud Vercel App
+                </button>
+                <button type="button" id="qrBtnLan" onclick="setQrMode('lan')" style="flex:1; border:none; padding:7px 10px; border-radius:8px; font-size:11.5px; font-weight:800; cursor:pointer; background:#f1f5f9; color:#475569; transition:all 0.15s;">
+                    📶 Yard Wi-Fi LAN
+                </button>
+            </div>
+
+            <p style="font-size:12px; color:#64748b; margin:0 0 14px;">
+                Scan with any phone camera or open in Chrome to launch the Mandi QC Assaying Terminal:
             </p>
 
             <div style="display:inline-block; padding:12px; background:#f8fafc; border:1.5px solid #e2e8f0; border-radius:14px; margin-bottom:16px;">

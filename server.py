@@ -1367,7 +1367,7 @@ def api_system_updates_status(request: Request):
         "success": True,
         "app_name": "Rajarshi Shahu Trading — Mandi ERP",
         "branding": "Powered by Cresconic Technologies",
-        "version": "v2.6.5-PROD",
+        "version": "v1.0",
         "build_date": "2026-11-02",
         "build_timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S IST"),
         "master_host": "192.168.0.140:8080",
@@ -1390,7 +1390,7 @@ def api_system_updates_broadcast(
     require_role(request, ["ACCOUNTANT_HQ", "SUPER_ADMIN"])
 
     emit_live_event("system_update_broadcast", {
-        "version": "v2.6.5-PROD",
+        "version": "v1.0",
         "patch_note": patch_note,
         "reload_delay_ms": reload_seconds * 1000,
         "timestamp": datetime.now().isoformat(),
@@ -1400,7 +1400,7 @@ def api_system_updates_broadcast(
     return JSONResponse({
         "success": True,
         "message": "System update broadcasted to all active terminals.",
-        "version": "v2.6.5-PROD",
+        "version": "v1.0",
         "reload_seconds": reload_seconds
     })
 

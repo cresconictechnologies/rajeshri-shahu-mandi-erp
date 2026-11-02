@@ -248,7 +248,7 @@ html_content = f"""
                 <span style="font-size: 26px;">🌾</span>
                 <span style="font-size: 20px; color: #0f172a;">Rajeshri Shahu Trading Co.</span>
             </div>
-            <div class="slide-tag">Production Release v2.6.0</div>
+            <div class="slide-tag">Production Release v1.0</div>
         </div>
 
         <div style="max-width: 9.5in; margin: auto 0;">
@@ -352,7 +352,7 @@ html_content = f"""
         </div>
 
         <div class="slide-footer">
-            <span>Rajeshri Shahu Mandi ERP v2.6.0</span>
+            <span>Rajeshri Shahu Mandi ERP v1.0</span>
             <span>Slide 2 of 8 • Core Operational Flow</span>
         </div>
     </div>
@@ -393,7 +393,7 @@ html_content = f"""
         </div>
 
         <div class="slide-footer">
-            <span>Rajeshri Shahu Mandi ERP v2.6.0</span>
+            <span>Rajeshri Shahu Mandi ERP v1.0</span>
             <span>Slide 3 of 8 • Handheld Captain Tablet Mode</span>
         </div>
     </div>
@@ -447,7 +447,7 @@ html_content = f"""
         </div>
 
         <div class="slide-footer">
-            <span>Rajeshri Shahu Mandi ERP v2.6.0</span>
+            <span>Rajeshri Shahu Mandi ERP v1.0</span>
             <span>Slide 4 of 8 • Computer Vision Assaying Accuracy</span>
         </div>
     </div>
@@ -488,7 +488,7 @@ html_content = f"""
         </div>
 
         <div class="slide-footer">
-            <span>Rajeshri Shahu Mandi ERP v2.6.0</span>
+            <span>Rajeshri Shahu Mandi ERP v1.0</span>
             <span>Slide 5 of 8 • Weighbridge & Cashier Operations</span>
         </div>
     </div>
@@ -529,7 +529,7 @@ html_content = f"""
         </div>
 
         <div class="slide-footer">
-            <span>Rajeshri Shahu Mandi ERP v2.6.0</span>
+            <span>Rajeshri Shahu Mandi ERP v1.0</span>
             <span>Slide 6 of 8 • Stock Inventory & Trader Sales</span>
         </div>
     </div>
@@ -570,7 +570,7 @@ html_content = f"""
         </div>
 
         <div class="slide-footer">
-            <span>Rajeshri Shahu Mandi ERP v2.6.0</span>
+            <span>Rajeshri Shahu Mandi ERP v1.0</span>
             <span>Slide 7 of 8 • Central Governance & Security</span>
         </div>
     </div>
@@ -623,7 +623,7 @@ html_content = f"""
                     <div style="font-size: 11.5px; color: #047857;">Standalone Windows Executable + Handheld Android Tablet Terminal • Full Source on GitHub</div>
                 </div>
                 <div style="font-family: 'JetBrains Mono'; font-size: 12px; font-weight: 700; color: #065f46; background: #ffffff; padding: 6px 14px; border-radius: 8px; border: 1.5px solid #a7f3d0;">
-                    Release v2.6.0 Signed
+                    Release v1.0 Signed
                 </div>
             </div>
         </div>

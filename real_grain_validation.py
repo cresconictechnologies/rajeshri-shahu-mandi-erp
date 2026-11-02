@@ -1,6 +1,6 @@
 """
 Real Grain Ground-Truth Validation & Accuracy Evaluation Engine
-Rajeshri Shahu Market Committee ERP v2.6
+Rajeshri Shahu Market Committee ERP v1.0
 
 Validates Computer Vision Assaying & Corridor Pricing against real-world
 physical APMC laboratory assays across 5 major agricultural commodities:

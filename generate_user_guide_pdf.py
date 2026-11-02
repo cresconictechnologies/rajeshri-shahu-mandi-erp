@@ -47,7 +47,7 @@ html_content = f"""
                 color: #64748b;
             }}
             @bottom-left {{
-                content: "Rajeshri Shahu Mandi ERP v2.6.0 • Official User Manual";
+                content: "Rajeshri Shahu Mandi ERP v1.0 • Official User Manual";
                 font-size: 9pt;
                 font-family: 'Plus Jakarta Sans', sans-serif;
                 color: #64748b;
@@ -242,7 +242,7 @@ html_content = f"""
         <div class="brand-title">
             <span>🌾</span> Rajeshri Shahu Trading Co.
         </div>
-        <div class="version-badge">Production v2.6.0 • User Manual</div>
+        <div class="version-badge">Production v1.0 • User Manual</div>
     </div>
 
     <h1>APMC Mandi ERP & AI Grain Assaying System</h1>

@@ -135,6 +135,26 @@
                         self.ws.send('ping');
                     }
                 }, 25000);
+
+                // Register system update receiver if not already registered
+                if (!self._systemUpdateRegistered) {
+                    self._systemUpdateRegistered = true;
+                    self.on('system_update_broadcast', function(data) {
+                        const note = data.patch_note || 'Software update deployed from Master PC.';
+                        const delayMs = data.reload_delay_ms || 3000;
+                        self.toast('🚀 System Update Deployed', `${note} Updating application in ${Math.round(delayMs/1000)}s...`, 'urgent');
+                        setTimeout(() => {
+                            try {
+                                if ('caches' in window) {
+                                    caches.keys().then(names => {
+                                        names.forEach(name => caches.delete(name));
+                                    });
+                                }
+                            } catch(e) {}
+                            window.location.reload(true);
+                        }, delayMs);
+                    });
+                }
             };
 
             self.ws.onmessage = function(event) {

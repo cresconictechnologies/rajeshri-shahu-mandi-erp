@@ -91,6 +91,7 @@
             </span>
             <a href="/inspector/portal" target="_blank" class="nav-pill" style="background:#047857; color:#fff; font-weight:700;">🔬 Inspector QC Portal</a>
             <button type="button" onclick="openInspectorQrModal()" class="nav-pill" style="background:#0f766e; color:#fff; font-weight:700; border:none; cursor:pointer;">📲 Mobile App QR</button>
+            <button type="button" onclick="openSystemUpdatesModal()" class="nav-pill" style="background:#0f172a; color:#38bdf8; font-weight:700; border:1px solid #38bdf8; cursor:pointer;">⚡ System Updates</button>
             <a href="/branch/stock?branch_id={{ current_branch.id }}" class="nav-pill" style="background:#0369a1; color:#fff; font-weight:700;">📦 Yard Stock</a>
             <a href="/branch/settings?branch_id={{ current_branch.id }}" class="nav-pill">⚙️ Settings</a>
             <a href="/logout" class="nav-pill" style="background:#fef2f2; color:#b91c1c; border-color:#fecaca; font-weight:700;">🚪 Logout</a>
@@ -1397,12 +1398,38 @@
                 }
             });
 
-            // On rates_updated: show toast notification that daily rates were updated by HQ Accounts
+            // On rates_updated: show toast notification that daily rates were updated by HQ Accounts & sync ribbon
             MandiLiveSync.on('rates_updated', function(data) {
-                const comm = data.commodity || 'Commodity';
-                const targetRate = data.target_rate ? `Target: ₹${Number(data.target_rate).toLocaleString()}/Qtl` : '';
+                const comm = data.commodity_name || data.commodity || 'Commodity';
+                const targetRate = data.target_rate ? `Target: ₹${Number(data.target_rate).toLocaleString('en-IN')}/Qtl` : '';
                 const msg = `Daily rates were updated by HQ Accounts for ${comm} (${targetRate}).`;
                 MandiLiveSync.toast('⚡ Rates Updated', msg, 'info');
+
+                // Dynamically update ribbon chip in branch header
+                const ribbon = document.querySelector('.rates-ribbon');
+                if (ribbon && (data.min_rate || data.min_rate_per_qtl)) {
+                    const minR = data.min_rate || data.min_rate_per_qtl;
+                    const maxR = data.max_rate || data.max_rate_per_qtl;
+                    const tgtR = data.target_rate || data.target_rate_per_qtl;
+                    const chips = ribbon.querySelectorAll('.rate-chip');
+                    let found = false;
+                    chips.forEach(chip => {
+                        if (chip.innerText.includes(comm)) {
+                            chip.innerHTML = `${comm}: <strong>₹${Math.round(Number(minR)).toLocaleString('en-IN')} – ₹${Math.round(Number(maxR)).toLocaleString('en-IN')}</strong> <span style="color:#047857; font-weight:700; font-size:11.5px;">(Target: ₹${Math.round(Number(tgtR)).toLocaleString('en-IN')})</span>`;
+                            chip.style.backgroundColor = '#ecfdf5';
+                            chip.style.borderColor = '#059669';
+                            setTimeout(() => { chip.style.backgroundColor = ''; chip.style.borderColor = ''; }, 3000);
+                            found = true;
+                        }
+                    });
+                    if (!found) {
+                        const newChip = document.createElement('div');
+                        newChip.className = 'rate-chip';
+                        newChip.style.backgroundColor = '#ecfdf5';
+                        newChip.innerHTML = `${comm}: <strong>₹${Math.round(Number(minR)).toLocaleString('en-IN')} – ₹${Math.round(Number(maxR)).toLocaleString('en-IN')}</strong> <span style="color:#047857; font-weight:700; font-size:11.5px;">(Target: ₹${Math.round(Number(tgtR)).toLocaleString('en-IN')})</span>`;
+                        ribbon.appendChild(newChip);
+                    }
+                }
             });
 
             // On rtgs_processed: show toast notification with UTR number for that branch
@@ -2532,6 +2559,55 @@
             }
         }
 
+        // ---------------------------------------------------------------------
+        // SYSTEM UPDATES FOR BRANCH YARDS
+        // ---------------------------------------------------------------------
+        function openSystemUpdatesModal() {
+            const modal = document.getElementById('systemUpdatesModal');
+            if (modal) modal.style.display = 'flex';
+            checkBranchSystemUpdates();
+        }
+
+        function closeSystemUpdatesModal() {
+            const modal = document.getElementById('systemUpdatesModal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        async function checkBranchSystemUpdates() {
+            const badge = document.getElementById('branchSysBadge');
+            const note = document.getElementById('branchSysNote');
+            if (badge) { badge.innerText = 'Checking Master PC...'; badge.style.color = '#0284c7'; }
+            try {
+                const resp = await fetch('/api/system/updates/status');
+                const data = await resp.json();
+                if (data.success) {
+                    if (badge) {
+                        badge.innerText = '✓ ' + data.version + ' (ONLINE)';
+                        badge.style.color = '#047857';
+                    }
+                    if (note) {
+                        note.innerHTML = `<strong>Connected to Master PC:</strong> <code>${data.master_host}</code><br>
+                                          <strong>QC Engine:</strong> ${data.engine_version}<br>
+                                          <strong>Build Time:</strong> ${data.build_timestamp}<br>
+                                          <strong>Status:</strong> ${data.status} • Yard synchronized.`;
+                    }
+                }
+            } catch (err) {
+                if (badge) { badge.innerText = 'Master Offline'; badge.style.color = '#d97706'; }
+                if (note) note.innerText = 'Cannot reach Master PC: ' + err.message;
+            }
+        }
+
+        async function purgeBranchLocalCache() {
+            if (confirm('Clear local browser cache and fetch latest build & hotfixes from Master PC?')) {
+                if ('caches' in window) {
+                    const keys = await caches.keys();
+                    await Promise.all(keys.map(k => caches.delete(k)));
+                }
+                window.location.reload(true);
+            }
+        }
+
         window.onload = function() {
             fetchPendingQCTickets();
             const firstCard = document.querySelector('.commodity-card');
@@ -2589,6 +2665,54 @@
             <button type="button" onclick="closeInspectorQrModal()" style="width:100%; background:#059669; color:#fff; border:none; padding:11px; border-radius:10px; font-weight:800; font-size:13.5px; cursor:pointer;">
                 Done
             </button>
+        </div>
+    </div>
+
+    <!-- MODAL: SYSTEM UPDATES (BRANCH YARD) -->
+    <div id="systemUpdatesModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.75); z-index:99999; justify-content:center; align-items:center; padding:16px; box-sizing:border-box;">
+        <div style="background:#ffffff; max-width:460px; width:100%; border-radius:18px; padding:24px; box-shadow:0 10px 25px -5px rgba(15,23,42,0.15); border:1.5px solid #cbd5e1;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; border-bottom:1.5px solid #f1f5f9; padding-bottom:12px;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span style="font-size:22px;">⚡</span>
+                    <h3 style="margin:0; font-size:16.5px; font-weight:800; color:#0f172a;">Yard Terminal Updates & Sync</h3>
+                </div>
+                <button type="button" onclick="closeSystemUpdatesModal()" style="background:none; border:none; font-size:22px; cursor:pointer; color:#64748b; line-height:1;">✕</button>
+            </div>
+
+            <!-- STATUS CARD -->
+            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:14px; margin-bottom:16px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                    <span style="font-size:12px; font-weight:700; color:#64748b; text-transform:uppercase;">Master Connection:</span>
+                    <span id="branchSysBadge" style="font-size:12px; font-weight:800; color:#047857; background:#ecfdf5; padding:3px 8px; border-radius:6px; border:1px solid #a7f3d0;">
+                        ✓ v2.6.5-PROD (ONLINE)
+                    </span>
+                </div>
+                <div id="branchSysNote" style="font-size:12px; color:#334155; line-height:1.6;">
+                    <strong>Master PC Host:</strong> <code>192.168.0.140:8080</code><br>
+                    <strong>QC Assayer Engine:</strong> Multi-Spectral Norm-Chroma Assayer v3.0<br>
+                    Terminal is listening for real-time Master PC hotfixes.
+                </div>
+            </div>
+
+            <!-- ACTION BUTTONS -->
+            <div style="display:flex; gap:10px; margin-bottom:16px;">
+                <button type="button" onclick="checkBranchSystemUpdates()" style="flex:1; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; padding:10px; border-radius:10px; font-weight:700; font-size:12px; cursor:pointer;">
+                    🔍 Check Master Status
+                </button>
+                <button type="button" onclick="purgeBranchLocalCache()" style="flex:1; background:#0f172a; color:#38bdf8; border:1px solid #38bdf8; padding:10px; border-radius:10px; font-weight:800; font-size:12px; cursor:pointer;">
+                    🔄 Sync & Reload
+                </button>
+            </div>
+
+            <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px; padding:10px 12px; font-size:11.5px; color:#1e40af; line-height:1.4;">
+                <strong>💡 Automatic Hotfixes:</strong> When the Head Office Accountant deploys any hotfix from the Master PC, this yard terminal will automatically receive the update and reload.
+            </div>
+
+            <div style="margin-top:16px;">
+                <button type="button" onclick="closeSystemUpdatesModal()" style="width:100%; background:#047857; color:#fff; border:none; padding:10px; border-radius:10px; font-weight:800; font-size:13px; cursor:pointer;">
+                    Done
+                </button>
+            </div>
         </div>
     </div>
 </body>

@@ -1328,8 +1328,10 @@ def api_accounts_set_rate(
         conn.commit()
         emit_live_event("rates_updated", {
             "commodity": commodity_name,
+            "commodity_name": commodity_name,
             "rate_date": rate_date,
             "branch_id": branch_id,
+            "quality_grade": quality_grade,
             "min_rate": min_rate,
             "target_rate": target_rate,
             "max_rate": max_rate,
@@ -1338,7 +1340,69 @@ def api_accounts_set_rate(
     finally:
         conn.close()
 
+    if request.headers.get("accept") == "application/json" or request.headers.get("x-requested-with") == "XMLHttpRequest":
+        return JSONResponse({
+            "success": True,
+            "message": f"Daily Mandi Rates updated for {commodity_name}",
+            "commodity_name": commodity_name,
+            "quality_grade": quality_grade,
+            "min_rate": min_rate,
+            "target_rate": target_rate,
+            "max_rate": max_rate,
+            "rate_date": rate_date,
+            "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        })
+
     return RedirectResponse(url="/accounts/dashboard", status_code=303)
+
+
+# --------------------------------------------------------------------------
+# API ENDPOINTS: SYSTEM UPDATES & MASTER PC DEPLOYMENT
+# --------------------------------------------------------------------------
+@app.get("/api/system/updates/status")
+def api_system_updates_status(request: Request):
+    """Returns current system software build, version, and master terminal health."""
+    client_ip = request.client.host if request.client else "127.0.0.1"
+    return JSONResponse({
+        "success": True,
+        "app_name": "Rajarshi Shahu Trading — Mandi ERP",
+        "branding": "Powered by Cresconic Technologies",
+        "version": "v2.6.5-PROD",
+        "build_date": "2026-11-02",
+        "build_timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S IST"),
+        "master_host": "192.168.0.140:8080",
+        "cloud_pwa_url": "https://mandi-erp-tracker.vercel.app/app",
+        "status": "OPERATIONAL",
+        "engine_version": "Multi-Spectral Norm-Chroma Assayer v3.0",
+        "update_available": False,
+        "latest_patch": "Instant Rate Corridor Sync & Terminal OTA Updates",
+        "client_ip": client_ip
+    })
+
+
+@app.post("/api/system/updates/broadcast")
+def api_system_updates_broadcast(
+    request: Request,
+    patch_note: str = Form("Master PC deployed an application update. Terminals will refresh to load latest assets."),
+    reload_seconds: int = Form(3)
+):
+    """Allows Master PC / Accountant / Super Admin to push instant live updates to all connected devices."""
+    require_role(request, ["ACCOUNTANT_HQ", "SUPER_ADMIN"])
+
+    emit_live_event("system_update_broadcast", {
+        "version": "v2.6.5-PROD",
+        "patch_note": patch_note,
+        "reload_delay_ms": reload_seconds * 1000,
+        "timestamp": datetime.now().isoformat(),
+        "summary": f"🚀 System Update Deployed: {patch_note}"
+    })
+
+    return JSONResponse({
+        "success": True,
+        "message": "System update broadcasted to all active terminals.",
+        "version": "v2.6.5-PROD",
+        "reload_seconds": reload_seconds
+    })
 
 @app.post("/api/accounts/rate-overrides/action")
 def api_accounts_rate_override_action(

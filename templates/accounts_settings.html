@@ -122,6 +122,35 @@
                     </div>
                 </div>
 
+                <div class="card" style="margin-top:20px; border:1.5px solid #38bdf8; background:#f8fafc;">
+                    <div class="card-header" style="border-bottom:1px solid #e2e8f0; padding-bottom:8px;">
+                        <h2 style="color:#0f172a; font-size:15px; display:flex; align-items:center; gap:6px;">
+                            <span>⚡</span> Master PC Hotfix & System Updates
+                        </h2>
+                        <span id="setUpdateBadge" style="font-size:11px; font-weight:800; color:#047857; background:#ecfdf5; padding:2px 7px; border-radius:5px; border:1px solid #a7f3d0;">
+                            v2.6.5-PROD
+                        </span>
+                    </div>
+                    <div style="font-size:12px; color:#334155; line-height:1.5; margin-bottom:12px;">
+                        <strong>Master PC:</strong> <code>192.168.0.140:8080</code><br>
+                        <strong>Engine:</strong> QC Multi-Spectral Assayer v3.0<br>
+                        Deploy bugfixes & hotfixes instantly to all phones & yard counters.
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:8px;">
+                        <button type="button" onclick="broadcastHotfixFromSettings()" style="width:100%; background:#0f172a; color:#38bdf8; border:1px solid #38bdf8; padding:9px; border-radius:8px; font-weight:800; font-size:12px; cursor:pointer;">
+                            🚀 Broadcast Hotfix to All Terminals
+                        </button>
+                        <div style="display:flex; gap:6px;">
+                            <button type="button" onclick="checkStatusFromSettings()" style="flex:1; background:#ffffff; color:#334155; border:1px solid #cbd5e1; padding:7px; border-radius:8px; font-weight:700; font-size:11px; cursor:pointer;">
+                                🔍 Check Status
+                            </button>
+                            <button type="button" onclick="purgeCacheFromSettings()" style="flex:1; background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; padding:7px; border-radius:8px; font-weight:700; font-size:11px; cursor:pointer;">
+                                🧹 Clear Cache
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="card" style="margin-top:20px;">
                     <div class="card-header">
                         <h2><span>🔗</span> Quick Portal Links</h2>
@@ -144,5 +173,45 @@
             </div>
         </div>
     </div>
+    <script>
+        async function checkStatusFromSettings() {
+            try {
+                const resp = await fetch('/api/system/updates/status');
+                const data = await resp.json();
+                if (data.success) {
+                    alert('✓ System Operational!\n\nVersion: ' + data.version + '\nEngine: ' + data.engine_version + '\nHost: ' + data.master_host + '\nBuild: ' + data.build_timestamp);
+                }
+            } catch (e) {
+                alert('Could not check updates status: ' + e.message);
+            }
+        }
+
+        async function broadcastHotfixFromSettings() {
+            const note = prompt('Enter Update / Hotfix Summary to broadcast to all terminals:', 'Bugfix deployed from Master PC: Corridors & OCR updated');
+            if (!note) return;
+            try {
+                const fd = new FormData();
+                fd.append('patch_note', note);
+                fd.append('reload_seconds', 3);
+                const resp = await fetch('/api/system/updates/broadcast', { method: 'POST', body: fd });
+                const data = await resp.json();
+                if (data.success) {
+                    alert('✓ Hotfix broadcasted! All terminals, phones, and dashboards will reload fresh assets in 3 seconds.');
+                }
+            } catch (e) {
+                alert('Broadcast error: ' + e.message);
+            }
+        }
+
+        async function purgeCacheFromSettings() {
+            if (confirm('Clear local cache and hard-reload?')) {
+                if ('caches' in window) {
+                    const keys = await caches.keys();
+                    await Promise.all(keys.map(k => caches.delete(k)));
+                }
+                window.location.reload(true);
+            }
+        }
+    </script>
 </body>
 </html>

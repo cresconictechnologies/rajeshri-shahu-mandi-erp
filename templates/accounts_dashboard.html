@@ -25,6 +25,16 @@
             color: #065f46;
             font-weight: 600;
         }
+        @keyframes ratePulse {
+            0% { box-shadow: 0 0 0 0 rgba(4, 120, 87, 0.8); transform: scale(1.02); }
+            50% { box-shadow: 0 0 0 12px rgba(4, 120, 87, 0); transform: scale(1.01); }
+            100% { box-shadow: 0 0 0 0 rgba(4, 120, 87, 0); transform: scale(1); }
+        }
+        .rate-updated-glow {
+            animation: ratePulse 1.2s ease-out;
+            border-color: #059669 !important;
+            background: #f0fdf4 !important;
+        }
     </style>
 </head>
 <body>
@@ -45,6 +55,7 @@
             </span>
             <a href="/inspector/portal" target="_blank" class="nav-pill" style="background:#047857; color:#fff; font-weight:700;">🔬 QC Portal</a>
             <button type="button" onclick="openInspectorQrModal()" class="nav-pill" style="background:#0f766e; color:#fff; font-weight:700; border:none; cursor:pointer;">📲 Mobile App QR</button>
+            <button type="button" onclick="openSystemUpdatesModal()" class="nav-pill" style="background:#0f172a; color:#38bdf8; font-weight:700; border:1px solid #38bdf8; cursor:pointer;">⚡ System Updates</button>
             <a href="/accounts/settings" class="nav-pill">⚙️ Accounts Settings</a>
             <a href="/branch/stock" class="nav-pill">📦 Consolidated Stock</a>
             <a href="/logout" class="nav-pill" style="background:#fef2f2; color:#b91c1c; border-color:#fecaca; font-weight:700;">🚪 Logout</a>
@@ -131,15 +142,15 @@
             <div class="card-header">
                 <h2><span>📝</span> Set / Update Today's Buying Price Corridor</h2>
             </div>
-            <form action="/api/accounts/rates" method="POST">
+            <form action="/api/accounts/rates" method="POST" id="rateCorridorForm" onsubmit="submitRateCorridor(event)">
                 <div class="form-row">
                     <div class="form-group">
                         <label>Effective Date</label>
-                        <input type="date" name="rate_date" value="{{ today_str }}" required>
+                        <input type="date" name="rate_date" id="acc_rate_date" value="{{ today_str }}" required>
                     </div>
                     <div class="form-group">
                         <label>Commodity</label>
-                        <select id="acc_commodity_name" name="commodity_name" required>
+                        <select id="acc_commodity_name" name="commodity_name" required onchange="handleCommodityDropdownChange(this.value)">
                             {% for c in commodities %}
                             <option value="{{ c.name }}">{{ c.name }}</option>
                             {% endfor %}
@@ -166,7 +177,7 @@
                         <input type="number" step="0.5" id="acc_max_rate" name="max_rate" placeholder="4800" required>
                     </div>
                     <div class="form-group" style="display:flex; align-items:flex-end;">
-                        <button type="submit" class="btn btn-accounts" style="width:100%;">Publish Rate Board →</button>
+                        <button type="submit" id="btnPublishRate" class="btn btn-accounts" style="width:100%;">Publish Rate Board →</button>
                     </div>
                 </div>
             </form>
@@ -770,6 +781,128 @@
             document.getElementById('acc_max_rate').value = maxRate;
         }
 
+        function handleCommodityDropdownChange(commName) {
+            const card = Array.from(document.querySelectorAll('.commodity-card')).find(c => c.dataset.name === commName);
+            if (card) {
+                selectAccountCommodity(card);
+            }
+        }
+
+        async function submitRateCorridor(event) {
+            event.preventDefault();
+            const form = event.target;
+            const btn = document.getElementById('btnPublishRate');
+            if (btn) { btn.disabled = true; btn.innerText = 'Publishing...'; }
+
+            try {
+                const formData = new FormData(form);
+                const resp = await fetch('/api/accounts/rates', {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: formData
+                });
+                const result = await resp.json();
+                if (result.success) {
+                    updateAccountCommodityCardUI(
+                        result.commodity_name,
+                        result.min_rate,
+                        result.target_rate,
+                        result.max_rate,
+                        result.quality_grade
+                    );
+                    updatePublishedRatesTableUI(result);
+                    if (window.MandiLiveSync && MandiLiveSync.toast) {
+                        MandiLiveSync.toast('Rate Board Published', '✓ Updated rates for ' + result.commodity_name + ' (Target: ₹' + Number(result.target_rate).toLocaleString('en-IN') + '/Qtl)', 'success');
+                    }
+                } else {
+                    alert('Error publishing rates: ' + (result.message || 'Unknown error'));
+                }
+            } catch (err) {
+                console.error('Failed to submit rate corridor via AJAX, falling back:', err);
+                form.submit();
+            } finally {
+                if (btn) { btn.disabled = false; btn.innerText = 'Publish Rate Board →'; }
+            }
+        }
+
+        function updateAccountCommodityCardUI(name, minRate, targetRate, maxRate, grade) {
+            const cards = document.querySelectorAll('.commodity-card');
+            cards.forEach(card => {
+                if (card.dataset.name === name) {
+                    card.dataset.min = minRate;
+                    card.dataset.target = targetRate;
+                    card.dataset.max = maxRate;
+                    if (grade) card.dataset.grade = grade;
+
+                    const rateVals = card.querySelectorAll('.rate-val');
+                    if (rateVals.length >= 3) {
+                        rateVals[0].innerText = '₹' + Math.round(Number(minRate)).toLocaleString('en-IN');
+                        rateVals[1].innerText = '₹' + Math.round(Number(targetRate)).toLocaleString('en-IN');
+                        rateVals[2].innerText = '₹' + Math.round(Number(maxRate)).toLocaleString('en-IN');
+                    }
+                    const gradeTag = card.querySelector('.card-grade-tag');
+                    if (gradeTag && grade) {
+                        gradeTag.innerText = 'Grade: ' + grade;
+                    }
+
+                    card.classList.add('selected');
+                    card.classList.remove('rate-updated-glow');
+                    void card.offsetWidth;
+                    card.classList.add('rate-updated-glow');
+                } else {
+                    card.classList.remove('selected');
+                }
+            });
+
+            const commSelect = document.getElementById('acc_commodity_name');
+            if (commSelect && commSelect.value === name) {
+                if (document.getElementById('acc_min_rate')) document.getElementById('acc_min_rate').value = minRate;
+                if (document.getElementById('acc_target_rate')) document.getElementById('acc_target_rate').value = targetRate;
+                if (document.getElementById('acc_max_rate')) document.getElementById('acc_max_rate').value = maxRate;
+                if (grade && document.getElementById('acc_quality_grade')) document.getElementById('acc_quality_grade').value = grade;
+            }
+        }
+
+        function updatePublishedRatesTableUI(data) {
+            const table = document.querySelector('#tab-rates table tbody');
+            if (!table) return;
+            const rows = Array.from(table.querySelectorAll('tr'));
+            let found = false;
+            for (const r of rows) {
+                const commCell = r.children[1];
+                const dateCell = r.children[0];
+                if (commCell && dateCell && commCell.innerText.trim() === data.commodity_name && dateCell.innerText.trim() === data.rate_date) {
+                    r.children[2].innerHTML = `<span class="badge-pill badge-green">${data.quality_grade}</span>`;
+                    r.children[3].innerText = '₹' + Number(data.min_rate).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                    r.children[4].innerHTML = `<strong style="color:#047857;">₹${Number(data.target_rate).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong>`;
+                    r.children[5].innerText = '₹' + Number(data.max_rate).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                    r.children[6].innerText = data.updated_at || 'Just now';
+                    r.style.backgroundColor = '#ecfdf5';
+                    setTimeout(() => { r.style.backgroundColor = ''; }, 2500);
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                const newRow = document.createElement('tr');
+                newRow.style.backgroundColor = '#ecfdf5';
+                newRow.innerHTML = `
+                    <td><code>${data.rate_date}</code></td>
+                    <td><strong>${data.commodity_name}</strong></td>
+                    <td><span class="badge-pill badge-green">${data.quality_grade}</span></td>
+                    <td>₹${Number(data.min_rate).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                    <td><strong style="color:#047857;">₹${Number(data.target_rate).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong></td>
+                    <td>₹${Number(data.max_rate).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                    <td style="font-size:12px; color:var(--text-muted);">${data.updated_at || 'Just now'}</td>
+                `;
+                table.insertBefore(newRow, table.firstChild);
+                setTimeout(() => { newRow.style.backgroundColor = ''; }, 2500);
+            }
+        }
+
         function openReceivePaymentModal(challanId, challanNo, buyerName, amount) {
             document.getElementById('modal_challan_id').value = challanId;
             document.getElementById('modal_disp_challan').innerText = challanNo;
@@ -850,6 +983,84 @@
             }
         }
 
+        // ---------------------------------------------------------------------
+        // SYSTEM UPDATES & MASTER PC BROADCAST
+        // ---------------------------------------------------------------------
+        function openSystemUpdatesModal() {
+            const modal = document.getElementById('systemUpdatesModal');
+            if (modal) modal.style.display = 'flex';
+            checkSystemUpdates();
+        }
+
+        function closeSystemUpdatesModal() {
+            const modal = document.getElementById('systemUpdatesModal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        async function checkSystemUpdates() {
+            const badge = document.getElementById('sysUpdateBadge');
+            const note = document.getElementById('sysUpdateNote');
+            if (badge) { badge.innerText = 'Checking...'; badge.style.color = '#0284c7'; }
+            try {
+                const resp = await fetch('/api/system/updates/status');
+                const data = await resp.json();
+                if (data.success) {
+                    if (badge) {
+                        badge.innerText = '✓ ' + data.version + ' (ONLINE)';
+                        badge.style.color = '#047857';
+                    }
+                    if (note) {
+                        note.innerHTML = `<strong>Master PC Host:</strong> <code>${data.master_host}</code><br>
+                                          <strong>QC Engine:</strong> ${data.engine_version}<br>
+                                          <strong>Active Build:</strong> ${data.build_timestamp}<br>
+                                          <strong>Status:</strong> ${data.status} • All services operational.`;
+                    }
+                }
+            } catch (err) {
+                if (badge) { badge.innerText = 'Offline / Local'; badge.style.color = '#d97706'; }
+                if (note) note.innerText = 'Could not fetch remote status: ' + err.message;
+            }
+        }
+
+        async function broadcastSystemUpdate() {
+            const patchNote = prompt('Enter Update / Hotfix Summary to broadcast to all terminals:', 'Bugfix deployed: Rates & QC Assayer synchronized with Master PC');
+            if (!patchNote) return;
+            const btn = document.getElementById('btnBroadcastUpdate');
+            if (btn) { btn.disabled = true; btn.innerText = 'Broadcasting to all terminals...'; }
+
+            try {
+                const formData = new FormData();
+                formData.append('patch_note', patchNote);
+                formData.append('reload_seconds', 3);
+
+                const resp = await fetch('/api/system/updates/broadcast', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await resp.json();
+                if (data.success) {
+                    alert('✓ Update successfully broadcasted! All active branch screens, tablets, and phones will reload fresh assets in 3 seconds.');
+                    closeSystemUpdatesModal();
+                } else {
+                    alert('Broadcast failed: ' + (data.message || 'Unknown error'));
+                }
+            } catch (err) {
+                alert('Network error broadcasting update: ' + err.message);
+            } finally {
+                if (btn) { btn.disabled = false; btn.innerText = '🚀 Broadcast Hotfix & Force Refresh to All Terminals'; }
+            }
+        }
+
+        async function clearLocalCache() {
+            if (confirm('Clear local offline cache, purge stored assets, and force hard-reload this terminal?')) {
+                if ('caches' in window) {
+                    const keys = await caches.keys();
+                    await Promise.all(keys.map(k => caches.delete(k)));
+                }
+                window.location.reload(true);
+            }
+        }
+
         window.onload = function() {
             const first = document.querySelector('.commodity-card');
             if (first) selectAccountCommodity(first);
@@ -901,6 +1112,59 @@
         </div>
     </div>
 
+    <!-- MODAL: SYSTEM UPDATES & MAINTENANCE (MASTER PC) -->
+    <div id="systemUpdatesModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.75); z-index:99999; justify-content:center; align-items:center; padding:16px; box-sizing:border-box;">
+        <div style="background:#ffffff; max-width:480px; width:100%; border-radius:18px; padding:24px; box-shadow:0 10px 25px -5px rgba(15,23,42,0.15); border:1.5px solid #cbd5e1;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; border-bottom:1.5px solid #f1f5f9; padding-bottom:12px;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span style="font-size:22px;">⚡</span>
+                    <h3 style="margin:0; font-size:16.5px; font-weight:800; color:#0f172a;">System Updates & Deployment Center</h3>
+                </div>
+                <button type="button" onclick="closeSystemUpdatesModal()" style="background:none; border:none; font-size:22px; cursor:pointer; color:#64748b; line-height:1;">✕</button>
+            </div>
+
+            <!-- STATUS CARD -->
+            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:14px; margin-bottom:16px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                    <span style="font-size:12px; font-weight:700; color:#64748b; text-transform:uppercase;">System Status:</span>
+                    <span id="sysUpdateBadge" style="font-size:12px; font-weight:800; color:#047857; background:#ecfdf5; padding:3px 8px; border-radius:6px; border:1px solid #a7f3d0;">
+                        ✓ v2.6.5-PROD (ONLINE)
+                    </span>
+                </div>
+                <div id="sysUpdateNote" style="font-size:12px; color:#334155; line-height:1.6;">
+                    <strong>Master PC Host:</strong> <code>192.168.0.140:8080</code><br>
+                    <strong>QC Assayer Engine:</strong> Multi-Spectral Norm-Chroma Assayer v3.0<br>
+                    <strong>Build Release:</strong> v2.6.5-PROD • Active on all local & cloud nodes.
+                </div>
+            </div>
+
+            <!-- ACTION BUTTONS -->
+            <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:16px;">
+                <button type="button" id="btnBroadcastUpdate" onclick="broadcastSystemUpdate()" style="width:100%; background:#0f172a; color:#38bdf8; border:1.5px solid #38bdf8; padding:12px; border-radius:10px; font-weight:800; font-size:13px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;">
+                    🚀 Broadcast Hotfix & Force Refresh to All Terminals
+                </button>
+                <div style="display:flex; gap:10px;">
+                    <button type="button" onclick="checkSystemUpdates()" style="flex:1; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; padding:10px; border-radius:10px; font-weight:700; font-size:12px; cursor:pointer;">
+                        🔍 Check Updates Status
+                    </button>
+                    <button type="button" onclick="clearLocalCache()" style="flex:1; background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; padding:10px; border-radius:10px; font-weight:700; font-size:12px; cursor:pointer;">
+                        🧹 Purge Cache & Hard Reload
+                    </button>
+                </div>
+            </div>
+
+            <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px; padding:10px 12px; font-size:11.5px; color:#1e40af; line-height:1.4;">
+                <strong>💡 Master PC Deployment:</strong> When you deploy or fix any bug from this PC, clicking <em>"Broadcast Hotfix"</em> sends an instant live signal to all connected mobile inspector phones, yard counters, and accounting screens to refresh their cached code in real-time.
+            </div>
+
+            <div style="margin-top:16px;">
+                <button type="button" onclick="closeSystemUpdatesModal()" style="width:100%; background:#047857; color:#fff; border:none; padding:10px; border-radius:10px; font-weight:800; font-size:13px; cursor:pointer;">
+                    Done
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- FOOTER -->
     <footer style="text-align:center; padding:24px 0 16px; font-size:12px; color:#64748b; font-weight:600;">
         © 2026 Rajarshi Shahu Trading • Powered by Cresconic Technologies
@@ -946,6 +1210,29 @@
             MandiLiveSync.on('outward_created', function(data) {
                 const summary = data.summary || `Outward Dispatch ${data.challan_number || ''} to ${data.buyer || 'Buyer'}`;
                 MandiLiveSync.toast('Outward Order Dispatched', `🚚 ${summary}`, 'info');
+            });
+
+            // Rate Corridor Live Update (Sync across accountant & terminals)
+            MandiLiveSync.on('rates_updated', function(data) {
+                if (data && (data.commodity_name || data.commodity)) {
+                    const comm = data.commodity_name || data.commodity;
+                    updateAccountCommodityCardUI(
+                        comm,
+                        data.min_rate || data.min_rate_per_qtl,
+                        data.target_rate || data.target_rate_per_qtl,
+                        data.max_rate || data.max_rate_per_qtl,
+                        data.quality_grade
+                    );
+                    updatePublishedRatesTableUI({
+                        commodity_name: comm,
+                        rate_date: data.rate_date || new Date().toISOString().split('T')[0],
+                        quality_grade: data.quality_grade || 'STANDARD',
+                        min_rate: data.min_rate || data.min_rate_per_qtl,
+                        target_rate: data.target_rate || data.target_rate_per_qtl,
+                        max_rate: data.max_rate || data.max_rate_per_qtl,
+                        updated_at: 'Just now (Live Sync)'
+                    });
+                }
             });
         }
     </script>

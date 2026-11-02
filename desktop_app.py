@@ -1,5 +1,5 @@
 """
-Rajeshri Shahu Trading — Mandi ERP Desktop Application Launcher
+Rajarshi Shahu Trading — Mandi ERP Desktop Application Launcher (Powered by Cresconic)
 Runs embedded Uvicorn server in background thread and presents
 a 100% native standalone Windows GUI window via pywebview (WebView2).
 Zero external Chrome or browser popups.
@@ -16,7 +16,7 @@ import multiprocessing
 import ctypes
 import webview
 
-APP_TITLE = "Rajeshri Shahu Trading — Mandi ERP"
+APP_TITLE = "Rajarshi Shahu Trading — Mandi ERP (Powered by Cresconic)"
 PORT = 8080
 TARGET_URL = f"http://127.0.0.1:{PORT}"
 
@@ -63,10 +63,10 @@ def start_server():
         log("Importing uvicorn and server.app...")
         import uvicorn
         from server import app
-        log(f"Configuring embedded Mandi ERP engine on 127.0.0.1:{PORT}...")
+        log(f"Configuring embedded Mandi ERP engine on 0.0.0.0:{PORT} (Local & Yard Wi-Fi)...")
         config = uvicorn.Config(
             app=app,
-            host="127.0.0.1",
+            host="0.0.0.0",
             port=PORT,
             log_level="warning",
             loop="asyncio",

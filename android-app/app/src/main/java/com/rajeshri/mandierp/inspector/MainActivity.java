@@ -45,7 +45,7 @@ public class MainActivity extends AppCompatActivity {
 
     private static final String PREFS_NAME = "MandiQCPrefs";
     private static final String KEY_SERVER_URL = "server_url";
-    private static final String DEFAULT_URL = "http://192.168.1.100:8080/inspector/portal";
+    private static final String DEFAULT_URL = "https://mandi-erp-tracker.vercel.app/app";
     private static final int PERMISSION_REQUEST_CAMERA = 101;
     private static final int FILE_CHOOSER_REQUEST_CODE = 102;
 

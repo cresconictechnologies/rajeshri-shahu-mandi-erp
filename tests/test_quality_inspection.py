@@ -457,11 +457,16 @@ class TestQualityAssayingEngine(unittest.TestCase):
         self.assertEqual(shortcut_res.headers["location"], "/inspector/portal")
 
         # 4. Attempt branch tampering: inspector tries to open /inspector/portal?branch_id=br-dhad
+        tamper_res = sanjay_client.get("/inspector/portal?branch_id=br-dhad", follow_redirects=False)
+        self.assertEqual(tamper_res.status_code, 303)
+        self.assertEqual(tamper_res.headers["location"], "/inspector/portal?branch_id=br-chikhali")
+
         portal_res = sanjay_client.get("/inspector/portal?branch_id=br-dhad")
         self.assertEqual(portal_res.status_code, 200)
         # Must enforce Chikhali branch, NOT Dhad
         self.assertIn("Chikhali Branch", portal_res.text)
         self.assertIn("Sanjay Rao (Inspector 2)", portal_res.text)
+        self.assertIn("Locked by Accountant", portal_res.text)
         # Cannot navigate or switch to other branches (no selector dropdown for non-admin)
         self.assertNotIn('<select id="branchSelector"', portal_res.text)
 
@@ -606,6 +611,7 @@ class TestQualityAssayingEngine(unittest.TestCase):
         self.assertEqual(portal_res.status_code, 200)
         self.assertIn("Chikhali Branch", portal_res.text)
         self.assertIn("Kavita Shinde-Patil", portal_res.text)
+        self.assertIn("Locked by Accountant", portal_res.text)
         self.assertNotIn('<select id="branchSelector"', portal_res.text)
 
         # 10. Kavita changes password via self-service:

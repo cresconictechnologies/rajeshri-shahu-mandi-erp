@@ -16,11 +16,16 @@ import time
 from datetime import date, datetime, timezone, timedelta
 from typing import Optional, Tuple, List, Dict, Any
 from PIL import Image
+import logging
 
 import uvicorn
-from fastapi import FastAPI, Request, HTTPException, Form, Depends, UploadFile, File
+import asyncio
+import httpx
+from fastapi import FastAPI, Request, HTTPException, Form, Depends, UploadFile, File, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
+
+logger = logging.getLogger("mandi_erp")
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -255,6 +260,150 @@ def is_system_setup_done() -> bool:
         return False
     finally:
         conn.close()
+
+# --------------------------------------------------------------------------
+# REAL-TIME LIVE SYNC HUB & CLOUD TELEMETRY DISPATCHER
+# --------------------------------------------------------------------------
+
+MAIN_EVENT_LOOP: Optional[asyncio.AbstractEventLoop] = None
+
+class LiveSyncHub:
+    """Manages active WebSocket connections across yard terminals and broadcasts role/branch filtered events."""
+    def __init__(self):
+        self.active_sockets: List[Tuple[WebSocket, Optional[dict]]] = []
+
+    async def connect(self, websocket: WebSocket, user: Optional[dict] = None):
+        await websocket.accept()
+        self.active_sockets.append((websocket, user))
+
+    def disconnect(self, websocket: WebSocket):
+        self.active_sockets = [s for s in self.active_sockets if s[0] != websocket]
+
+    async def broadcast(self, message: dict, role: Optional[str] = None, branch_id: Optional[str] = None):
+        dead = []
+        for ws, user in self.active_sockets:
+            try:
+                if user:
+                    u_role = user.get("role")
+                    u_branch = user.get("branch_id")
+                    if role and u_role not in [role, "SUPER_ADMIN"]:
+                        continue
+                    if branch_id and u_branch and u_branch != branch_id and u_role not in ["SUPER_ADMIN", "ACCOUNTANT_HQ"]:
+                        continue
+                await ws.send_json(message)
+            except Exception:
+                dead.append(ws)
+        for ws in dead:
+            self.disconnect(ws)
+
+live_sync_hub = LiveSyncHub()
+
+@app.on_event("startup")
+async def startup_event():
+    global MAIN_EVENT_LOOP
+    MAIN_EVENT_LOOP = asyncio.get_running_loop()
+    asyncio.create_task(push_cloud_telemetry("system_start", {"summary": "Mandi ERP Server Online & Ready"}))
+
+async def push_cloud_telemetry(event_type: str, data: dict):
+    tracker_url = os.environ.get("MANDI_TRACKER_URL", "https://mandi-erp-tracker.vercel.app/api/track")
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT COALESCE(SUM(net_quintals), 0.0), COALESCE(SUM(net_payable_amount), 0.0) FROM purchase_invoices WHERE payout_status != 'CANCELLED'")
+        sum_row = cur.fetchone()
+        total_quintals = float(sum_row[0] or 0.0)
+        total_disbursed = float(sum_row[1] or 0.0)
+
+        cur.execute("SELECT count(*) FROM branches WHERE is_active=1")
+        active_branches = cur.fetchone()[0]
+
+        cur.execute("SELECT count(*) FROM quality_inspections")
+        total_inspections = cur.fetchone()[0]
+        conn.close()
+
+        payload = {
+            "action": "sync_telemetry",
+            "telemetry": {
+                "totalQuintals": round(total_quintals, 2),
+                "totalDisbursed": round(total_disbursed, 2),
+                "activeBranches": active_branches,
+                "totalInspections": total_inspections,
+                "recentEvent": {
+                    "type": event_type,
+                    "summary": data.get("summary", f"Event: {event_type}"),
+                    "timestamp": datetime.now(timezone.utc).isoformat()
+                }
+            }
+        }
+        async with httpx.AsyncClient(timeout=2.5) as client:
+            await client.post(tracker_url, json=payload)
+    except Exception as e:
+        logger.debug("Cloud telemetry sync skipped: %s", e)
+
+def emit_live_event(event_type: str, data: dict, role: Optional[str] = None, branch_id: Optional[str] = None):
+    """Dispatches real-time event to local WebSockets and pushes cloud telemetry."""
+    msg = {
+        "type": event_type,
+        "data": data,
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
+    try:
+        if MAIN_EVENT_LOOP and MAIN_EVENT_LOOP.is_running():
+            asyncio.run_coroutine_threadsafe(
+                live_sync_hub.broadcast(msg, role=role, branch_id=branch_id),
+                MAIN_EVENT_LOOP
+            )
+        else:
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(live_sync_hub.broadcast(msg, role=role, branch_id=branch_id))
+            except RuntimeError as loop_err:
+                logger.debug("Live sync loop not running: %s", loop_err)
+    except Exception as e:
+        logger.debug("Live sync broadcast error: %s", e)
+
+    try:
+        if MAIN_EVENT_LOOP and MAIN_EVENT_LOOP.is_running():
+            asyncio.run_coroutine_threadsafe(
+                push_cloud_telemetry(event_type, data),
+                MAIN_EVENT_LOOP
+            )
+        else:
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(push_cloud_telemetry(event_type, data))
+            except RuntimeError as loop_err:
+                logger.debug("Cloud telemetry loop not running: %s", loop_err)
+    except Exception as e:
+        logger.debug("Cloud telemetry dispatch error: %s", e)
+
+@app.websocket("/ws/live")
+async def websocket_live_endpoint(websocket: WebSocket):
+    token = websocket.cookies.get("mandi_session") or websocket.query_params.get("token")
+    user = verify_session_token(token) if token else None
+    await live_sync_hub.connect(websocket, user)
+    try:
+        await websocket.send_json({
+            "type": "connected",
+            "message": "Live Sync Stream Established",
+            "user": user.get("username") if user else "anonymous",
+            "role": user.get("role") if user else "PUBLIC",
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        })
+        while True:
+            text = await websocket.receive_text()
+            if text == "ping":
+                await websocket.send_text("pong")
+    except WebSocketDisconnect:
+        live_sync_hub.disconnect(websocket)
+    except Exception:
+        live_sync_hub.disconnect(websocket)
+
+@app.post("/api/admin/sync-cloud")
+async def api_admin_sync_cloud(request: Request):
+    require_role(request, ["SUPER_ADMIN"])
+    await push_cloud_telemetry("manual_sync", {"summary": "Manual Cloud Sync triggered by Super Admin"})
+    return {"success": True, "message": "Live telemetry pushed to cloud tracker"}
 
 @app.get("/", response_class=HTMLResponse)
 def root_hub(request: Request):
@@ -640,11 +789,13 @@ def admin_dashboard_view(request: Request):
             SELECT p.id, p.token_number, p.invoice_date, b.name as branch_name, 
                    pt.name as party_name, pt.party_type, p.commodity_name, 
                    p.net_quintals, p.rate_per_quintal, p.net_payable_amount, p.payout_status,
-                   p.rtgs_utr_no, p.weighment_mode
+                   p.rtgs_utr_no, p.weighment_mode, p.qc_ticket_no,
+                   q.meter_photo_path, q.grain_photo_path, q.ticket_no as linked_qc_ticket
             FROM purchase_invoices p
             JOIN branches b ON p.branch_id = b.id
             JOIN parties pt ON p.party_id = pt.id
-            ORDER BY p.created_at DESC LIMIT 20
+            LEFT JOIN quality_inspections q ON (p.id = q.invoice_id OR (p.qc_ticket_no IS NOT NULL AND p.qc_ticket_no = q.ticket_no))
+            ORDER BY p.created_at DESC LIMIT 30
         """)
         invoices = cur.fetchall()
 
@@ -1175,6 +1326,15 @@ def api_accounts_set_rate(
             """, (rid, rate_date, branch_id, commodity_name, quality_grade, min_rate, target_rate, max_rate))
 
         conn.commit()
+        emit_live_event("rates_updated", {
+            "commodity": commodity_name,
+            "rate_date": rate_date,
+            "branch_id": branch_id,
+            "min_rate": min_rate,
+            "target_rate": target_rate,
+            "max_rate": max_rate,
+            "summary": f"Daily Mandi Rates updated for {commodity_name}: Target ₹{target_rate:,.2f}/Qtl"
+        })
     finally:
         conn.close()
 
@@ -1204,6 +1364,12 @@ def api_accounts_rate_override_action(
                 WHERE id=?
             """, (accountant_reason, invoice_id))
         conn.commit()
+        emit_live_event("rate_override_decided", {
+            "invoice_id": invoice_id,
+            "decision": decision,
+            "accountant_reason": accountant_reason,
+            "summary": f"Rate Override {decision} for Invoice #{invoice_id}"
+        })
     finally:
         conn.close()
 
@@ -1259,6 +1425,15 @@ def api_accounts_process_rtgs(
         """, (f"led-{uuid.uuid4().hex[:6]}", inv["branch_id"], today_str, inv["token_number"], inv["party_id"], inv["net_payable_amount"], f"RTGS Bank Transfer Disbursed to {inv['rtgs_beneficiary_name'] or 'Farmer'} | UTR: {utr}"))
 
         conn.commit()
+        emit_live_event("rtgs_processed", {
+            "invoice_id": invoice_id,
+            "token_number": inv["token_number"],
+            "branch_id": inv["branch_id"],
+            "utr_number": utr,
+            "amount": inv["net_payable_amount"],
+            "farmer_name": inv["rtgs_beneficiary_name"] or "Farmer",
+            "summary": f"RTGS Bank Transfer Settled for {inv['token_number']} (UTR: {utr})"
+        })
     except HTTPException:
         conn.rollback()
         raise
@@ -2084,6 +2259,43 @@ def api_branch_create_invoice(
 
         conn.commit()
 
+        # Emit real-time live events for inward purchase, RTGS desk & rate override desk
+        emit_live_event("invoice_created", {
+            "invoice_id": invoice_id,
+            "token_number": token_number,
+            "branch_id": branch_id,
+            "commodity_name": commodity_name,
+            "net_quintals": round(calc["net_quintals"], 2),
+            "amount": payable_rounded if effective_payout_status == "PAID" else calc["net_payable_amount"],
+            "payout_status": effective_payout_status,
+            "rate_override_status": rate_override_status,
+            "qc_ticket_no": qc_ticket_no,
+            "summary": f"Inward Bill {token_number} ({commodity_name}, {calc['net_quintals']:.2f} Qtl) - {effective_payout_status}"
+        })
+        if effective_payout_status == "RTGS_PENDING":
+            emit_live_event("rtgs_request_created", {
+                "invoice_id": invoice_id,
+                "token_number": token_number,
+                "branch_id": branch_id,
+                "party_id": party_id,
+                "farmer_name": rtgs_beneficiary_name or "Farmer",
+                "amount": calc["net_payable_amount"],
+                "bank_name": rtgs_bank_name,
+                "account_no": rtgs_account_no,
+                "ifsc_code": rtgs_ifsc_code,
+                "summary": f"New RTGS Bank Transfer Request for {token_number}: ₹{calc['net_payable_amount']:,.2f}"
+            }, role="ACCOUNTANT_HQ")
+        if rate_override_status == "PENDING":
+            emit_live_event("rate_override_requested", {
+                "invoice_id": invoice_id,
+                "token_number": token_number,
+                "branch_id": branch_id,
+                "commodity_name": commodity_name,
+                "proposed_rate": rate_per_quintal,
+                "reason": rate_override_reason,
+                "summary": f"Rate Override Requested for {token_number}: {commodity_name} @ ₹{rate_per_quintal:,.2f}"
+            }, role="ACCOUNTANT_HQ")
+
         return {
             "success": True,
             "invoice_id": invoice_id,
@@ -2224,6 +2436,18 @@ def api_branch_create_outward(
             ))
 
         conn.commit()
+
+        # Emit real-time live event for outward dispatch
+        emit_live_event("outward_created", {
+            "order_id": order_id,
+            "challan_number": challan_number,
+            "branch_id": branch_id,
+            "buyer": actual_buyer,
+            "commodity": commodity_name.strip(),
+            "total_bill": calc["total_bill_amount"],
+            "net_quintals": calc["net_quintals"],
+            "summary": f"Outward Dispatch {challan_number} to {actual_buyer} ({calc['net_quintals']:.2f} Qtl {commodity_name.strip()})"
+        })
 
         return {
             "success": True,
@@ -3139,6 +3363,28 @@ def api_get_parchi_slip(request: Request, token_number: str):
 
     return templates.TemplateResponse(request=request, name="parchi_slip.html", context={"invoice": invoice})
 
+@app.get("/api/farmers/search")
+def api_search_farmers(request: Request, q: str = ""):
+    query = (q or "").strip()
+    if not query:
+        return {"success": True, "farmers": []}
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        search_pattern = f"%{query}%"
+        cur.execute("""
+            SELECT p.id, p.name, p.phone, p.village, p.khasra_record_no,
+                   (SELECT qi.vehicle_no FROM quality_inspections qi WHERE qi.farmer_name = p.name OR qi.farmer_phone = p.phone ORDER BY qi.created_at DESC LIMIT 1) as vehicle_no
+            FROM parties p
+            WHERE p.party_type = 'FARMER' AND (p.name LIKE ? OR p.phone LIKE ?)
+            ORDER BY p.name ASC
+            LIMIT 15
+        """, (search_pattern, search_pattern))
+        farmers = [dict(r) for r in cur.fetchall()]
+        return {"success": True, "farmers": farmers}
+    finally:
+        conn.close()
+
 @app.post("/api/branch/farmers/register")
 def api_branch_register_farmer(
     request: Request,
@@ -3441,6 +3687,14 @@ def get_inspector_portal(request: Request, branch_id: Optional[str] = None):
     if user.get("role") not in ["QUALITY_INSPECTOR", "SUPER_ADMIN", "ACCOUNTANT_HQ", "BRANCH_MUNIM", "BRANCH_CASHIER"]:
         raise HTTPException(status_code=403, detail="Forbidden: Quality Inspector access required.")
 
+    # Strict Branch Lock Governance:
+    # If user is QUALITY_INSPECTOR, strictly enforce their assigned branch.
+    # Prevent URL tampering: if branch_id in URL does not match their assigned branch, force redirect.
+    if user.get("role") == "QUALITY_INSPECTOR":
+        user_branch_id = user.get("branch_id")
+        if branch_id is not None and user_branch_id and branch_id != user_branch_id:
+            return RedirectResponse(url=f"/inspector/portal?branch_id={user_branch_id}", status_code=303)
+
     conn = get_connection()
     try:
         cur = conn.cursor()
@@ -3690,6 +3944,17 @@ async def api_inspector_submit_qc(
 
     record = save_quality_inspection(qc_payload)
     slip_text = format_qc_slip_text(record)
+
+    emit_live_event("qc_ticket_created", {
+        "ticket_no": record.get("ticket_no"),
+        "farmer_name": record.get("farmer_name"),
+        "vehicle_no": record.get("vehicle_no"),
+        "commodity_name": record.get("commodity_name"),
+        "moisture_pct": record.get("moisture_pct"),
+        "suggested_rate": record.get("suggested_buying_rate_per_qtl"),
+        "branch_id": branch_id,
+        "summary": f"New QC Ticket #{record.get('ticket_no')} created for {record.get('farmer_name')} ({record.get('commodity_name')})"
+    }, branch_id=branch_id)
 
     return {
         "success": True,

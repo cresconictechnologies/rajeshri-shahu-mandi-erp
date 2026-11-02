@@ -9,7 +9,7 @@ cmd = [
     "--noconfirm",
     "--onedir",
     "--windowed",
-    "--name", "Rajeshri_Shahu_Mandi_ERP",
+    "--name", "Rajarshi_Shahu_Trading",
     "--add-data", f"{os.path.join(current_dir, 'templates')};templates",
     "--add-data", f"{os.path.join(current_dir, 'static')};static",
     "--add-data", f"{os.path.join(current_dir, 'commodity_mandi.db')};.",
@@ -40,8 +40,8 @@ print(" ".join(cmd))
 res = subprocess.run(cmd, cwd=current_dir)
 if res.returncode == 0:
     import shutil
-    dist_dir = os.path.join(current_dir, "dist", "Rajeshri_Shahu_Mandi_ERP")
-    zip_target = os.path.join(current_dir, "dist", "Rajeshri_Shahu_Mandi_ERP_v2.6_Windows_x64")
+    dist_dir = os.path.join(current_dir, "dist", "Rajarshi_Shahu_Trading")
+    zip_target = os.path.join(current_dir, "dist", "Rajarshi_Shahu_Trading_Windows_x64")
     print(f"Creating release archive: {zip_target}.zip ...")
     shutil.make_archive(zip_target, "zip", dist_dir)
     print(f"Successfully packaged: {zip_target}.zip")

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Inspector QC Portal — Mandi Quality Assaying</title>
+    <title>Inspector QC Portal — Rajarshi Shahu Trading (Powered by Cresconic)</title>
     <link rel="manifest" href="/manifest.json">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -275,6 +275,39 @@
             align-items: center;
             gap: 8px;
         }
+        .farmer-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: #ffffff;
+            border: 1.5px solid #cbd5e1;
+            border-radius: 10px;
+            box-shadow: 0 10px 25px -5px rgba(15,23,42,0.18), 0 8px 10px -6px rgba(15,23,42,0.08);
+            max-height: 280px;
+            overflow-y: auto;
+            z-index: 1000;
+            margin-top: 4px;
+        }
+        .farmer-drop-item {
+            padding: 10px 14px;
+            border-bottom: 1px solid #f1f5f9;
+            cursor: pointer;
+            transition: background 0.15s ease;
+        }
+        .farmer-drop-item:last-child {
+            border-bottom: none;
+        }
+        .farmer-drop-item:hover {
+            background: #f8fafc;
+        }
+        .farmer-drop-item.new-farmer-item {
+            background: #f0fdf4;
+            border-top: 1.5px dashed #86efac;
+        }
+        .farmer-drop-item.new-farmer-item:hover {
+            background: #dcfce7;
+        }
         @media print {
             body * { visibility: hidden; }
             #printableTicket, #printableTicket * { visibility: visible; }
@@ -287,12 +320,13 @@
     <!-- Header -->
     <header class="app-header">
         <div>
-            <h1>🌾 Mandi QC Assayer Mobile</h1>
+            <h1>🌾 Rajarshi Shahu Trading <span style="font-size:11px; font-weight:700; color:#a7f3d0; background:#065f46; padding:2px 8px; border-radius:6px; margin-left:6px; vertical-align:middle; border:1px solid #059669;">Powered by Cresconic</span></h1>
             <div class="header-sub">
-                👤 <strong>{{ user.full_name if user else 'Yard Inspector' }}</strong> • 📍 <strong>{{ active_branch.name if active_branch else 'Mandi Yard' }}</strong>
+                Mandi QC Assayer Mobile • 👤 <strong>{{ user.full_name if user else 'Yard Inspector' }}</strong> • 📍 <strong>{{ active_branch.name if active_branch else 'Mandi Yard' }}</strong>
             </div>
         </div>
         <div style="display:flex; align-items:center; gap:8px;">
+            <span class="live-sync-indicator" id="liveSyncStatus"><span class="live-dot-pulse"></span> <span class="live-status-text">Live Synced</span></span>
             {% if is_admin %}
             <select id="branchSelector" onchange="switchBranch(this.value)" style="background:#334155; color:#fff; border:1px solid #475569; padding:6px 10px; border-radius:8px; font-size:12px; font-weight:700;">
                 {% for b in branches %}
@@ -301,9 +335,7 @@
             </select>
             {% else %}
             <input type="hidden" id="branchSelector" value="{{ active_branch_id }}">
-            <span style="background:#065f46; color:#a7f3d0; font-size:11px; font-weight:800; padding:4px 8px; border-radius:6px; border:1px solid #059669;">
-                ✓ Verified QC
-            </span>
+            <span class="badge-pill" style="background:#065f46; color:#a7f3d0; font-size:11px; font-weight:800; padding:4px 10px; border-radius:6px; border:1px solid #059669;">📍 {{ active_branch.name }} 🔒 (Locked by Accountant)</span>
             {% endif %}
             <button type="button" onclick="openChangePasswordModal()" style="color:#e2e8f0; background:#334155; border:1px solid #475569; padding:6px 11px; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:5px;">
                 <span>🔑</span> <span>Password</span>
@@ -361,9 +393,13 @@
             <input type="hidden" id="inspectorName" value="{{ user.full_name if user else 'Yard Inspector' }}">
             <input type="hidden" id="inspectorId" value="{{ user.user_id if user else '' }}">
 
-            <div class="form-row">
-                <label>Farmer Full Name / शेतकरी नाव *</label>
-                <input type="text" id="farmerName" placeholder="e.g. Rameshwar Patel / गजानन पाटील" required autofocus>
+            <div class="form-row" style="position:relative;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                    <label style="margin:0;">Farmer Full Name / शेतकरी नाव *</label>
+                    <span id="farmerLookupStatus" style="font-size:11.5px; font-weight:700; color:#059669; display:none;">✓ Existing Cultivator Selected</span>
+                </div>
+                <input type="text" id="farmerName" placeholder="Type name or phone e.g. Rameshwar Patel / गजानन पाटील" required autofocus autocomplete="off">
+                <div id="farmerDropdown" class="farmer-dropdown" style="display:none;"></div>
             </div>
 
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
@@ -523,7 +559,7 @@
             <!-- Bold High-Visibility QC Ticket Callout -->
             <div style="background:linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color:#ffffff; border-radius:14px; padding:20px 16px; text-align:center; border:2.5px solid #facc15; box-shadow:0 8px 24px rgba(0,0,0,0.25); margin-bottom:16px;">
                 <div style="font-size:11.5px; font-weight:800; color:#94a3b8; text-transform:uppercase; letter-spacing:1.5px;">
-                    🌾 MANDI APMC DIGITAL QC TICKET NUMBER
+                    🌾 RAJARSHI SHAHU TRADING — DIGITAL QC TICKET NUMBER
                 </div>
                 <div id="ticketNumberDisplay" style="font-size:32px; font-weight:900; color:#fde047; letter-spacing:2px; margin:10px 0; font-family:monospace;">
                     QC-CHK-261101-89F1
@@ -633,12 +669,155 @@
             {% endif %}
         </div>
 
+        <div style="text-align:center; padding:20px 8px 10px; font-size:12px; color:#64748b; font-weight:600;">
+            © 2026 Rajarshi Shahu Trading • Powered by Cresconic Technologies
+        </div>
+
     </div>
+
+    <!-- Live Sync WebSocket Client -->
+    <script src="/static/js/live_sync.js"></script>
 
     <!-- Interactive Scripting -->
     <script>
         function switchBranch(branchId) {
             window.location.href = `/inspector/portal?branch_id=${branchId}`;
+        }
+
+        // =========================================================================
+        // FARMER AUTO-LOOKUP & INLINE QUICK REGISTER
+        // =========================================================================
+        let farmerLookupTimer = null;
+        const farmerNameInput = document.getElementById("farmerName");
+        const farmerPhoneInput = document.getElementById("farmerPhone");
+        const vehicleNoInput = document.getElementById("vehicleNo");
+        const farmerDropdown = document.getElementById("farmerDropdown");
+        const farmerLookupStatus = document.getElementById("farmerLookupStatus");
+
+        if (farmerNameInput && farmerDropdown) {
+            farmerNameInput.addEventListener("input", function() {
+                clearTimeout(farmerLookupTimer);
+                const q = this.value.trim();
+                if (!q || q.length < 1) {
+                    farmerDropdown.style.display = "none";
+                    if (farmerLookupStatus) farmerLookupStatus.style.display = "none";
+                    return;
+                }
+                farmerLookupTimer = setTimeout(() => {
+                    fetchFarmerSuggestions(q);
+                }, 200);
+            });
+
+            farmerNameInput.addEventListener("focus", function() {
+                const q = this.value.trim();
+                if (q && q.length >= 1 && farmerDropdown.children.length > 0) {
+                    farmerDropdown.style.display = "block";
+                }
+            });
+
+            document.addEventListener("click", function(event) {
+                if (!farmerDropdown.contains(event.target) && event.target !== farmerNameInput) {
+                    farmerDropdown.style.display = "none";
+                }
+            });
+        }
+
+        async function fetchFarmerSuggestions(query) {
+            try {
+                const res = await fetch(`/api/farmers/search?q=${encodeURIComponent(query)}`);
+                const data = await res.json();
+                const farmers = (data && data.success && Array.isArray(data.farmers)) ? data.farmers : [];
+                renderFarmerDropdown(farmers, query);
+            } catch (err) {
+                console.error("Farmer lookup error:", err);
+                renderFarmerDropdown([], query);
+            }
+        }
+
+        function renderFarmerDropdown(farmers, query) {
+            if (!farmerDropdown) return;
+            farmerDropdown.innerHTML = "";
+
+            if (farmers.length > 0) {
+                farmers.forEach(f => {
+                    const item = document.createElement("div");
+                    item.className = "farmer-drop-item";
+                    item.innerHTML = `
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div>
+                                <span style="font-weight:800; color:#0f172a; font-size:13.5px;">${escapeHtml(f.name)}</span>
+                                <span style="font-size:10.5px; background:#ecfdf5; color:#065f46; padding:2px 7px; border-radius:4px; font-weight:800; margin-left:6px; border:1px solid #a7f3d0;">✓ Cultivator</span>
+                            </div>
+                            <span style="font-size:12px; color:#475569; font-weight:700;">📱 ${escapeHtml(f.phone || 'No Mobile')}</span>
+                        </div>
+                        <div style="font-size:11.5px; color:#64748b; margin-top:3px; display:flex; gap:12px; flex-wrap:wrap;">
+                            ${f.village ? `<span>🏡 ${escapeHtml(f.village)}</span>` : ''}
+                            ${f.khasra_record_no ? `<span>📜 Khasra: ${escapeHtml(f.khasra_record_no)}</span>` : ''}
+                            ${f.vehicle_no ? `<span style="color:#0284c7; font-weight:700;">🚛 Vehicle: ${escapeHtml(f.vehicle_no)}</span>` : ''}
+                        </div>
+                    `;
+                    item.addEventListener("click", function() {
+                        selectExistingFarmer(f);
+                    });
+                    farmerDropdown.appendChild(item);
+                });
+            }
+
+            const newItem = document.createElement("div");
+            newItem.className = "farmer-drop-item new-farmer-item";
+            newItem.innerHTML = `
+                <div style="font-weight:800; color:#0284c7; font-size:13px; display:flex; align-items:center; gap:6px;">
+                    <span>➕</span> New Cultivator — Will register with Name, Mobile & Vehicle No.
+                </div>
+                <div style="font-size:11px; color:#64748b; margin-top:2px;">
+                    Proceed with "${escapeHtml(query)}" • Enter Mobile & Vehicle No. below
+                </div>
+            `;
+            newItem.addEventListener("click", function() {
+                selectNewCultivator(query);
+            });
+            farmerDropdown.appendChild(newItem);
+
+            farmerDropdown.style.display = "block";
+        }
+
+        function selectExistingFarmer(farmer) {
+            if (farmerNameInput) farmerNameInput.value = farmer.name;
+            if (farmerPhoneInput && farmer.phone) {
+                farmerPhoneInput.value = farmer.phone;
+            }
+            if (vehicleNoInput && farmer.vehicle_no) {
+                vehicleNoInput.value = farmer.vehicle_no;
+            }
+            if (farmerLookupStatus) {
+                farmerLookupStatus.textContent = "✓ Existing Cultivator Selected";
+                farmerLookupStatus.style.color = "#059669";
+                farmerLookupStatus.style.display = "inline-block";
+            }
+            if (farmerDropdown) farmerDropdown.style.display = "none";
+        }
+
+        function selectNewCultivator(name) {
+            if (farmerNameInput) farmerNameInput.value = name;
+            if (farmerLookupStatus) {
+                farmerLookupStatus.textContent = "➕ New Cultivator";
+                farmerLookupStatus.style.color = "#0284c7";
+                farmerLookupStatus.style.display = "inline-block";
+            }
+            if (farmerDropdown) farmerDropdown.style.display = "none";
+            if (farmerPhoneInput && !farmerPhoneInput.value) {
+                farmerPhoneInput.focus();
+            }
+        }
+
+        function escapeHtml(text) {
+            if (!text) return "";
+            return String(text)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
         }
 
         // Global State for Photos and Analysis

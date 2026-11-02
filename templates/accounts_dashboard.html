@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Central Accounts & Rate Authority Desk — Mandi ERP</title>
+    <title>Central Accounts & Rate Authority Desk — Rajarshi Shahu Trading</title>
     <link rel="stylesheet" href="/static/theme.css">
     <style>
         .form-row {
@@ -32,12 +32,14 @@
     <header class="header-card">
         <div class="header-title">
             <h1>
-                <span>📊</span> Rajeshri Shahu Trading
+                <span>📊</span> Rajarshi Shahu Trading
                 <span class="brand-badge badge-accounts">Central Accounts & Rate Authority Desk</span>
+                <span style="font-size:11px; font-weight:700; color:#0284c7; background:#e0f2fe; padding:3px 8px; border-radius:6px; margin-left:6px; vertical-align:middle; border:1px solid #bae6fd;">Powered by Cresconic</span>
             </h1>
             <p>Mandatory Daily Price Corridors • Branches: Chikhali, Varvand, Dhad • Port 8080 Active</p>
         </div>
         <div class="nav-links">
+            <span class="live-sync-indicator" id="liveSyncStatus"><span class="live-dot-pulse"></span> <span class="live-status-text">Live Synced</span></span>
             <span class="nav-pill" style="background:#ecfdf5; color:#065f46; border-color:#a7f3d0; font-weight:700;">
                 👤 {{ logged_in_user.full_name if logged_in_user else 'Chief Accountant' }}
             </span>
@@ -61,8 +63,8 @@
     <!-- TABS -->
     <div class="tabs">
         <button class="tab-btn active" onclick="showTab('tab-rates')">Daily Rate Corridor Master</button>
-        <button class="tab-btn" onclick="showTab('tab-overrides')">Rate Override Approvals ({{ pending_overrides|length }})</button>
-        <button class="tab-btn" onclick="showTab('tab-rtgs')">RTGS Bank Transfers ({{ pending_rtgs|length }})</button>
+        <button class="tab-btn" id="tabBtnOverrides" onclick="showTab('tab-overrides')">Rate Override Approvals (<span id="overrideBadgeCount">{{ pending_overrides|length }}</span>)</button>
+        <button class="tab-btn" id="tabBtnRtgs" onclick="showTab('tab-rtgs')">RTGS Bank Transfers (<span id="rtgsBadgeCount">{{ pending_rtgs|length }}</span>)</button>
         <button class="tab-btn" onclick="showTab('tab-outward-receivables')">🚚 Outward Receivables ({{ pending_outward_count }} Due)</button>
         <button class="tab-btn" onclick="showTab('tab-inspectors')">Quality Inspector Master</button>
         <button class="tab-btn" onclick="showTab('tab-ledgers')">Ledger Entries & Cashbook</button>
@@ -729,8 +731,12 @@
         function showTab(tabId) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-            document.getElementById(tabId).classList.add('active');
-            event.target.classList.add('active');
+            const targetEl = document.getElementById(tabId);
+            if (targetEl) targetEl.classList.add('active');
+            if (window.event && window.event.target) {
+                const btn = window.event.target.closest('.tab-btn');
+                if (btn) btn.classList.add('active');
+            }
         }
 
         function openEditInspectorModal(id, name, designation, phone, branchId, username) {
@@ -868,5 +874,54 @@
             </button>
         </div>
     </div>
+
+    <!-- FOOTER -->
+    <footer style="text-align:center; padding:24px 0 16px; font-size:12px; color:#64748b; font-weight:600;">
+        © 2026 Rajarshi Shahu Trading • Powered by Cresconic Technologies
+    </footer>
+
+    <!-- LIVE SYNC CLIENT & EVENT WIRING -->
+    <script src="/static/js/live_sync.js"></script>
+    <script>
+        if (window.MandiLiveSync) {
+            // RTGS Bank Transfer Request
+            MandiLiveSync.on('rtgs_request_created', function(data) {
+                const amount = Number(data.amount || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                const farmer = data.farmer_name || 'Farmer';
+                const branch = data.branch_id || 'Branch';
+                MandiLiveSync.toast('RTGS Transfer Request', `🔔 New RTGS Bank Transfer Request: ₹${amount} for ${farmer} at ${branch}`, 'urgent');
+                const badge = document.getElementById('rtgsBadgeCount');
+                if (badge) {
+                    let current = parseInt(badge.innerText.replace(/[^0-9]/g, '')) || 0;
+                    badge.innerText = current + 1;
+                }
+            });
+
+            // Rate Override Request
+            MandiLiveSync.on('rate_override_requested', function(data) {
+                const comm = data.commodity_name || 'Commodity';
+                const rate = Number(data.proposed_rate || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                MandiLiveSync.toast('Rate Override Requested', `⚠️ Rate Override Requested for ${comm} @ ₹${rate}`, 'warning');
+                const badge = document.getElementById('overrideBadgeCount');
+                if (badge) {
+                    let current = parseInt(badge.innerText.replace(/[^0-9]/g, '')) || 0;
+                    badge.innerText = current + 1;
+                }
+            });
+
+            // Inward Invoice Created / Disbursed
+            MandiLiveSync.on('invoice_created', function(data) {
+                const summary = data.summary || `Token ${data.token_number || ''} (${data.commodity_name || ''})`;
+                const disbursed = Number(data.amount || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                MandiLiveSync.toast('Inward Purchase Disbursed', `✓ ${summary} • Disbursed: ₹${disbursed}`, 'success');
+            });
+
+            // Outward Dispatch Created
+            MandiLiveSync.on('outward_created', function(data) {
+                const summary = data.summary || `Outward Dispatch ${data.challan_number || ''} to ${data.buyer || 'Buyer'}`;
+                MandiLiveSync.toast('Outward Order Dispatched', `🚚 ${summary}`, 'info');
+            });
+        }
+    </script>
 </body>
 </html>

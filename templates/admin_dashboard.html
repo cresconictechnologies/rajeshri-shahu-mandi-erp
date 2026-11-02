@@ -28,12 +28,14 @@
     <header class="header-card">
         <div class="header-title">
             <h1>
-                <span>🏛️</span> Rajeshri Shahu Trading
+                <span>🏛️</span> Rajarshi Shahu Trading
                 <span class="brand-badge badge-admin">Super Admin Command Center</span>
+                <span style="font-size:11px; font-weight:700; color:#0284c7; background:#e0f2fe; padding:3px 8px; border-radius:6px; margin-left:6px; vertical-align:middle; border:1px solid #bae6fd;">Powered by Cresconic</span>
             </h1>
             <p>Organization Overview • Branches: Chikhali, Varvand, Dhad • Port 8080 Active</p>
         </div>
         <div class="nav-links">
+            <span class="live-sync-indicator" id="liveSyncStatus"><span class="live-dot-pulse"></span> <span class="live-status-text">Live Synced</span></span>
             <span class="nav-pill" style="background:#eff6ff; color:#1e40af; border-color:#bfdbfe; font-weight:700;">
                 👤 {{ logged_in_user.full_name if logged_in_user else 'Owner / Super Admin' }}
             </span>
@@ -186,6 +188,9 @@
                         <th>Rate/Qtl</th>
                         <th>Net Payable</th>
                         <th>Payout Status</th>
+                        <th>Moisture Photo</th>
+                        <th>Sample Photo</th>
+                        <th>QC Slip</th>
                         <th>Date</th>
                     </tr>
                 </thead>
@@ -207,6 +212,29 @@
                                 <span class="badge-pill badge-amber">PENDING PAYOUT</span>
                             {% else %}
                                 <span class="badge-pill badge-red">{{ inv.payout_status }}</span>
+                            {% endif %}
+                        </td>
+                        <td style="text-align:center;">
+                            {% if inv.meter_photo_path %}
+                            <img src="{{ inv.meter_photo_path }}" alt="Meter" style="width:38px; height:38px; object-fit:cover; border-radius:6px; cursor:pointer; border:1px solid #cbd5e1;" onclick="openPhotoZoom('{{ inv.meter_photo_path }}', 'Moisture Meter - {{ inv.token_number }}')" title="Click to view full photo">
+                            {% else %}
+                            <span style="color:#94a3b8; font-size:12px;">—</span>
+                            {% endif %}
+                        </td>
+                        <td style="text-align:center;">
+                            {% if inv.grain_photo_path %}
+                            <img src="{{ inv.grain_photo_path }}" alt="Sample" style="width:38px; height:38px; object-fit:cover; border-radius:6px; cursor:pointer; border:1px solid #cbd5e1;" onclick="openPhotoZoom('{{ inv.grain_photo_path }}', 'Grain Sample OCR - {{ inv.token_number }}')" title="Click to view full photo">
+                            {% else %}
+                            <span style="color:#94a3b8; font-size:12px;">—</span>
+                            {% endif %}
+                        </td>
+                        <td style="text-align:center;">
+                            {% if inv.qc_ticket_no or inv.linked_qc_ticket %}
+                            <a href="/inspector/report/{{ inv.qc_ticket_no or inv.linked_qc_ticket }}" target="_blank" class="btn btn-sm btn-secondary" style="padding:4px 8px; font-size:11px; font-weight:700; text-decoration:none; display:inline-flex; align-items:center; gap:4px; white-space:nowrap;">
+                                📜 Certificate
+                            </a>
+                            {% else %}
+                            <span style="color:#94a3b8; font-size:11.5px;">Direct Yard</span>
                             {% endif %}
                         </td>
                         <td style="color:var(--text-muted); font-size:12px;">{{ inv.invoice_date }}</td>
@@ -719,6 +747,29 @@
 
         function closePhotoZoom() {
             document.getElementById('qcPhotoZoomModal').style.display = 'none';
+        }
+    </script>
+    <footer style="text-align:center; padding:24px 0 16px; font-size:12px; color:#64748b; font-weight:600;">
+        © 2026 Rajarshi Shahu Trading • Powered by Cresconic Technologies • Zero Mandi Cess • Section 269ST Compliant
+    </footer>
+    <script src="/static/js/live_sync.js"></script>
+    <script>
+        if (window.MandiLiveSync) {
+            MandiLiveSync.on('invoice_created', (data) => {
+                MandiLiveSync.toast('Inward Purchase Disbursed', `${data.summary}`, 'success');
+            });
+            MandiLiveSync.on('qc_ticket_created', (data) => {
+                MandiLiveSync.toast('QC Ticket Issued at Gate', `${data.summary}`, 'info');
+            });
+            MandiLiveSync.on('rtgs_request_created', (data) => {
+                MandiLiveSync.toast('RTGS Request Pending', `Bank transfer of ₹${Number(data.amount||0).toLocaleString()} for ${data.farmer_name}`, 'warning');
+            });
+            MandiLiveSync.on('rates_updated', (data) => {
+                MandiLiveSync.toast('Rates Updated', `${data.summary}`, 'info');
+            });
+            MandiLiveSync.on('outward_created', (data) => {
+                MandiLiveSync.toast('Outward Order Dispatched', `${data.summary}`, 'info');
+            });
         }
     </script>
 </body>

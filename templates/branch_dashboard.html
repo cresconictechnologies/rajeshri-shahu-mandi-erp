@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Branch Yard Terminal — Mandi ERP</title>
+    <title>Branch Yard Terminal — Rajarshi Shahu Trading (Powered by Cresconic)</title>
     <link rel="stylesheet" href="/static/theme.css">
     <style>
         .layout-grid {
@@ -78,12 +78,14 @@
     <header class="header-card">
         <div class="header-title">
             <h1>
-                <span>🌾</span> Rajeshri Shahu Trading • {{ current_branch.name }}
+                <span>🌾</span> Rajarshi Shahu Trading • {{ current_branch.name }}
                 <span class="brand-badge badge-branch">{{ current_branch.branch_code }}</span>
+                <span style="font-size:11px; font-weight:700; color:#0284c7; background:#e0f2fe; padding:3px 8px; border-radius:6px; margin-left:6px; vertical-align:middle; border:1px solid #bae6fd;">Powered by Cresconic</span>
             </h1>
             <p>Mandi License: {{ current_branch.mandi_license_no }} • Yard Procurement & Cashier Desk • Port 8080 Active</p>
         </div>
         <div class="nav-links">
+            <span class="live-sync-indicator" id="liveSyncStatus"><span class="live-dot-pulse"></span> <span class="live-status-text">Live Synced</span></span>
             <span class="nav-pill" style="background:#fef3c7; color:#b45309; border-color:#fde68a; font-weight:700;">
                 👤 {{ logged_in_user.full_name if logged_in_user else 'Cashier & Munim' }}
             </span>
@@ -222,7 +224,6 @@
                     <input type="hidden" id="commodity_name" name="commodity_name" value="{{ commodity_cards[0].name if commodity_cards else 'Soyabean (Yellow)' }}">
                     <input type="hidden" id="weighment_mode" name="weighment_mode" value="MANUAL_YARD">
                     <input type="hidden" id="settlement_mode" name="settlement_mode" value="CASH">
-                    <input type="hidden" id="inward_qc_ticket_no" name="qc_ticket_no" value="">
                     <input type="hidden" id="inward_dominant_breed" name="dominant_breed" value="">
                     <input type="hidden" id="inward_breed_purity_pct" name="breed_purity_pct" value="">
                     <input type="hidden" id="inward_karda_pct" name="karda_percentage" value="0.0">
@@ -252,6 +253,22 @@
                                     <div style="font-size:12px; font-weight:800; color:#14532d;" id="verifiedQCText"></div>
                                     <button type="button" onclick="openQCInspectionModal()" style="background:transparent; border:none; color:#15803d; font-size:11px; font-weight:800; cursor:pointer; text-decoration:underline;">View Proof Photos</button>
                                 </div>
+                            </div>
+                        </div>
+
+                        <!-- Dedicated QC Ticket Number Input Box -->
+                        <div class="form-group form-full" style="background:#f8fafc; border:1.5px solid #cbd5e1; border-radius:10px; padding:12px 14px; margin-bottom:4px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                                <label style="margin:0; font-weight:800; color:#0f172a; font-size:13px; display:flex; align-items:center; gap:6px;">
+                                    <span>🎫</span> Gate QC Ticket Number (Dedicated Input Box)
+                                </label>
+                                <span style="font-size:11px; color:#64748b; font-weight:600;">Separate ticket box • Auto-fills moisture, rate & vehicle</span>
+                            </div>
+                            <div style="display:flex; gap:10px;">
+                                <input type="text" id="inward_qc_ticket_no" name="qc_ticket_no" placeholder="e.g. QC-CHK-261102-A1B2" style="flex:1; font-weight:800; font-family:monospace; text-transform:uppercase; letter-spacing:0.5px; font-size:14px; padding:9px 12px; border:1.5px solid #94a3b8; border-radius:8px;" onchange="lookupQCTicketDirectly(this.value)">
+                                <button type="button" class="btn btn-branch" onclick="lookupQCTicketDirectly(document.getElementById('inward_qc_ticket_no').value)" style="padding:8px 16px; font-size:12.5px; font-weight:800; background:#0284c7; border-color:#0284c7; white-space:nowrap;">
+                                    ⚡ Load Ticket
+                                </button>
                             </div>
                         </div>
                         <!-- Farmer Selector + Action Buttons -->
@@ -1114,6 +1131,11 @@
         </div>
     </div>
 
+    <!-- FOOTER ATTRIBUTION -->
+    <footer style="text-align:center; padding:24px 0 32px; font-size:12px; color:var(--text-muted); font-weight:600;">
+        © 2026 Rajarshi Shahu Trading • Powered by Cresconic Technologies
+    </footer>
+
     <!-- MODAL 1: REGISTER NEW FARMER -->
     <div id="farmerModal" class="modal-overlay">
         <div class="modal" style="background:#ffffff; max-width:600px;">
@@ -1352,11 +1374,60 @@
     </div>
 
     <!-- JAVASCRIPT LOGIC -->
+    <script src="/static/js/live_sync.js"></script>
     <script type="application/json" id="daily-rates-data">{{ daily_rates_json | safe }}</script>
     <script>
         const dailyRates = JSON.parse(document.getElementById('daily-rates-data').textContent || '{}');
         let currentTargetPayout = 0;
         let currentExactPayable = 0;
+
+        // ---------------------------------------------------------------------
+        // LIVE SYNC WEBSOCKET EVENT LISTENERS
+        // ---------------------------------------------------------------------
+        if (window.MandiLiveSync) {
+            // On qc_ticket_created: show toast notification and call fetchPendingQCTickets()
+            MandiLiveSync.on('qc_ticket_created', function(data) {
+                const ticketNo = data.ticket_no || '';
+                const farmer = data.farmer_name || 'Farmer';
+                const comm = data.commodity_name || '';
+                const msg = `New QC Ticket #${ticketNo} created for ${farmer} (${comm}). Ready for weighment.`;
+                MandiLiveSync.toast('🔬 New QC Ticket Created', msg, 'success');
+                if (typeof fetchPendingQCTickets === 'function') {
+                    fetchPendingQCTickets();
+                }
+            });
+
+            // On rates_updated: show toast notification that daily rates were updated by HQ Accounts
+            MandiLiveSync.on('rates_updated', function(data) {
+                const comm = data.commodity || 'Commodity';
+                const targetRate = data.target_rate ? `Target: ₹${Number(data.target_rate).toLocaleString()}/Qtl` : '';
+                const msg = `Daily rates were updated by HQ Accounts for ${comm} (${targetRate}).`;
+                MandiLiveSync.toast('⚡ Rates Updated', msg, 'info');
+            });
+
+            // On rtgs_processed: show toast notification with UTR number for that branch
+            MandiLiveSync.on('rtgs_processed', function(data) {
+                const branchId = document.getElementById('branch_id')?.value || '';
+                if (!data.branch_id || data.branch_id === branchId) {
+                    const utr = data.utr_number || '';
+                    const token = data.token_number || '';
+                    const farmer = data.farmer_name || 'Farmer';
+                    const msg = `RTGS payout completed for ${farmer} (Token #${token}) with UTR: ${utr}.`;
+                    MandiLiveSync.toast('🏦 RTGS Bank Transfer Processed', msg, 'success');
+                }
+            });
+
+            // On rate_override_decided: show toast with approval/rejection decision
+            MandiLiveSync.on('rate_override_decided', function(data) {
+                const decision = data.decision || 'DECIDED';
+                const invoiceId = data.invoice_id || '';
+                const reason = data.accountant_reason || '';
+                const type = decision === 'APPROVE' ? 'success' : 'urgent';
+                const title = decision === 'APPROVE' ? '✅ Rate Override Approved' : '❌ Rate Override Rejected';
+                const msg = `HQ Accounts ${decision} override for Invoice #${invoiceId}. Reason: ${reason}`;
+                MandiLiveSync.toast(title, msg, type);
+            });
+        }
 
         function showTab(tabId) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
@@ -2222,15 +2293,37 @@
             if (detailBox) detailBox.style.display = 'block';
         }
 
-        function applySelectedQCToForm(ticketIndex) {
+        async function lookupQCTicketDirectly(ticketNo) {
+            if (!ticketNo || !ticketNo.trim()) return;
+            const cleanNo = ticketNo.trim().toUpperCase();
+            try {
+                const res = await fetch(`/api/inspector/tickets/${encodeURIComponent(cleanNo)}`);
+                const data = await res.json();
+                if (data && data.success && data.ticket) {
+                    applySelectedQCToForm(data.ticket);
+                    if (window.MandiLiveSync && window.MandiLiveSync.toast) {
+                        window.MandiLiveSync.toast("QC Ticket Attached", `Loaded Ticket #${cleanNo} for ${data.ticket.farmer_name}`, "success");
+                    }
+                } else {
+                    alert(`QC Ticket #${cleanNo} not found or already linked.`);
+                }
+            } catch(err) {
+                console.warn("Direct QC ticket lookup note:", err);
+            }
+        }
+
+        function applySelectedQCToForm(ticketIndexOrObj) {
             let t = selectedQCTicketData;
-            if (typeof ticketIndex === 'number' && pendingQCTicketsList[ticketIndex]) {
-                t = pendingQCTicketsList[ticketIndex];
+            if (typeof ticketIndexOrObj === 'object' && ticketIndexOrObj !== null) {
+                t = ticketIndexOrObj;
+                selectedQCTicketData = t;
+            } else if (typeof ticketIndexOrObj === 'number' && pendingQCTicketsList[ticketIndexOrObj]) {
+                t = pendingQCTicketsList[ticketIndexOrObj];
                 selectedQCTicketData = t;
             }
             if (!t) return;
 
-            // 1. QC Ticket hidden fields
+            // 1. QC Ticket dedicated field
             const qcTicketInput = document.getElementById('inward_qc_ticket_no');
             if (qcTicketInput) qcTicketInput.value = t.ticket_no;
 
@@ -2334,7 +2427,7 @@
                     newOpt.dataset.type = 'FARMER';
                     newOpt.dataset.name = t.farmer_name;
                     newOpt.dataset.phone = t.farmer_phone || '';
-                    newOpt.text = `🌾 ${t.farmer_name} (Farmer from QC #${t.ticket_no}) — ${t.farmer_phone || 'Phone Pending'}`;
+                    newOpt.text = `${t.farmer_name} (FARMER) — ${t.farmer_phone || 'Phone Pending'}`;
                     partySel.add(newOpt, 0);
                     partySel.selectedIndex = 0;
                     handlePartyChange();

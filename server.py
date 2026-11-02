@@ -3865,6 +3865,7 @@ async def api_inspector_analyze_sample(
     moisture_pct: float = Form(11.2),
     branch_id: Optional[str] = Form(None),
     grain_photo: Optional[UploadFile] = File(None),
+    sample_photo: Optional[UploadFile] = File(None),
     grain_photo_b64: Optional[str] = Form(None)
 ):
     """
@@ -3877,8 +3878,9 @@ async def api_inspector_analyze_sample(
         branch_id = user.get("branch_id") or branch_id
     raw_bytes = b""
     photo_url = ""
-    if grain_photo and grain_photo.filename:
-        content = await grain_photo.read()
+    active_upload = grain_photo if (grain_photo and grain_photo.filename) else (sample_photo if (sample_photo and sample_photo.filename) else None)
+    if active_upload:
+        content = await active_upload.read()
         photo_url, raw_bytes = save_qc_image_data(content, prefix="grain")
     elif grain_photo_b64:
         photo_url, raw_bytes = save_qc_image_data(grain_photo_b64, prefix="grain")
@@ -3946,6 +3948,9 @@ async def api_inspector_submit_qc(
     suggested_buying_rate_per_qtl: float = Form(0.0),
     sample_weight_grams: float = Form(250.0),
     total_seeds_analyzed: int = Form(500),
+    sortex_clean_yield_pct: float = Form(95.0),
+    sortex_reject_pct: float = Form(5.0),
+    sortex_grade: Optional[str] = Form("SORTEX Grade B (Commercial Trading Standard)"),
     meter_photo_path: Optional[str] = Form(""),
     grain_photo_path: Optional[str] = Form(""),
     inspection_notes: Optional[str] = Form("")
@@ -4003,6 +4008,9 @@ async def api_inspector_submit_qc(
         "total_seeds_analyzed": total_seeds_analyzed,
         "meter_photo_path": meter_photo_path,
         "grain_photo_path": grain_photo_path,
+        "sortex_clean_yield_pct": sortex_clean_yield_pct,
+        "sortex_reject_pct": sortex_reject_pct,
+        "sortex_grade": sortex_grade,
         "inspection_notes": inspection_notes
     }
 

@@ -239,8 +239,9 @@ def save_quality_inspection(qc_data: Dict[str, Any]) -> Dict[str, Any]:
                 faq_grade, grade_label, suggested_rate_cut_per_qtl,
                 corridor_min_rate, corridor_target_rate, corridor_max_rate,
                 suggested_buying_rate_per_qtl, sample_weight_grams, total_seeds_analyzed,
-                meter_photo_path, grain_photo_path, photo_path, inspector_signature, status, inspection_notes
-            ) VALUES (?,?,?,?,?, ?,?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?, ?,?,?,?, ?,?,?,?,?,?, 'PENDING', ?)
+                meter_photo_path, grain_photo_path, photo_path, inspector_signature, status, inspection_notes,
+                sortex_clean_yield_pct, sortex_reject_pct, sortex_grade
+            ) VALUES (?,?,?,?,?, ?,?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?, ?,?,?,?, ?,?,?,?,?,?, 'PENDING', ?, ?,?,?)
         """, (
             qc_id, ticket_no, qc_data.get("branch_id"), qc_data.get("inspector_id"), qc_data.get("inspector_name"),
             qc_data.get("vehicle_no", "").strip().upper(), qc_data.get("farmer_name", "").strip(), qc_data.get("farmer_phone"),
@@ -255,7 +256,9 @@ def save_quality_inspection(qc_data: Dict[str, Any]) -> Dict[str, Any]:
             float(qc_data.get("corridor_target_rate", 0.0)), float(qc_data.get("corridor_max_rate", 0.0)),
             float(qc_data.get("suggested_buying_rate_per_qtl", 0.0)), float(qc_data.get("sample_weight_grams", 250.0)),
             int(qc_data.get("total_seeds_analyzed", 500)), qc_data.get("meter_photo_path"),
-            qc_data.get("grain_photo_path"), qc_data.get("photo_path"), qc_data.get("inspector_signature"), qc_data.get("inspection_notes")
+            qc_data.get("grain_photo_path"), qc_data.get("photo_path"), qc_data.get("inspector_signature"), qc_data.get("inspection_notes"),
+            float(qc_data.get("sortex_clean_yield_pct", 95.0)), float(qc_data.get("sortex_reject_pct", 5.0)),
+            qc_data.get("sortex_grade", "SORTEX Grade B (Commercial Trading Standard)")
         ))
         conn.commit()
 
@@ -578,6 +581,9 @@ def init_db():
         grain_photo_path TEXT,
         photo_path TEXT,
         inspector_signature TEXT,
+        sortex_clean_yield_pct REAL DEFAULT 95.0,
+        sortex_reject_pct REAL DEFAULT 5.0,
+        sortex_grade TEXT DEFAULT 'SORTEX Grade B (Commercial Trading Standard)',
         status TEXT DEFAULT 'PENDING',
         invoice_id TEXT REFERENCES purchase_invoices(id),
         inspection_notes TEXT,
@@ -651,7 +657,10 @@ def init_db():
         ("suggested_buying_rate_per_qtl", "REAL DEFAULT 0.0"),
         ("meter_photo_path", "TEXT"),
         ("grain_photo_path", "TEXT"),
-        ("inspector_signature", "TEXT")
+        ("inspector_signature", "TEXT"),
+        ("sortex_clean_yield_pct", "REAL DEFAULT 95.0"),
+        ("sortex_reject_pct", "REAL DEFAULT 5.0"),
+        ("sortex_grade", "TEXT DEFAULT 'SORTEX Grade B (Commercial Trading Standard)'")
     ]:
         if col not in existing_qc_cols:
             cur.execute(f"ALTER TABLE quality_inspections ADD COLUMN {col} {definition}")

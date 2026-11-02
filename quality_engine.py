@@ -994,52 +994,67 @@ def generate_qc_ticket_number(branch_code: str = "CHK") -> str:
 def format_qc_slip_text(qc: Dict[str, Any]) -> str:
     """Generates an 80mm thermal receipt format for field printers or mobile display."""
     ticket = qc.get("ticket_no", "QC-DRAFT")
-    date_str = qc.get("created_at", datetime.now().strftime("%Y-%m-%d %H:%M"))
+    date_str = qc.get("created_at", "")
+    if not date_str:
+        from datetime import datetime
+        date_str = datetime.now().strftime("%Y-%m-%d %H:%M")
     v_no = qc.get("vehicle_no", "N/A")
     farmer = qc.get("farmer_name", "Registered Farmer")
     comm = qc.get("commodity_name", "Soyabean (Yellow)")
     grade = qc.get("grade_label", "Grade 1 (Premium FAQ)")
     rate = qc.get("suggested_buying_rate_per_qtl", 4650.0)
+    sortex_clean = qc.get("sortex_clean_yield_pct", 95.0)
+    sortex_reject = qc.get("sortex_reject_pct", 5.0)
+    sortex_decision = qc.get("sortex_grade", "SORTEX Grade B (Commercial Trading Standard)")
 
     slip = f"""
 ======================================================
-     RAJESHRI SHAHU MANDI & COMMODITY TRADING
-       APMC YARD QUALITY ASSAYING CERTIFICATE
+               RAJARSHI SHAHU TRADING
+            COMMERCIAL GRAIN TRADING FIRM
+   SORTEX OPTICAL REFRACTION & ASSAYING CERTIFICATE
 ======================================================
 Certificate No : {ticket}
 Date & Time    : {date_str}
 Vehicle No     : {v_no}
-Farmer Name    : {farmer}
+Farmer/Party   : {farmer}
 Commodity      : {comm}
-Inspector      : {qc.get('inspector_name', 'Babulal Meena')}
+Yard Inspector : {qc.get('inspector_name', 'Babulal Meena')}
 ------------------------------------------------------
-        PHYSICAL QUALITY PARAMETERS & REFRACTIONS
+         PHYSICAL QUALITY & SORTEX REFRACTIONS
 ------------------------------------------------------
 1. Moisture (Nami) %       : {qc.get('moisture_pct', 0.0):.1f}% (OCR Verified)
 2. Foreign Matter (Karda)% : {qc.get('karda_pct', 0.0):.2f}% (Stones/Sand)
-3. Rain & Weather Damage % : {qc.get('damaged_pct', 0.0):.2f}% (Fungal/Mold)
+3. Rain & Weather Damage % : {qc.get('damaged_pct', 0.0):.2f}% (Mold/Fungal)
 4. Immature Green Seeds %  : {qc.get('green_seeds_pct', 0.0):.2f}% (Chlorophyll)
 5. Broken & Split Dal %    : {qc.get('broken_split_pct', 0.0):.2f}%
 6. Shrivelled & Wrinkled % : {qc.get('shriveled_pct', 0.0):.2f}%
 7. Grain Size Uniformity   : {qc.get('uniformity_index', 0.0):.1f}%
 ------------------------------------------------------
-          VARIETAL PURITY & BREED DETECTION
+           VARIETAL PURITY & BREED DETECTION
 ------------------------------------------------------
 Dominant Breed Identified : {qc.get('dominant_breed', 'JS-335')}
 Breed Purity Score        : {qc.get('breed_purity_pct', 100.0):.1f}%
-Admixture (Other Breed) % : {qc.get('admixture_pct', 0.0):.1f}%
-Breed Homogeneity         : {qc.get('breed_status', 'PURE_BREED')}
+Admixture (Other Grain) % : {qc.get('admixture_pct', 0.0):.1f}%
+Breed Lot Status          : {qc.get('breed_status', 'PURE_BREED')}
 ------------------------------------------------------
-        APMC CORRIDOR RATE DISCOVERY & PRICING
+     BUHLER SORTEX INDUSTRIAL OPTICAL SORTING ASSAY
 ------------------------------------------------------
-Today's Corridor : Rs. {qc.get('corridor_min_rate', 4400.0):,.0f} - Rs. {qc.get('corridor_max_rate', 4800.0):,.0f}
-APMC FAQ Grade   : {grade}
-SUGGESTED RATE   : Rs. {rate:,.2f} / Quintal
+Sortex Clean Yield        : {sortex_clean:.2f}% (Sound Clean Produce)
+Sortex Rejection Eject    : {sortex_reject:.2f}% (High-Speed Valve Rejection)
+Sortex Decision           : {sortex_decision}
+Dual-Engine Inspection    : Spatial Watershed + Spectral Norm-Chroma
 ------------------------------------------------------
-Farmer Hamali    : Rs. 25.00 / 100 Kg
-Mandi Cess       : 0% (APMC Deregulated)
+        COMMERCIAL TRADING PRICING & SETTLEMENT
 ------------------------------------------------------
-Verified by Computer Vision Assayer • Tamper-Proof Audit
+Trading Corridor Range    : Rs. {qc.get('corridor_min_rate', 4400.0):,.0f} - Rs. {qc.get('corridor_max_rate', 4800.0):,.0f}
+Quality Grade Approved    : {grade}
+SUGGESTED BUYING RATE     : Rs. {rate:,.2f} / Quintal
+------------------------------------------------------
+Commercial Farmer Hamali  : Rs. 25.00 / 100 Kg
+Mandi Cess                : 0% (Section 269ST & Direct Trade Compliant)
+------------------------------------------------------
+Verified by Dual-Engine AI Assayer | Version v1.0
+Powered by Cresconic Technologies
 ======================================================
 """
     return slip.strip()

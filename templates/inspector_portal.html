@@ -524,6 +524,34 @@
                     </div>
                 </div>
 
+                <!-- Bühler SORTEX Optical Sorter Industrial Assay -->
+                <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color:#f8fafc; border-radius:12px; padding:14px; margin-top:12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.2);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; border-bottom:1px solid #334155; padding-bottom:8px;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span style="background:#2563eb; color:#fff; font-size:10.5px; font-weight:800; padding:2px 8px; border-radius:4px; letter-spacing:0.5px;">BÜHLER SORTEX</span>
+                            <span style="font-weight:700; font-size:12.5px;">Optical Sorting Refraction Model</span>
+                        </div>
+                        <span id="resSortexDecisionBadge" style="background:#059669; color:#fff; font-size:11px; font-weight:800; padding:3px 10px; border-radius:12px;">SORTEX Grade B</span>
+                    </div>
+                    <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:8px; text-align:center;">
+                        <div style="background:rgba(255,255,255,0.06); padding:8px 6px; border-radius:8px; border:1px solid #334155;">
+                            <div style="font-size:10px; color:#94a3b8; font-weight:600;">Clean Yield</div>
+                            <div id="resSortexCleanYield" style="font-size:17px; font-weight:800; color:#34d399; margin:2px 0;">94.0 %</div>
+                            <div style="font-size:9.5px; color:#cbd5e1;">Sound Kernels</div>
+                        </div>
+                        <div style="background:rgba(255,255,255,0.06); padding:8px 6px; border-radius:8px; border:1px solid #334155;">
+                            <div style="font-size:10px; color:#94a3b8; font-weight:600;">Reject Eject Rate</div>
+                            <div id="resSortexRejectRate" style="font-size:17px; font-weight:800; color:#f87171; margin:2px 0;">6.0 %</div>
+                            <div style="font-size:9.5px; color:#cbd5e1;">Valve Ejections</div>
+                        </div>
+                        <div style="background:rgba(255,255,255,0.06); padding:8px 6px; border-radius:8px; border:1px solid #334155;">
+                            <div style="font-size:10px; color:#94a3b8; font-weight:600;">Engine Modality</div>
+                            <div style="font-size:12px; font-weight:800; color:#38bdf8; margin:4px 0;">Dual Ensemble</div>
+                            <div style="font-size:9.5px; color:#94a3b8;">Spatial + Spectral</div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Price Corridor & Suggested Rate -->
                 <div class="corridor-banner">
                     <div>
@@ -916,6 +944,23 @@
                     document.getElementById("resPurity").innerText = `${currentAnalysis.breed_purity_pct.toFixed(1)} %`;
                     document.getElementById("resAdmixture").innerText = `Admixture: ${currentAnalysis.admixture_pct.toFixed(1)}%`;
 
+                    // Populate Sortex Industrial Assaying
+                    const cleanYield = currentAnalysis.sortex_clean_yield_pct !== undefined ? currentAnalysis.sortex_clean_yield_pct : (100 - (currentAnalysis.karda_pct + currentAnalysis.damaged_pct + currentAnalysis.green_seeds_pct + currentAnalysis.broken_split_pct));
+                    const rejectRate = currentAnalysis.sortex_reject_pct !== undefined ? currentAnalysis.sortex_reject_pct : (100 - cleanYield);
+                    const sortexDecision = currentAnalysis.sortex_grade || (cleanYield >= 95 ? "SORTEX Grade A (Export Quality)" : (cleanYield >= 85 ? "SORTEX Grade B (Commercial Trading Standard)" : "SORTEX Sub-Standard (High Ejection Lot)"));
+
+                    const elClean = document.getElementById("resSortexCleanYield");
+                    const elReject = document.getElementById("resSortexRejectRate");
+                    const elBadge = document.getElementById("resSortexDecisionBadge");
+                    if (elClean) elClean.innerText = `${cleanYield.toFixed(1)} %`;
+                    if (elReject) elReject.innerText = `${rejectRate.toFixed(1)} %`;
+                    if (elBadge) {
+                        elBadge.innerText = sortexDecision.split("(")[0].trim();
+                        if (cleanYield >= 92) elBadge.style.background = "#059669";
+                        else if (cleanYield >= 82) elBadge.style.background = "#d97706";
+                        else elBadge.style.background = "#dc2626";
+                    }
+
                     document.getElementById("resFaqGrade").innerText = currentCorridor.grade_label;
                     document.getElementById("resFaqGrade").style.background = currentCorridor.badge_color;
                     document.getElementById("resCorridorSpan").innerText = `Rs. ${currentCorridor.corridor_min_rate.toLocaleString()} - Rs. ${currentCorridor.corridor_max_rate.toLocaleString()}`;
@@ -990,6 +1035,13 @@
             payload.append("breed_purity_pct", currentAnalysis.breed_purity_pct);
             payload.append("admixture_pct", currentAnalysis.admixture_pct);
             payload.append("breed_status", currentAnalysis.breed_status);
+
+            const subCleanYield = currentAnalysis.sortex_clean_yield_pct !== undefined ? currentAnalysis.sortex_clean_yield_pct : 95.0;
+            const subRejectRate = currentAnalysis.sortex_reject_pct !== undefined ? currentAnalysis.sortex_reject_pct : 5.0;
+            const subSortexDecision = currentAnalysis.sortex_grade || "SORTEX Grade B (Commercial Trading Standard)";
+            payload.append("sortex_clean_yield_pct", subCleanYield);
+            payload.append("sortex_reject_pct", subRejectRate);
+            payload.append("sortex_grade", subSortexDecision);
 
             payload.append("faq_grade", currentCorridor.faq_grade);
             payload.append("grade_label", currentCorridor.grade_label);

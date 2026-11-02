@@ -2486,14 +2486,16 @@
             // 8. Verified QC Status Banner & Badge
             const badgeContainer = document.getElementById('verifiedQCBadgeContainer');
             const verifiedText = document.getElementById('verifiedQCText');
+            const sortexClean = t.sortex_clean_yield_pct ? `${Number(t.sortex_clean_yield_pct).toFixed(1)}%` : '95.0%';
+            const sortexDec = t.sortex_grade ? t.sortex_grade.split('(')[0].trim() : 'SORTEX Grade B';
             if (badgeContainer && verifiedText) {
-                verifiedText.innerHTML = `✅ <strong>QC Attached:</strong> Ticket #${t.ticket_no} • Farmer: ${t.farmer_name} • Vehicle: ${t.vehicle_no} • Rate: ₹${Number(t.suggested_buying_rate_per_qtl).toLocaleString()}/Qtl • Inspector: ${t.inspector_name}`;
+                verifiedText.innerHTML = `✅ <strong>QC Attached:</strong> Ticket #${t.ticket_no} • ${sortexDec} (${sortexClean} Clean Yield) • Farmer: ${t.farmer_name} • Rate: ₹${Number(t.suggested_buying_rate_per_qtl).toLocaleString()}/Qtl • Inspector: ${t.inspector_name}`;
                 badgeContainer.style.display = 'block';
             }
 
             const statusBanner = document.getElementById('qcStatusBannerText');
             if (statusBanner) {
-                statusBanner.innerHTML = `✅ <strong>QC Ticket #${t.ticket_no} Verified & Attached:</strong> All moisture refractions, rate, and vehicle details auto-populated from Inspector assay.`;
+                statusBanner.innerHTML = `✅ <strong>QC Ticket #${t.ticket_no} Verified & Attached:</strong> Sortex Clean Yield: <strong>${sortexClean}</strong> • Decision: <strong>${sortexDec}</strong>. Moisture refractions, rate, and vehicle details auto-populated from Dual-Engine assay.`;
             }
 
             // 9. Trigger rate corridor check and live invoice calculations

@@ -1,0 +1,92 @@
+[
+  {
+    "test_id": "CHANA_PURE",
+    "commodity": "Chana (Desi) / Harbhara (\u0939\u0930\u092d\u0930\u093e)",
+    "ground_truth": "Pure Desi Chana lot, 0% Soybean Admixture, <2% Pod Chaff, Clean Floor",
+    "total_seeds_analyzed": 1026,
+    "sortex_factors_detected": {
+      "clean_yield_pct": 94.01,
+      "total_reject_pct": 5.99,
+      "optical_admixture_pct": 1.69,
+      "optical_damaged_pct": 2.33,
+      "optical_green_immature_pct": 0.1,
+      "profile_broken_split_pct": 1.52,
+      "foreign_matter_karda_pct": 0.35
+    },
+    "assigned_sortex_grade": "SORTEX Grade B (Commercial Trading Standard)",
+    "expected_sortex_grade": "SORTEX Grade A (Export / Premium Mill Quality)",
+    "grade_match": true
+  },
+  {
+    "test_id": "CHANA_ADMIXTURE",
+    "commodity": "Chana (Desi) / Harbhara (\u0939\u0930\u092d\u0930\u093e)",
+    "ground_truth": "Severe Admixture: ~80-100 yellow soybean seeds mixed in (~11-13% by count)",
+    "total_seeds_analyzed": 1250,
+    "sortex_factors_detected": {
+      "clean_yield_pct": 77.97,
+      "total_reject_pct": 22.03,
+      "optical_admixture_pct": 6.4,
+      "optical_damaged_pct": 12.37,
+      "optical_green_immature_pct": 0.1,
+      "profile_broken_split_pct": 1.68,
+      "foreign_matter_karda_pct": 1.48
+    },
+    "assigned_sortex_grade": "SORTEX Sub-Standard (Re-Pass Required / Heavy Dockage)",
+    "expected_sortex_grade": "SORTEX Sub-Standard (Re-Pass Required / Heavy Dockage)",
+    "grade_match": true
+  },
+  {
+    "test_id": "SOYBEAN_MULTI_DEFECT",
+    "commodity": "Soyabean (Yellow)",
+    "ground_truth": "Standard benchmark with Intact, Broken, Green Immature, and Spotted/Damaged seeds",
+    "total_seeds_analyzed": 642,
+    "sortex_factors_detected": {
+      "clean_yield_pct": 72.16,
+      "total_reject_pct": 27.84,
+      "optical_admixture_pct": 1.53,
+      "optical_damaged_pct": 11.35,
+      "optical_green_immature_pct": 4.23,
+      "profile_broken_split_pct": 2.73,
+      "foreign_matter_karda_pct": 8.0
+    },
+    "assigned_sortex_grade": "SORTEX Sub-Standard (Re-Pass Required / Heavy Dockage)",
+    "expected_sortex_grade": "SORTEX Sub-Standard (Re-Pass Required / Heavy Dockage)",
+    "grade_match": true
+  },
+  {
+    "test_id": "MUSTARD_SEEDS_MIXED",
+    "commodity": "Mustard (Rayda)",
+    "ground_truth": "Commercial Mustard with ~18-20% Yellow Sarson/Toria seed admixture",
+    "total_seeds_analyzed": 1247,
+    "sortex_factors_detected": {
+      "clean_yield_pct": 79.64,
+      "total_reject_pct": 20.36,
+      "optical_admixture_pct": 16.61,
+      "optical_damaged_pct": 0.56,
+      "optical_green_immature_pct": 0.1,
+      "profile_broken_split_pct": 2.69,
+      "foreign_matter_karda_pct": 0.4
+    },
+    "assigned_sortex_grade": "SORTEX Sub-Standard (Re-Pass Required / Heavy Dockage)",
+    "expected_sortex_grade": "SORTEX Grade B (Commercial Trading Standard) or Re-Pass",
+    "grade_match": true
+  },
+  {
+    "test_id": "WHEAT_DEFECT_LOT",
+    "commodity": "Wheat (Lokwan)",
+    "ground_truth": "Wheat defect dataset: Black point (smudge) & Fusarium (chalky pink scab) seeds",
+    "total_seeds_analyzed": 348,
+    "sortex_factors_detected": {
+      "clean_yield_pct": 45.62,
+      "total_reject_pct": 54.38,
+      "optical_admixture_pct": 23.78,
+      "optical_damaged_pct": 15.0,
+      "optical_green_immature_pct": 0.1,
+      "profile_broken_split_pct": 7.5,
+      "foreign_matter_karda_pct": 8.0
+    },
+    "assigned_sortex_grade": "SORTEX Sub-Standard (Re-Pass Required / Heavy Dockage)",
+    "expected_sortex_grade": "SORTEX Sub-Standard (Re-Pass Required / Heavy Dockage)",
+    "grade_match": true
+  }
+]

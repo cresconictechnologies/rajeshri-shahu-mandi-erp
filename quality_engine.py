@@ -44,7 +44,28 @@ COMMODITY_STANDARDS: Dict[str, Dict[str, Any]] = {
         "default_breed": "JS-335 (Standard Commercial Bold)",
         "default_min_rate": 4400.0,
         "default_target_rate": 4650.0,
-        "default_max_rate": 4800.0
+        "default_max_rate": 4800.0,
+        "sortex_profile": {
+            "target_appearance": "Uniform Golden Yellow Spherical",
+            "optical_color_defects": [
+                "Green Immature (High Chlorophyll - Green Oil Penalty)",
+                "Black / Purple Mottled (Cercospora Fungal Stain)",
+                "Brown / Weather Damaged / Moldy"
+            ],
+            "profile_shape_defects": [
+                "Split Cotyledons (Halves/Dal)",
+                "Wrinkled / Shrivelled Skin",
+                "Pinhead / Undersized"
+            ],
+            "foreign_matter_defects": [
+                "Maize / Wheat Grain Admixture",
+                "Pod Shells & Stalks",
+                "Mud Balls & Soil Clods",
+                "Inert Stones"
+            ],
+            "sortex_clean_yield_target_pct": 96.0,
+            "sortex_reject_ceiling_pct": 4.0
+        }
     },
     "Wheat (Lokwan)": {
         "standard_moisture_pct": 10.0,
@@ -65,7 +86,27 @@ COMMODITY_STANDARDS: Dict[str, Dict[str, Any]] = {
         "default_breed": "Lokwan (लोकवन Golden Bold)",
         "default_min_rate": 2600.0,
         "default_target_rate": 2750.0,
-        "default_max_rate": 2900.0
+        "default_max_rate": 2900.0,
+        "sortex_profile": {
+            "target_appearance": "Lustrous Amber Golden Cylindrical",
+            "optical_color_defects": [
+                "Black Point / Smudge (Embryo Tip Fungal Blight)",
+                "Fusarium / Scab / Vomitoxin (Pink / Chalky White Diseased)",
+                "Mouldy / Weather Stained"
+            ],
+            "profile_shape_defects": [
+                "Bud Germinated / Sprouted",
+                "Broken / Chipped Kernels",
+                "Shrivelled / Thin Underdeveloped"
+            ],
+            "foreign_matter_defects": [
+                "Ergot Sclerotia (Black Toxic Bodies)",
+                "Barley / Oats / Soya Cross-Admixture",
+                "Chaff, Straw & Mud"
+            ],
+            "sortex_clean_yield_target_pct": 97.0,
+            "sortex_reject_ceiling_pct": 3.0
+        }
     },
     "Chana (Desi) / Harbhara (हरभरा)": {
         "standard_moisture_pct": 10.0,
@@ -86,7 +127,28 @@ COMMODITY_STANDARDS: Dict[str, Dict[str, Any]] = {
         "default_breed": "Vijay (विजय हरभरा / Desi Brown)",
         "default_min_rate": 5600.0,
         "default_target_rate": 5850.0,
-        "default_max_rate": 6100.0
+        "default_max_rate": 6100.0,
+        "sortex_profile": {
+            "target_appearance": "Characteristic Tan Desi Brown Angular",
+            "optical_color_defects": [
+                "Pale Yellow Soybean / Pea Admixture",
+                "Black / Fungal Necrotic Grains",
+                "Green Immature Kernels",
+                "Ascochyta Spots"
+            ],
+            "profile_shape_defects": [
+                "Split Dal / Half Kernels",
+                "Shrivelled / Wrinkled Kernels",
+                "Weevil-Bored / Exit Holes"
+            ],
+            "foreign_matter_defects": [
+                "Dry Pod Husks (Dhokad)",
+                "Clay Lumps & Mud Balls",
+                "Stones & Plant Sticks"
+            ],
+            "sortex_clean_yield_target_pct": 96.5,
+            "sortex_reject_ceiling_pct": 3.5
+        }
     },
     "Tur / Arhar (तूर)": {
         "standard_moisture_pct": 10.0,
@@ -106,7 +168,27 @@ COMMODITY_STANDARDS: Dict[str, Dict[str, Any]] = {
         "default_breed": "Maruti (ICP-8863 White/Red)",
         "default_min_rate": 6800.0,
         "default_target_rate": 7200.0,
-        "default_max_rate": 7600.0
+        "default_max_rate": 7600.0,
+        "sortex_profile": {
+            "target_appearance": "Clean Reddish-Brown Whole Grain",
+            "optical_color_defects": [
+                "Dehusked Exposed Yellow Dal",
+                "Dark Weather Damaged / Blackened",
+                "Green Immature Grains"
+            ],
+            "profile_shape_defects": [
+                "Bruchid Weevil-Bored Holes",
+                "Broken / Split Cotyledons",
+                "Pinhead Shrivelled"
+            ],
+            "foreign_matter_defects": [
+                "Clay Clods",
+                "Dry Pod Husks",
+                "Foreign Seeds"
+            ],
+            "sortex_clean_yield_target_pct": 96.0,
+            "sortex_reject_ceiling_pct": 4.0
+        }
     },
     "Cotton / Kapas (कापूस)": {
         "standard_moisture_pct": 8.0,
@@ -126,7 +208,25 @@ COMMODITY_STANDARDS: Dict[str, Dict[str, Any]] = {
         "default_breed": "Bt Cotton Hybrid (Long Staple)",
         "default_min_rate": 6800.0,
         "default_target_rate": 7250.0,
-        "default_max_rate": 7500.0
+        "default_max_rate": 7500.0,
+        "sortex_profile": {
+            "target_appearance": "Pristine White Lint with Healthy Dark Seeds",
+            "optical_color_defects": [
+                "Yellow / Gray Weather Stained Fiber",
+                "Bollworm Damaged Spotted Seeds",
+                "Blight Discolored Fiber"
+            ],
+            "profile_shape_defects": [
+                "Crushed Seed Shells in Lint",
+                "Immature Undeveloped Motts"
+            ],
+            "foreign_matter_defects": [
+                "Leaf Trash & Bracts",
+                "Stems, Sticks & Soil Particles"
+            ],
+            "sortex_clean_yield_target_pct": 95.0,
+            "sortex_reject_ceiling_pct": 5.0
+        }
     },
     "Mustard (Rayda)": {
         "standard_moisture_pct": 9.0,
@@ -146,7 +246,26 @@ COMMODITY_STANDARDS: Dict[str, Dict[str, Any]] = {
         "default_breed": "Pusa Bold (Black / Brown)",
         "default_min_rate": 5200.0,
         "default_target_rate": 5400.0,
-        "default_max_rate": 5650.0
+        "default_max_rate": 5650.0,
+        "sortex_profile": {
+            "target_appearance": "Uniform Spherical Dark Brown / Black",
+            "optical_color_defects": [
+                "Yellow Sarson / Toria Cross-Admixture",
+                "Green Immature Chlorophyll Seeds",
+                "Bleached / Chalky Seeds"
+            ],
+            "profile_shape_defects": [
+                "Argemone Mexicana Toxic Adulterant (Wrinkled & Pointed)",
+                "Shrivelled / Wrinkled Kernels"
+            ],
+            "foreign_matter_defects": [
+                "Siliqua Chaff & Pod Stems",
+                "Fine Silt & Sand",
+                "Wild Weed Seeds"
+            ],
+            "sortex_clean_yield_target_pct": 98.0,
+            "sortex_reject_ceiling_pct": 2.0
+        }
     },
     "Maize (Makka)": {
         "standard_moisture_pct": 12.0,
@@ -166,7 +285,25 @@ COMMODITY_STANDARDS: Dict[str, Dict[str, Any]] = {
         "default_breed": "Yellow Flint Hybrid (Commercial)",
         "default_min_rate": 2100.0,
         "default_target_rate": 2250.0,
-        "default_max_rate": 2400.0
+        "default_max_rate": 2400.0,
+        "sortex_profile": {
+            "target_appearance": "Uniform Golden Yellow Flint/Dent",
+            "optical_color_defects": [
+                "Black Tip / Crown Rot",
+                "Aflatoxin / Aspergillus Ear Rot",
+                "Pink Fusarium Staining"
+            ],
+            "profile_shape_defects": [
+                "Broken / Chipped Grits",
+                "Shrivelled / Hollow Kernels"
+            ],
+            "foreign_matter_defects": [
+                "Cob Chunks & Straw",
+                "Soil Balls & Stones"
+            ],
+            "sortex_clean_yield_target_pct": 96.0,
+            "sortex_reject_ceiling_pct": 4.0
+        }
     }
 }
 
@@ -336,16 +473,34 @@ def segment_individual_kernels(
     local_max = (ndimage.maximum_filter(dist, size=11) == dist) & (dist > 3.5)
     markers, num_kernels = ndimage.label(local_max)
 
-    # 3. Multi-Spectral Admixture & Foreign Grain Detection
-    is_chana = "chana" in commodity_name.lower() or "harbhara" in commodity_name.lower()
+    # 3. Multi-Spectral Admixture & Foreign Grain Detection (Sortex Optical Profile)
+    c_lower = commodity_name.lower()
+    is_chana = "chana" in c_lower or "harbhara" in c_lower
+    is_mustard = "mustard" in c_lower or "rayda" in c_lower or "sarson" in c_lower or "mohari" in c_lower
+    is_wheat = "wheat" in c_lower or "lokwan" in c_lower or "sharbati" in c_lower
+    is_tur = "tur" in c_lower or "arhar" in c_lower
+    is_soybean = "soya" in c_lower
+
     if is_chana:
         # Yellow Soybeans in Desi Chana:
         is_admixture = grain_mask & (gr_ratio > 0.79) & (gr_ratio < 0.96) & (total_rgb > 360) & (norm_b > 0.20)
         admixture_type = "Soybean / Yellow Food Grain Admixture"
+    elif is_mustard:
+        # Yellow Sarson / Toria in Brown/Black Mustard:
+        is_admixture = grain_mask & (luminance > 110) & (norm_r > 0.38) & (norm_g > 0.34)
+        admixture_type = "Yellow Sarson / Toria Admixture"
+    elif is_wheat:
+        # Fusarium / Chalky Scab and Black Point in Wheat:
+        is_admixture = grain_mask & ((luminance < 55) | ((luminance > 175) & (diff_rb < 20)))
+        admixture_type = "Black Point / Fusarium Chalky Diseased"
+    elif is_tur:
+        # Dehusked Yellow Dal in Red Tur:
+        is_admixture = grain_mask & (luminance > 135) & (norm_r > 0.40) & (norm_g > 0.34)
+        admixture_type = "Dehusked Exposed Yellow Dal / Admixture"
     else:
-        # Dark seed / wild weed admixture in Soyabean or Wheat
+        # Dark seed / wild weed admixture in Soyabean
         is_admixture = grain_mask & (luminance < 65) & (diff_rb < 25)
-        admixture_type = "Foreign Seed Admixture"
+        admixture_type = "Foreign Seed / Weed Admixture"
 
     adm_count = 0
     adm_area = 0.0
@@ -471,6 +626,17 @@ def segment_individual_kernels(
         grain_lum_std = float(np.std(luminance[grain_mask])) if np.any(grain_mask) else 14.0
         uniformity_index = round(max(65.0, min(99.0, 100.0 - (grain_lum_std * 1.15))), 1)
 
+    # SORTEX Optical Sorter Clean Yield & Grade
+    sortex_clean_yield_pct = round(max(0.0, min(99.9, 100.0 - (pct_admixture + pct_damaged + pct_green + pct_broken + pct_karda))), 2)
+    sortex_reject_pct = round(100.0 - sortex_clean_yield_pct, 2)
+
+    if sortex_clean_yield_pct >= 95.5:
+        sortex_grade = "SORTEX Grade A (Export / Premium Mill Quality)"
+    elif sortex_clean_yield_pct >= 89.0:
+        sortex_grade = "SORTEX Grade B (Commercial Trading Standard)"
+    else:
+        sortex_grade = "SORTEX Sub-Standard (Re-Pass Required / Heavy Dockage)"
+
     return {
         "total_kernels_analyzed": valid_seeds_count,
         "sound_kernels_count": sound_count,
@@ -488,6 +654,9 @@ def segment_individual_kernels(
         "admixture_type": admixture_type,
         "breed_purity_pct": purity_pct,
         "uniformity_index": uniformity_index,
+        "sortex_clean_yield_pct": sortex_clean_yield_pct,
+        "sortex_reject_pct": sortex_reject_pct,
+        "sortex_grade": sortex_grade,
         "segmentation_method": "Multi-Spectral Normalized Chromaticity & Watershed Instance Profiling"
     }
 
@@ -696,6 +865,10 @@ def analyze_grain_sample_image(
         "admixture_seeds_count": admixture_count,
         "admixture_type": admixture_type,
         "breed_status": breed_status,
+        "sortex_clean_yield_pct": seg_result.get("sortex_clean_yield_pct", 95.0),
+        "sortex_reject_pct": seg_result.get("sortex_reject_pct", 5.0),
+        "sortex_grade": seg_result.get("sortex_grade", "SORTEX Grade B (Commercial Trading Standard)"),
+        "sortex_profile": std.get("sortex_profile", {}),
         "tray_homography_warp": {
             "applied": True,
             "mm_per_pixel": mm_per_pixel,

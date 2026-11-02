@@ -1,0 +1,134 @@
+{
+  "sample1_pure_chana": {
+    "engine1": {
+      "engine": "Engine 1 (Naive RGB Color Mask)",
+      "admixture_pct": 1.34,
+      "total_grain_px": 704345,
+      "can_count_kernels": false,
+      "can_detect_splits": false,
+      "can_detect_shrivelled": false
+    },
+    "engine2": {
+      "engine": "Engine 2 (Geometric Watershed & Contour)",
+      "kernel_count": 19,
+      "whole_kernels": 6,
+      "broken_kernels": 0,
+      "shrivelled_kernels": 2,
+      "admixture_pct": 0.0,
+      "can_count_kernels": true,
+      "can_detect_splits": true,
+      "can_detect_shrivelled": true
+    },
+    "engine3": {
+      "engine": "Engine 3 (Multi-Spectral Norm-Chroma)",
+      "admixture_seeds_count": 58,
+      "admixture_pct": 2.11,
+      "floor_decoupled": true,
+      "glare_immune": true
+    },
+    "engine4_ensemble": {
+      "engine": "Engine 4 (Dual-Engine Spatial-Spectral Ensemble)",
+      "total_analyzed_kernels": 238,
+      "sound_kernels": 46,
+      "admixture_kernels": 15,
+      "broken_kernels": 131,
+      "shrivelled_kernels": 46,
+      "green_kernels": 0,
+      "damaged_kernels": 0,
+      "sound_pct": 19.33,
+      "admixture_pct": 6.3,
+      "broken_pct": 55.04,
+      "shrivelled_pct": 19.33,
+      "green_pct": 0.0,
+      "damaged_pct": 0.0,
+      "can_count_kernels": true,
+      "can_detect_splits": true,
+      "can_detect_shrivelled": true,
+      "floor_decoupled": true,
+      "spectral_validated": true
+    }
+  },
+  "sample2_admixture_chana": {
+    "engine1": {
+      "engine": "Engine 1 (Naive RGB Color Mask)",
+      "admixture_pct": 2.75,
+      "total_grain_px": 834752,
+      "can_count_kernels": false,
+      "can_detect_splits": false,
+      "can_detect_shrivelled": false
+    },
+    "engine2": {
+      "engine": "Engine 2 (Geometric Watershed & Contour)",
+      "kernel_count": 44,
+      "whole_kernels": 4,
+      "broken_kernels": 0,
+      "shrivelled_kernels": 0,
+      "admixture_pct": 0.0,
+      "can_count_kernels": true,
+      "can_detect_splits": true,
+      "can_detect_shrivelled": true
+    },
+    "engine3": {
+      "engine": "Engine 3 (Multi-Spectral Norm-Chroma)",
+      "admixture_seeds_count": 156,
+      "admixture_pct": 6.07,
+      "floor_decoupled": true,
+      "glare_immune": true
+    },
+    "engine4_ensemble": {
+      "engine": "Engine 4 (Dual-Engine Spatial-Spectral Ensemble)",
+      "total_analyzed_kernels": 307,
+      "sound_kernels": 64,
+      "admixture_kernels": 34,
+      "broken_kernels": 151,
+      "shrivelled_kernels": 52,
+      "green_kernels": 0,
+      "damaged_kernels": 6,
+      "sound_pct": 20.85,
+      "admixture_pct": 11.07,
+      "broken_pct": 49.19,
+      "shrivelled_pct": 16.94,
+      "green_pct": 0.0,
+      "damaged_pct": 1.95,
+      "can_count_kernels": true,
+      "can_detect_splits": true,
+      "can_detect_shrivelled": true,
+      "floor_decoupled": true,
+      "spectral_validated": true
+    }
+  },
+  "sample3_soybean_defects": {
+    "engine2": {
+      "engine": "Engine 2 (Geometric Watershed & Contour)",
+      "kernel_count": 79,
+      "whole_kernels": 63,
+      "broken_kernels": 0,
+      "shrivelled_kernels": 6,
+      "admixture_pct": 0.0,
+      "can_count_kernels": true,
+      "can_detect_splits": true,
+      "can_detect_shrivelled": true
+    },
+    "engine4_ensemble": {
+      "engine": "Engine 4 (Dual-Engine Spatial-Spectral Ensemble)",
+      "total_analyzed_kernels": 1461,
+      "sound_kernels": 111,
+      "admixture_kernels": 0,
+      "broken_kernels": 946,
+      "shrivelled_kernels": 125,
+      "green_kernels": 40,
+      "damaged_kernels": 239,
+      "sound_pct": 7.6,
+      "admixture_pct": 0.0,
+      "broken_pct": 64.75,
+      "shrivelled_pct": 8.56,
+      "green_pct": 2.74,
+      "damaged_pct": 16.36,
+      "can_count_kernels": true,
+      "can_detect_splits": true,
+      "can_detect_shrivelled": true,
+      "floor_decoupled": true,
+      "spectral_validated": true
+    }
+  }
+}

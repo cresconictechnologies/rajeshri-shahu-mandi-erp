@@ -1,95 +1,768 @@
-<div class="parchi-paper" style="max-width: 500px; margin: 0 auto; background: #ffffff; padding: 18px 22px; font-family: 'Segoe UI', Tahoma, Arial, sans-serif; border: 1.5px solid #0f172a; border-radius: 8px; color: #0f172a;">
-    <!-- FIRM HEADER -->
-    <div style="text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 10px; margin-bottom: 12px;">
-        <h2 style="font-size: 21px; font-weight: 800; margin: 0; color: #0f172a; letter-spacing: 0.5px;">
-            RAJARSHI SHAHU TRADING
-        </h2>
-        <div style="font-size: 11px; font-weight: 700; color: #0284c7; margin-top: 2px;">
-            COMMERCIAL GRAIN TRADING FIRM • POWERED BY CRESCONIC
+<!DOCTYPE html>
+<html lang="mr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mandi Parchi Slip #{{ invoice.token_number }} - Rajarshi Shahu Trading</title>
+    <style>
+        /* BASE RESET & TYPOGRAPHY */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #e2e8f0;
+            color: #0f172a;
+            padding: 20px 10px;
+            font-size: 12px;
+        }
+
+        /* FLOATING ACTION TOOLBAR (NON-PRINTABLE) */
+        .slip-toolbar {
+            max-width: 820px;
+            margin: 0 auto 16px auto;
+            background: #0f172a;
+            color: #ffffff;
+            padding: 10px 16px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.25);
+        }
+        .format-switch-group {
+            display: flex;
+            background: #1e293b;
+            padding: 3px;
+            border-radius: 6px;
+            border: 1px solid #334155;
+            gap: 2px;
+        }
+        .format-btn {
+            background: transparent;
+            color: #94a3b8;
+            border: none;
+            padding: 6px 14px;
+            font-size: 12px;
+            font-weight: 700;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .format-btn.active {
+            background: #0284c7;
+            color: #ffffff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .toolbar-actions {
+            display: flex;
+            gap: 8px;
+        }
+        .btn-print {
+            background: #059669;
+            color: #ffffff;
+            border: none;
+            padding: 7px 18px;
+            font-size: 13px;
+            font-weight: 800;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: background 0.15s;
+        }
+        .btn-print:hover { background: #047857; }
+        .btn-close {
+            background: #334155;
+            color: #f1f5f9;
+            border: none;
+            padding: 7px 14px;
+            font-size: 12px;
+            font-weight: 700;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        /* ============================================================ */
+        /* A4 DUAL-VOUCHER CONTAINER (FARMER COPY + MANDI OFFICE COPY) */
+        /* ============================================================ */
+        .a4-container {
+            width: 210mm;
+            max-width: 820px;
+            min-height: 297mm;
+            margin: 0 auto;
+            background: #ffffff;
+            padding: 8mm 10mm;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1);
+            border-radius: 4px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .voucher-card {
+            background: #ffffff;
+            border: 1.5px solid #0f172a;
+            border-radius: 6px;
+            padding: 10px 14px;
+            position: relative;
+        }
+
+        /* Top Header */
+        .voucher-header {
+            border-bottom: 1.5px solid #0f172a;
+            padding-bottom: 6px;
+            margin-bottom: 8px;
+            position: relative;
+            text-align: center;
+        }
+        .copy-badge {
+            position: absolute;
+            top: 0;
+            right: 0;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 10.5px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .copy-badge-farmer {
+            background: #ecfdf5;
+            color: #065f46;
+            border: 1px solid #a7f3d0;
+        }
+        .copy-badge-mandi {
+            background: #eff6ff;
+            color: #1e40af;
+            border: 1px solid #bfdbfe;
+        }
+
+        .firm-title {
+            font-size: 18px;
+            font-weight: 900;
+            color: #0f172a;
+            letter-spacing: 0.8px;
+            line-height: 1.1;
+        }
+        .firm-subtitle {
+            font-size: 10px;
+            font-weight: 700;
+            color: #0284c7;
+            margin-top: 1px;
+            letter-spacing: 0.5px;
+        }
+        .firm-branch-info {
+            font-size: 11px;
+            font-weight: 600;
+            color: #334155;
+            margin-top: 2px;
+        }
+
+        /* Metadata Banner */
+        .meta-strip {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f1f5f9;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 700;
+            color: #1e293b;
+            margin-top: 5px;
+            border: 1px solid #e2e8f0;
+        }
+
+        /* 2-Column Party & Vehicle Details */
+        .details-grid {
+            display: grid;
+            grid-template-columns: 1.3fr 1fr;
+            gap: 6px 12px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 5px;
+            padding: 6px 10px;
+            margin-bottom: 8px;
+            font-size: 11.5px;
+            line-height: 1.45;
+        }
+        .details-grid strong {
+            color: #0f172a;
+        }
+
+        /* Commercial Settlement Table */
+        .settlement-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11.5px;
+            margin-bottom: 6px;
+        }
+        .settlement-table th {
+            background: #0f172a;
+            color: #ffffff;
+            font-weight: 800;
+            padding: 5px 6px;
+            font-size: 11px;
+            letter-spacing: 0.3px;
+        }
+        .settlement-table td {
+            padding: 6px 6px;
+            border-bottom: 1px solid #e2e8f0;
+            color: #0f172a;
+        }
+
+        .net-payable-row {
+            background: #ecfdf5 !important;
+            border-top: 2px solid #059669 !important;
+            border-bottom: 2px solid #059669 !important;
+        }
+        .net-payable-cell {
+            padding: 6px 8px !important;
+            font-size: 15px !important;
+            font-weight: 900 !important;
+            color: #047857 !important;
+            text-align: right;
+        }
+
+        /* Amount in Words Box */
+        .words-box {
+            background: #fafaf9;
+            border: 1px solid #e7e5e4;
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-size: 10.5px;
+            font-weight: 700;
+            color: #44403c;
+            margin-bottom: 6px;
+        }
+
+        /* Footer & Signatures */
+        .voucher-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-top: 6px;
+            padding-top: 6px;
+            border-top: 1px dashed #cbd5e1;
+            font-size: 10px;
+        }
+        .compliance-note {
+            color: #64748b;
+            line-height: 1.35;
+        }
+        .sig-box {
+            text-align: center;
+            min-width: 130px;
+            border-top: 1.2px solid #0f172a;
+            padding-top: 3px;
+            font-size: 10.5px;
+            color: #0f172a;
+        }
+
+        /* PERFORATED SCISSOR CUT DIVIDER */
+        .perforation-divider {
+            margin: 6px 0;
+            display: flex;
+            align-items: center;
+            text-align: center;
+            color: #64748b;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            user-select: none;
+        }
+        .perforation-divider::before,
+        .perforation-divider::after {
+            content: '';
+            flex: 1;
+            border-bottom: 1.5px dashed #94a3b8;
+        }
+        .perforation-divider span {
+            padding: 0 12px;
+            color: #475569;
+        }
+
+        /* ============================================================ */
+        /* THERMAL SLIP CONTAINER (80MM / 3-INCH COMPACT ROLL) */
+        /* ============================================================ */
+        .thermal-container {
+            display: none;
+            max-width: 380px;
+            margin: 0 auto;
+            background: #ffffff;
+            padding: 16px 14px;
+            border: 1.5px solid #0f172a;
+            border-radius: 8px;
+            font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+            color: #0f172a;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+        }
+
+        /* PRINT MEDIA RULES (A4 PORTRAIT) */
+        @media print {
+            body {
+                background: #ffffff !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+            .no-print {
+                display: none !important;
+            }
+            @page {
+                size: A4 portrait;
+                margin: 6mm 8mm;
+            }
+            .a4-container {
+                width: 100% !important;
+                max-width: 100% !important;
+                min-height: auto !important;
+                padding: 0 !important;
+                box-shadow: none !important;
+                border: none !important;
+            }
+            .voucher-card {
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+            }
+            .thermal-container {
+                border: none !important;
+                box-shadow: none !important;
+                max-width: 100% !important;
+                padding: 0 !important;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- FLOATING ACTION TOOLBAR -->
+    <div class="slip-toolbar no-print">
+        <div style="display:flex; align-items:center; gap:12px;">
+            <div style="font-size:13px; font-weight:800; color:#f8fafc;">
+                Mandi Slip #{{ invoice.token_number }}
+            </div>
+            <div class="format-switch-group">
+                <button type="button" id="btnFmtA4" class="format-btn active" onclick="switchFormat('a4')">
+                    📄 A4 Dual Voucher (Farmer + Mandi)
+                </button>
+                <button type="button" id="btnFmtThermal" class="format-btn" onclick="switchFormat('thermal')">
+                    🧾 Thermal (80mm)
+                </button>
+            </div>
         </div>
-        <div style="font-size: 13px; font-weight: 700; color: #334155; margin-top: 3px;">
-            {{ invoice.branch_name }}
-        </div>
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; font-size: 12px; font-weight: 700; color: #1e293b; background: #f1f5f9; padding: 5px 10px; border-radius: 4px;">
-            <span>Token: #{{ invoice.token_number }}</span>
-            <span>Date: {{ invoice.invoice_date }}</span>
+
+        <div class="toolbar-actions">
+            <button type="button" class="btn-print" onclick="window.print()">
+                🖨️ Print Slip
+            </button>
+            <button type="button" class="btn-close" onclick="window.close()">
+                ✕ Close
+            </button>
         </div>
     </div>
 
-    <!-- SELLER & VEHICLE INFO -->
-    <div style="margin-bottom: 12px; font-size: 12.5px; line-height: 1.6; background: #f8fafc; padding: 8px 12px; border-radius: 6px; border: 1px solid #e2e8f0;">
-        <div style="display: flex; justify-content: space-between;">
-            <span><strong>Farmer:</strong> {{ invoice.party_name }}</span>
-            <span><strong>Village:</strong> {{ invoice.village or 'Local' }}</span>
-        </div>
-        <div style="display: flex; justify-content: space-between;">
-            <span><strong>Vehicle No:</strong> {{ invoice.vehicle_number or '-' }}</span>
-            <span><strong>Weighment:</strong> {{ 'Yard Scale (Manual)' if ('YARD' in (invoice.weighment_mode or '') or 'MANUAL' in (invoice.weighment_mode or '')) else (invoice.weighment_mode or 'Standard') }}</span>
-        </div>
-        <div style="display: flex; justify-content: space-between;">
-            <span><strong>Status:</strong> <strong style="color: #059669;">{{ invoice.payout_status }}</strong></span>
-            {% if invoice.rtgs_utr_no %}
-            <span><strong>UTR:</strong> {{ invoice.rtgs_utr_no }} (Settled via RTGS Bank Transfer)</span>
+    <!-- ================================================================ -->
+    <!-- VIEW 1: A4 DUAL VOUCHER LAYOUT (2-IN-1 SINGLE SHEET) -->
+    <!-- ================================================================ -->
+    <div id="a4Container" class="a4-container">
+
+        <!-- ---------------- TOP COPY: FARMER COPY ---------------- -->
+        <div class="voucher-card">
+            <div class="voucher-header">
+                <span class="copy-badge copy-badge-farmer">🌾 शेतकरी प्रत (Farmer Copy)</span>
+                <h1 class="firm-title">RAJARSHI SHAHU TRADING</h1>
+                <div class="firm-subtitle">COMMERCIAL GRAIN TRADING & COMMISSION FIRM</div>
+                <div class="firm-branch-info">
+                    {{ invoice.branch_name }} • Mandi Lic: {{ invoice.mandi_license_no or 'APMC-MH-VERIFIED' }}
+                </div>
+                <div class="meta-strip">
+                    <span>Token: <strong>#{{ invoice.token_number }}</strong></span>
+                    {% if invoice.external_slip_number and invoice.external_slip_number != 'YARD-DIRECT' and invoice.external_slip_number != 'WB-ENTRY' %}
+                    <span>Ledger Slip No.: <strong style="color:#0369a1;">{{ invoice.external_slip_number }}</strong></span>
+                    {% endif %}
+                    <span>Date: <strong>{{ invoice.invoice_date }}</strong></span>
+                    <span>Mode: <strong>{{ 'धर्मकाटा (Weighbridge)' if 'WEIGHBRIDGE' in (invoice.weighment_mode or '') else 'यार्ड काटा (Yard Scale)' }}</strong></span>
+                </div>
+            </div>
+
+            <!-- Farmer & Vehicle Details -->
+            <div class="details-grid">
+                <div>
+                    <strong>शेतकरी / Farmer:</strong> {{ invoice.party_name }}<br>
+                    <strong>गाव / Village:</strong> {{ invoice.village or 'स्थानिक (Local)' }} &nbsp;|&nbsp; <strong>मोबाईल:</strong> {{ invoice.phone or '-' }}
+                </div>
+                <div>
+                    <strong>वाहन / Vehicle:</strong> {{ invoice.vehicle_number or '-' }}<br>
+                    <strong>पेमेंट / Status:</strong> <span style="color:#059669; font-weight:800;">{{ invoice.payout_status }}</span>
+                    {% if invoice.rtgs_utr_no %} <small>(Settled via RTGS Bank Transfer | UTR: {{ invoice.rtgs_utr_no }})</small>{% endif %}
+                </div>
+            </div>
+
+            <!-- Produce Table -->
+            <table class="settlement-table">
+                <thead>
+                    <tr>
+                        <th style="text-align:left;">शेतमाल / Commodity</th>
+                        <th style="text-align:right;">निव्वळ वजन / Net Weight</th>
+                        <th style="text-align:right;">दर / Rate (₹/Qtl)</th>
+                        <th style="text-align:right;">रक्कम / Amount (₹)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="font-weight:800; font-size:12.5px;">
+                            {{ invoice.commodity_name }}
+                            <small style="font-weight:600; color:#475569;">({{ invoice.quality_grade or 'Standard' }})</small>
+                        </td>
+                        <td style="text-align:right; font-weight:800; font-size:12.5px;">
+                            {{ "%.2f"|format(invoice.net_quintals) }} Qtl
+                            <small style="color:#64748b;">({{ invoice.net_weight_kg|round|int if invoice.net_weight_kg else (invoice.net_quintals * 100)|round|int }} Kg)</small>
+                        </td>
+                        <td style="text-align:right; font-weight:800; font-size:12.5px;">
+                            ₹ {{ "%.2f"|format(invoice.rate_per_quintal) }}
+                        </td>
+                        <td style="text-align:right; font-weight:800; font-size:12.5px;">
+                            ₹ {{ "{:,.2f}".format(invoice.gross_amount) }}
+                        </td>
+                    </tr>
+
+                    {% if invoice.weighbridge_cut_kg and invoice.weighbridge_cut_kg > 0 %}
+                    <tr style="background:#fff7ed; color:#c2410c;">
+                        <td colspan="3" style="font-weight:700; font-size:11px;">
+                            (-) धर्मकाटा घट सूट / Weighbridge Scale Allowance Deduction (300g / 100 Kg):
+                        </td>
+                        <td style="text-align:right; font-weight:800; font-size:11.5px; color:#ea580c;">
+                            - {{ "%.2f"|format(invoice.weighbridge_cut_kg) }} Kg
+                        </td>
+                    </tr>
+                    {% endif %}
+
+                    <tr style="background:#fff1f2; color:#9f1239;">
+                        <td colspan="3" style="font-weight:700; font-size:11px;">
+                            (-) हमाली कपात / Hamali Deduction (₹25 / 100 Kg):
+                        </td>
+                        <td style="text-align:right; font-weight:800; font-size:11.5px; color:#be123c;">
+                            - ₹ {{ "{:,.2f}".format(invoice.hamali_charge) }}
+                        </td>
+                    </tr>
+
+                    <tr class="net-payable-row">
+                        <td colspan="2" style="font-weight:900; font-size:12.5px; color:#065f46; padding:6px 8px;">
+                            शेतकऱ्यास देय निव्वळ रक्कम / NET PAYABLE:
+                        </td>
+                        <td colspan="2" class="net-payable-cell">
+                            ₹ {{ "{:,.2f}".format(invoice.net_payable_amount) }}
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+            {% if invoice.amount_in_words %}
+            <div class="words-box">
+                <strong>अक्षरी / Words:</strong> {{ invoice.amount_in_words }}
+            </div>
             {% endif %}
+
+            <!-- Signatures -->
+            <div class="voucher-footer">
+                <div class="compliance-note">
+                    Section 269ST Income Tax Compliant • APMC Mandi Rules<br>
+                    Zero Mandi Cess • Verified Computer Parchi v2.0
+                </div>
+                <div style="display:flex; gap:30px;">
+                    <div class="sig-box">
+                        <strong>शेतकऱ्याची सही / अंगठा</strong><br>
+                        <span style="font-size:9px; color:#64748b;">(वजन व हिशोब मान्य)</span>
+                    </div>
+                    <div class="sig-box">
+                        <strong>अधिकृत मुनीम / कॅशियर सही</strong><br>
+                        <span style="font-size:9px; color:#64748b;">(राजारशी शाहू ट्रेडिंग)</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ---------------- PERFORATION DIVIDER ---------------- -->
+        <div class="perforation-divider">
+            <span>✂ कापून वेगळे करा / Cut along dotted line ✂</span>
+        </div>
+
+        <!-- ---------------- BOTTOM COPY: MANDI ACCOUNTS COPY ---------------- -->
+        <div class="voucher-card">
+            <div class="voucher-header">
+                <span class="copy-badge copy-badge-mandi">🏢 मंडी / कार्यालय प्रत (Mandi Office Copy)</span>
+                <h1 class="firm-title">RAJARSHI SHAHU TRADING</h1>
+                <div class="firm-subtitle">COMMERCIAL GRAIN TRADING & COMMISSION FIRM</div>
+                <div class="firm-branch-info">
+                    {{ invoice.branch_name }} • Mandi Lic: {{ invoice.mandi_license_no or 'APMC-MH-VERIFIED' }}
+                </div>
+                <div class="meta-strip">
+                    <span>Token: <strong>#{{ invoice.token_number }}</strong></span>
+                    {% if invoice.external_slip_number and invoice.external_slip_number != 'YARD-DIRECT' and invoice.external_slip_number != 'WB-ENTRY' %}
+                    <span>Ledger Slip No.: <strong style="color:#0369a1;">{{ invoice.external_slip_number }}</strong></span>
+                    {% endif %}
+                    <span>Date: <strong>{{ invoice.invoice_date }}</strong></span>
+                    <span>Mode: <strong>{{ 'धर्मकाटा (Weighbridge)' if 'WEIGHBRIDGE' in (invoice.weighment_mode or '') else 'यार्ड काटा (Yard Scale)' }}</strong></span>
+                </div>
+            </div>
+
+            <!-- Farmer & Vehicle Details -->
+            <div class="details-grid">
+                <div>
+                    <strong>शेतकरी / Farmer:</strong> {{ invoice.party_name }}<br>
+                    <strong>गाव / Village:</strong> {{ invoice.village or 'स्थानिक (Local)' }} &nbsp;|&nbsp; <strong>मोबाईल:</strong> {{ invoice.phone or '-' }}
+                </div>
+                <div>
+                    <strong>वाहन / Vehicle:</strong> {{ invoice.vehicle_number or '-' }}<br>
+                    <strong>पेमेंट / Status:</strong> <span style="color:#059669; font-weight:800;">{{ invoice.payout_status }}</span>
+                    {% if invoice.rtgs_utr_no %} <small>(Settled via RTGS Bank Transfer | UTR: {{ invoice.rtgs_utr_no }})</small>{% endif %}
+                </div>
+            </div>
+
+            <!-- Produce Table -->
+            <table class="settlement-table">
+                <thead>
+                    <tr>
+                        <th style="text-align:left;">शेतमाल / Commodity</th>
+                        <th style="text-align:right;">निव्वळ वजन / Net Weight</th>
+                        <th style="text-align:right;">दर / Rate (₹/Qtl)</th>
+                        <th style="text-align:right;">रक्कम / Amount (₹)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="font-weight:800; font-size:12.5px;">
+                            {{ invoice.commodity_name }}
+                            <small style="font-weight:600; color:#475569;">({{ invoice.quality_grade or 'Standard' }})</small>
+                        </td>
+                        <td style="text-align:right; font-weight:800; font-size:12.5px;">
+                            {{ "%.2f"|format(invoice.net_quintals) }} Qtl
+                            <small style="color:#64748b;">({{ invoice.net_weight_kg|round|int if invoice.net_weight_kg else (invoice.net_quintals * 100)|round|int }} Kg)</small>
+                        </td>
+                        <td style="text-align:right; font-weight:800; font-size:12.5px;">
+                            ₹ {{ "%.2f"|format(invoice.rate_per_quintal) }}
+                        </td>
+                        <td style="text-align:right; font-weight:800; font-size:12.5px;">
+                            ₹ {{ "{:,.2f}".format(invoice.gross_amount) }}
+                        </td>
+                    </tr>
+
+                    {% if invoice.weighbridge_cut_kg and invoice.weighbridge_cut_kg > 0 %}
+                    <tr style="background:#fff7ed; color:#c2410c;">
+                        <td colspan="3" style="font-weight:700; font-size:11px;">
+                            (-) धर्मकाटा घट सूट / Weighbridge Scale Allowance Deduction (300g / 100 Kg):
+                        </td>
+                        <td style="text-align:right; font-weight:800; font-size:11.5px; color:#ea580c;">
+                            - {{ "%.2f"|format(invoice.weighbridge_cut_kg) }} Kg
+                        </td>
+                    </tr>
+                    {% endif %}
+
+                    <tr style="background:#fff1f2; color:#9f1239;">
+                        <td colspan="3" style="font-weight:700; font-size:11px;">
+                            (-) हमाली कपात / Hamali Deduction (₹25 / 100 Kg):
+                        </td>
+                        <td style="text-align:right; font-weight:800; font-size:11.5px; color:#be123c;">
+                            - ₹ {{ "{:,.2f}".format(invoice.hamali_charge) }}
+                        </td>
+                    </tr>
+
+                    <tr class="net-payable-row">
+                        <td colspan="2" style="font-weight:900; font-size:12.5px; color:#065f46; padding:6px 8px;">
+                            शेतकऱ्यास देय निव्वळ रक्कम / NET PAYABLE:
+                        </td>
+                        <td colspan="2" class="net-payable-cell">
+                            ₹ {{ "{:,.2f}".format(invoice.net_payable_amount) }}
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+            {% if invoice.amount_in_words %}
+            <div class="words-box">
+                <strong>अक्षरी / Words:</strong> {{ invoice.amount_in_words }}
+            </div>
+            {% endif %}
+
+            <!-- Signatures -->
+            <div class="voucher-footer">
+                <div class="compliance-note">
+                    Accounts Office Ledger Voucher • Retained for Mandi Audits<br>
+                    Cash Voucher Entry Complete • Section 269ST Compliant
+                </div>
+                <div style="display:flex; gap:30px;">
+                    <div class="sig-box">
+                        <strong>शेतकऱ्याची सही / अंगठा</strong><br>
+                        <span style="font-size:9px; color:#64748b;">(रक्कम मिळाली / पोच)</span>
+                    </div>
+                    <div class="sig-box">
+                        <strong>अधिकृत मुनीम / कॅशियर सही</strong><br>
+                        <span style="font-size:9px; color:#64748b;">(राजारशी शाहू ट्रेडिंग)</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ================================================================ -->
+    <!-- VIEW 2: THERMAL SLIP LAYOUT (80MM ROLL) -->
+    <!-- ================================================================ -->
+    <div id="thermalContainer" class="thermal-container">
+        <!-- HEADER -->
+        <div style="text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 8px; margin-bottom: 10px;">
+            <h2 style="font-size: 19px; font-weight: 800; margin: 0; color: #0f172a; letter-spacing: 0.5px;">
+                RAJARSHI SHAHU TRADING
+            </h2>
+            <div style="font-size: 10px; font-weight: 700; color: #0284c7; margin-top: 2px;">
+                COMMERCIAL GRAIN TRADING FIRM
+            </div>
+            <div style="font-size: 12px; font-weight: 700; color: #334155; margin-top: 2px;">
+                {{ invoice.branch_name }}
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px; font-size: 11px; font-weight: 700; color: #1e293b; background: #f1f5f9; padding: 4px 8px; border-radius: 4px;">
+                <span>Token: #{{ invoice.token_number }}</span>
+                {% if invoice.external_slip_number and invoice.external_slip_number != 'YARD-DIRECT' and invoice.external_slip_number != 'WB-ENTRY' %}
+                <span>Slip: <strong>{{ invoice.external_slip_number }}</strong></span>
+                {% endif %}
+                <span>{{ invoice.invoice_date }}</span>
+            </div>
+        </div>
+
+        <!-- SELLER & VEHICLE INFO -->
+        <div style="margin-bottom: 10px; font-size: 11.5px; line-height: 1.5; background: #f8fafc; padding: 6px 10px; border-radius: 6px; border: 1px solid #e2e8f0;">
+            <div style="display: flex; justify-content: space-between;">
+                <span><strong>Farmer:</strong> {{ invoice.party_name }}</span>
+                <span><strong>Village:</strong> {{ invoice.village or 'Local' }}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+                <span><strong>Vehicle:</strong> {{ invoice.vehicle_number or '-' }}</span>
+                <span><strong>Mode:</strong> {{ 'Weighbridge' if 'WEIGHBRIDGE' in (invoice.weighment_mode or '') else 'Yard Scale' }}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+                <span><strong>Status:</strong> <strong style="color: #059669;">{{ invoice.payout_status }}</strong></span>
+                {% if invoice.rtgs_utr_no %}
+                <span><strong>UTR:</strong> {{ invoice.rtgs_utr_no }} (Settled via RTGS Bank Transfer)</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- TABLE -->
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 10px; font-size: 12px;">
+            <thead>
+                <tr style="background: #0f172a; color: #ffffff;">
+                    <th style="padding: 7px 6px; text-align: left; font-weight: 700;">Commodity</th>
+                    <th style="padding: 7px 6px; text-align: right; font-weight: 700;">Weight</th>
+                    <th style="padding: 7px 6px; text-align: right; font-weight: 700;">Rate</th>
+                    <th style="padding: 7px 6px; text-align: right; font-weight: 700;">Amount (₹)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr style="border-bottom: 1px solid #e2e8f0; background: #ffffff;">
+                    <td style="padding: 8px 6px; font-weight: 800; font-size: 12.5px; color: #0f172a;">
+                        {{ invoice.commodity_name }}
+                    </td>
+                    <td style="padding: 8px 6px; text-align: right; font-weight: 800; font-size: 12.5px;">
+                        {{ "%.2f"|format(invoice.net_quintals) }} Qtl
+                    </td>
+                    <td style="padding: 8px 6px; text-align: right; font-weight: 800; font-size: 12.5px;">
+                        ₹ {{ "%.2f"|format(invoice.rate_per_quintal) }}
+                    </td>
+                    <td style="padding: 8px 6px; text-align: right; font-weight: 800; font-size: 12.5px;">
+                        ₹ {{ "{:,.2f}".format(invoice.gross_amount) }}
+                    </td>
+                </tr>
+
+                {% if invoice.weighbridge_cut_kg and invoice.weighbridge_cut_kg > 0 %}
+                <tr style="border-bottom: 1px solid #fed7aa; background: #fff7ed;">
+                    <td colspan="3" style="padding: 6px 6px; font-weight: 700; color: #c2410c; font-size: 11px;">
+                        (-) Weighbridge Cut (300g/100Kg):
+                    </td>
+                    <td style="padding: 6px 6px; text-align: right; font-weight: 800; font-size: 11.5px; color: #ea580c;">
+                        - {{ "%.2f"|format(invoice.weighbridge_cut_kg) }} Kg
+                    </td>
+                </tr>
+                {% endif %}
+
+                <tr style="border-bottom: 1.5px solid #cbd5e1; background: #fff1f2;">
+                    <td colspan="3" style="padding: 7px 6px; font-weight: 700; color: #9f1239; font-size: 11px;">
+                        (-) Hamali (₹25 / 100 Kg):
+                    </td>
+                    <td style="padding: 7px 6px; text-align: right; font-weight: 800; font-size: 12px; color: #be123c;">
+                        - ₹ {{ "{:,.2f}".format(invoice.hamali_charge) }}
+                    </td>
+                </tr>
+
+                <tr style="background: #ecfdf5; border-top: 2px solid #059669;">
+                    <td colspan="2" style="padding: 9px 6px; font-weight: 900; font-size: 12px; color: #065f46;">
+                        NET PAYABLE:
+                    </td>
+                    <td colspan="2" style="padding: 9px 6px; text-align: right; font-weight: 900; font-size: 16px; color: #047857;">
+                        ₹ {{ "{:,.2f}".format(invoice.net_payable_amount) }}
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+
+        {% if invoice.amount_in_words %}
+        <div style="font-size: 10px; font-weight: 700; color: #475569; background: #f1f5f9; padding: 4px 8px; border-radius: 4px; margin-bottom: 12px;">
+            Words: {{ invoice.amount_in_words }}
+        </div>
+        {% endif %}
+
+        <!-- SIGNATURES -->
+        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 12px; padding-top: 8px; border-top: 1px dashed #cbd5e1; font-size: 10px;">
+            <div style="color: #64748b; line-height: 1.3;">
+                Sec 269ST Compliant<br>
+                Zero Mandi Cess
+            </div>
+            <div style="text-align: center; border-top: 1.2px solid #0f172a; padding-top: 2px; min-width: 110px; font-size: 10.5px;">
+                <strong>Munim / Cashier</strong>
+            </div>
         </div>
     </div>
 
-    <!-- CLEAN 4-COLUMN COMMERCIAL SETTLEMENT TABLE -->
-    <table style="width: 100%; border-collapse: collapse; margin-bottom: 12px; font-size: 13px;">
-        <thead>
-            <tr style="background: #0f172a; color: #ffffff;">
-                <th style="padding: 9px 8px; text-align: left; font-weight: 700;">Commodity</th>
-                <th style="padding: 9px 8px; text-align: right; font-weight: 700;">Weight (Qtl)</th>
-                <th style="padding: 9px 8px; text-align: right; font-weight: 700;">Rate / Qtl</th>
-                <th style="padding: 9px 8px; text-align: right; font-weight: 700;">Amount (₹)</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr style="border-bottom: 1px solid #e2e8f0; background: #ffffff;">
-                <td style="padding: 12px 8px; font-weight: 800; font-size: 14px; color: #0f172a;">
-                    {{ invoice.commodity_name }}
-                </td>
-                <td style="padding: 12px 8px; text-align: right; font-weight: 800; font-size: 14px;">
-                    {{ "%.2f"|format(invoice.net_quintals) }} Qtl ({{ invoice.net_weight_kg|round|int if invoice.net_weight_kg else (invoice.net_quintals * 100)|round|int }} kg)
-                </td>
-                <td style="padding: 12px 8px; text-align: right; font-weight: 800; font-size: 14px;">
-                    ₹ {{ "%.2f"|format(invoice.rate_per_quintal) }}
-                </td>
-                <td style="padding: 12px 8px; text-align: right; font-weight: 800; font-size: 14px;">
-                    ₹ {{ "{:,.2f}".format(invoice.gross_amount) }}
-                </td>
-            </tr>
+    <!-- CLIENT SCRIPT FOR FORMAT SWITCHING & KEYBOARD SHORTCUTS -->
+    <script>
+        function switchFormat(fmt) {
+            const a4Cont = document.getElementById('a4Container');
+            const thermCont = document.getElementById('thermalContainer');
+            const btnA4 = document.getElementById('btnFmtA4');
+            const btnTherm = document.getElementById('btnFmtThermal');
 
-            <!-- SUBTRACTION HAMALI -->
-            <tr style="border-bottom: 1.5px solid #cbd5e1; background: #fff1f2;">
-                <td colspan="3" style="padding: 10px 8px; font-weight: 700; color: #9f1239;">
-                    (-) Subtraction: Hamali Deduction (₹25 / 100 Kg)
-                </td>
-                <td style="padding: 10px 8px; text-align: right; font-weight: 800; font-size: 14px; color: #be123c;">
-                    - ₹ {{ "{:,.2f}".format(invoice.hamali_charge) }}
-                </td>
-            </tr>
+            if (fmt === 'thermal') {
+                a4Cont.style.display = 'none';
+                thermCont.style.display = 'block';
+                btnTherm.classList.add('active');
+                btnA4.classList.remove('active');
+            } else {
+                a4Cont.style.display = 'flex';
+                thermCont.style.display = 'none';
+                btnA4.classList.add('active');
+                btnTherm.classList.remove('active');
+            }
+        }
 
-            <!-- NET PAYABLE AMOUNT -->
-            <tr style="background: #ecfdf5; border-top: 2px solid #059669;">
-                <td colspan="2" style="padding: 12px 8px; font-weight: 900; font-size: 14px; color: #065f46;">
-                    NET PAYABLE TO FARMER:
-                </td>
-                <td colspan="2" style="padding: 12px 8px; text-align: right; font-weight: 900; font-size: 19px; color: #047857;">
-                    ₹ {{ "{:,.2f}".format(invoice.net_payable_amount) }}
-                </td>
-            </tr>
-        </tbody>
-    </table>
+        // Check URL query parameters for default format
+        (function() {
+            const params = new URLSearchParams(window.location.search);
+            const fmt = params.get('format') || '{{ active_format or "a4" }}';
+            switchFormat(fmt);
+        })();
 
-    <!-- CASHIER SIGN & STAMP -->
-    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 18px; padding-top: 10px; border-top: 1px dashed #cbd5e1; font-size: 11px;">
-        <div style="color: #64748b; line-height: 1.4;">
-            Section 269ST Income Tax Compliant<br>
-            Zero Mandi Cess • Version v1.0
-        </div>
-        <div style="text-align: center; border-top: 1.5px solid #0f172a; padding-top: 3px; min-width: 140px; font-size: 11.5px;">
-            <strong>Cashier / Munim Sign</strong>
-        </div>
-    </div>
-</div>
+        // Keyboard Shortcut: Ctrl + P / Cmd + P triggers print
+        window.addEventListener('keydown', function(e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
+                e.preventDefault();
+                window.print();
+            }
+        });
+    </script>
+</body>
+</html>

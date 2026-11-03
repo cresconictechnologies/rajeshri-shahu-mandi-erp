@@ -68,6 +68,41 @@
         .parchi-table th, .parchi-table td { border: 1px solid #ccc; padding: 6px; font-size: 12px; }
         .parchi-footer { border-top: 2px dashed #333; padding-top: 12px; text-align: center; font-size: 11px; }
 
+        /* A4 & Thermal Print Media Isolation */
+        @media print {
+            body * {
+                visibility: hidden !important;
+            }
+            #parchiModal, #parchiModal *, #outwardChallanModal, #outwardChallanModal * {
+                visibility: visible !important;
+            }
+            #parchiModal, #outwardChallanModal {
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: #ffffff !important;
+                display: block !important;
+            }
+            #parchiModal .modal, #outwardChallanModal .modal {
+                box-shadow: none !important;
+                border: none !important;
+                max-width: 100% !important;
+                width: 100% !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+            #parchiModal .modal-header, #outwardChallanModal .modal-header, .no-print {
+                display: none !important;
+            }
+            @page {
+                size: A4 portrait;
+                margin: 6mm 8mm;
+            }
+        }
+
         .clickable-farmer-row:hover {
             background: #f1f5f9;
         }
@@ -387,6 +422,32 @@
                             </div>
                         </div>
 
+                        <!-- Entry Date & Historical Backdating Selector -->
+                        <div class="form-group form-full" style="background:#f1f5f9; border:1.5px solid #cbd5e1; border-radius:10px; padding:10px 14px; margin-bottom:10px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <span style="font-size:16px;">🗓️</span>
+                                    <label for="invoice_date" style="margin:0; font-weight:800; color:#0f172a; font-size:13px;">Transaction / Inward Date *</label>
+                                    <span id="dateStatusBadge" class="badge" style="background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; padding:2px 8px; border-radius:6px; font-weight:700; font-size:11px;">Today's Live Entry</span>
+                                </div>
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <input type="date" id="invoice_date" name="invoice_date" value="{{ today }}" onchange="handleInvoiceDateChange(this.value)" style="font-weight:800; font-family:monospace; padding:7px 12px; border:1.5px solid #94a3b8; border-radius:8px; font-size:13px;">
+                                </div>
+                            </div>
+                            <div id="backdatedNoticeBanner" style="display:none; margin-top:8px; padding:8px 12px; background:#fef3c7; border:1px solid #fde68a; border-radius:6px; font-size:12px; color:#92400e; font-weight:700;">
+                                ⚠️ <strong>Backdated Entry Mode (Pre-Installation Entry before 05/11/2026):</strong> Digital Gate QC ticket is not required. Manual farmer typing and physical ledger slip typing are enabled below. This entry will be routed to the Accountant for audit verification before Mandi slip printing is unlocked.
+                            </div>
+
+                            <!-- Manual Physical Ledger Slip Number for Historical Backdated Entries -->
+                            <div id="manualLedgerSlipBox" style="display:none; margin-top:10px; padding-top:10px; border-top:1.5px dashed #cbd5e1;">
+                                <label for="manual_ledger_slip_no" style="font-size:12.5px; font-weight:800; color:#0f172a; margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+                                    <span>📖</span> Physical Ledger Slip Number (पावती क्र. from manual register) *
+                                </label>
+                                <input type="text" id="manual_ledger_slip_no" name="external_slip_number" placeholder="e.g. SLIP-104 / BOOK-4/82 / KANTA-502" style="font-weight:800; font-family:monospace; width:100%; padding:9px 12px; border:1.5px solid #0284c7; border-radius:8px; background:#f0f9ff; color:#0369a1; font-size:14px;">
+                                <span style="font-size:11px; color:#64748b; margin-top:2px; display:block;">Enter the exact slip/voucher number written on your physical book before computer installation.</span>
+                            </div>
+                        </div>
+
                         <!-- Cultivator Identification & Master Resolution (Section 17) -->
                         <div class="form-group form-full" style="background:#f8fafc; border:1.5px solid #cbd5e1; border-radius:10px; padding:12px 14px; margin-bottom:4px;">
                             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:8px;">
@@ -414,7 +475,10 @@
                             <div style="display:grid; grid-template-columns: 2fr 1fr 1fr; gap:12px;">
                                 <!-- 1. Clean Farmer Name Dropdown (omits redundant (FARMER) text) -->
                                 <div>
-                                    <label for="farmer_select" style="font-size:12px; font-weight:700; color:#475569; margin-bottom:4px; display:block;">Farmer / Cultivator *</label>
+                                    <label for="farmer_select" style="font-size:12px; font-weight:700; color:#475569; margin-bottom:4px; display:block;">
+                                        Farmer / Cultivator *
+                                        <span id="manualFarmerHint" style="display:none; font-size:11px; color:#b45309; font-weight:800;">(Manual Typing Unlocked)</span>
+                                    </label>
                                     <select id="farmer_select" required onchange="handleFarmerSelectChange(this)" style="font-weight:700; width:100%; padding:9px 12px; border:1.5px solid #94a3b8; border-radius:8px;">
                                         <option value="">-- Select Master Cultivator --</option>
                                         {% for p in parties %}
@@ -435,6 +499,8 @@
                                         </option>
                                         {% endfor %}
                                     </select>
+                                    <!-- Manual Farmer Name Typing Box for historical backdated entries -->
+                                    <input type="text" id="custom_farmer_name" name="custom_farmer_name" placeholder="Type Farmer / Cultivator Name freely" style="display:none; margin-top:6px; font-weight:700; width:100%; padding:9px 12px; border:1.5px solid #f59e0b; border-radius:8px; background:#fffbeb;">
                                 </div>
 
                                 <!-- 2. Dedicated Mobile Number Field -->
@@ -504,10 +570,7 @@
                                     <label>External Weighbridge Name</label>
                                     <input type="text" id="external_kanta_name" name="external_kanta_name" value="" placeholder="e.g. Shree Ram Dharamkanta">
                                 </div>
-                                <div class="form-group">
-                                    <label>External Slip Number</label>
-                                    <input type="text" id="external_slip_number" name="external_slip_number" placeholder="e.g. K-9012">
-                                </div>
+                                <!-- External slip number removed for live entries; only used in backdated mode -->
                                 <div class="form-group">
                                     <label>Gross Loaded Weight (Kg)</label>
                                     <input type="number" step="1" id="gross_weight_kg" name="gross_weight_kg" value="0" oninput="recalculate()">
@@ -642,6 +705,10 @@
                     <div class="calc-row">
                         <span>Moisture Cut (Excess above 10%):</span>
                         <span id="disp_moisture_cut" style="color:#dc2626;">-52.50 Kg</span>
+                    </div>
+                    <div class="calc-row" id="disp_wb_cut_row" style="display:none;">
+                        <span>Weighbridge Cut (300g per 100 Kg):</span>
+                        <span id="disp_wb_cut" style="color:#dc2626;">-0.00 Kg</span>
                     </div>
                     <div class="calc-row" style="background:#f8fafc; padding:8px 6px; font-weight:700; border-radius:6px;">
                         <span>Net Billable Weight:</span>
@@ -1505,12 +1572,20 @@
 
     <!-- MODAL 4: PRINTABLE PARCHI SLIP -->
     <div id="parchiModal" class="modal-overlay">
-        <div class="modal" style="background:#ffffff; max-width:700px;">
-            <div class="modal-header">
-                <h2>Inward Purchase Parchi (Token)</h2>
+        <div class="modal" style="background:#ffffff; max-width:860px; width:95vw; max-height:94vh; overflow-y:auto; padding:20px;">
+            <div class="modal-header" style="border-bottom:1px solid #e2e8f0; padding-bottom:12px; margin-bottom:14px;">
                 <div>
-                    <button class="btn btn-sm btn-branch" onclick="window.print()">Print Receipt</button>
-                    <button class="modal-close" onclick="closeParchiModal()" style="margin-left:10px;">✕</button>
+                    <h2 style="font-size:18px; margin:0; color:#0f172a;">Inward Purchase Parchi (Token)</h2>
+                    <p style="font-size:12px; color:#64748b; margin:2px 0 0 0;">Dual Format: Standard A4 Printer (2-in-1 Dual Copy) or 80mm Thermal Receipt</p>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <button id="btnPrintA4ParchiModal" class="btn btn-sm" onclick="printParchiPopup('a4')" style="background:#059669; color:#fff; font-weight:700; border:none; padding:7px 14px; border-radius:6px; cursor:pointer;" title="Prints Farmer Copy + Mandi Office Copy on 1 sheet of A4 paper">
+                        🖨️ Print A4 Voucher (Dual Copy)
+                    </button>
+                    <button id="btnPrintThermalParchiModal" class="btn btn-sm" onclick="printParchiPopup('thermal')" style="background:#0284c7; color:#fff; font-weight:700; border:none; padding:7px 12px; border-radius:6px; cursor:pointer;" title="Prints single 80mm receipt roll">
+                        🧾 Print Thermal (80mm)
+                    </button>
+                    <button class="modal-close" onclick="closeParchiModal()" style="margin-left:6px; background:#f1f5f9; border:none; border-radius:6px; padding:6px 12px; font-weight:700; cursor:pointer;">✕ Close</button>
                 </div>
             </div>
             <div id="parchiContent"></div>
@@ -1812,12 +1887,23 @@
             const rate = parseFloat(document.getElementById('rate_per_quintal').value || 0);
 
             try {
-                const res = await fetch(`/api/invoices/calculate?gross_weight_kg=${gross}&vehicle_tare_kg=${tare}&bag_count=0&moisture_percentage=${moisture}&rate_per_quintal=${rate}&hamali_rate_per_100kg=25.0`, {
+                const res = await fetch(`/api/invoices/calculate?gross_weight_kg=${gross}&vehicle_tare_kg=${tare}&bag_count=0&moisture_percentage=${moisture}&rate_per_quintal=${rate}&hamali_rate_per_100kg=25.0&weighment_mode=${mode}`, {
                     method: 'POST'
                 });
                 const d = await res.json();
                 document.getElementById('disp_vehicle_net').innerText = d.vehicle_net_kg.toLocaleString() + ' Kg';
                 document.getElementById('disp_moisture_cut').innerText = '-' + d.moisture_cut_kg.toLocaleString() + ' Kg';
+                const wbCut = d.weighbridge_cut_kg || 0;
+                const wbRow = document.getElementById('disp_wb_cut_row');
+                const wbVal = document.getElementById('disp_wb_cut');
+                if (wbRow && wbVal) {
+                    if (wbCut > 0) {
+                        wbRow.style.display = 'flex';
+                        wbVal.innerText = '-' + wbCut.toLocaleString(undefined, {minimumFractionDigits: 2}) + ' Kg';
+                    } else {
+                        wbRow.style.display = 'none';
+                    }
+                }
                 document.getElementById('disp_net_weight').innerText = `${d.net_weight_kg.toLocaleString()} Kg (${d.net_quintals.toFixed(2)} Qtl)`;
                 
                 const dispRate = document.getElementById('disp_rate');
@@ -2199,6 +2285,49 @@
         // ==============================================
         // FARMER REGISTRATION & EDIT MODAL HANDLERS (SECTION 17)
         // ==============================================
+        
+        function handleInvoiceDateChange(val) {
+            const dateInput = val || document.getElementById('invoice_date')?.value;
+            const badge = document.getElementById('dateStatusBadge');
+            const notice = document.getElementById('backdatedNoticeBanner');
+            const customInput = document.getElementById('custom_farmer_name');
+            const farmerSelect = document.getElementById('farmer_select');
+            const manualHint = document.getElementById('manualFarmerHint');
+            
+            // Check if date is before 2026-11-05
+            const slipBox = document.getElementById('manualLedgerSlipBox');
+            const qcInput = document.getElementById('inward_qc_ticket_no');
+
+            const curToday = new Date().toISOString().split('T')[0];
+            if (dateInput && dateInput < curToday) {
+                if (badge) {
+                    badge.innerText = '⚠️ Historical Backdated Entry';
+                    badge.style.background = '#fef3c7';
+                    badge.style.color = '#92400e';
+                    badge.style.borderColor = '#fde68a';
+                }
+                if (notice) notice.style.display = 'block';
+                if (customInput) customInput.style.display = 'block';
+                if (manualHint) manualHint.style.display = 'inline';
+                if (farmerSelect) farmerSelect.required = false;
+                if (slipBox) slipBox.style.display = 'block';
+                if (qcInput) qcInput.placeholder = 'Optional for backdated entries (Leave blank if none)';
+            } else {
+                if (badge) {
+                    badge.innerText = "Today's Live Entry";
+                    badge.style.background = '#ecfdf5';
+                    badge.style.color = '#065f46';
+                    badge.style.borderColor = '#a7f3d0';
+                }
+                if (notice) notice.style.display = 'none';
+                if (customInput) customInput.style.display = 'none';
+                if (manualHint) manualHint.style.display = 'none';
+                if (farmerSelect) farmerSelect.required = true;
+                if (slipBox) slipBox.style.display = 'none';
+                if (qcInput) qcInput.placeholder = 'e.g. QC-CHK-261102-A1B2';
+            }
+        }
+
         function openFarmerModal() {
             document.getElementById('farmerModal').style.display = 'flex';
         }
@@ -2411,14 +2540,33 @@
             }
         }
 
+        let currentParchiToken = "";
+
         async function viewParchiSlip(token) {
+            currentParchiToken = token;
             try {
-                const res = await fetch(`/api/branch/invoices/parchi/${token}`);
+                const res = await fetch(`/api/branch/invoices/parchi/${token}?format=a4`);
                 const html = await res.text();
                 document.getElementById('parchiContent').innerHTML = html;
+                const isLocked = res.status === 403;
+                const btnA4 = document.getElementById('btnPrintA4ParchiModal');
+                const btnTherm = document.getElementById('btnPrintThermalParchiModal');
+                if (btnA4) btnA4.style.display = isLocked ? 'none' : 'inline-block';
+                if (btnTherm) btnTherm.style.display = isLocked ? 'none' : 'inline-block';
                 document.getElementById('parchiModal').style.display = 'flex';
             } catch (err) {
                 alert('Failed to load slip: ' + err);
+            }
+        }
+
+        function printParchiPopup(fmt) {
+            if (!currentParchiToken) {
+                window.print();
+                return;
+            }
+            const win = window.open(`/api/branch/invoices/parchi/${currentParchiToken}?format=${fmt}`, '_blank');
+            if (win) {
+                win.focus();
             }
         }
 

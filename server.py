@@ -69,7 +69,8 @@ from calculations import (
     check_cash_compliance,
     check_rate_corridor,
     calculate_cash_payout_with_roundup,
-    validate_cash_denominations
+    validate_cash_denominations,
+    number_to_inr_words
 )
 from quality_engine import (
     read_moisture_meter_display,
@@ -1313,14 +1314,16 @@ def accounts_dashboard_view(request: Request, target_date: Optional[str] = None)
         """, (selected_date,))
         rates = cur.fetchall()
 
-        # Pending rate overrides
+        # Pending rate overrides and backdated entries
         cur.execute("""
-            SELECT p.id, p.token_number, b.name as branch_name, pt.name as party_name,
-                   p.commodity_name, p.net_quintals, p.rate_per_quintal, p.rate_override_reason
+            SELECT p.id, p.token_number, p.invoice_date, b.name as branch_name, 
+                   COALESCE(p.custom_farmer_name, pt.name) as party_name,
+                   p.commodity_name, p.net_quintals, p.rate_per_quintal, p.rate_override_reason,
+                   p.is_backdated, p.rate_override_status, p.print_lock_reason
             FROM purchase_invoices p
             JOIN branches b ON p.branch_id = b.id
             JOIN parties pt ON p.party_id = pt.id
-            WHERE p.rate_override_status = 'PENDING'
+            WHERE p.rate_override_status = 'PENDING' OR (p.is_backdated = 1 AND p.accountant_verified = 0)
             ORDER BY p.created_at ASC
         """)
         pending_overrides = cur.fetchall()
@@ -1439,7 +1442,7 @@ def api_accounts_set_rate(
     max_rate: float = Form(...),
     branch_id: Optional[str] = Form(None)
 ):
-    require_role(request, ["ACCOUNTANT_HQ", "SUPER_ADMIN"])
+    user = require_role(request, ["ACCOUNTANT_HQ", "SUPER_ADMIN"])
     conn = get_connection()
     try:
         cur = conn.cursor()
@@ -1530,7 +1533,7 @@ def api_system_updates_broadcast(
     reload_seconds: int = Form(3)
 ):
     """Allows Master PC / Accountant / Super Admin to push instant live updates to all connected devices."""
-    require_role(request, ["ACCOUNTANT_HQ", "SUPER_ADMIN"])
+    user = require_role(request, ["ACCOUNTANT_HQ", "SUPER_ADMIN"])
 
     emit_live_event("system_update_broadcast", {
         "version": "v1.0",
@@ -1554,16 +1557,19 @@ def api_accounts_rate_override_action(
     decision: str = Form(...),  # APPROVE or REJECT
     accountant_reason: str = Form(...)
 ):
-    require_role(request, ["ACCOUNTANT_HQ", "SUPER_ADMIN"])
+    user = require_role(request, ["ACCOUNTANT_HQ", "SUPER_ADMIN"])
     conn = get_connection()
     try:
         cur = conn.cursor()
         if decision == "APPROVE":
             cur.execute("""
                 UPDATE purchase_invoices 
-                SET rate_override_status='APPROVED', is_rate_overridden=1, rate_override_reason = rate_override_reason || ' | HQ Approved: ' || ?
+                SET rate_override_status='APPROVED', is_rate_overridden=1, accountant_verified=1,
+                    is_print_locked=0, accountant_verified_by=?, accountant_verified_at=CURRENT_TIMESTAMP,
+                    accountant_verified_note=?,
+                    rate_override_reason = rate_override_reason || ' | HQ Approved: ' || ?
                 WHERE id=?
-            """, (accountant_reason, invoice_id))
+            """, (user.get("user_id"), accountant_reason, accountant_reason, invoice_id))
         else:
             cur.execute("""
                 UPDATE purchase_invoices 
@@ -1588,7 +1594,7 @@ def api_accounts_process_rtgs(
     invoice_id: str = Form(...),
     bank_utr_no: str = Form(...)
 ):
-    require_role(request, ["ACCOUNTANT_HQ", "SUPER_ADMIN"])
+    user = require_role(request, ["ACCOUNTANT_HQ", "SUPER_ADMIN"])
     if not bank_utr_no or not bank_utr_no.strip():
         raise HTTPException(status_code=400, detail="Bank UTR / Transaction Reference Number is mandatory to close RTGS request.")
 
@@ -1662,7 +1668,7 @@ def api_accounts_receive_outward_payment(
     payment_branch_id: Optional[str] = Form(None),
     payment_notes: Optional[str] = Form("")
 ):
-    require_role(request, ["ACCOUNTANT_HQ", "SUPER_ADMIN"])
+    user = require_role(request, ["ACCOUNTANT_HQ", "SUPER_ADMIN"])
     conn = get_connection()
     try:
         cur = conn.cursor()
@@ -1753,7 +1759,7 @@ def api_accounts_add_inspector(
     username: Optional[str] = Form(None),
     password: Optional[str] = Form(None)
 ):
-    require_role(request, ["ACCOUNTANT_HQ", "SUPER_ADMIN"])
+    user = require_role(request, ["ACCOUNTANT_HQ", "SUPER_ADMIN"])
     clean_name = name.strip()
     clean_desig = designation.strip() or "Quality Inspector"
     clean_phone = phone.strip()
@@ -1826,7 +1832,7 @@ def api_accounts_update_inspector(
     username: Optional[str] = Form(None),
     new_password: Optional[str] = Form(None)
 ):
-    require_role(request, ["ACCOUNTANT_HQ", "SUPER_ADMIN"])
+    user = require_role(request, ["ACCOUNTANT_HQ", "SUPER_ADMIN"])
     clean_id = inspector_id.strip()
     clean_name = name.strip()
     clean_desig = designation.strip() or "Quality Inspector"
@@ -1921,7 +1927,7 @@ def api_accounts_update_inspector(
 
 @app.post("/api/accounts/inspectors/toggle")
 def api_accounts_toggle_inspector(request: Request, inspector_id: str = Form(...)):
-    require_role(request, ["ACCOUNTANT_HQ", "SUPER_ADMIN"])
+    user = require_role(request, ["ACCOUNTANT_HQ", "SUPER_ADMIN"])
     conn = get_connection()
     try:
         cur = conn.cursor()
@@ -2238,7 +2244,8 @@ def api_calculate_inward(
     karda_percentage: float = 0.0,
     bag_type: str = "LOOSE",
     advance_to_deduct: float = 0.0,
-    hamali_rate_per_100kg: float = 25.0
+    hamali_rate_per_100kg: float = 25.0,
+    weighment_mode: str = "MANUAL_YARD"
 ):
     return calculate_inward_invoice(
         gross_weight_kg=gross_weight_kg,
@@ -2253,7 +2260,8 @@ def api_calculate_inward(
         tulai_rate_per_bag=0.0,
         silai_rate_per_bag=0.0,
         bardana_rate_per_bag=0.0,
-        advance_to_deduct=advance_to_deduct
+        advance_to_deduct=advance_to_deduct,
+        weighment_mode=weighment_mode
     )
 
 def get_financial_year(d: Optional[date] = None) -> str:
@@ -2370,7 +2378,11 @@ def api_branch_create_invoice(
     qc_ticket_no: Optional[str] = Form(None),
     qc_ticket_id: Optional[str] = Form(None),
     dominant_breed: Optional[str] = Form(None),
-    breed_purity_pct: Optional[float] = Form(None)
+    breed_purity_pct: Optional[float] = Form(None),
+    invoice_date: Optional[str] = Form(None),
+    custom_farmer_name: Optional[str] = Form(""),
+    custom_farmer_village: Optional[str] = Form(""),
+    custom_farmer_phone: Optional[str] = Form("")
 ):
     require_active_license()
     user = require_role(request, ["BRANCH_CASHIER", "SUPER_ADMIN"])
@@ -2383,17 +2395,23 @@ def api_branch_create_invoice(
     today_str = date.today().isoformat()
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
+    # Effective invoice date handling (Backdated support before 2026-11-05)
+    eff_invoice_date = (invoice_date or "").strip()
+    if not eff_invoice_date:
+        eff_invoice_date = today_str
+    is_backdated = 1 if eff_invoice_date < today_str else 0
+
     # Determine effective gross and tare weights based on mode
     if weighment_mode == "MANUAL_YARD":
         eff_gross = yard_weight_kg if (yard_weight_kg is not None and yard_weight_kg > 0) else (gross_weight_kg or 0.0)
         eff_tare = 0.0
         eff_kanta = "Yard Scale"
-        eff_slip = "YARD-DIRECT"
+        eff_slip = (external_slip_number or "").strip() if is_backdated else "YARD-DIRECT"
     else:
         eff_gross = gross_weight_kg or 0.0
         eff_tare = vehicle_tare_kg or 0.0
         eff_kanta = external_kanta_name or "Dharamkanta"
-        eff_slip = external_slip_number or "WB-ENTRY"
+        eff_slip = (external_slip_number or "").strip() if is_backdated else "WB-ENTRY"
 
     eff_bag_count = bag_count or 0
     eff_bag_type = bag_type or "LOOSE"
@@ -2414,13 +2432,30 @@ def api_branch_create_invoice(
         tulai_rate_per_bag=0.0,
         silai_rate_per_bag=0.0,
         bardana_rate_per_bag=0.0,
-        advance_to_deduct=eff_advance
+        advance_to_deduct=eff_advance,
+        weighment_mode=weighment_mode
     )
 
     # 2. Daily Rate Corridor Validation
     conn = get_connection()
     try:
         cur = conn.cursor()
+
+        # Handle custom typed farmer name for backdated entries
+        eff_custom_farmer = (custom_farmer_name or "").strip()
+        if is_backdated and eff_custom_farmer:
+            cur.execute("SELECT id FROM parties WHERE name=? AND party_type='FARMER' LIMIT 1", (eff_custom_farmer,))
+            p_row = cur.fetchone()
+            if p_row:
+                party_id = p_row["id"]
+            else:
+                new_pid = f"PRT-FMR-{uuid.uuid4().hex[:6].upper()}"
+                cur.execute("""
+                    INSERT INTO parties (id, name, party_type, phone, village, created_at)
+                    VALUES (?, ?, 'FARMER', ?, ?, ?)
+                """, (new_pid, eff_custom_farmer, (custom_farmer_phone or "").strip(), (custom_farmer_village or "Local").strip(), eff_invoice_date + " 00:00:00"))
+                party_id = new_pid
+
         cur.execute("""
             SELECT min_rate_per_qtl, max_rate_per_qtl 
             FROM daily_commodity_rates 
@@ -2432,12 +2467,21 @@ def api_branch_create_invoice(
 
         is_rate_overridden = 0
         rate_override_status = "NONE"
+        is_print_locked = 0
+        print_lock_reason = ""
 
         if rate_row:
             check = check_rate_corridor(rate_per_quintal, rate_row["min_rate_per_qtl"], rate_row["max_rate_per_qtl"])
             if check["requires_override"]:
                 is_rate_overridden = 1
                 rate_override_status = "PENDING"
+                is_print_locked = 1
+                print_lock_reason = f"Buying rate (Rs. {rate_per_quintal:.2f}/Qtl) exceeds daily price corridor (Max: Rs. {rate_row['max_rate_per_qtl']:.2f}/Qtl). Requires Accountant verification before slip print."
+
+        if is_backdated:
+            is_print_locked = 1
+            if not print_lock_reason:
+                print_lock_reason = f"Historical backdated entry ({eff_invoice_date}) requires Accountant verification before slip print."
 
         # Verify QC ticket and prevent QC Double-Spend (HTTP 409)
         eff_qc_ticket = (qc_ticket_no or qc_ticket_id or "").strip()
@@ -2510,7 +2554,9 @@ def api_branch_create_invoice(
                 advance_adjusted, interest_adjusted, net_payable_amount, rounded_net_payable,
                 round_off_amount, payout_status, inspector_name,
                 rtgs_bank_name, rtgs_account_no, rtgs_ifsc_code, rtgs_beneficiary_name, rtgs_requested_at,
-                qc_ticket_no, dominant_breed, breed_purity_pct
+                qc_ticket_no, dominant_breed, breed_purity_pct,
+                is_backdated, accountant_verified, custom_farmer_name, is_print_locked, print_lock_reason,
+                weighbridge_cut_kg
             ) VALUES (
                 ?, ?, ?, ?, ?, ?, ?,
                 'STANDARD', ?, ?, ?, ?,
@@ -2522,10 +2568,12 @@ def api_branch_create_invoice(
                 ?, ?, ?, ?,
                 ?, ?, ?,
                 ?, ?, ?, ?, ?,
-                ?, ?, ?
+                ?, ?, ?,
+                ?, ?, ?, ?, ?,
+                ?
             )
         """, (
-            invoice_id, branch_id, token_number, today_str, party_id, commodity_name, hsn_code,
+            invoice_id, branch_id, token_number, eff_invoice_date, party_id, commodity_name, hsn_code,
             vehicle_number or "", weighment_mode, eff_kanta, eff_slip,
             eff_bag_count, eff_bag_type, eff_gross, eff_tare, calc["bag_tare_kg"],
             moisture_percentage, calc["moisture_cut_kg"], eff_karda, calc["karda_cut_kg"],
@@ -2541,7 +2589,9 @@ def api_branch_create_invoice(
             now_str if settlement_mode == "RTGS" else None,
             qc_ticket_no.strip() if qc_ticket_no else None,
             dominant_breed.strip() if dominant_breed else None,
-            float(breed_purity_pct) if breed_purity_pct is not None else 100.0
+            float(breed_purity_pct) if breed_purity_pct is not None else 100.0,
+            is_backdated, 0, eff_custom_farmer if is_backdated else None, is_print_locked, print_lock_reason,
+            calc.get("weighbridge_cut_kg", 0.0)
         ))
 
         # Link QC ticket if provided with updated_at=CURRENT_TIMESTAMP to prevent LWW reversion
@@ -3833,7 +3883,7 @@ def api_save_accounts_settings(
     rtgs_auto_sms: str = Form(...),
     default_bank_account: str = Form(...)
 ):
-    require_role(request, ["ACCOUNTANT_HQ", "SUPER_ADMIN"])
+    user = require_role(request, ["ACCOUNTANT_HQ", "SUPER_ADMIN"])
     conn = get_connection()
     try:
         cur = conn.cursor()
@@ -4001,7 +4051,7 @@ def api_cashier_request_rtgs(
         conn.close()
 
 @app.get("/api/branch/invoices/parchi/{token_number}", response_class=HTMLResponse)
-def api_get_parchi_slip(request: Request, token_number: str):
+def api_get_parchi_slip(request: Request, token_number: str, format: Optional[str] = "a4"):
     user = get_current_user(request)
     if not user:
         return RedirectResponse(url="/login", status_code=303)
@@ -4023,7 +4073,55 @@ def api_get_parchi_slip(request: Request, token_number: str):
     finally:
         conn.close()
 
-    return templates.TemplateResponse(request=request, name="parchi_slip.html", context={"invoice": invoice})
+    # GUARD: If rate is above daily corridor or entry is backdated, require Accountant verification before printing
+    is_locked = False
+    lock_msg = ""
+
+    if invoice.get("rate_override_status") == "PENDING":
+        is_locked = True
+        lock_msg = f"Rate Override Pending: Entered rate (Rs. {invoice.get('rate_per_quintal', 0):,.2f}/Qtl) is above the approved daily price bracket. Mandi slip printing is locked until verified & approved by Accountant in the HQ Accounts Panel."
+    elif invoice.get("is_backdated") == 1 and invoice.get("accountant_verified") != 1:
+        is_locked = True
+        lock_msg = f"Backdated Entry Verification Pending: Historical entry for date {invoice.get('invoice_date')} is locked. Slip will not print until verified & approved by Accountant in the HQ Accounts Panel."
+    elif invoice.get("is_print_locked") == 1 and invoice.get("accountant_verified") != 1:
+        is_locked = True
+        lock_msg = invoice.get("print_lock_reason") or "Mandi slip is locked pending Accountant verification."
+
+    if is_locked:
+        return HTMLResponse(f"""
+        <!DOCTYPE html>
+        <html>
+        <head><title>Slip Print Locked</title>
+        <style>
+            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }}
+            .lock-card {{ background: #ffffff; border-radius: 14px; padding: 36px 32px; max-width: 520px; text-align: center; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.3); border: 2px solid #ef4444; }}
+            .lock-icon {{ font-size: 54px; margin-bottom: 14px; }}
+            h2 {{ color: #991b1b; margin: 0 0 10px 0; font-size: 22px; font-weight: 800; }}
+            p {{ color: #334155; font-size: 14.5px; line-height: 1.6; margin: 0 0 20px 0; }}
+            .alert-box {{ background: #fef2f2; border: 1.5px solid #fca5a5; color: #991b1b; padding: 14px; border-radius: 8px; font-weight: 600; font-size: 13.5px; text-align: left; margin-bottom: 24px; }}
+            .btn {{ background: #0f172a; color: #ffffff; border: none; padding: 10px 24px; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; }}
+        </style>
+        </head>
+        <body>
+            <div class="lock-card">
+                <div class="lock-icon">🔒</div>
+                <h2>MANDI SLIP PRINTING LOCKED</h2>
+                <p>Token #<strong>{invoice.get('token_number')}</strong> • {invoice.get('commodity_name')} • Farmer: <strong>{invoice.get('party_name')}</strong></p>
+                <div class="alert-box">
+                    ⚠️ <strong>Accountant Verification Required:</strong><br>{lock_msg}
+                </div>
+                <button class="btn" onclick="window.close()">Close Window</button>
+            </div>
+        </body>
+        </html>
+        """, status_code=403)
+
+    invoice["amount_in_words"] = number_to_inr_words(invoice.get("net_payable_amount", 0.0))
+    return templates.TemplateResponse(
+        request=request, 
+        name="parchi_slip.html", 
+        context={"invoice": invoice, "active_format": format or "a4"}
+    )
 
 @app.get("/api/farmers/search")
 def api_search_farmers(request: Request, q: str = ""):
@@ -4292,6 +4390,32 @@ def api_cashier_disburse_payout(
 # QUALITY INSPECTION, COMPUTER VISION ASSAYING & DIGITAL QC SLIP ENDPOINTS
 # --------------------------------------------------------------------------
 
+def stamp_qc_image(raw_bytes: bytes, prefix: str = "qc") -> bytes:
+    """Appends an immutable tamper-evident forensic timestamp banner at the bottom of the inspector image."""
+    try:
+        from PIL import ImageDraw
+        img = Image.open(io.BytesIO(raw_bytes)).convert("RGB")
+        w, h = img.size
+        banner_h = max(34, int(h * 0.045))
+
+        stamped = Image.new("RGB", (w, h + banner_h), color=(15, 23, 42))
+        stamped.paste(img, (0, 0))
+
+        draw = ImageDraw.Draw(stamped)
+        now_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S IST")
+        tag = "QC MOISTURE METER" if "meter" in prefix.lower() else ("GRAIN ASSAYING TRAY" if "grain" in prefix.lower() else "MANDI INSPECTION")
+        text = f"COMMODITI MANDI VERIFIED  •  {now_ts}  •  {tag}"
+
+        draw.text((16, h + int(banner_h * 0.22)), text, fill=(241, 245, 249))
+
+        buf = io.BytesIO()
+        stamped.save(buf, format="JPEG", quality=92)
+        return buf.getvalue()
+    except Exception as e:
+        logger.warning(f"Failed to stamp timestamp banner on QC photo: {e}")
+        return raw_bytes
+
+
 def save_qc_image_data(file_bytes_or_b64: Any, prefix: str = "qc") -> Tuple[str, bytes]:
     """Saves uploaded file or base64 data to static/uploads/qc/ and returns relative URL and raw bytes."""
     upload_dir = os.path.join(STATIC_DIR, "uploads", "qc")
@@ -4327,8 +4451,9 @@ def save_qc_image_data(file_bytes_or_b64: Any, prefix: str = "qc") -> Tuple[str,
     except Exception:
         return "", b""
 
+    stamped_bytes = stamp_qc_image(raw_bytes, prefix=clean_prefix) if clean_prefix in ["meter", "grain", "qc"] else raw_bytes
     with open(filepath, "wb") as f:
-        f.write(raw_bytes)
+        f.write(stamped_bytes)
     return public_url, raw_bytes
 
 

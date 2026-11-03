@@ -673,7 +673,16 @@ def init_db():
         ("qc_ticket_no", "TEXT"),
         ("qc_ticket_id", "TEXT"),
         ("dominant_breed", "TEXT"),
-        ("breed_purity_pct", "REAL DEFAULT 100.0")
+        ("breed_purity_pct", "REAL DEFAULT 100.0"),
+        ("is_backdated", "INTEGER DEFAULT 0"),
+        ("accountant_verified", "INTEGER DEFAULT 0"),
+        ("accountant_verified_by", "TEXT"),
+        ("accountant_verified_at", "TEXT"),
+        ("accountant_verified_note", "TEXT"),
+        ("custom_farmer_name", "TEXT"),
+        ("is_print_locked", "INTEGER DEFAULT 0"),
+        ("print_lock_reason", "TEXT"),
+        ("weighbridge_cut_kg", "REAL DEFAULT 0.0")
     ]:
         if col not in existing_invoice_cols:
             cur.execute(f"ALTER TABLE purchase_invoices ADD COLUMN {col} {definition}")

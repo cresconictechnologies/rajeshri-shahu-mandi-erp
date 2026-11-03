@@ -2970,11 +2970,20 @@ def admin_settings_view(request: Request, msg: Optional[str] = None):
         cur.execute("SELECT * FROM users WHERE role='BRANCH_CASHIER' AND branch_id='br-dhad' LIMIT 1")
         dhd_cashier = cur.fetchone()
 
+        cur.execute("SELECT * FROM branches ORDER BY branch_code ASC, name ASC")
+        branches = [dict(r) for r in cur.fetchall()]
+
+        cur.execute("SELECT * FROM users WHERE role='SUPER_ADMIN' LIMIT 1")
+        super_admin_row = cur.fetchone()
+        super_admin_user = dict(super_admin_row) if super_admin_row else logged_in_user
+
         return templates.TemplateResponse(request=request, name="admin_settings.html", context={
             "settings": settings,
             "license_info": license_info,
             "branch_stats": branch_stats,
             "staff_users": staff_users,
+            "branches": branches,
+            "super_admin_user": super_admin_user,
             "accountant": accountant,
             "chk_cashier": chk_cashier,
             "vrv_cashier": vrv_cashier,
@@ -3162,6 +3171,160 @@ def api_save_admin_settings(
     finally:
         conn.close()
     return RedirectResponse(url="/admin/settings?msg=Settings+saved+successfully", status_code=303)
+
+@app.post("/api/admin/profile/update")
+def api_admin_update_profile(
+    request: Request,
+    owner_name: str = Form(...),
+    username: str = Form(...),
+    phone: str = Form(...),
+    new_password: Optional[str] = Form(None)
+):
+    require_role(request, ["SUPER_ADMIN"])
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        clean_name = owner_name.strip()
+        clean_username = username.strip()
+        clean_phone = phone.strip()
+        if not clean_name:
+            return RedirectResponse(url="/admin/settings?msg=Error:+Owner+name+cannot+be+empty", status_code=303)
+        if not clean_username:
+            return RedirectResponse(url="/admin/settings?msg=Error:+Username+cannot+be+empty", status_code=303)
+
+        if new_password and new_password.strip():
+            pw_hash = hash_password(new_password.strip())
+            cur.execute("""
+                UPDATE users 
+                SET full_name=?, username=?, phone=?, password_hash=? 
+                WHERE role='SUPER_ADMIN'
+            """, (clean_name, clean_username, clean_phone, pw_hash))
+        else:
+            cur.execute("""
+                UPDATE users 
+                SET full_name=?, username=?, phone=? 
+                WHERE role='SUPER_ADMIN'
+            """, (clean_name, clean_username, clean_phone))
+
+        # Also sync owner_name into system_settings
+        cur.execute("""
+            INSERT INTO system_settings (scope, scope_id, setting_key, setting_value, updated_at)
+            VALUES ('SUPER_ADMIN', 'GLOBAL', 'owner_name', ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(scope, scope_id, setting_key) DO UPDATE SET setting_value=excluded.setting_value, updated_at=CURRENT_TIMESTAMP
+        """, (clean_name,))
+
+        conn.commit()
+    finally:
+        conn.close()
+    return RedirectResponse(url="/admin/settings?msg=Owner+profile+and+admin+name+updated+successfully", status_code=303)
+
+@app.post("/api/admin/branches/create")
+def api_admin_settings_add_branch(
+    request: Request,
+    branch_code: str = Form(...),
+    name: str = Form(...),
+    address: Optional[str] = Form(""),
+    phone: Optional[str] = Form(""),
+    mandi_license_no: Optional[str] = Form("")
+):
+    require_role(request, ["SUPER_ADMIN"])
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        allowed, msg, cur_cnt, max_cnt = check_branch_limit(conn)
+        if not allowed:
+            return RedirectResponse(url=f"/admin/settings?msg=Error:+{msg}", status_code=303)
+
+        b_code = branch_code.strip().upper()
+        b_name = name.strip()
+        branch_id = f"br-{b_code.lower().replace(' ', '-')}"
+
+        cur.execute("SELECT id FROM branches WHERE id=? OR branch_code=?", (branch_id, b_code))
+        if cur.fetchone():
+            return RedirectResponse(url=f"/admin/settings?msg=Error:+Branch+with+code+{b_code}+already+exists", status_code=303)
+
+        cur.execute("""
+            INSERT INTO branches (id, branch_code, name, mandi_license_no, address, phone, is_active)
+            VALUES (?, ?, ?, ?, ?, ?, 1)
+        """, (branch_id, b_code, b_name, (mandi_license_no or "").strip(), (address or "").strip(), (phone or "").strip()))
+
+        # Also provision initial cashier user for this branch
+        cashier_un = f"{b_code.lower()}_cashier"
+        cur.execute("SELECT id FROM users WHERE username=?", (cashier_un,))
+        if not cur.fetchone():
+            pw_hash = hash_password("cashier123")
+            cur.execute("""
+                INSERT INTO users (id, branch_id, username, password_hash, full_name, phone, role)
+                VALUES (?, ?, ?, ?, ?, ?, 'BRANCH_CASHIER')
+            """, (f"u-{b_code.lower()}-cashier", branch_id, cashier_un, pw_hash, f"{b_name} Cashier", phone or "9826000000"))
+
+        conn.commit()
+    finally:
+        conn.close()
+    return RedirectResponse(url="/admin/settings?msg=New+branch+added+and+cashier+account+provisioned+successfully", status_code=303)
+
+@app.post("/api/admin/branches/delete")
+def api_admin_settings_delete_branch(request: Request, branch_id: str = Form(...)):
+    require_role(request, ["SUPER_ADMIN"])
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT branch_code, name FROM branches WHERE id=?", (branch_id,))
+        b = cur.fetchone()
+        if not b:
+            return RedirectResponse(url="/admin/settings?msg=Error:+Branch+not+found", status_code=303)
+
+        # Check if invoices exist for this branch
+        cur.execute("SELECT count(*) FROM purchase_invoices WHERE branch_id=?", (branch_id,))
+        inv_count = cur.fetchone()[0]
+        if inv_count > 0:
+            return RedirectResponse(url=f"/admin/settings?msg=Error:+Cannot+delete+branch+{b['name']}+because+it+has+{inv_count}+recorded+invoices.+Please+deactivate+it+instead.", status_code=303)
+
+        # Delete users associated with this branch (excluding super_admin)
+        cur.execute("DELETE FROM users WHERE branch_id=? AND role!='SUPER_ADMIN'", (branch_id,))
+        cur.execute("DELETE FROM inspectors WHERE branch_id=?", (branch_id,))
+        cur.execute("DELETE FROM branch_daily_cash_drawers WHERE branch_id=?", (branch_id,))
+        cur.execute("DELETE FROM branches WHERE id=?", (branch_id,))
+        conn.commit()
+    finally:
+        conn.close()
+    return RedirectResponse(url=f"/admin/settings?msg=Branch+{branch_id}+deleted+successfully", status_code=303)
+
+@app.post("/api/admin/database/reset")
+def api_admin_reset_database(request: Request, confirm_wipe: str = Form(...)):
+    require_role(request, ["SUPER_ADMIN"])
+    if confirm_wipe != "CONFIRM_WIPE_ALL_TEST_DATA":
+        return RedirectResponse(url="/admin/settings?msg=Error:+Confirmation+token+mismatch.+Database+wipe+aborted.", status_code=303)
+
+    import shutil
+    db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "commodity_mandi.db")
+    backup_path = f"{db_path}.backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    shutil.copy2(db_path, backup_path)
+
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        wipe_tables = [
+            "purchase_invoices",
+            "outward_orders",
+            "cashier_payouts",
+            "quality_inspections",
+            "ledger_entries",
+            "branch_daily_cash_drawers",
+            "audit_change_logs",
+            "parties",
+            "user_sessions"
+        ]
+        cur.execute("PRAGMA foreign_keys = OFF")
+        for t in wipe_tables:
+            cur.execute(f"DELETE FROM [{t}]")
+            cur.execute(f"DELETE FROM sqlite_sequence WHERE name='{t}'")
+        cur.execute("PRAGMA foreign_keys = ON")
+        conn.commit()
+    finally:
+        conn.close()
+
+    return RedirectResponse(url="/admin/settings?msg=All+farmer,+company,+inward,+and+outward+test+data+deleted+successfully.+Database+is+now+clean+for+v1.0+production.", status_code=303)
 
 @app.post("/api/admin/license/activate")
 def api_admin_activate_license(request: Request, license_token: str = Form(...)):

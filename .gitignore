@@ -9,6 +9,7 @@ venv/
 *.log
 instance_secret.key
 *_backup*.db
+*.backup*
 *.bak
 *.db-wal
 *.db-shm

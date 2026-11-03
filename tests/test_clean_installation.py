@@ -2,7 +2,7 @@
 Automated Test Suite for Clean Commercial Customer Installation.
 Simulates a brand new customer installation on a separate clean database:
 1. Verifies zero demo records (0 users, 0 parties, 0 invoices, 0 payouts, 0 ledgers, 0 rates).
-2. Verifies master data configuration (9 commodities, statutory cash limits, is_setup_completed=0).
+2. Verifies master data configuration (15 commodities, statutory cash limits, is_setup_completed=0).
 3. Verifies first-run setup wizard: invalid/expired/wrong-product licenses fail closed.
 4. Verifies first-run Super Admin and staff provisioning with custom credentials.
 5. Verifies permanent 404 lockout on /setup after completion.
@@ -108,9 +108,9 @@ class TestCleanInstallation(unittest.TestCase):
             cnt = cur.fetchone()[0]
             self.assertEqual(cnt, 0, f"{msg}. Found {cnt} rows.")
 
-        # Verify statutory master configuration (9 commodities registered)
+        # Verify statutory master configuration (15 commodities registered)
         cur.execute("SELECT count(*) FROM commodities")
-        self.assertEqual(cur.fetchone()[0], 9, "Clean install must register the 9 statutory APMC commodities")
+        self.assertEqual(cur.fetchone()[0], 15, "Clean install must register the 15 statutory APMC commodities")
 
         # Verify first-run setup is required (is_setup_completed = '0')
         cur.execute("SELECT setting_value FROM system_settings WHERE scope='SUPER_ADMIN' AND setting_key='is_setup_completed'")

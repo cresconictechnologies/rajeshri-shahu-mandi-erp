@@ -304,15 +304,398 @@ COMMODITY_STANDARDS: Dict[str, Dict[str, Any]] = {
             "sortex_clean_yield_target_pct": 96.0,
             "sortex_reject_ceiling_pct": 4.0
         }
+    },
+    "Dollar Chana (Kabuli / डॉलर चना)": {
+        "standard_moisture_pct": 10.0,
+        "max_moisture_limit_pct": 12.0,
+        "max_karda_pct": 1.0,
+        "max_damaged_pct": 2.0,
+        "max_green_seeds_pct": 1.5,
+        "max_broken_split_pct": 2.0,
+        "max_shriveled_pct": 2.5,
+        "max_admixture_pct": 3.0,
+        "standard_breeds": [
+            "Dollar / Mexican Bold (11-12mm Export Grade)",
+            "Kripa (Phule G-0517 Bold White)",
+            "Kak-2 (Standard Kabuli)",
+            "PKV Kabuli-4 (10-11mm)",
+            "JGK-1 (Jawahar Kabuli Bold)"
+        ],
+        "default_breed": "Dollar / Mexican Bold (11-12mm Export Grade)",
+        "default_min_rate": 9500.0,
+        "default_target_rate": 11500.0,
+        "default_max_rate": 13500.0,
+        "sortex_profile": {
+            "target_appearance": "Lustrous Creamy Off-White Bold Spherical/Wrinkled (10-12mm)",
+            "optical_color_defects": [
+                "Dark Brown / Black Discolored Grains",
+                "Green Immature / Chlorophyll Kernels",
+                "Ascochyta Fungal Necrotic Stains",
+                "Desi Brown Chana Cross-Admixture"
+            ],
+            "profile_shape_defects": [
+                "Bruchid Weevil Beetle Exit Holes",
+                "Split Cotyledons / Broken Halves",
+                "Shrivelled / Pinhead Kernels (<7mm)"
+            ],
+            "foreign_matter_defects": [
+                "Inert Mud Balls & Gravel",
+                "Dry Pod Husks & Chaff",
+                "Foreign Crop Seeds"
+            ],
+            "sortex_clean_yield_target_pct": 97.0,
+            "sortex_reject_ceiling_pct": 3.0
+        }
+    },
+    "Rajma (Red Kidney Beans / राजमा)": {
+        "standard_moisture_pct": 11.0,
+        "max_moisture_limit_pct": 14.0,
+        "max_karda_pct": 1.0,
+        "max_damaged_pct": 2.5,
+        "max_green_seeds_pct": 1.0,
+        "max_broken_split_pct": 2.0,
+        "max_shriveled_pct": 2.5,
+        "max_admixture_pct": 3.0,
+        "standard_breeds": [
+            "Red Kidney (Lal Bold Kidney Variety)",
+            "Chitra (Speckled Kashmiri / Himalayan Bold)",
+            "Sharmili / Deep Red Small",
+            "Anupam (K-132 Bold Red)",
+            "Chakrata White Rajma"
+        ],
+        "default_breed": "Red Kidney (Lal Bold Kidney Variety)",
+        "default_min_rate": 8500.0,
+        "default_target_rate": 9800.0,
+        "default_max_rate": 11200.0,
+        "sortex_profile": {
+            "target_appearance": "Glossy Deep Crimson Red Kidney Cylindrical",
+            "optical_color_defects": [
+                "Weather-Bleached / Discolored Pale Kernels",
+                "Black Fungal Rot / Anthracnose Lesions",
+                "Yellow / Soya Admixture Kernels"
+            ],
+            "profile_shape_defects": [
+                "Split Halves / Loose Seedcoat",
+                "Acanthoscelides Weevil Holes",
+                "Flat / Aborted / Shrivelled Seeds"
+            ],
+            "foreign_matter_defects": [
+                "Dry Pod Trash & Stems",
+                "Clay Clods & Field Stones",
+                "Straw Chaff"
+            ],
+            "sortex_clean_yield_target_pct": 96.5,
+            "sortex_reject_ceiling_pct": 3.5
+        }
+    },
+    "Masoor (Red Lentil / मसूर)": {
+        "standard_moisture_pct": 10.0,
+        "max_moisture_limit_pct": 12.0,
+        "max_karda_pct": 1.5,
+        "max_damaged_pct": 3.0,
+        "max_green_seeds_pct": 2.0,
+        "max_broken_split_pct": 2.5,
+        "max_shriveled_pct": 3.0,
+        "max_admixture_pct": 4.0,
+        "standard_breeds": [
+            "DPL-62 (Sheri Bold Brown)",
+            "Pusa Ageti (L-4076)",
+            "KLS-218 (Small Seeded Desi)",
+            "IPL-81 (Noori High Protein)",
+            "JL-3 (Jawahar Masoor Bold)"
+        ],
+        "default_breed": "DPL-62 (Sheri Bold Brown)",
+        "default_min_rate": 5800.0,
+        "default_target_rate": 6300.0,
+        "default_max_rate": 6700.0,
+        "sortex_profile": {
+            "target_appearance": "Uniform Grey-Brown Spherical Flattened Lens",
+            "optical_color_defects": [
+                "Dehusked Exposed Orange Dal (Premature Split)",
+                "Black Mottled / Smut Damaged Grains",
+                "Green / Pale Immature Seeds"
+            ],
+            "profile_shape_defects": [
+                "Chipped Edge & Broken Halves",
+                "Pinhead Underdeveloped Kernels",
+                "Borer Weevil Damaged Seeds"
+            ],
+            "foreign_matter_defects": [
+                "Wild Vetch / Weed Seeds",
+                "Fine Earth Particles & Sand",
+                "Pods & Stalk Fragments"
+            ],
+            "sortex_clean_yield_target_pct": 96.0,
+            "sortex_reject_ceiling_pct": 4.0
+        }
+    },
+    "Groundnut / Bhuimug (भुईमूग)": {
+        "standard_moisture_pct": 8.0,
+        "max_moisture_limit_pct": 10.0,
+        "max_karda_pct": 2.0,
+        "max_damaged_pct": 2.5,
+        "max_green_seeds_pct": 2.0,
+        "max_broken_split_pct": 3.5,
+        "max_shriveled_pct": 3.0,
+        "max_admixture_pct": 4.0,
+        "standard_breeds": [
+            "TAG-24 (Semi-Dwarf Early Bold)",
+            "TG-37A (Trombay High-Yielding)",
+            "Phule Unnati (JL-501 Bold)",
+            "GJG-9 (Bold Spreading)",
+            "Kadiri-6 (K-6 Commercial)"
+        ],
+        "default_breed": "TAG-24 (Semi-Dwarf Early Bold)",
+        "default_min_rate": 6200.0,
+        "default_target_rate": 6850.0,
+        "default_max_rate": 7400.0,
+        "sortex_profile": {
+            "target_appearance": "Lustrous Pinkish-Red Skin Cylindrical Bold Seed",
+            "optical_color_defects": [
+                "Aflatoxin / Yellow-Green Aspergillus Moldy Grains",
+                "Black Stained / Decay Rotten Kernels",
+                "Bleached / Pale Skin Diseased Seeds"
+            ],
+            "profile_shape_defects": [
+                "Split Cotyledons (Daal Split)",
+                "Wrinkled / Pinhead Shrivelled",
+                "Sprouted / Germinated Radicle"
+            ],
+            "foreign_matter_defects": [
+                "Empty Pod Shells (Pop Pods)",
+                "Mud Balls / Soil Lumps",
+                "Stones & Chaff"
+            ],
+            "sortex_clean_yield_target_pct": 95.5,
+            "sortex_reject_ceiling_pct": 4.5
+        }
+    },
+    "Jowar / Sorghum (ज्वारी)": {
+        "standard_moisture_pct": 10.0,
+        "max_moisture_limit_pct": 13.0,
+        "max_karda_pct": 1.5,
+        "max_damaged_pct": 3.0,
+        "max_green_seeds_pct": 1.5,
+        "max_broken_split_pct": 2.5,
+        "max_shriveled_pct": 3.0,
+        "max_admixture_pct": 4.0,
+        "standard_breeds": [
+            "Maldandi M-35-1 (Pearly White Roti King)",
+            "Phule Yashoda (Bold Rabi White)",
+            "CSH-14 (Kharif White Hybrid)",
+            "Parbhani Moti (SPV-1411 Lustrous White)",
+            "Dharwad Hybrid (Commercial Yellow/White)"
+        ],
+        "default_breed": "Maldandi M-35-1 (Pearly White Roti King)",
+        "default_min_rate": 2800.0,
+        "default_target_rate": 3400.0,
+        "default_max_rate": 4200.0,
+        "sortex_profile": {
+            "target_appearance": "Pearly Lustrous Chalky White Spherical Bold",
+            "optical_color_defects": [
+                "Grain Mold / Curvularia Blackening",
+                "Pink / Purple Fusarium Stained",
+                "Yellow / Brown Weather Mottled"
+            ],
+            "profile_shape_defects": [
+                "Broken Chipped Fragments",
+                "Sitophilus Weevil-Punctured Kernels",
+                "Shrivelled / Papery Grains"
+            ],
+            "foreign_matter_defects": [
+                "Glumes & Husk Leaves",
+                "Ergot Honey-Dew / Sclerotia",
+                "Inert Mud & Weed Seeds"
+            ],
+            "sortex_clean_yield_target_pct": 96.0,
+            "sortex_reject_ceiling_pct": 4.0
+        }
+    },
+    "Bajra / Pearl Millet (बाजरी)": {
+        "standard_moisture_pct": 11.0,
+        "max_moisture_limit_pct": 13.5,
+        "max_karda_pct": 1.5,
+        "max_damaged_pct": 2.5,
+        "max_green_seeds_pct": 1.5,
+        "max_broken_split_pct": 2.0,
+        "max_shriveled_pct": 3.0,
+        "max_admixture_pct": 4.0,
+        "standard_breeds": [
+            "ICTP-8203 (Dhanshakti High-Iron Bold)",
+            "Phule Aadishakti (Hybrid Bold Grey)",
+            "GHB-558 (Commercial Bold)",
+            "Pusa-1201 (Pearly Oval)",
+            "Desi Local Kathiawar (Tiny Grey)"
+        ],
+        "default_breed": "ICTP-8203 (Dhanshakti High-Iron Bold)",
+        "default_min_rate": 2150.0,
+        "default_target_rate": 2350.0,
+        "default_max_rate": 2600.0,
+        "sortex_profile": {
+            "target_appearance": "Uniform Slate Grey-Green Pearly Ovoid",
+            "optical_color_defects": [
+                "Ergot Sclerotia (Dark Purple / Black Toxic Spores)",
+                "Smut Spore Balls (Brown Powdery Clumps)",
+                "Yellow Bleached / Weather Damaged"
+            ],
+            "profile_shape_defects": [
+                "Pinhead / Chaffy Underdeveloped Seeds",
+                "Split / Cracked Kernels"
+            ],
+            "foreign_matter_defects": [
+                "Bristles, Earhead Chaff & Straw",
+                "Sand, Soil Particles & Stones",
+                "Foreign Crop Seeds"
+            ],
+            "sortex_clean_yield_target_pct": 96.5,
+            "sortex_reject_ceiling_pct": 3.5
+        }
+    },
+    "Moong (Green Gram)": {
+        "standard_moisture_pct": 10.0,
+        "max_moisture_limit_pct": 12.0,
+        "max_karda_pct": 1.5,
+        "max_damaged_pct": 3.0,
+        "max_green_seeds_pct": 2.0,
+        "max_broken_split_pct": 2.5,
+        "max_shriveled_pct": 3.0,
+        "max_admixture_pct": 4.0,
+        "standard_breeds": [
+            "Vaibhav (BM-2002-1 Shiny Green)",
+            "Kopergaon (Bold Green)",
+            "PKV Green Gold (AKM-9911 Bold)",
+            "Pusa Vishal (Extra Bold Summer Moong)",
+            "BM-4 (Early Maturity)"
+        ],
+        "default_breed": "Vaibhav (BM-2002-1 Shiny Green)",
+        "default_min_rate": 7200.0,
+        "default_target_rate": 7800.0,
+        "default_max_rate": 8400.0,
+        "sortex_profile": {
+            "target_appearance": "Lustrous Emerald Green Cylindrical Plump",
+            "optical_color_defects": [
+                "Weather Blackened / Rain Damaged",
+                "Exposed Yellow Dal (Premature Split)",
+                "Chalky White / Pale Brown Discolored"
+            ],
+            "profile_shape_defects": [
+                "Callosobruchus Weevil Bore Holes",
+                "Split Cotyledons / Halves",
+                "Wrinkled / Pinhead Shrivelled"
+            ],
+            "foreign_matter_defects": [
+                "Dry Pod Shells & Twigs",
+                "Mud Clods & Fine Silt",
+                "Weed Seeds (Wild Ipomoea/Cassia)"
+            ],
+            "sortex_clean_yield_target_pct": 96.5,
+            "sortex_reject_ceiling_pct": 3.5
+        }
+    },
+    "Urad (Black Gram)": {
+        "standard_moisture_pct": 10.0,
+        "max_moisture_limit_pct": 12.0,
+        "max_karda_pct": 1.5,
+        "max_damaged_pct": 3.0,
+        "max_green_seeds_pct": 2.0,
+        "max_broken_split_pct": 2.5,
+        "max_shriveled_pct": 3.0,
+        "max_admixture_pct": 4.0,
+        "standard_breeds": [
+            "TAU-1 (Maharashtra High Yield Standard Bold)",
+            "TPU-4 (Trombay Bold Shiny Black)",
+            "Uttara (Pant U-31)",
+            "AKU-15 (Vidarbha Special)",
+            "Prasad (Early Maturity)"
+        ],
+        "default_breed": "TAU-1 (Maharashtra High Yield Standard Bold)",
+        "default_min_rate": 6800.0,
+        "default_target_rate": 7400.0,
+        "default_max_rate": 7900.0,
+        "sortex_profile": {
+            "target_appearance": "Lustrous Jet Black Cylindrical with Distinct White Hilum",
+            "optical_color_defects": [
+                "Exposed Chalky White Dal (Dehusked Halves)",
+                "Red / Brown Rust Stained",
+                "Immature Greenish Kernels"
+            ],
+            "profile_shape_defects": [
+                "Bruchid Insect Holes / Borer Holes",
+                "Split Halves / Fragments",
+                "Pinhead Shrivelled"
+            ],
+            "foreign_matter_defects": [
+                "Black Clay Particles / Soil Balls",
+                "Pod Husks & Dry Stalks",
+                "Weed Seeds & Gravel"
+            ],
+            "sortex_clean_yield_target_pct": 96.0,
+            "sortex_reject_ceiling_pct": 4.0
+        }
     }
 }
 
 
 def get_standards_for_commodity(commodity_name: str) -> Dict[str, Any]:
     """Resolves standard thresholds for a given commodity, defaulting to Soyabean."""
+    if not commodity_name:
+        return COMMODITY_STANDARDS["Soyabean (Yellow)"]
+
+    c_clean = commodity_name.strip()
+
+    # 1. Exact match (case-insensitive)
     for name, std in COMMODITY_STANDARDS.items():
-        if name.lower() in commodity_name.lower() or commodity_name.lower() in name.lower():
+        if name.strip().lower() == c_clean.lower():
             return std
+
+    # 2. Specific token disambiguation before generic substring matching
+    c_lower = c_clean.lower()
+
+    if "dollar" in c_lower or "kabuli" in c_lower or "काबुली" in c_lower or "डॉलर" in c_lower:
+        for name, std in COMMODITY_STANDARDS.items():
+            if "dollar" in name.lower() or "kabuli" in name.lower():
+                return std
+
+    if "rajma" in c_lower or "राजमा" in c_lower or "kidney" in c_lower:
+        for name, std in COMMODITY_STANDARDS.items():
+            if "rajma" in name.lower():
+                return std
+
+    if "masoor" in c_lower or "मसूर" in c_lower or "lentil" in c_lower:
+        for name, std in COMMODITY_STANDARDS.items():
+            if "masoor" in name.lower():
+                return std
+
+    if "groundnut" in c_lower or "bhuimug" in c_lower or "भुईमूग" in c_lower or "peanut" in c_lower or "shengdana" in c_lower:
+        for name, std in COMMODITY_STANDARDS.items():
+            if "groundnut" in name.lower() or "bhuimug" in name.lower():
+                return std
+
+    if "jowar" in c_lower or "sorghum" in c_lower or "ज्वारी" in c_lower or "jwari" in c_lower:
+        for name, std in COMMODITY_STANDARDS.items():
+            if "jowar" in name.lower() or "sorghum" in name.lower():
+                return std
+
+    if "bajra" in c_lower or "बाजरी" in c_lower or "millet" in c_lower or "bajri" in c_lower:
+        for name, std in COMMODITY_STANDARDS.items():
+            if "bajra" in name.lower():
+                return std
+
+    if "moong" in c_lower or "mung" in c_lower or "मूग" in c_lower:
+        for name, std in COMMODITY_STANDARDS.items():
+            if "moong" in name.lower():
+                return std
+
+    if "urad" in c_lower or "उडीद" in c_lower or "black gram" in c_lower or "udid" in c_lower:
+        for name, std in COMMODITY_STANDARDS.items():
+            if "urad" in name.lower():
+                return std
+
+    # 3. Generic Substring match
+    for name, std in COMMODITY_STANDARDS.items():
+        if name.lower() in c_lower or c_lower in name.lower():
+            return std
+
     return COMMODITY_STANDARDS["Soyabean (Yellow)"]
 
 
@@ -475,16 +858,56 @@ def segment_individual_kernels(
 
     # 3. Multi-Spectral Admixture & Foreign Grain Detection (Sortex Optical Profile)
     c_lower = commodity_name.lower()
-    is_chana = "chana" in c_lower or "harbhara" in c_lower
+    is_dollar_chana = "dollar" in c_lower or "kabuli" in c_lower or "काबुली" in c_lower or "डॉलर" in c_lower
+    is_chana = ("chana" in c_lower or "harbhara" in c_lower) and not is_dollar_chana
     is_mustard = "mustard" in c_lower or "rayda" in c_lower or "sarson" in c_lower or "mohari" in c_lower
     is_wheat = "wheat" in c_lower or "lokwan" in c_lower or "sharbati" in c_lower
     is_tur = "tur" in c_lower or "arhar" in c_lower
     is_soybean = "soya" in c_lower
+    is_rajma = "rajma" in c_lower or "kidney" in c_lower
+    is_masoor = "masoor" in c_lower or "lentil" in c_lower
+    is_groundnut = "groundnut" in c_lower or "bhuimug" in c_lower or "peanut" in c_lower or "shengdana" in c_lower
+    is_jowar = "jowar" in c_lower or "sorghum" in c_lower or "jwari" in c_lower
+    is_bajra = "bajra" in c_lower or "millet" in c_lower or "bajri" in c_lower
+    is_moong = "moong" in c_lower or "mung" in c_lower
+    is_urad = "urad" in c_lower or "black gram" in c_lower or "udid" in c_lower
 
-    if is_chana:
+    if is_dollar_chana:
+        # Desi Brown Chana or dark weed grains in Dollar Kabuli Chana:
+        is_admixture = grain_mask & (luminance < 110) & (norm_r > 0.38)
+        admixture_type = "Desi Brown Chana / Dark Admixture"
+    elif is_chana:
         # Yellow Soybeans in Desi Chana:
         is_admixture = grain_mask & (gr_ratio > 0.79) & (gr_ratio < 0.96) & (total_rgb > 360) & (norm_b > 0.20)
         admixture_type = "Soybean / Yellow Food Grain Admixture"
+    elif is_rajma:
+        # Yellow Soya or pale pulse admixture in Red Rajma:
+        is_admixture = grain_mask & (luminance > 140) & (norm_r > 0.35) & (norm_g > 0.32)
+        admixture_type = "Soybean / Pale Pulse Admixture"
+    elif is_masoor:
+        # Foreign wheat / dark wild vetch in Masoor:
+        is_admixture = grain_mask & ((luminance < 50) | ((luminance > 160) & (diff_rb < 20)))
+        admixture_type = "Foreign Grain / Weed Seed Admixture"
+    elif is_groundnut:
+        # Foreign pods / discolored blackened kernel in Groundnut:
+        is_admixture = grain_mask & (luminance < 60) & (diff_rb < 25)
+        admixture_type = "Foreign Matter / Dark Admixture"
+    elif is_jowar:
+        # Moldy black / dark weed grain in pearly white Jowar:
+        is_admixture = grain_mask & (luminance < 70)
+        admixture_type = "Fungal Mold / Dark Grain Admixture"
+    elif is_bajra:
+        # Dark purple ergot sclerotia / foreign seeds in grey Bajra:
+        is_admixture = grain_mask & (luminance < 50) & (norm_b > 0.30)
+        admixture_type = "Ergot Sclerotia / Dark Foreign Seeds"
+    elif is_moong:
+        # Dehusked yellow split dal or foreign seeds in green Moong:
+        is_admixture = grain_mask & (luminance > 130) & (norm_r > 0.38) & (norm_g > 0.35)
+        admixture_type = "Dehusked Yellow Dal / Foreign Admixture"
+    elif is_urad:
+        # Chalky white dehusked dal or foreign grain in black Urad:
+        is_admixture = grain_mask & (luminance > 135)
+        admixture_type = "Exposed White Dal / Foreign Admixture"
     elif is_mustard:
         # Yellow Sarson / Toria in Brown/Black Mustard:
         is_admixture = grain_mask & (luminance > 110) & (norm_r > 0.38) & (norm_g > 0.34)
@@ -1011,6 +1434,7 @@ def format_qc_slip_text(qc: Dict[str, Any]) -> str:
 ======================================================
                RAJARSHI SHAHU TRADING
             COMMERCIAL GRAIN TRADING FIRM
+        APMC YARD QUALITY ASSAYING CERTIFICATE
    SORTEX OPTICAL REFRACTION & ASSAYING CERTIFICATE
 ======================================================
 Certificate No : {ticket}

@@ -33,7 +33,13 @@
                         Organization statutory credentials, global mandi policies, and system-wide audit governance
                     </p>
                 </div>
-                <span class="badge-pill badge-purple">Organization Level Governance</span>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span class="cloud-sync-badge badge-pill badge-green" id="cloudSyncStatusBadge" style="cursor:pointer;" title="Supabase Cloud Sync: Click to sync">
+                        <span class="cloud-dot-pulse" style="display:inline-block; width:7px; height:7px; border-radius:50%; background:#10b981; box-shadow:0 0 6px #10b981;"></span>
+                        <span class="cloud-status-text">Cloud: Synced</span>
+                    </span>
+                    <span class="badge-pill badge-purple">Organization Level Governance</span>
+                </div>
             </div>
         </div>
 
@@ -453,6 +459,100 @@
 
             <!-- RIGHT COLUMN: LICENSE, SYSTEM HEALTH & SECURITY -->
             <div>
+                <!-- ======================================================== -->
+                <!-- ⚡ SUPABASE MULTI-BRANCH CLOUD SYNC HUB CARD -->
+                <!-- ======================================================== -->
+                <div class="card" style="border: 2px solid #059669; background: linear-gradient(145deg, #ffffff 0%, #f0fdf4 100%); margin-bottom: 20px; box-shadow: 0 4px 14px rgba(5, 150, 105, 0.08);">
+                    <div class="card-header" style="border-bottom: 1.5px solid #dcfce7; padding-bottom: 10px;">
+                        <div>
+                            <h2 style="color: #065f46; font-size: 15px; display:flex; align-items:center; gap:8px;">
+                                <span>⚡</span> Supabase Multi-Branch Cloud Sync Hub
+                            </h2>
+                            <p style="font-size:11.5px; color:#047857; margin-top:2px;">
+                                Real-Time PostgreSQL 17 Cloud Replication & Offline Edge Resilience
+                            </p>
+                        </div>
+                        <span id="syncHubLiveBadge" class="badge-pill {% if supabase_status.status == 'CONNECTED' %}badge-green{% elif supabase_status.status == 'OFFLINE' %}badge-amber{% else %}badge-red{% endif %}" style="font-weight:800; font-size:11px;">
+                            {% if supabase_status.status == 'CONNECTED' %}● CONNECTED{% elif supabase_status.status == 'OFFLINE' %}● LOCAL OFFLINE{% else %}● DISCONNECTED{% endif %}
+                        </span>
+                    </div>
+
+                    <!-- Cloud Health & Project Telemetry Strip -->
+                    <div style="background:#ffffff; border:1px solid #bbf7d0; border-radius:10px; padding:12px; margin-top:12px; font-size:12px; line-height:1.6; color:#1e293b;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #f1f5f9; padding-bottom:6px; margin-bottom:6px;">
+                            <span style="color:#64748b; font-weight:700; font-size:11px; text-transform:uppercase;">Supabase Project Ref:</span>
+                            <code id="syncProjectRef" style="font-weight:800; color:#0f766e; background:#f0fdf4; padding:2px 8px; border-radius:5px; border:1px solid #a7f3d0;">dbhcpebchoyjyffqjgih</code>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #f1f5f9; padding-bottom:6px; margin-bottom:6px;">
+                            <span style="color:#64748b; font-weight:700; font-size:11px; text-transform:uppercase;">Cloud Region:</span>
+                            <span style="font-weight:700; color:#334155;">ap-south-1 (Mumbai, India)</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #f1f5f9; padding-bottom:6px; margin-bottom:6px;">
+                            <span style="color:#64748b; font-weight:700; font-size:11px; text-transform:uppercase;">Round-Trip Latency:</span>
+                            <strong id="syncLatencyText" style="color:#059669;">{{ supabase_status.latency_ms }} ms</strong>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #f1f5f9; padding-bottom:6px; margin-bottom:6px;">
+                            <span style="color:#64748b; font-weight:700; font-size:11px; text-transform:uppercase;">Last Synced At:</span>
+                            <span id="syncLastSyncText" style="font-weight:600; color:#475569; font-size:11.5px;">{{ supabase_status.last_sync }}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <span style="color:#64748b; font-weight:700; font-size:11px; text-transform:uppercase;">Pending Edge Queue:</span>
+                            <span id="syncQueueText" style="font-weight:700; color:#b45309;">{{ supabase_status.pending_queue }} mutations queued</span>
+                        </div>
+                    </div>
+
+                    <!-- ACTION BUTTONS TOOLBAR -->
+                    <div style="margin-top:14px; display:flex; flex-direction:column; gap:8px;">
+                        <div style="display:flex; gap:8px;">
+                            <button type="button" onclick="testSupabasePing()" id="btnPingSupabase" style="flex:1; background:#065f46; color:#ffffff; border:none; padding:9px 12px; border-radius:8px; font-weight:800; font-size:11.5px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; box-shadow:0 2px 4px rgba(6,95,70,0.2);">
+                                <span>🔍</span> <span>Test Connection & Ping</span>
+                            </button>
+                            <button type="button" onclick="syncSupabaseNow()" id="btnSyncNow" style="flex:1.2; background:#0284c7; color:#ffffff; border:none; padding:9px 12px; border-radius:8px; font-weight:800; font-size:11.5px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; box-shadow:0 2px 4px rgba(2,132,199,0.2);">
+                                <span>🔄</span> <span>Sync Now (Push & Pull)</span>
+                            </button>
+                        </div>
+                        <button type="button" onclick="runSupabaseMigration()" id="btnMigrateSupabase" style="width:100%; background:#7c3aed; color:#ffffff; border:none; padding:9px 12px; border-radius:8px; font-weight:800; font-size:12px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; box-shadow:0 2px 4px rgba(124,58,237,0.2);">
+                            <span>🚀</span> <span>Run Schema Migration to Cloud</span>
+                        </button>
+                    </div>
+
+                    <!-- Live Message / Progress Banner -->
+                    <div id="syncResultBanner" style="display:none; margin-top:10px; padding:10px 12px; border-radius:8px; font-size:11.5px; font-weight:600; line-height:1.5;"></div>
+
+                    <!-- CONFIGURATION FORM -->
+                    <form method="POST" action="/api/admin/supabase/connect" id="supabaseConfigForm" style="margin-top:16px; border-top:1.5px dashed #bbf7d0; padding-top:14px;">
+                        <input type="hidden" name="project_ref" value="dbhcpebchoyjyffqjgih">
+                        
+                        <div class="form-group" style="margin-bottom:10px;">
+                            <label style="font-size:11.5px; font-weight:700; color:#065f46; display:flex; justify-content:space-between;">
+                                <span>SUPABASE_URL</span>
+                                <span style="font-size:10.5px; color:#64748b; font-weight:400;">HTTPS Endpoint</span>
+                            </label>
+                            <input type="url" name="supabase_url" value="{{ supabase_config.get('supabase_url') or 'https://dbhcpebchoyjyffqjgih.supabase.co' }}" placeholder="https://dbhcpebchoyjyffqjgih.supabase.co" required style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:12px; font-family:monospace;">
+                        </div>
+
+                        <div class="form-group" style="margin-bottom:10px;">
+                            <label style="font-size:11.5px; font-weight:700; color:#065f46; display:flex; justify-content:space-between;">
+                                <span>SUPABASE_ANON_KEY / SERVICE_ROLE_KEY</span>
+                                <span style="font-size:10.5px; color:#64748b; font-weight:400;">JWT Secret Token</span>
+                            </label>
+                            <input type="password" name="supabase_key" value="{{ supabase_config.get('supabase_key') or '' }}" placeholder="Enter anon or service role key..." style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:12px; font-family:monospace;">
+                        </div>
+
+                        <div class="form-group" style="margin-bottom:12px;">
+                            <label style="font-size:11.5px; font-weight:700; color:#065f46; display:flex; justify-content:space-between;">
+                                <span>DATABASE_URL (PostgreSQL Connection String)</span>
+                                <span style="font-size:10.5px; color:#64748b; font-weight:400;">Port 5432 / 6543 Pooler</span>
+                            </label>
+                            <input type="text" name="database_url" value="{{ supabase_config.get('database_url') or 'postgresql://postgres:RajarshiShahu2026MandiSecure@db.dbhcpebchoyjyffqjgih.supabase.co:5432/postgres' }}" placeholder="postgresql://postgres:[PASSWORD]@db.dbhcpebchoyjyffqjgih.supabase.co:5432/postgres" required style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:12px; font-family:monospace;">
+                        </div>
+
+                        <button type="submit" class="btn btn-admin" style="width:100%; background:#059669; border-color:#059669; padding:9px; font-weight:800; font-size:12px; border-radius:8px;">
+                            💾 Save & Connect Supabase Cloud
+                        </button>
+                    </form>
+                </div>
+
                 <!-- MASTER PC SYSTEM UPDATES & HOTFIX BROADCAST -->
                 <div class="card" style="border: 1.5px solid #38bdf8; background: #f8fafc; margin-bottom: 20px;">
                     <div class="card-header" style="border-bottom: 1px solid #e2e8f0; padding-bottom: 8px;">
@@ -699,7 +799,119 @@
                 window.location.reload(true);
             }
         }
+
+        // =====================================================================
+        // SUPABASE MULTI-BRANCH CLOUD SYNC ACTIONS
+        // =====================================================================
+        function showSyncBanner(msg, type) {
+            const b = document.getElementById('syncResultBanner');
+            if (!b) return;
+            b.style.display = 'block';
+            b.innerText = msg;
+            if (type === 'success') {
+                b.style.background = '#ecfdf5';
+                b.style.color = '#065f46';
+                b.style.border = '1px solid #a7f3d0';
+            } else if (type === 'error') {
+                b.style.background = '#fef2f2';
+                b.style.color = '#b91c1c';
+                b.style.border = '1px solid #fecaca';
+            } else {
+                b.style.background = '#eff6ff';
+                b.style.color = '#1e40af';
+                b.style.border = '1px solid #bfdbfe';
+            }
+        }
+
+        async function testSupabasePing() {
+            const btn = document.getElementById('btnPingSupabase');
+            const orig = btn.innerHTML;
+            btn.innerHTML = '<span>⏳</span> <span>Pinging...</span>';
+            btn.disabled = true;
+            showSyncBanner('Pinging Supabase cloud endpoint...', 'info');
+
+            try {
+                const resp = await fetch('/api/admin/supabase/ping', { method: 'POST' });
+                const data = await resp.json();
+                if (data.success || data.status === 'CONNECTED') {
+                    showSyncBanner('✓ ' + data.message, 'success');
+                    const badge = document.getElementById('syncHubLiveBadge');
+                    if (badge) {
+                        badge.className = 'badge-pill badge-green';
+                        badge.innerText = '● CONNECTED';
+                    }
+                    const lat = document.getElementById('syncLatencyText');
+                    if (lat) lat.innerText = data.latency_ms + ' ms';
+                } else {
+                    showSyncBanner('⚠️ ' + (data.message || 'Supabase host unreachable'), 'error');
+                    const badge = document.getElementById('syncHubLiveBadge');
+                    if (badge) {
+                        badge.className = 'badge-pill badge-amber';
+                        badge.innerText = '● LOCAL OFFLINE';
+                    }
+                }
+            } catch (err) {
+                showSyncBanner('⚠️ Network error pinging Supabase: ' + err.message, 'error');
+            } finally {
+                btn.innerHTML = orig;
+                btn.disabled = false;
+            }
+        }
+
+        async function runSupabaseMigration() {
+            if (!confirm('Run complete PostgreSQL schema migration to Supabase cloud? This will verify and ensure all 14 core tables exist in PostgreSQL.')) return;
+            const btn = document.getElementById('btnMigrateSupabase');
+            const orig = btn.innerHTML;
+            btn.innerHTML = '<span>⏳</span> <span>Migrating Schema to Cloud...</span>';
+            btn.disabled = true;
+            showSyncBanner('Executing schema migration via PostgreSQL connection pool...', 'info');
+
+            try {
+                const resp = await fetch('/api/admin/supabase/migrate', { method: 'POST' });
+                const data = await resp.json();
+                if (data.success) {
+                    showSyncBanner('🎉 ' + data.message, 'success');
+                    alert('✓ Supabase Migration Successful!\n\n' + data.message + '\n\nTables verified:\n' + (data.tables_migrated || []).join(', '));
+                } else {
+                    showSyncBanner('⚠️ Migration failed: ' + (data.message || data.error), 'error');
+                    alert('Migration Issue: ' + (data.message || data.error));
+                }
+            } catch (err) {
+                showSyncBanner('⚠️ Migration error: ' + err.message, 'error');
+            } finally {
+                btn.innerHTML = orig;
+                btn.disabled = false;
+            }
+        }
+
+        async function syncSupabaseNow() {
+            const btn = document.getElementById('btnSyncNow');
+            const orig = btn.innerHTML;
+            btn.innerHTML = '<span>⏳</span> <span>Syncing...</span>';
+            btn.disabled = true;
+            showSyncBanner('Executing bi-directional push & pull sync with Supabase...', 'info');
+
+            try {
+                const resp = await fetch('/api/admin/supabase/sync', { method: 'POST' });
+                const data = await resp.json();
+                if (data.success) {
+                    showSyncBanner('✓ ' + data.message, 'success');
+                    const lastSync = document.getElementById('syncLastSyncText');
+                    if (lastSync) lastSync.innerText = new Date().toLocaleTimeString() + ' (Just now)';
+                    const q = document.getElementById('syncQueueText');
+                    if (q) q.innerText = '0 mutations queued';
+                } else {
+                    showSyncBanner('⚠️ Sync completed with notice: ' + (data.message || 'Offline mode active'), 'error');
+                }
+            } catch (err) {
+                showSyncBanner('⚠️ Sync failed: ' + err.message, 'error');
+            } finally {
+                btn.innerHTML = orig;
+                btn.disabled = false;
+            }
+        }
     </script>
+    <script src="/static/js/live_sync.js"></script>
         </div>
     </div>
 </body>

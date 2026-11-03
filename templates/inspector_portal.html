@@ -327,6 +327,10 @@
         </div>
         <div style="display:flex; align-items:center; gap:8px;">
             <span class="live-sync-indicator" id="liveSyncStatus"><span class="live-dot-pulse"></span> <span class="live-status-text">Live Synced</span></span>
+            <span class="cloud-sync-badge" id="cloudSyncStatusBadge" style="display:inline-flex; align-items:center; gap:5px; background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; padding:4px 10px; border-radius:6px; font-size:11px; font-weight:800; cursor:pointer;" title="Supabase Cloud Sync: Click to sync">
+                <span class="cloud-dot-pulse" style="display:inline-block; width:7px; height:7px; border-radius:50%; background:#10b981; box-shadow:0 0 6px #10b981;"></span>
+                <span class="cloud-status-text">Cloud: Synced</span>
+            </span>
             {% if is_admin %}
             <select id="branchSelector" onchange="switchBranch(this.value)" style="background:#334155; color:#fff; border:1px solid #475569; padding:6px 10px; border-radius:8px; font-size:12px; font-weight:700;">
                 {% for b in branches %}

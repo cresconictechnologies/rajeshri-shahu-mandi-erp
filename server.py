@@ -77,6 +77,17 @@ from quality_engine import (
     format_qc_slip_text,
     COMMODITY_STANDARDS
 )
+from supabase_sync import (
+    trigger_async_sync,
+    get_sync_status,
+    ping_supabase,
+    migrate_schema_to_supabase,
+    push_local_to_supabase,
+    pull_supabase_to_local,
+    sync_all,
+    save_supabase_config,
+    get_supabase_config
+)
 
 # Security guardrail: reject test database override in production mode
 if os.environ.get("MANDI_ERP_ENV", "").lower() == "production" and os.environ.get("MANDI_TEST_DB_PATH"):
@@ -1326,6 +1337,7 @@ def api_accounts_set_rate(
             """, (rid, rate_date, branch_id, commodity_name, quality_grade, min_rate, target_rate, max_rate))
 
         conn.commit()
+        trigger_async_sync("daily_commodity_rates", row["id"] if row else rid)
         emit_live_event("rates_updated", {
             "commodity": commodity_name,
             "commodity_name": commodity_name,
@@ -2360,6 +2372,11 @@ def api_branch_create_invoice(
                 "summary": f"Rate Override Requested for {token_number}: {commodity_name} @ ₹{rate_per_quintal:,.2f}"
             }, role="ACCOUNTANT_HQ")
 
+        # Supabase Cloud Live Sync Trigger (offline-resilient)
+        trigger_async_sync("purchase_invoices", invoice_id)
+        if effective_payout_status == "PAID":
+            trigger_async_sync("cashier_payouts", f"pay-{invoice_id}")
+
         return {
             "success": True,
             "invoice_id": invoice_id,
@@ -2977,6 +2994,10 @@ def admin_settings_view(request: Request, msg: Optional[str] = None):
         super_admin_row = cur.fetchone()
         super_admin_user = dict(super_admin_row) if super_admin_row else logged_in_user
 
+        import supabase_sync
+        supabase_config = supabase_sync.get_supabase_config(conn)
+        supabase_status = supabase_sync.get_sync_status()
+
         return templates.TemplateResponse(request=request, name="admin_settings.html", context={
             "settings": settings,
             "license_info": license_info,
@@ -2989,6 +3010,8 @@ def admin_settings_view(request: Request, msg: Optional[str] = None):
             "vrv_cashier": vrv_cashier,
             "dhd_cashier": dhd_cashier,
             "audit_logs": audit_logs,
+            "supabase_config": supabase_config,
+            "supabase_status": supabase_status,
             "message": msg,
             "logged_in_user": logged_in_user
         })
@@ -3250,15 +3273,18 @@ def api_admin_settings_add_branch(
 
         # Also provision initial cashier user for this branch
         cashier_un = f"{b_code.lower()}_cashier"
+        cashier_id = f"u-{b_code.lower()}-cashier"
         cur.execute("SELECT id FROM users WHERE username=?", (cashier_un,))
         if not cur.fetchone():
             pw_hash = hash_password("cashier123")
             cur.execute("""
                 INSERT INTO users (id, branch_id, username, password_hash, full_name, phone, role)
                 VALUES (?, ?, ?, ?, ?, ?, 'BRANCH_CASHIER')
-            """, (f"u-{b_code.lower()}-cashier", branch_id, cashier_un, pw_hash, f"{b_name} Cashier", phone or "9826000000"))
+            """, (cashier_id, branch_id, cashier_un, pw_hash, f"{b_name} Cashier", phone or "9826000000"))
 
         conn.commit()
+        trigger_async_sync("branches", branch_id)
+        trigger_async_sync("users", cashier_id)
     finally:
         conn.close()
     return RedirectResponse(url="/admin/settings?msg=New+branch+added+and+cashier+account+provisioned+successfully", status_code=303)
@@ -3365,6 +3391,101 @@ def api_admin_activate_license(request: Request, license_token: str = Form(...))
         conn.close()
 
     return RedirectResponse(url="/admin/settings?msg=Commercial+license+token+verified+and+activated+successfully", status_code=303)
+
+
+# ==============================================================================
+# SUPABASE MULTI-BRANCH CLOUD SYNC & MIGRATION HUB API
+# ==============================================================================
+
+@app.get("/api/supabase/status")
+def api_supabase_status(request: Request):
+    """Provides live Supabase cloud sync status for dashboards and mobile PWA."""
+    try:
+        import supabase_sync
+        status = supabase_sync.get_sync_status()
+        return JSONResponse({"success": True, **status})
+    except Exception as e:
+        return JSONResponse({
+            "success": False,
+            "status": "OFFLINE",
+            "online": False,
+            "project_ref": "dbhcpebchoyjyffqjgih",
+            "last_sync": "Never",
+            "pending_queue": 0,
+            "message": f"Sync status error: {e}"
+        })
+
+
+@app.post("/api/admin/supabase/connect")
+async def api_admin_supabase_connect(
+    request: Request,
+    supabase_url: Optional[str] = Form(None),
+    supabase_key: Optional[str] = Form(None),
+    database_url: Optional[str] = Form(None),
+    project_ref: Optional[str] = Form("dbhcpebchoyjyffqjgih")
+):
+    """Saves Supabase cloud database credentials and connection parameters."""
+    require_role(request, ["SUPER_ADMIN"])
+    if request.headers.get("content-type", "").startswith("application/json"):
+        try:
+            body = await request.json()
+            supabase_url = body.get("supabase_url") or supabase_url
+            supabase_key = body.get("supabase_key") or supabase_key
+            database_url = body.get("database_url") or database_url
+            project_ref = body.get("project_ref") or project_ref
+        except Exception:
+            pass
+
+    import supabase_sync
+    res = supabase_sync.save_supabase_config(
+        supabase_url=supabase_url,
+        supabase_key=supabase_key,
+        database_url=database_url,
+        project_ref=project_ref
+    )
+
+    if "application/json" in request.headers.get("accept", "") or request.headers.get("x-requested-with") == "XMLHttpRequest":
+        return JSONResponse({"success": True, "config": res, "message": "Supabase configuration updated successfully."})
+    return RedirectResponse(url="/admin/settings?msg=Supabase+credentials+saved+successfully", status_code=303)
+
+
+@app.api_route("/api/admin/supabase/ping", methods=["GET", "POST"])
+def api_admin_supabase_ping(request: Request):
+    """Executes live ping and latency probe against Supabase."""
+    require_role(request, ["SUPER_ADMIN", "ACCOUNTANT_HQ"])
+    import supabase_sync
+    result = supabase_sync.ping_supabase()
+    return JSONResponse(result)
+
+
+@app.post("/api/admin/supabase/migrate")
+def api_admin_supabase_migrate(request: Request):
+    """Executes PostgreSQL schema migration on Supabase Cloud instance."""
+    require_role(request, ["SUPER_ADMIN"])
+    import supabase_sync
+    result = supabase_sync.migrate_schema_to_supabase()
+    return JSONResponse(result)
+
+
+@app.post("/api/admin/supabase/sync")
+def api_admin_supabase_sync(request: Request):
+    """Triggers bidirectional push & pull sync between local SQLite and Supabase."""
+    require_role(request, ["SUPER_ADMIN", "ACCOUNTANT_HQ"])
+    import supabase_sync
+    result = supabase_sync.sync_all()
+
+    try:
+        emit_live_event("cloud_sync_completed", {
+            "status": "SYNCED",
+            "pushed": result.get("pushed", 0),
+            "pulled": result.get("pulled", 0),
+            "timestamp": datetime.now().isoformat(),
+            "summary": f"Cloud Sync Completed (Pushed: {result.get('pushed', 0)}, Pulled: {result.get('pulled', 0)})"
+        })
+    except Exception:
+        pass
+
+    return JSONResponse(result)
 
 @app.get("/accounts/settings", response_class=HTMLResponse)
 def accounts_settings_view(request: Request, msg: Optional[str] = None):
@@ -4178,6 +4299,7 @@ async def api_inspector_submit_qc(
     }
 
     record = save_quality_inspection(qc_payload)
+    trigger_async_sync("quality_inspections", record.get("id"), record)
     slip_text = format_qc_slip_text(record)
 
     emit_live_event("qc_ticket_created", {

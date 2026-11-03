@@ -606,6 +606,20 @@ def init_db():
     CREATE INDEX IF NOT EXISTS idx_audit_entity ON audit_change_logs(entity_type, entity_id);
     CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_change_logs(created_at);
     CREATE INDEX IF NOT EXISTS idx_audit_branch ON audit_change_logs(branch_id);
+
+    CREATE TABLE IF NOT EXISTS sync_queue (
+        id TEXT PRIMARY KEY,
+        entity_type TEXT NOT NULL,
+        entity_id TEXT NOT NULL,
+        action TEXT NOT NULL DEFAULT 'UPSERT',
+        payload_json TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'PENDING',
+        error_message TEXT,
+        retry_count INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        synced_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_sync_queue_status ON sync_queue(status, created_at);
     """)
 
     # Safe migrations for columns in outward_orders using PRAGMA inspection

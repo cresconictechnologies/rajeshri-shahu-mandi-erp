@@ -13,6 +13,7 @@ cmd = [
     "--add-data", f"{os.path.join(current_dir, 'templates')};templates",
     "--add-data", f"{os.path.join(current_dir, 'static')};static",
     "--add-data", f"{os.path.join(current_dir, 'commodity_mandi.db')};.",
+    "--add-data", f"{os.path.join(current_dir, '.env')};.",
     "--collect-all", "webview",
     "--collect-all", "uvicorn",
     "--collect-all", "fastapi",
@@ -31,6 +32,9 @@ cmd = [
     "--hidden-import", "licensing",
     "--hidden-import", "cryptography",
     "--hidden-import", "PIL",
+    "--hidden-import", "supabase_sync",
+    "--hidden-import", "httpx",
+    "--hidden-import", "sqlalchemy",
     "--hidden-import", "server",
     os.path.join(current_dir, "desktop_app.py")
 ]

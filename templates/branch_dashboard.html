@@ -86,6 +86,10 @@
         </div>
         <div class="nav-links">
             <span class="live-sync-indicator" id="liveSyncStatus"><span class="live-dot-pulse"></span> <span class="live-status-text">Live Synced</span></span>
+            <span class="cloud-sync-badge nav-pill" id="cloudSyncStatusBadge" style="background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; font-weight:700; cursor:pointer;" title="Supabase Cloud Sync: Click to sync">
+                <span class="cloud-dot-pulse" style="display:inline-block; width:7px; height:7px; border-radius:50%; background:#10b981; box-shadow:0 0 6px #10b981;"></span>
+                <span class="cloud-status-text">Cloud: Synced</span>
+            </span>
             <span class="nav-pill" style="background:#fef3c7; color:#b45309; border-color:#fde68a; font-weight:700;">
                 👤 {{ logged_in_user.full_name if logged_in_user else 'Cashier & Munim' }}
             </span>

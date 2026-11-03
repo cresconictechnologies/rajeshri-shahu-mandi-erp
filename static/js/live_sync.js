@@ -40,6 +40,58 @@
             });
         },
 
+        checkCloudSyncStatus: async function() {
+            try {
+                const resp = await fetch('/api/supabase/status', { cache: 'no-store' });
+                const data = await resp.json();
+                const isSynced = (data.status === 'CONNECTED' || data.online);
+                const badges = document.querySelectorAll('.cloud-sync-badge, #cloudSyncBadge, #cloudSyncStatusBadge');
+                
+                badges.forEach(b => {
+                    b.style.cursor = 'pointer';
+                    b.setAttribute('onclick', 'window.MandiLiveSync ? window.MandiLiveSync.triggerCloudSync() : null');
+                    if (isSynced) {
+                        b.innerHTML = '<span class="cloud-dot-pulse" style="display:inline-block; width:7px; height:7px; border-radius:50%; background:#10b981; box-shadow:0 0 6px #10b981;"></span> <span class="cloud-status-text" style="font-weight:700;">Cloud: Synced</span>';
+                        b.style.background = '#ecfdf5';
+                        b.style.color = '#065f46';
+                        b.style.borderColor = '#a7f3d0';
+                        b.title = `Supabase PostgreSQL Connected (${data.project_ref || 'dbhcpebchoyjyffqjgih'}) • Click to sync now`;
+                    } else {
+                        b.innerHTML = '<span class="cloud-dot-offline" style="display:inline-block; width:7px; height:7px; border-radius:50%; background:#f59e0b;"></span> <span class="cloud-status-text" style="font-weight:700;">Cloud: Local Offline</span>';
+                        b.style.background = '#fef3c7';
+                        b.style.color = '#92400e';
+                        b.style.borderColor = '#fde68a';
+                        b.title = 'Edge SQLite mode active (Supabase offline) • Click to retry sync';
+                    }
+                });
+            } catch(e) {
+                const badges = document.querySelectorAll('.cloud-sync-badge, #cloudSyncBadge, #cloudSyncStatusBadge');
+                badges.forEach(b => {
+                    b.innerHTML = '<span class="cloud-dot-offline" style="display:inline-block; width:7px; height:7px; border-radius:50%; background:#f59e0b;"></span> <span class="cloud-status-text" style="font-weight:700;">Cloud: Local Offline</span>';
+                    b.style.background = '#fef3c7';
+                    b.style.color = '#92400e';
+                    b.style.borderColor = '#fde68a';
+                });
+            }
+        },
+
+        triggerCloudSync: async function() {
+            const self = this;
+            self.toast('⚡ Cloud Sync Initiated', 'Syncing local transactions and master records with Supabase PostgreSQL...', 'info');
+            try {
+                const resp = await fetch('/api/admin/supabase/sync', { method: 'POST' });
+                const data = await resp.json();
+                if (data.success) {
+                    self.toast('✓ Cloud Sync Completed', `${data.message || 'Transactions and corridors synchronized'}`, 'success');
+                    self.checkCloudSyncStatus();
+                } else {
+                    self.toast('⚠️ Cloud Sync Notice', `${data.message || 'Operating in offline local cache'}`, 'warning');
+                }
+            } catch(e) {
+                self.toast('⚠️ Cloud Sync Notice', 'Local offline mode active. Transactions queued for sync.', 'warning');
+            }
+        },
+
         playChime: function(type) {
             try {
                 const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -129,12 +181,25 @@
                 console.log('⚡ Mandi ERP Live Sync Connected');
                 self.reconnectAttempts = 0;
                 self.notifyStatus(true);
+                self.checkCloudSyncStatus();
                 if (self.heartbeatInterval) clearInterval(self.heartbeatInterval);
                 self.heartbeatInterval = setInterval(() => {
                     if (self.ws && self.ws.readyState === WebSocket.OPEN) {
                         self.ws.send('ping');
                     }
                 }, 25000);
+
+                if (!self._cloudSyncTimer) {
+                    self._cloudSyncTimer = setInterval(() => self.checkCloudSyncStatus(), 30000);
+                }
+
+                // Register cloud sync event listener
+                if (!self._cloudSyncRegistered) {
+                    self._cloudSyncRegistered = true;
+                    self.on('cloud_sync_completed', function(data) {
+                        self.checkCloudSyncStatus();
+                    });
+                }
 
                 // Register system update receiver if not already registered
                 if (!self._systemUpdateRegistered) {

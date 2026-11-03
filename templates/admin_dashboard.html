@@ -40,6 +40,13 @@
                 <span class="cloud-dot-pulse" style="display:inline-block; width:7px; height:7px; border-radius:50%; background:#10b981; box-shadow:0 0 6px #10b981;"></span>
                 <span class="cloud-status-text">Cloud: Synced</span>
             </span>
+            <form method="GET" action="/admin/dashboard" style="display:inline-flex; align-items:center; gap:6px; background:#f8fafc; padding:4px 10px; border-radius:8px; border:1px solid #cbd5e1;">
+                <label style="font-size:12px; font-weight:700; color:#475569;">📅 Date:</label>
+                <input type="date" name="target_date" value="{{ selected_date }}" onchange="this.form.submit()" style="border:1px solid #94a3b8; border-radius:6px; padding:3px 8px; font-size:12px; font-weight:700; color:#0f172a; outline:none; background:#ffffff; cursor:pointer;">
+                {% if selected_date and today_str and selected_date != today_str %}
+                <a href="/admin/dashboard" style="font-size:11px; font-weight:800; color:#059669; text-decoration:none; margin-left:4px;">Today</a>
+                {% endif %}
+            </form>
             <span class="nav-pill" style="background:#eff6ff; color:#1e40af; border-color:#bfdbfe; font-weight:700;">
                 👤 {{ logged_in_user.full_name if logged_in_user else 'Owner / Super Admin' }}
             </span>
@@ -178,8 +185,18 @@
     <div id="tab-procurement" class="tab-content active">
         <div class="card">
             <div class="card-header">
-                <h2><span>📦</span> Cross-Branch Inward Purchase Feed</h2>
-                <span class="badge-pill badge-green">Live Database Feed</span>
+                <div>
+                    <h2><span>📦</span> Cross-Branch Inward Purchase Feed</h2>
+                    {% if selected_date %}
+                    <p style="font-size:12px; color:var(--text-muted); margin-top:2px;">Viewing transactions for: <strong style="color:#0284c7;">{{ selected_date }}</strong>{% if today_str and selected_date == today_str %} (Today){% endif %}</p>
+                    {% endif %}
+                </div>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    {% if selected_date and today_str and selected_date != today_str %}
+                    <span class="badge-pill badge-blue">Date: {{ selected_date }}</span>
+                    {% endif %}
+                    <span class="badge-pill badge-green">Live Database Feed</span>
+                </div>
             </div>
             <table>
                 <thead>

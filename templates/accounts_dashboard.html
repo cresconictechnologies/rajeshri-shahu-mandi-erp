@@ -54,6 +54,13 @@
                 <span class="cloud-dot-pulse" style="display:inline-block; width:7px; height:7px; border-radius:50%; background:#10b981; box-shadow:0 0 6px #10b981;"></span>
                 <span class="cloud-status-text">Cloud: Synced</span>
             </span>
+            <form method="GET" action="/accounts/dashboard" style="display:inline-flex; align-items:center; gap:6px; background:#f8fafc; padding:4px 10px; border-radius:8px; border:1px solid #cbd5e1;">
+                <label style="font-size:12px; font-weight:700; color:#475569;">📅 Date:</label>
+                <input type="date" name="target_date" value="{{ selected_date }}" onchange="this.form.submit()" style="border:1px solid #94a3b8; border-radius:6px; padding:3px 8px; font-size:12px; font-weight:700; color:#0f172a; outline:none; background:#ffffff; cursor:pointer;">
+                {% if selected_date and today_str and selected_date != today_str %}
+                <a href="/accounts/dashboard" style="font-size:11px; font-weight:800; color:#059669; text-decoration:none; margin-left:4px;">Today</a>
+                {% endif %}
+            </form>
             <span class="nav-pill" style="background:#ecfdf5; color:#065f46; border-color:#a7f3d0; font-weight:700;">
                 👤 {{ logged_in_user.full_name if logged_in_user else 'Chief Accountant' }}
             </span>
@@ -144,13 +151,13 @@
 
         <div class="card">
             <div class="card-header">
-                <h2><span>📝</span> Set / Update Today's Buying Price Corridor</h2>
+                <h2><span>📝</span> Set / Update Today's Buying Price Corridor {% if selected_date and today_str and selected_date != today_str %}<span style="font-size:13px; color:#0284c7; font-weight:700;">(Target Date: {{ selected_date }})</span>{% endif %}</h2>
             </div>
             <form action="/api/accounts/rates" method="POST" id="rateCorridorForm" onsubmit="submitRateCorridor(event)">
                 <div class="form-row">
                     <div class="form-group">
                         <label>Effective Date</label>
-                        <input type="date" name="rate_date" id="acc_rate_date" value="{{ today_str }}" required>
+                        <input type="date" name="rate_date" id="acc_rate_date" value="{{ selected_date or today_str }}" required>
                     </div>
                     <div class="form-group">
                         <label>Commodity</label>

@@ -24,7 +24,13 @@
         </div>
         <div style="display: flex; justify-content: space-between;">
             <span><strong>Vehicle No:</strong> {{ invoice.vehicle_number or '-' }}</span>
+            <span><strong>Weighment:</strong> {{ 'Yard Scale (Manual)' if ('YARD' in (invoice.weighment_mode or '') or 'MANUAL' in (invoice.weighment_mode or '')) else (invoice.weighment_mode or 'Standard') }}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between;">
             <span><strong>Status:</strong> <strong style="color: #059669;">{{ invoice.payout_status }}</strong></span>
+            {% if invoice.rtgs_utr_no %}
+            <span><strong>UTR:</strong> {{ invoice.rtgs_utr_no }} (Settled via RTGS Bank Transfer)</span>
+            {% endif %}
         </div>
     </div>
 
@@ -44,7 +50,7 @@
                     {{ invoice.commodity_name }}
                 </td>
                 <td style="padding: 12px 8px; text-align: right; font-weight: 800; font-size: 14px;">
-                    {{ "%.2f"|format(invoice.net_quintals) }} Qtl
+                    {{ "%.2f"|format(invoice.net_quintals) }} Qtl ({{ invoice.net_weight_kg|round|int if invoice.net_weight_kg else (invoice.net_quintals * 100)|round|int }} kg)
                 </td>
                 <td style="padding: 12px 8px; text-align: right; font-weight: 800; font-size: 14px;">
                     ₹ {{ "%.2f"|format(invoice.rate_per_quintal) }}

@@ -11,6 +11,7 @@ import time
 import logging
 import sqlite3
 from datetime import datetime, timezone, date
+from decimal import Decimal
 from typing import Optional, Dict, Any, List, Tuple
 
 logger = logging.getLogger("mandi_erp.supabase_sync")
@@ -917,6 +918,8 @@ def push_local_to_supabase(tables: Optional[List[str]] = None) -> Dict[str, Any]
 
     try:
         local_cur = local_conn.cursor()
+        # Defer foreign key checking during cloud replication upserts to allow out-of-order table pulls
+        local_cur.execute("PRAGMA foreign_keys = OFF;")
 
         # Step 1: Process and flush pending sync_queue events first
         local_cur.execute("SELECT * FROM sync_queue WHERE status='PENDING' ORDER BY created_at ASC LIMIT 100")
@@ -1089,6 +1092,8 @@ def pull_supabase_to_local(tables: Optional[List[str]] = None) -> Dict[str, Any]
 
     try:
         local_cur = local_conn.cursor()
+        # Defer foreign key checking during cloud replication upserts to allow out-of-order table pulls
+        local_cur.execute("PRAGMA foreign_keys = OFF;")
 
         for table in target_tables:
             remote_rows = []
@@ -1139,10 +1144,14 @@ def pull_supabase_to_local(tables: Optional[List[str]] = None) -> Dict[str, Any]
                                 # Local is equal or newer, retain local
                                 continue
 
-                    # Convert booleans to 1/0 for SQLite integer compatibility
+                    # Convert types for SQLite compatibility (booleans, Decimals, datetimes)
                     for k in filtered:
                         if isinstance(filtered[k], bool):
                             filtered[k] = 1 if filtered[k] else 0
+                        elif isinstance(filtered[k], Decimal):
+                            filtered[k] = float(filtered[k])
+                        elif isinstance(filtered[k], (datetime, date)):
+                            filtered[k] = filtered[k].isoformat()
 
                     # Upsert into local SQLite
                     cols = list(filtered.keys())

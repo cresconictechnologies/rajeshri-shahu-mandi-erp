@@ -227,6 +227,10 @@ def verify_session_token(token: Optional[str]) -> Optional[dict]:
 
 def get_current_user(request: Request) -> Optional[dict]:
     token = request.cookies.get("mandi_session")
+    if not token:
+        auth_header = request.headers.get("Authorization") or ""
+        if auth_header.startswith("Bearer "):
+            token = auth_header.split(" ", 1)[1].strip()
     return verify_session_token(token)
 
 def get_authenticated_user(request: Request) -> dict:
@@ -314,6 +318,27 @@ async def startup_event():
     global MAIN_EVENT_LOOP
     MAIN_EVENT_LOOP = asyncio.get_running_loop()
     asyncio.create_task(push_cloud_telemetry("system_start", {"summary": "Mandi ERP Server Online & Ready"}))
+
+    async def _supabase_cloud_sync_daemon():
+        """Periodic background sync worker that keeps all branches in sync with Supabase Cloud."""
+        logger.info("Starting Supabase Cloud background synchronization daemon (15s interval)...")
+        while True:
+            try:
+                await asyncio.sleep(15)
+                import supabase_sync
+                # Pull rates, inspections, and invoices from cloud
+                await asyncio.to_thread(supabase_sync.pull_supabase_to_local, [
+                    "daily_commodity_rates",
+                    "quality_inspections",
+                    "purchase_invoices",
+                    "cashier_payouts"
+                ])
+                # Push any pending locally queued sync events
+                await asyncio.to_thread(supabase_sync.process_sync_queue)
+            except Exception as ex:
+                logger.debug(f"Cloud sync daemon notice: {ex}")
+
+    asyncio.create_task(_supabase_cloud_sync_daemon())
 
 async def push_cloud_telemetry(event_type: str, data: dict):
     tracker_url = os.environ.get("MANDI_TRACKER_URL", "https://mandi-erp-tracker.vercel.app/api/track")
@@ -775,7 +800,7 @@ def admin_login_page():
     return RedirectResponse(url="/login", status_code=303)
 
 @app.get("/admin/dashboard", response_class=HTMLResponse)
-def admin_dashboard_view(request: Request):
+def admin_dashboard_view(request: Request, target_date: Optional[str] = None):
     user = get_current_user(request)
     if not user:
         return RedirectResponse(url="/login", status_code=303)
@@ -788,6 +813,7 @@ def admin_dashboard_view(request: Request):
     logged_in_user = user
 
     today_str = date.today().isoformat()
+    selected_date = target_date or today_str
     conn = get_connection()
     try:
         cur = conn.cursor()
@@ -795,20 +821,51 @@ def admin_dashboard_view(request: Request):
         cur.execute("SELECT id, branch_code, name, address, mandi_license_no, phone, is_active FROM branches ORDER BY branch_code")
         branches = cur.fetchall()
 
-        # Invoices
-        cur.execute("""
-            SELECT p.id, p.token_number, p.invoice_date, b.name as branch_name, 
-                   pt.name as party_name, pt.party_type, p.commodity_name, 
-                   p.net_quintals, p.rate_per_quintal, p.net_payable_amount, p.payout_status,
-                   p.rtgs_utr_no, p.weighment_mode, p.qc_ticket_no,
-                   q.meter_photo_path, q.grain_photo_path, q.ticket_no as linked_qc_ticket
-            FROM purchase_invoices p
-            JOIN branches b ON p.branch_id = b.id
-            JOIN parties pt ON p.party_id = pt.id
-            LEFT JOIN quality_inspections q ON (p.id = q.invoice_id OR (p.qc_ticket_no IS NOT NULL AND p.qc_ticket_no = q.ticket_no))
-            ORDER BY p.created_at DESC LIMIT 30
-        """)
-        invoices = cur.fetchall()
+        # Invoices (Filtered by selected_date if explicitly passed, otherwise latest 30)
+        if target_date:
+            cur.execute("""
+                SELECT p.id, p.token_number, p.invoice_date, b.name as branch_name, 
+                       pt.name as party_name, pt.party_type, p.commodity_name, 
+                       p.net_quintals, p.rate_per_quintal, p.net_payable_amount, p.payout_status,
+                       p.rtgs_utr_no, p.weighment_mode, p.qc_ticket_no,
+                       q.meter_photo_path, q.grain_photo_path, q.ticket_no as linked_qc_ticket
+                FROM purchase_invoices p
+                JOIN branches b ON p.branch_id = b.id
+                JOIN parties pt ON p.party_id = pt.id
+                LEFT JOIN quality_inspections q ON (p.id = q.invoice_id OR (p.qc_ticket_no IS NOT NULL AND p.qc_ticket_no = q.ticket_no))
+                WHERE p.invoice_date = ?
+                ORDER BY p.created_at DESC LIMIT 50
+            """, (selected_date,))
+            invoices = cur.fetchall()
+            if not invoices:
+                # Fallback to recent invoices with a notification
+                cur.execute("""
+                    SELECT p.id, p.token_number, p.invoice_date, b.name as branch_name, 
+                           pt.name as party_name, pt.party_type, p.commodity_name, 
+                           p.net_quintals, p.rate_per_quintal, p.net_payable_amount, p.payout_status,
+                           p.rtgs_utr_no, p.weighment_mode, p.qc_ticket_no,
+                           q.meter_photo_path, q.grain_photo_path, q.ticket_no as linked_qc_ticket
+                    FROM purchase_invoices p
+                    JOIN branches b ON p.branch_id = b.id
+                    JOIN parties pt ON p.party_id = pt.id
+                    LEFT JOIN quality_inspections q ON (p.id = q.invoice_id OR (p.qc_ticket_no IS NOT NULL AND p.qc_ticket_no = q.ticket_no))
+                    ORDER BY p.created_at DESC LIMIT 30
+                """)
+                invoices = cur.fetchall()
+        else:
+            cur.execute("""
+                SELECT p.id, p.token_number, p.invoice_date, b.name as branch_name, 
+                       pt.name as party_name, pt.party_type, p.commodity_name, 
+                       p.net_quintals, p.rate_per_quintal, p.net_payable_amount, p.payout_status,
+                       p.rtgs_utr_no, p.weighment_mode, p.qc_ticket_no,
+                       q.meter_photo_path, q.grain_photo_path, q.ticket_no as linked_qc_ticket
+                FROM purchase_invoices p
+                JOIN branches b ON p.branch_id = b.id
+                JOIN parties pt ON p.party_id = pt.id
+                LEFT JOIN quality_inspections q ON (p.id = q.invoice_id OR (p.qc_ticket_no IS NOT NULL AND p.qc_ticket_no = q.ticket_no))
+                ORDER BY p.created_at DESC LIMIT 30
+            """)
+            invoices = cur.fetchall()
 
         # Users (Only Cashiers and Accountants - Munim role removed)
         cur.execute("""
@@ -981,7 +1038,9 @@ def admin_dashboard_view(request: Request):
             "commodities": commodities,
             "commodity_stock_cards": commodity_stock_cards,
             "inspections": inspections,
-            "logged_in_user": logged_in_user
+            "logged_in_user": logged_in_user,
+            "selected_date": selected_date,
+            "today_str": today_str
         }
     )
 
@@ -1166,7 +1225,7 @@ def accounts_login_page():
     return RedirectResponse(url="/login", status_code=303)
 
 @app.get("/accounts/dashboard", response_class=HTMLResponse)
-def accounts_dashboard_view(request: Request):
+def accounts_dashboard_view(request: Request, target_date: Optional[str] = None):
     user = get_current_user(request)
     if not user:
         return RedirectResponse(url="/login", status_code=303)
@@ -1176,16 +1235,17 @@ def accounts_dashboard_view(request: Request):
     logged_in_user = user
 
     today_str = date.today().isoformat()
+    selected_date = target_date or today_str
     conn = get_connection()
     try:
         cur = conn.cursor()
-        # Daily rates
+        # Daily rates (prioritizes rates for selected_date)
         cur.execute("""
             SELECT id, rate_date, commodity_name, quality_grade, 
                    min_rate_per_qtl, target_rate_per_qtl, max_rate_per_qtl, updated_at 
             FROM daily_commodity_rates 
-            ORDER BY rate_date DESC, commodity_name ASC
-        """)
+            ORDER BY (rate_date = ?) DESC, rate_date DESC, commodity_name ASC
+        """, (selected_date,))
         rates = cur.fetchall()
 
         # Pending rate overrides
@@ -1285,6 +1345,7 @@ def accounts_dashboard_view(request: Request):
         name="accounts_dashboard.html",
         context={
             "today_str": today_str,
+            "selected_date": selected_date,
             "rates": rates,
             "pending_overrides": pending_overrides,
             "pending_rtgs": pending_rtgs,
@@ -1337,6 +1398,11 @@ def api_accounts_set_rate(
             """, (rid, rate_date, branch_id, commodity_name, quality_grade, min_rate, target_rate, max_rate))
 
         conn.commit()
+        try:
+            import supabase_sync
+            supabase_sync.push_local_to_supabase(["daily_commodity_rates"])
+        except Exception as push_ex:
+            logger.debug(f"Immediate rates cloud push notice: {push_ex}")
         trigger_async_sync("daily_commodity_rates", row["id"] if row else rid)
         emit_live_event("rates_updated", {
             "commodity": commodity_name,
@@ -1813,7 +1879,7 @@ def branch_login_page():
     return RedirectResponse(url="/login", status_code=303)
 
 @app.get("/branch/dashboard", response_class=HTMLResponse)
-def branch_dashboard_view(request: Request, branch_id: str = "br-chikhali"):
+def branch_dashboard_view(request: Request, branch_id: str = "br-chikhali", target_date: Optional[str] = None):
     user = get_current_user(request)
     if not user:
         return RedirectResponse(url="/login", status_code=303)
@@ -1831,6 +1897,7 @@ def branch_dashboard_view(request: Request, branch_id: str = "br-chikhali"):
     logged_in_user = user
 
     today_str = date.today().isoformat()
+    selected_date = target_date or today_str
     conn = get_connection()
     try:
         cur = conn.cursor()
@@ -1869,14 +1936,31 @@ def branch_dashboard_view(request: Request, branch_id: str = "br-chikhali"):
         cur.execute("SELECT id, name, standard_moisture_pct, mandi_cess_pct FROM commodities WHERE is_active=1 ORDER BY name ASC")
         commodities = cur.fetchall()
 
-        # Today's daily rates (falls back to latest published corridor if today's not yet set)
+        # Cloud sync: pull latest daily rates from Supabase so any rate published by HQ across branches is immediately visible
+        try:
+            import supabase_sync
+            supabase_sync.pull_supabase_to_local(["daily_commodity_rates"])
+        except Exception as pull_ex:
+            logger.debug(f"Branch rates cloud pull notice: {pull_ex}")
+
+        # Daily rates for selected_date (falls back to latest published corridor on or before selected_date)
         cur.execute("""
             SELECT commodity_name, quality_grade, min_rate_per_qtl, target_rate_per_qtl, max_rate_per_qtl 
             FROM daily_commodity_rates 
             WHERE rate_date=? AND (branch_id=? OR branch_id IS NULL)
             ORDER BY commodity_name
-        """, (today_str, actual_branch_id))
+        """, (selected_date, actual_branch_id))
         daily_rates = cur.fetchall()
+        if not daily_rates:
+            cur.execute("""
+                SELECT commodity_name, quality_grade, min_rate_per_qtl, target_rate_per_qtl, max_rate_per_qtl 
+                FROM daily_commodity_rates 
+                WHERE (branch_id=? OR branch_id IS NULL) AND rate_date <= ?
+                GROUP BY commodity_name
+                HAVING MAX(rate_date)
+                ORDER BY commodity_name
+            """, (actual_branch_id, selected_date))
+            daily_rates = cur.fetchall()
         if not daily_rates:
             cur.execute("""
                 SELECT commodity_name, quality_grade, min_rate_per_qtl, target_rate_per_qtl, max_rate_per_qtl 
@@ -1946,16 +2030,39 @@ def branch_dashboard_view(request: Request, branch_id: str = "br-chikhali"):
         pending_payouts = cur.fetchall()
 
         # Recent branch purchases
-        cur.execute("""
-            SELECT p.id, p.token_number, p.invoice_date, pt.name as party_name,
-                   p.commodity_name, p.net_quintals, p.rate_per_quintal, p.net_payable_amount, p.payout_status,
-                   p.rtgs_bank_name, p.rtgs_account_no, p.rtgs_ifsc_code, p.rtgs_utr_no, p.weighment_mode
-            FROM purchase_invoices p
-            JOIN parties pt ON p.party_id = pt.id
-            WHERE p.branch_id=?
-            ORDER BY p.created_at DESC LIMIT 30
-        """, (actual_branch_id,))
-        recent_invoices = cur.fetchall()
+        if target_date:
+            cur.execute("""
+                SELECT p.id, p.token_number, p.invoice_date, pt.name as party_name,
+                       p.commodity_name, p.net_quintals, p.rate_per_quintal, p.net_payable_amount, p.payout_status,
+                       p.rtgs_bank_name, p.rtgs_account_no, p.rtgs_ifsc_code, p.rtgs_utr_no, p.weighment_mode
+                FROM purchase_invoices p
+                JOIN parties pt ON p.party_id = pt.id
+                WHERE p.branch_id=? AND p.invoice_date=?
+                ORDER BY p.created_at DESC LIMIT 50
+            """, (actual_branch_id, selected_date))
+            recent_invoices = cur.fetchall()
+            if not recent_invoices:
+                cur.execute("""
+                    SELECT p.id, p.token_number, p.invoice_date, pt.name as party_name,
+                           p.commodity_name, p.net_quintals, p.rate_per_quintal, p.net_payable_amount, p.payout_status,
+                           p.rtgs_bank_name, p.rtgs_account_no, p.rtgs_ifsc_code, p.rtgs_utr_no, p.weighment_mode
+                    FROM purchase_invoices p
+                    JOIN parties pt ON p.party_id = pt.id
+                    WHERE p.branch_id=?
+                    ORDER BY p.created_at DESC LIMIT 30
+                """, (actual_branch_id,))
+                recent_invoices = cur.fetchall()
+        else:
+            cur.execute("""
+                SELECT p.id, p.token_number, p.invoice_date, pt.name as party_name,
+                       p.commodity_name, p.net_quintals, p.rate_per_quintal, p.net_payable_amount, p.payout_status,
+                       p.rtgs_bank_name, p.rtgs_account_no, p.rtgs_ifsc_code, p.rtgs_utr_no, p.weighment_mode
+                FROM purchase_invoices p
+                JOIN parties pt ON p.party_id = pt.id
+                WHERE p.branch_id=?
+                ORDER BY p.created_at DESC LIMIT 30
+            """, (actual_branch_id,))
+            recent_invoices = cur.fetchall()
 
         # Recent branch outward dispatches
         cur.execute("""
@@ -1992,8 +2099,8 @@ def branch_dashboard_view(request: Request, branch_id: str = "br-chikhali"):
         """)
         buyers = cur.fetchall()
 
-        # Cash Drawer for today
-        cur.execute("SELECT * FROM branch_daily_cash_drawers WHERE branch_id=? AND record_date=?", (actual_branch_id, today_str))
+        # Cash Drawer for selected_date
+        cur.execute("SELECT * FROM branch_daily_cash_drawers WHERE branch_id=? AND record_date=?", (actual_branch_id, selected_date))
         drawer_row = cur.fetchone()
         if not drawer_row:
             # Seed / initialize drawer
@@ -2001,9 +2108,9 @@ def branch_dashboard_view(request: Request, branch_id: str = "br-chikhali"):
                 INSERT OR IGNORE INTO branch_daily_cash_drawers 
                 (id, branch_id, record_date, opening_float, total_cash_payouts, petty_expenses_cash, bank_withdrawals_inward, calculated_closing_cash, physical_counted_cash)
                 VALUES (?, ?, ?, 500000.0, 0.0, 0.0, 0.0, 500000.0, 500000.0)
-            """, (f"drw-{actual_branch_id}-{today_str}", actual_branch_id, today_str))
+            """, (f"drw-{actual_branch_id}-{selected_date}", actual_branch_id, selected_date))
             conn.commit()
-            cur.execute("SELECT * FROM branch_daily_cash_drawers WHERE branch_id=? AND record_date=?", (actual_branch_id, today_str))
+            cur.execute("SELECT * FROM branch_daily_cash_drawers WHERE branch_id=? AND record_date=?", (actual_branch_id, selected_date))
             drawer_row = cur.fetchone()
 
         drawer = dict(drawer_row) if drawer_row else {
@@ -2036,7 +2143,9 @@ def branch_dashboard_view(request: Request, branch_id: str = "br-chikhali"):
             "branch_rtgs_list": branch_rtgs_list,
             "branch_rtgs_pending_count": branch_rtgs_pending_count,
             "drawer": drawer,
-            "logged_in_user": logged_in_user
+            "logged_in_user": logged_in_user,
+            "selected_date": selected_date,
+            "today_str": today_str
         }
     )
 
@@ -3343,8 +3452,9 @@ def api_admin_reset_database(request: Request, confirm_wipe: str = Form(...)):
         ]
         cur.execute("PRAGMA foreign_keys = OFF")
         for t in wipe_tables:
-            cur.execute(f"DELETE FROM [{t}]")
-            cur.execute(f"DELETE FROM sqlite_sequence WHERE name='{t}'")
+            del_sql = f"DELETE FROM [{t}]"
+            cur.execute(del_sql)
+            cur.execute("DELETE FROM sqlite_sequence WHERE name=?", (t,))
         cur.execute("PRAGMA foreign_keys = ON")
         conn.commit()
     finally:
@@ -3433,8 +3543,8 @@ async def api_admin_supabase_connect(
             supabase_key = body.get("supabase_key") or supabase_key
             database_url = body.get("database_url") or database_url
             project_ref = body.get("project_ref") or project_ref
-        except Exception:
-            pass
+        except Exception as json_ex:
+            logger.debug(f"Config JSON parse error: {json_ex}")
 
     import supabase_sync
     res = supabase_sync.save_supabase_config(
@@ -3482,8 +3592,8 @@ def api_admin_supabase_sync(request: Request):
             "timestamp": datetime.now().isoformat(),
             "summary": f"Cloud Sync Completed (Pushed: {result.get('pushed', 0)}, Pulled: {result.get('pulled', 0)})"
         })
-    except Exception:
-        pass
+    except Exception as event_ex:
+        logger.debug(f"Live event broadcast error: {event_ex}")
 
     return JSONResponse(result)
 
@@ -4204,36 +4314,36 @@ async def api_inspector_analyze_sample(
 @app.post("/api/inspector/submit-qc")
 async def api_inspector_submit_qc(
     request: Request,
-    branch_id: str = Form(...),
-    farmer_name: str = Form(...),
-    vehicle_no: str = Form(...),
-    commodity_name: str = Form(...),
-    moisture_pct: float = Form(10.0),
+    branch_id: Optional[str] = Form(None),
+    farmer_name: Optional[str] = Form(None),
+    vehicle_no: Optional[str] = Form(None),
+    commodity_name: Optional[str] = Form(None),
+    moisture_pct: Optional[float] = Form(None),
     farmer_phone: Optional[str] = Form(""),
     inspector_id: Optional[str] = Form(""),
     inspector_name: Optional[str] = Form(""),
     inspector_signature: Optional[str] = Form(""),
-    karda_pct: float = Form(0.0),
-    damaged_pct: float = Form(0.0),
-    green_seeds_pct: float = Form(0.0),
-    broken_split_pct: float = Form(0.0),
-    shriveled_pct: float = Form(0.0),
-    uniformity_index: float = Form(95.0),
+    karda_pct: Optional[float] = Form(None),
+    damaged_pct: Optional[float] = Form(None),
+    green_seeds_pct: Optional[float] = Form(None),
+    broken_split_pct: Optional[float] = Form(None),
+    shriveled_pct: Optional[float] = Form(None),
+    uniformity_index: Optional[float] = Form(None),
     dominant_breed: Optional[str] = Form(""),
-    breed_purity_pct: float = Form(100.0),
-    admixture_pct: float = Form(0.0),
+    breed_purity_pct: Optional[float] = Form(None),
+    admixture_pct: Optional[float] = Form(None),
     breed_status: Optional[str] = Form("PURE_BREED (Pure Lot)"),
     faq_grade: Optional[str] = Form("FAQ_GRADE_1"),
     grade_label: Optional[str] = Form("Grade 1 (Premium FAQ)"),
-    suggested_rate_cut_per_qtl: float = Form(0.0),
-    corridor_min_rate: float = Form(0.0),
-    corridor_target_rate: float = Form(0.0),
-    corridor_max_rate: float = Form(0.0),
-    suggested_buying_rate_per_qtl: float = Form(0.0),
-    sample_weight_grams: float = Form(250.0),
-    total_seeds_analyzed: int = Form(500),
-    sortex_clean_yield_pct: float = Form(95.0),
-    sortex_reject_pct: float = Form(5.0),
+    suggested_rate_cut_per_qtl: Optional[float] = Form(None),
+    corridor_min_rate: Optional[float] = Form(None),
+    corridor_target_rate: Optional[float] = Form(None),
+    corridor_max_rate: Optional[float] = Form(None),
+    suggested_buying_rate_per_qtl: Optional[float] = Form(None),
+    sample_weight_grams: Optional[float] = Form(None),
+    total_seeds_analyzed: Optional[int] = Form(None),
+    sortex_clean_yield_pct: Optional[float] = Form(None),
+    sortex_reject_pct: Optional[float] = Form(None),
     sortex_grade: Optional[str] = Form("SORTEX Grade B (Commercial Trading Standard)"),
     meter_photo_path: Optional[str] = Form(""),
     grain_photo_path: Optional[str] = Form(""),
@@ -4242,18 +4352,111 @@ async def api_inspector_submit_qc(
     """
     Submits a tamper-proof quality inspection record to SQLite, saves photos and inspector session details,
     and returns unique ticket number with printable 80mm slip.
+    Supports both multipart form submissions and mobile JSON payloads.
     """
     require_active_license()
-    require_role(request, ["QUALITY_INSPECTOR", "BRANCH_CASHIER", "BRANCH_MUNIM", "ACCOUNTANT_HQ", "SUPER_ADMIN"])
-    user = get_current_user(request)
-    if user:
-        if user.get("role") == "QUALITY_INSPECTOR":
-            inspector_name = user.get("full_name") or inspector_name
-            inspector_id = user.get("user_id") or inspector_id
-            branch_id = user.get("branch_id") or branch_id
-        elif not inspector_name:
-            inspector_name = user.get("full_name") or "Yard Inspector"
-            inspector_id = user.get("user_id") or inspector_id
+
+    # Support JSON request payloads from mobile PWA
+    ct = request.headers.get("content-type", "")
+    if "application/json" in ct:
+        try:
+            body = await request.json()
+            if isinstance(body, dict):
+                def _pf(val, default):
+                    if val is None or val == "":
+                        return default
+                    try:
+                        return float(val)
+                    except (ValueError, TypeError):
+                        return default
+
+                def _pi(val, default):
+                    if val is None or val == "":
+                        return default
+                    try:
+                        return int(val)
+                    except (ValueError, TypeError):
+                        return default
+
+                branch_id = body.get("branch_id") or branch_id
+                farmer_name = body.get("farmer_name") or farmer_name
+                vehicle_no = body.get("vehicle_no") or vehicle_no
+                commodity_name = body.get("commodity_name") or commodity_name
+                moisture_pct = _pf(body.get("moisture_pct"), moisture_pct if moisture_pct is not None else 10.0)
+                farmer_phone = body.get("farmer_phone", "") or farmer_phone
+                inspector_id = body.get("inspector_id", "") or inspector_id
+                inspector_name = body.get("inspector_name", "") or inspector_name
+                inspector_signature = body.get("inspector_signature", "") or inspector_signature
+                karda_pct = _pf(body.get("karda_pct"), karda_pct if karda_pct is not None else 0.0)
+                damaged_pct = _pf(body.get("damaged_pct"), damaged_pct if damaged_pct is not None else 0.0)
+                green_seeds_pct = _pf(body.get("green_seeds_pct"), green_seeds_pct if green_seeds_pct is not None else 0.0)
+                broken_split_pct = _pf(body.get("broken_split_pct"), broken_split_pct if broken_split_pct is not None else 0.0)
+                shriveled_pct = _pf(body.get("shriveled_pct"), shriveled_pct if shriveled_pct is not None else 0.0)
+                uniformity_index = _pf(body.get("uniformity_index"), uniformity_index if uniformity_index is not None else 95.0)
+                dominant_breed = body.get("dominant_breed", "") or dominant_breed
+                breed_purity_pct = _pf(body.get("breed_purity_pct"), breed_purity_pct if breed_purity_pct is not None else 100.0)
+                admixture_pct = _pf(body.get("admixture_pct"), admixture_pct if admixture_pct is not None else 0.0)
+                breed_status = body.get("breed_status") or breed_status
+                faq_grade = body.get("faq_grade") or faq_grade
+                grade_label = body.get("grade_label") or grade_label
+                suggested_rate_cut_per_qtl = _pf(body.get("suggested_rate_cut_per_qtl"), suggested_rate_cut_per_qtl if suggested_rate_cut_per_qtl is not None else 0.0)
+                corridor_min_rate = _pf(body.get("corridor_min_rate"), corridor_min_rate if corridor_min_rate is not None else 0.0)
+                corridor_target_rate = _pf(body.get("corridor_target_rate"), corridor_target_rate if corridor_target_rate is not None else 0.0)
+                corridor_max_rate = _pf(body.get("corridor_max_rate"), corridor_max_rate if corridor_max_rate is not None else 0.0)
+                suggested_buying_rate_per_qtl = _pf(body.get("suggested_buying_rate_per_qtl"), suggested_buying_rate_per_qtl if suggested_buying_rate_per_qtl is not None else 0.0)
+                sample_weight_grams = _pf(body.get("sample_weight_grams"), sample_weight_grams if sample_weight_grams is not None else 250.0)
+                total_seeds_analyzed = _pi(body.get("total_seeds_analyzed"), total_seeds_analyzed if total_seeds_analyzed is not None else 500)
+                sortex_clean_yield_pct = _pf(body.get("sortex_clean_yield_pct"), sortex_clean_yield_pct if sortex_clean_yield_pct is not None else 95.0)
+                sortex_reject_pct = _pf(body.get("sortex_reject_pct"), sortex_reject_pct if sortex_reject_pct is not None else 5.0)
+                sortex_grade = body.get("sortex_grade") or sortex_grade
+                meter_photo_path = body.get("meter_photo_path", "") or meter_photo_path
+                grain_photo_path = body.get("grain_photo_path", "") or grain_photo_path
+                inspection_notes = body.get("inspection_notes", "") or inspection_notes
+        except Exception as parse_ex:
+            logger.debug(f"JSON body parse notice: {parse_ex}")
+
+    # Yard code mapping
+    if branch_id in ("CHK", "chikhali"):
+        branch_id = "br-chikhali"
+    elif branch_id in ("VRV", "varvand"):
+        branch_id = "br-varvand"
+    elif branch_id in ("DHD", "dhad"):
+        branch_id = "br-dhad"
+
+    # Defaults for required fields
+    branch_id = branch_id or "br-chikhali"
+    farmer_name = farmer_name or "Farmer"
+    vehicle_no = vehicle_no or "MH-28"
+    commodity_name = commodity_name or "Soyabean (Yellow)"
+    moisture_pct = 10.0 if moisture_pct is None else moisture_pct
+    karda_pct = 0.0 if karda_pct is None else karda_pct
+    damaged_pct = 0.0 if damaged_pct is None else damaged_pct
+    green_seeds_pct = 0.0 if green_seeds_pct is None else green_seeds_pct
+    broken_split_pct = 0.0 if broken_split_pct is None else broken_split_pct
+    shriveled_pct = 0.0 if shriveled_pct is None else shriveled_pct
+    uniformity_index = 95.0 if uniformity_index is None else uniformity_index
+    breed_purity_pct = 100.0 if breed_purity_pct is None else breed_purity_pct
+    admixture_pct = 0.0 if admixture_pct is None else admixture_pct
+    suggested_rate_cut_per_qtl = 0.0 if suggested_rate_cut_per_qtl is None else suggested_rate_cut_per_qtl
+    corridor_min_rate = 0.0 if corridor_min_rate is None else corridor_min_rate
+    corridor_target_rate = 0.0 if corridor_target_rate is None else corridor_target_rate
+    corridor_max_rate = 0.0 if corridor_max_rate is None else corridor_max_rate
+    suggested_buying_rate_per_qtl = 0.0 if suggested_buying_rate_per_qtl is None else suggested_buying_rate_per_qtl
+    sample_weight_grams = 250.0 if sample_weight_grams is None else sample_weight_grams
+    total_seeds_analyzed = 500 if total_seeds_analyzed is None else total_seeds_analyzed
+    sortex_clean_yield_pct = 95.0 if sortex_clean_yield_pct is None else sortex_clean_yield_pct
+    sortex_reject_pct = 5.0 if sortex_reject_pct is None else sortex_reject_pct
+
+    # Authentication resolution: enforce staff/inspector authorization
+    user = require_role(request, ["QUALITY_INSPECTOR", "BRANCH_CASHIER", "BRANCH_MUNIM", "ACCOUNTANT_HQ", "SUPER_ADMIN"])
+    if user.get("role") == "QUALITY_INSPECTOR":
+        inspector_name = user.get("full_name") or inspector_name
+        inspector_id = user.get("user_id") or inspector_id
+        if user.get("branch_id"):
+            branch_id = user.get("branch_id")
+    elif not inspector_name:
+        inspector_name = user.get("full_name") or "Yard Inspector"
+        inspector_id = user.get("user_id") or inspector_id
 
     sig_url = inspector_signature or ""
     if sig_url and "base64," in sig_url:
@@ -4327,6 +4530,14 @@ def api_get_pending_qc_tickets(request: Request, branch_id: Optional[str] = None
     user = require_role(request, ["BRANCH_CASHIER", "BRANCH_MUNIM", "ACCOUNTANT_HQ", "SUPER_ADMIN", "QUALITY_INSPECTOR"])
     if user.get("role") in ["QUALITY_INSPECTOR", "BRANCH_CASHIER", "BRANCH_MUNIM"]:
         branch_id = user.get("branch_id") or branch_id
+
+    # Cloud sync: Attempt to pull latest pending tickets from Supabase if connected
+    try:
+        import supabase_sync
+        supabase_sync.pull_supabase_to_local(["quality_inspections"])
+    except Exception as ex:
+        logger.debug(f"QC tickets cloud pull notice: {ex}")
+
     tickets = get_pending_quality_inspections(branch_id)
     return {
         "success": True,

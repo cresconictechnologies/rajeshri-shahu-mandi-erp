@@ -45,7 +45,12 @@ try:
     cur.execute("PRAGMA foreign_keys = OFF")
     for t in wipe_tables:
         cur.execute(f"DELETE FROM [{t}]")
-        cur.execute(f"DELETE FROM sqlite_sequence WHERE name='{t}'")
+    
+    # Reset AUTOINCREMENT counters if sqlite_sequence exists
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='sqlite_sequence'")
+    if cur.fetchone():
+        for t in wipe_tables:
+            cur.execute(f"DELETE FROM sqlite_sequence WHERE name='{t}'")
 
     cur.execute("PRAGMA foreign_keys = ON")
     conn.commit()
@@ -54,19 +59,19 @@ try:
     for t in wipe_tables:
         cur.execute(f"SELECT count(*) FROM [{t}]")
         cnt = cur.fetchone()[0]
-        print(f"  ✓ {t}: {cnt} records (Clean Slate)")
+        print(f"  [OK] {t}: {cnt} records (Clean Slate)")
 
     cur.execute("SELECT count(*) FROM branches")
-    print(f"  ✓ branches preserved: {cur.fetchone()[0]}")
+    print(f"  [OK] branches preserved: {cur.fetchone()[0]}")
     cur.execute("SELECT count(*) FROM commodities")
-    print(f"  ✓ commodities preserved: {cur.fetchone()[0]}")
+    print(f"  [OK] commodities preserved: {cur.fetchone()[0]}")
     cur.execute("SELECT count(*) FROM users")
-    print(f"  ✓ users preserved: {cur.fetchone()[0]}")
+    print(f"  [OK] users preserved: {cur.fetchone()[0]}")
     cur.execute("SELECT count(*) FROM system_settings")
-    print(f"  ✓ system_settings preserved: {cur.fetchone()[0]}")
+    print(f"  [OK] system_settings preserved: {cur.fetchone()[0]}")
 
-    print("\n[✓] Database successfully reset to clean production v1.0 state!")
-    print(f"[✓] Safety backup retained at: {backup_path}")
+    print("\n[OK] Database successfully reset to clean production v1.0 state!")
+    print(f"[OK] Safety backup retained at: {backup_path}")
 
 finally:
     conn.close()

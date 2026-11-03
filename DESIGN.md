@@ -47,3 +47,30 @@ A modern, vibrant, high-contrast light theme engineered for fast mandi yard oper
 - **Active Commodity Banner:** High-visibility gradient banner dynamically announcing the active commodity and pricing limits.
 - **Calculation Panel:** Elevated card with clear, line-by-line deductions and bold net payable summary.
 - **Modals:** Centered backdrop blur (`backdrop-filter: blur(4px)`), rounded white dialogs (`16px`).
+
+---
+
+## 4. Ergonomic Layout Standards & Header De-Cluttering Specification
+
+### 4.1 The 3-Cluster Header Standard (Rule of Three)
+To prevent cognitive overload and stop header wrapping on 1366×768 APMC screens:
+- **Cluster 1 (Left - Identity & Yard):** Brand mark (`🌾`), Firm name (`Rajarshi Shahu Trading`), Branch Badge (`CHK`), Mandi license, and active port.
+- **Cluster 2 (Center - Temporal/Spatial Filter):** Dedicated Date Picker with single-click `[Today]` reset pill (and branch switcher for Admin/Accounts).
+- **Cluster 3 (Right - Diagnostics & Quick Tools):** Exactly 3 elements:
+  1. `#systemHealthPill`: Single consolidated status badge (`🟢 Healthy` / `🟡 Syncing` / `🔴 Offline`) with click-to-view diagnostic popover (combining Local WS, Supabase Cloud sync, latency, and outbox count).
+  2. `#userRoleTag`: User avatar and name pill (`👤 B. Meena (Cashier)`).
+  3. `#quickToolsDropdown`: Elevated action menu (`[ ⋮ Quick Tools ▾ ]`) housing secondary actions (`🔬 QC Portal`, `📲 Mobile App QR`, `⚡ System Updates`, `📦 Yard Stock`, `⚙️ Settings`, `🚪 Logout`).
+
+### 4.2 Above-The-Fold Real Estate Recovery (Compact Commodity Selector)
+- Replace the permanent 600px vertical block of 15 large commodity cards with a sleek **Compact Active Commodity Bar** (`46px` height) showing:
+  - Active commodity name and icon (`🌱 Soyabean (Yellow) - FAQ`)
+  - Real-time Yard Stock (`420.50 Qtl / 42.05 MT`)
+  - Buying Corridor (`Floor: ₹4,600 | Target: ₹4,850 | Ceiling: ₹5,100`)
+  - Farmer Hamali (`₹25/Qtl`)
+  - A single `[ 🔄 Switch Commodity (15) ▾ ]` trigger button that smoothly opens a slide-out drawer or modal with all 15 detailed cards.
+- Restores **580px of vertical viewport**, bringing the Inward Weighment Form, QC Ticket Search, and Farmer Selector immediately above the fold.
+
+### 4.3 Farmer Master & Cultivator Input Separation (Section 17)
+- **Farmer / Cultivator Field:** Clean dropdown displaying cultivator name and village only (`Devidas Patil — Chikhali`). Redundant `(FARMER)` tag strictly omitted.
+- **Mobile Number Field:** Standalone input (`#farmer_mobile`) displaying 10-digit phone.
+- **Normalized Resolution:** Inspector tickets auto-match against cached cultivator master by phone. Unregistered cultivators display an amber alert pill and an explicit `[+ Register New Cultivator]` modal trigger. Zero database auto-mutation on view.

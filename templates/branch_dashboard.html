@@ -71,42 +71,116 @@
         .clickable-farmer-row:hover {
             background: #f1f5f9;
         }
+
+        @keyframes greenPulseGlow {
+            0% {
+                box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+                background-color: #dcfce7;
+            }
+            50% {
+                box-shadow: 0 0 16px 4px rgba(34, 197, 94, 0.5);
+                background-color: #bbf7d0;
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+                background-color: inherit;
+            }
+        }
+        .pulse-glow-green {
+            animation: greenPulseGlow 2.5s ease-in-out;
+        }
     </style>
 </head>
 <body>
-    <!-- HEADER CARD -->
-    <header class="header-card">
-        <div class="header-title">
-            <h1>
+    <!-- 3-CLUSTER HEADER STANDARD -->
+    <header class="header-card" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px; padding:12px 20px;">
+        <!-- Cluster 1: Left Brand & Yard Context -->
+        <div class="header-title" style="flex:1; min-width:260px;">
+            <h1 style="margin:0; font-size:18px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
                 <span>🌾</span> Rajarshi Shahu Trading • {{ current_branch.name }}
                 <span class="brand-badge badge-branch">{{ current_branch.branch_code }}</span>
-                <span style="font-size:11px; font-weight:700; color:#0284c7; background:#e0f2fe; padding:3px 8px; border-radius:6px; margin-left:6px; vertical-align:middle; border:1px solid #bae6fd;">Powered by Cresconic</span>
+                <span style="font-size:11px; font-weight:700; color:#0284c7; background:#e0f2fe; padding:2px 7px; border-radius:6px; border:1px solid #bae6fd;">Powered by Cresconic</span>
             </h1>
-            <p>Mandi License: {{ current_branch.mandi_license_no }} • Yard Procurement & Cashier Desk • Port 8080 Active</p>
+            <p style="margin:2px 0 0; font-size:11.5px; color:#64748b;">Mandi License: {{ current_branch.mandi_license_no }} • Yard Procurement & Cashier Desk • Port 8080 Active</p>
         </div>
-        <div class="nav-links">
-            <span class="live-sync-indicator" id="liveSyncStatus"><span class="live-dot-pulse"></span> <span class="live-status-text">Live Synced</span></span>
-            <span class="cloud-sync-badge nav-pill" id="cloudSyncStatusBadge" style="background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; font-weight:700; cursor:pointer;" title="Supabase Cloud Sync: Click to sync">
-                <span class="cloud-dot-pulse" style="display:inline-block; width:7px; height:7px; border-radius:50%; background:#10b981; box-shadow:0 0 6px #10b981;"></span>
-                <span class="cloud-status-text">Cloud: Synced</span>
-            </span>
-            <form method="GET" action="/branch/dashboard" style="display:inline-flex; align-items:center; gap:6px; background:#f8fafc; padding:4px 10px; border-radius:8px; border:1px solid #cbd5e1;">
+
+        <!-- Cluster 2: Center Date Picker with Quick 'Today' Link -->
+        <div style="display:flex; justify-content:center; align-items:center;">
+            <form method="GET" action="/branch/dashboard" style="display:inline-flex; align-items:center; gap:6px; background:#f8fafc; padding:4px 10px; border-radius:8px; border:1.5px solid #cbd5e1; box-shadow:0 1px 2px rgba(0,0,0,0.04);">
                 <input type="hidden" name="branch_id" value="{{ current_branch.id }}">
                 <label style="font-size:12px; font-weight:700; color:#475569;">📅 Date:</label>
                 <input type="date" name="target_date" value="{{ selected_date }}" onchange="this.form.submit()" style="border:1px solid #94a3b8; border-radius:6px; padding:3px 8px; font-size:12px; font-weight:700; color:#0f172a; outline:none; background:#ffffff; cursor:pointer;">
                 {% if selected_date and today_str and selected_date != today_str %}
-                <a href="/branch/dashboard?branch_id={{ current_branch.id }}" style="font-size:11px; font-weight:800; color:#059669; text-decoration:none; margin-left:4px;">Today</a>
+                <a href="/branch/dashboard?branch_id={{ current_branch.id }}" style="font-size:11.5px; font-weight:800; color:#059669; text-decoration:none; margin-left:4px; padding:2px 6px; background:#dcfce7; border-radius:4px;">Today</a>
                 {% endif %}
             </form>
-            <span class="nav-pill" style="background:#fef3c7; color:#b45309; border-color:#fde68a; font-weight:700;">
+        </div>
+
+        <!-- Cluster 3: Right Health Status, User Badge & Quick Tools Dropdown -->
+        <div style="display:flex; align-items:center; gap:10px; position:relative;">
+            <!-- 1. Combined System Health Pill with Diagnostic Popover -->
+            <div style="position:relative;">
+                <button type="button" id="systemHealthPill" onclick="toggleHealthPopover()" style="display:inline-flex; align-items:center; gap:6px; background:#ecfdf5; color:#065f46; border:1.5px solid #a7f3d0; padding:5px 11px; border-radius:20px; font-weight:700; font-size:12px; cursor:pointer; transition:all 0.15s;">
+                    <span id="healthDot" style="width:8px; height:8px; border-radius:50%; background:#10b981; box-shadow:0 0 6px #10b981;"></span>
+                    <span id="healthText">🟢 System Healthy</span>
+                </button>
+                <!-- Diagnostic Popover -->
+                <div id="healthDiagnosticPopover" style="display:none; position:absolute; top:36px; right:0; width:260px; background:#ffffff; border:1.5px solid #cbd5e1; border-radius:12px; box-shadow:0 10px 25px -5px rgba(0,0,0,0.15); z-index:9999; padding:12px; font-size:12px;">
+                    <div style="font-weight:800; color:#0f172a; border-bottom:1px solid #f1f5f9; padding-bottom:6px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+                        <span>Diagnostics Telemetry</span>
+                        <span style="font-size:10px; color:#64748b;">Live</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+                        <span style="color:#64748b;">Local WS Sync:</span>
+                        <strong id="popoverWsStatus" style="color:#059669;">Connected</strong>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+                        <span style="color:#64748b;">Supabase Cloud:</span>
+                        <strong id="popoverCloudStatus" style="color:#059669;">Realtime Live</strong>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+                        <span style="color:#64748b;">Pending Outbox:</span>
+                        <strong id="popoverOutboxCount" style="color:#0f172a;">0 tickets</strong>
+                    </div>
+                    <!-- Hidden elements so existing live_sync and tests referencing IDs continue to work seamlessly -->
+                    <span id="liveSyncStatus" style="display:none;"><span class="live-dot-pulse"></span> <span class="live-status-text">Live Synced</span></span>
+                    <span id="cloudSyncStatusBadge" style="display:none;"><span class="live-dot-pulse"></span> ⚡ Cloud: Synced</span>
+                </div>
+            </div>
+
+            <!-- 2. User Role Tag -->
+            <span id="userRoleTag" class="nav-pill" style="background:#fef3c7; color:#b45309; border:1.5px solid #fde68a; font-weight:700; font-size:12px; padding:5px 10px; border-radius:8px; margin:0;">
                 👤 {{ logged_in_user.full_name if logged_in_user else 'Cashier & Munim' }}
             </span>
-            <a href="/inspector/portal" target="_blank" class="nav-pill" style="background:#047857; color:#fff; font-weight:700;">🔬 Inspector QC Portal</a>
-            <button type="button" onclick="openInspectorQrModal()" class="nav-pill" style="background:#0f766e; color:#fff; font-weight:700; border:none; cursor:pointer;">📲 Mobile App QR</button>
-            <button type="button" onclick="openSystemUpdatesModal()" class="nav-pill" style="background:#0f172a; color:#38bdf8; font-weight:700; border:1px solid #38bdf8; cursor:pointer;">⚡ System Updates</button>
-            <a href="/branch/stock?branch_id={{ current_branch.id }}" class="nav-pill" style="background:#0369a1; color:#fff; font-weight:700;">📦 Yard Stock</a>
-            <a href="/branch/settings?branch_id={{ current_branch.id }}" class="nav-pill">⚙️ Settings</a>
-            <a href="/logout" class="nav-pill" style="background:#fef2f2; color:#b91c1c; border-color:#fecaca; font-weight:700;">🚪 Logout</a>
+
+            <!-- 3. Quick Tools Dropdown -->
+            <div style="position:relative;" id="quickToolsContainer">
+                <button type="button" id="quickToolsDropdownBtn" onclick="toggleQuickToolsDropdown()" style="display:inline-flex; align-items:center; gap:5px; background:#0f172a; color:#f8fafc; border:none; padding:6px 12px; border-radius:8px; font-weight:800; font-size:12px; cursor:pointer; box-shadow:0 1px 3px rgba(0,0,0,0.12);">
+                    <span>⋮ Quick Tools</span>
+                    <span style="font-size:10px;">▾</span>
+                </button>
+                <div id="quickToolsMenu" style="display:none; position:absolute; top:36px; right:0; width:210px; background:#ffffff; border:1.5px solid #cbd5e1; border-radius:12px; box-shadow:0 10px 25px -5px rgba(0,0,0,0.15); z-index:9999; padding:6px 0; font-size:12.5px;">
+                    <a href="/inspector/portal" target="_blank" style="display:flex; align-items:center; gap:8px; padding:8px 14px; color:#0f172a; text-decoration:none; font-weight:700;">
+                        <span>🔬</span> Inspector QC Portal
+                    </a>
+                    <button type="button" onclick="openInspectorQrModal(); toggleQuickToolsDropdown();" style="width:100%; display:flex; align-items:center; gap:8px; padding:8px 14px; background:none; border:none; color:#0f172a; text-decoration:none; font-weight:700; font-size:12.5px; text-align:left; cursor:pointer;">
+                        <span>📲</span> Mobile App QR
+                    </button>
+                    <button type="button" onclick="openSystemUpdatesModal(); toggleQuickToolsDropdown();" style="width:100%; display:flex; align-items:center; gap:8px; padding:8px 14px; background:none; border:none; color:#0f172a; text-decoration:none; font-weight:700; font-size:12.5px; text-align:left; cursor:pointer;">
+                        <span>⚡</span> System Updates
+                    </button>
+                    <a href="/branch/stock?branch_id={{ current_branch.id }}" style="display:flex; align-items:center; gap:8px; padding:8px 14px; color:#0f172a; text-decoration:none; font-weight:700;">
+                        <span>📦</span> Yard Stock
+                    </a>
+                    <a href="/branch/settings?branch_id={{ current_branch.id }}" style="display:flex; align-items:center; gap:8px; padding:8px 14px; color:#0f172a; text-decoration:none; font-weight:700;">
+                        <span>⚙️</span> Settings
+                    </a>
+                    <div style="border-top:1px solid #f1f5f9; margin:4px 0;"></div>
+                    <a href="/logout" style="display:flex; align-items:center; gap:8px; padding:8px 14px; color:#b91c1c; text-decoration:none; font-weight:700;">
+                        <span>🚪</span> Logout
+                    </a>
+                </div>
+            </div>
         </div>
     </header>
 
@@ -293,6 +367,8 @@
                                     <button type="button" onclick="openQCInspectionModal()" style="background:transparent; border:none; color:#15803d; font-size:11px; font-weight:800; cursor:pointer; text-decoration:underline;">View Proof Photos</button>
                                 </div>
                             </div>
+                            <!-- Live Realtime Incoming QC Ticket Alert Card -->
+                            <div id="realtimeTicketAlertBox" style="display:none;"></div>
                         </div>
 
                         <!-- Dedicated QC Ticket Number Input Box -->
@@ -310,11 +386,19 @@
                                 </button>
                             </div>
                         </div>
-                        <!-- Farmer Selector + Action Buttons -->
-                        <div class="form-group form-full">
-                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
-                                <label style="margin:0;">Farmer / Cultivator *</label>
+
+                        <!-- Cultivator Identification & Master Resolution (Section 17) -->
+                        <div class="form-group form-full" style="background:#f8fafc; border:1.5px solid #cbd5e1; border-radius:10px; padding:12px 14px; margin-bottom:4px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:8px;">
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <span style="font-size:16px;">🌾</span>
+                                    <label style="margin:0; font-weight:800; color:#0f172a; font-size:13px;">Cultivator Identification & Master Resolution</label>
+                                    <span id="farmerStatusBadge" class="badge" style="display:inline-block; background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; padding:2px 8px; border-radius:6px; font-weight:700; font-size:11px;">✓ Verified Master Cultivator</span>
+                                </div>
                                 <div style="display:flex; gap:8px;">
+                                    <button type="button" id="btnRegisterNewCultivator" class="btn btn-branch" onclick="openFarmerModal()" style="display:none; padding:4px 10px; font-size:11.5px; font-weight:800; background:#d97706; border-color:#d97706; color:#fff;">
+                                        + Register New Cultivator
+                                    </button>
                                     <button type="button" class="btn btn-secondary" onclick="openEditFarmerModalForSelected()" style="padding:4px 10px; font-size:11.5px; font-weight:700; color:#0284c7;">
                                         ✏️ Edit Selected Farmer
                                     </button>
@@ -323,23 +407,48 @@
                                     </button>
                                 </div>
                             </div>
-                            <select id="party_id" name="party_id" required onchange="handlePartyChange()" style="font-weight:700;">
-                                {% for p in parties %}
-                                <option value="{{ p.id }}" 
-                                        data-type="{{ p.party_type }}" 
-                                        data-name="{{ p.name }}"
-                                        data-phone="{{ p.phone }}"
-                                        data-village="{{ p.village or '' }}"
-                                        data-khasra="{{ p.khasra_record_no or '' }}"
-                                        data-aadhaar="{{ p.aadhaar_number or '' }}"
-                                        data-pan="{{ p.pan_number or '' }}"
-                                        data-bank="{{ p.bank_name or '' }}"
-                                        data-account="{{ p.bank_account_no or '' }}"
-                                        data-ifsc="{{ p.bank_ifsc or '' }}">
-                                    {{ p.name }} ({{ p.party_type }}) — {{ p.village or 'Village' }} [Khasra: {{ p.khasra_record_no or 'N/A' }}]
-                                </option>
-                                {% endfor %}
-                            </select>
+
+                            <!-- Hidden Immutable Party ID -->
+                            <input type="hidden" id="party_id" name="party_id" value="{{ parties[0].id if parties else '' }}" required>
+
+                            <div style="display:grid; grid-template-columns: 2fr 1fr 1fr; gap:12px;">
+                                <!-- 1. Clean Farmer Name Dropdown (omits redundant (FARMER) text) -->
+                                <div>
+                                    <label for="farmer_select" style="font-size:12px; font-weight:700; color:#475569; margin-bottom:4px; display:block;">Farmer / Cultivator *</label>
+                                    <select id="farmer_select" required onchange="handleFarmerSelectChange(this)" style="font-weight:700; width:100%; padding:9px 12px; border:1.5px solid #94a3b8; border-radius:8px;">
+                                        <option value="">-- Select Master Cultivator --</option>
+                                        {% for p in parties %}
+                                        <option value="{{ p.id }}" 
+                                                data-id="{{ p.id }}"
+                                                data-type="{{ p.party_type }}" 
+                                                data-name="{{ p.name }}"
+                                                data-phone="{{ p.phone or '' }}"
+                                                data-village="{{ p.village or '' }}"
+                                                data-khasra="{{ p.khasra_record_no or '' }}"
+                                                data-aadhaar="{{ p.aadhaar_number or '' }}"
+                                                data-pan="{{ p.pan_number or '' }}"
+                                                data-bank="{{ p.bank_name or '' }}"
+                                                data-account="{{ p.bank_account_no or '' }}"
+                                                data-ifsc="{{ p.bank_ifsc or '' }}"
+                                                {% if loop.first %}selected{% endif %}>
+                                            {{ p.name }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+
+                                <!-- 2. Dedicated Mobile Number Field -->
+                                <div>
+                                    <label for="farmer_mobile" style="font-size:12px; font-weight:700; color:#475569; margin-bottom:4px; display:block;">Mobile Number *</label>
+                                    <input type="tel" id="farmer_mobile" name="farmer_mobile" value="{{ parties[0].phone if parties else '' }}" placeholder="10-digit Mobile" maxlength="15" style="font-weight:800; font-family:monospace; width:100%; padding:9px 12px; border:1.5px solid #94a3b8; border-radius:8px;" oninput="handleFarmerMobileInput(this.value)">
+                                </div>
+
+                                <!-- 3. Standalone Village Name Field -->
+                                <div>
+                                    <label for="farmer_village" style="font-size:12px; font-weight:700; color:#475569; margin-bottom:4px; display:block;">Village Name *</label>
+                                    <input type="text" id="farmer_village" name="farmer_village" value="{{ parties[0].village if parties else '' }}" placeholder="e.g. Chikhali" style="font-weight:700; width:100%; padding:9px 12px; border:1.5px solid #94a3b8; border-radius:8px;">
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Quality Inspector -->
@@ -384,7 +493,7 @@
                         <!-- Mode 1: Manual Yard Weight (Default) -->
                         <div class="form-group form-full" id="yardWeightBox">
                             <label style="font-size:13.5px; font-weight:800; color:#0f172a;">Actual Net Weight (Kg) [Yard Scale]</label>
-                            <input type="number" step="1" id="yard_weight_kg" name="yard_weight_kg" value="3500" placeholder="e.g. 3500" oninput="recalculate()" style="font-size:16px; font-weight:700;">
+                            <input type="number" step="1" id="yard_weight_kg" name="yard_weight_kg" value="0" placeholder="e.g. 0" oninput="recalculate()" style="font-size:16px; font-weight:700;">
                             <small style="color:var(--text-muted); font-size:11px;">Direct platform scale weight. No vehicle tare subtraction needed.</small>
                         </div>
 
@@ -393,7 +502,7 @@
                             <div class="form-grid" style="margin-top:0;">
                                 <div class="form-group">
                                     <label>External Weighbridge Name</label>
-                                    <input type="text" id="external_kanta_name" name="external_kanta_name" value="Shree Ram Dharamkanta" placeholder="e.g. Shree Ram Dharamkanta">
+                                    <input type="text" id="external_kanta_name" name="external_kanta_name" value="" placeholder="e.g. Shree Ram Dharamkanta">
                                 </div>
                                 <div class="form-group">
                                     <label>External Slip Number</label>
@@ -401,11 +510,11 @@
                                 </div>
                                 <div class="form-group">
                                     <label>Gross Loaded Weight (Kg)</label>
-                                    <input type="number" step="1" id="gross_weight_kg" name="gross_weight_kg" value="5200" oninput="recalculate()">
+                                    <input type="number" step="1" id="gross_weight_kg" name="gross_weight_kg" value="0" oninput="recalculate()">
                                 </div>
                                 <div class="form-group">
                                     <label>Vehicle Tare Weight (Kg)</label>
-                                    <input type="number" step="1" id="vehicle_tare_kg" name="vehicle_tare_kg" value="2100" oninput="recalculate()">
+                                    <input type="number" step="1" id="vehicle_tare_kg" name="vehicle_tare_kg" value="0" oninput="recalculate()">
                                 </div>
                             </div>
                         </div>
@@ -1423,9 +1532,12 @@
     </div>
 
     <!-- JAVASCRIPT LOGIC -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="/static/js/live_sync.js"></script>
     <script type="application/json" id="daily-rates-data">{{ daily_rates_json | safe }}</script>
     <script>
+        const SUPABASE_URL = "{{ supabase_url or '' }}";
+        const SUPABASE_ANON_KEY = "{{ supabase_anon_key or '' }}";
         const dailyRates = JSON.parse(document.getElementById('daily-rates-data').textContent || '{}');
         let currentTargetPayout = 0;
         let currentExactPayable = 0;
@@ -1562,16 +1674,80 @@
             }
         }
 
-        function handlePartyChange() {
-            const sel = document.getElementById('party_id');
+        function handleFarmerSelectChange(sel) {
+            if (!sel) sel = document.getElementById('farmer_select');
+            if (!sel) return;
+            const partyIdInput = document.getElementById('party_id');
+            const mobileInput = document.getElementById('farmer_mobile');
+            const villageInput = document.getElementById('farmer_village');
+            const badge = document.getElementById('farmerStatusBadge');
+            const regBtn = document.getElementById('btnRegisterNewCultivator');
+
             const opt = sel.options[sel.selectedIndex];
-            if (opt) {
-                document.getElementById('rtgs_beneficiary_name').value = opt.dataset.name || opt.text.split('(')[0].trim();
-                document.getElementById('rtgs_bank_name').value = opt.dataset.bank || '';
-                document.getElementById('rtgs_account_no').value = opt.dataset.account || '';
-                document.getElementById('rtgs_ifsc_code').value = opt.dataset.ifsc || '';
+            if (opt && opt.value && !opt.value.startsWith('UNREGISTERED_')) {
+                if (partyIdInput) partyIdInput.value = opt.value;
+                if (mobileInput) mobileInput.value = opt.dataset.phone || '';
+                if (villageInput) villageInput.value = opt.dataset.village || '';
+
+                const ben = document.getElementById('rtgs_beneficiary_name');
+                if (ben) ben.value = opt.dataset.name || opt.text.trim();
+                const bName = document.getElementById('rtgs_bank_name');
+                if (bName) bName.value = opt.dataset.bank || '';
+                const acc = document.getElementById('rtgs_account_no');
+                if (acc) acc.value = opt.dataset.account || '';
+                const ifsc = document.getElementById('rtgs_ifsc_code');
+                if (ifsc) ifsc.value = opt.dataset.ifsc || '';
+
+                if (badge) {
+                    badge.style.display = 'inline-block';
+                    badge.style.background = '#ecfdf5';
+                    badge.style.color = '#065f46';
+                    badge.style.border = '1px solid #a7f3d0';
+                    badge.innerHTML = '✓ Verified Master Cultivator';
+                }
+                if (regBtn) regBtn.style.display = 'none';
+            } else if (opt && opt.value && opt.value.startsWith('UNREGISTERED_')) {
+                // Keep unregistered state
+                if (partyIdInput) partyIdInput.value = '';
+                if (mobileInput && !mobileInput.value) mobileInput.value = opt.dataset.phone || '';
+                if (villageInput && !villageInput.value) villageInput.value = opt.dataset.village || '';
+                if (badge) {
+                    badge.style.display = 'inline-block';
+                    badge.style.background = '#fef3c7';
+                    badge.style.color = '#92400e';
+                    badge.style.border = '1px solid #fde68a';
+                    badge.innerHTML = '⚠️ Unregistered Cultivator';
+                }
+                if (regBtn) regBtn.style.display = 'inline-flex';
+            } else {
+                if (partyIdInput) partyIdInput.value = '';
+                if (mobileInput) mobileInput.value = '';
+                if (villageInput) villageInput.value = '';
+                if (badge) badge.style.display = 'none';
+                if (regBtn) regBtn.style.display = 'none';
             }
             recalculate();
+        }
+
+        function handlePartyChange() {
+            handleFarmerSelectChange(document.getElementById('farmer_select'));
+        }
+
+        function handleFarmerMobileInput(val) {
+            const norm = normalizePhoneNumber(val);
+            if (norm.length === 10) {
+                const sel = document.getElementById('farmer_select');
+                if (sel) {
+                    for (let i = 0; i < sel.options.length; i++) {
+                        const opt = sel.options[i];
+                        if (opt.value && !opt.value.startsWith('UNREGISTERED_') && normalizePhoneNumber(opt.dataset.phone || '') === norm) {
+                            sel.selectedIndex = i;
+                            handleFarmerSelectChange(sel);
+                            break;
+                        }
+                    }
+                }
+            }
         }
 
         function selectCommodityCard(cardElem) {
@@ -1744,25 +1920,55 @@
         // ==============================================
         // INWARD REVIEW & CONFIRMATION DESK WORKFLOW
         // ==============================================
-        function submitUnifiedInwardAndPayout(e) {
+        async function submitUnifiedInwardAndPayout(e) {
             e.preventDefault();
 
-            // 1. Validate farmer
-            const partySelect = document.getElementById('party_id');
-            const partyId = partySelect.value;
-            if (!partyId) {
-                alert('Please select a Farmer / Cultivator first.');
+            // 1. Validate farmer & Cultivator Master Resolution
+            const partyIdInput = document.getElementById('party_id');
+            const farmerSel = document.getElementById('farmer_select');
+            let partyId = partyIdInput ? partyIdInput.value : '';
+            const selectedOpt = farmerSel && farmerSel.selectedIndex >= 0 ? farmerSel.options[farmerSel.selectedIndex] : null;
+            const mobileInput = document.getElementById('farmer_mobile');
+            const farmerPhone = mobileInput?.value || selectedOpt?.dataset.phone || '-';
+            const farmerName = selectedOpt ? (selectedOpt.dataset.name || selectedOpt.text.replace(/\(⚠️ Unregistered\)/, '').trim()) : '';
+            const farmerVillage = selectedOpt?.dataset.village || 'Yard Arrival';
+            const farmerKhasra = selectedOpt?.dataset.khasra || '-';
+            const farmerAadhaar = selectedOpt?.dataset.aadhaar || '-';
+            const farmerBank = selectedOpt?.dataset.bank || '-';
+            const farmerAccount = selectedOpt?.dataset.account || '-';
+            const farmerIfsc = selectedOpt?.dataset.ifsc || '-';
+
+            if (!partyId && !farmerName) {
+                alert('Please select or register a Farmer / Cultivator first.');
                 return;
             }
-            const selectedOpt = partySelect.options[partySelect.selectedIndex];
-            const farmerName = selectedOpt.dataset.name || selectedOpt.text.split('(')[0].trim();
-            const farmerPhone = selectedOpt.dataset.phone || '-';
-            const farmerVillage = selectedOpt.dataset.village || '-';
-            const farmerKhasra = selectedOpt.dataset.khasra || '-';
-            const farmerAadhaar = selectedOpt.dataset.aadhaar || '-';
-            const farmerBank = selectedOpt.dataset.bank || '-';
-            const farmerAccount = selectedOpt.dataset.account || '-';
-            const farmerIfsc = selectedOpt.dataset.ifsc || '-';
+
+            // If cultivator was unregistered, register upon purchase save so database FK is satisfied
+            if (!partyId || partyId.startsWith('UNREGISTERED_')) {
+                const regData = new FormData();
+                regData.append('name', farmerName);
+                regData.append('phone', farmerPhone && farmerPhone !== '-' ? farmerPhone : '9999999999');
+                regData.append('village', farmerVillage && farmerVillage !== '-' ? farmerVillage : 'Yard Arrival');
+                const ticketNoVal = document.getElementById('inward_qc_ticket_no')?.value || '';
+                regData.append('khasra_record_no', ticketNoVal ? `QC-${ticketNoVal.split('-').pop()}` : 'KH-YARD');
+                const bIdInput = document.getElementById('branch_id');
+                if (bIdInput) regData.append('home_branch_id', bIdInput.value);
+
+                try {
+                    const regRes = await fetch('/api/branch/farmers/register', { method: 'POST', body: regData });
+                    const regJson = await regRes.json();
+                    if (regJson && regJson.id) {
+                        partyId = regJson.id;
+                        if (partyIdInput) partyIdInput.value = partyId;
+                        if (selectedOpt) {
+                            selectedOpt.value = partyId;
+                            selectedOpt.text = farmerName;
+                        }
+                    }
+                } catch(err) {
+                    console.warn('Cultivator registration on purchase save note:', err);
+                }
+            }
 
             // 2. Validate commodity & weight
             const commodity = document.getElementById('commodity_name').value;
@@ -1991,13 +2197,22 @@
         }
 
         // ==============================================
-        // FARMER REGISTRATION & EDIT MODAL HANDLERS
+        // FARMER REGISTRATION & EDIT MODAL HANDLERS (SECTION 17)
         // ==============================================
         function openFarmerModal() {
             document.getElementById('farmerModal').style.display = 'flex';
         }
         function closeFarmerModal() {
             document.getElementById('farmerModal').style.display = 'none';
+        }
+
+        function openFarmerModalWithDetails(name, phone) {
+            openFarmerModal();
+            const form = document.getElementById('newFarmerForm');
+            if (form) {
+                if (form.elements['name'] && name) form.elements['name'].value = name;
+                if (form.elements['phone'] && phone) form.elements['phone'].value = phone;
+            }
         }
 
         async function submitNewFarmer(e) {
@@ -2012,19 +2227,40 @@
                 });
                 const d = await res.json();
                 if (d.success) {
-                    alert(`Farmer Registered: ${d.name}`);
-                    const sel = document.getElementById('party_id');
+                    alert(`Cultivator Registered: ${d.name}`);
+                    const sel = document.getElementById('farmer_select');
+                    const partyIdInput = document.getElementById('party_id');
+                    const mobileInput = document.getElementById('farmer_mobile');
+                    const badge = document.getElementById('farmerStatusBadge');
+                    const regBtn = document.getElementById('btnRegisterNewCultivator');
+
+                    // Clean name only (Devidas Patil), omitting redundant (FARMER) text
                     const opt = document.createElement('option');
                     opt.value = d.id;
-                    opt.innerText = `${d.name} (FARMER) — ${d.village} [Khasra: ${d.khasra_record_no}]`;
+                    opt.innerText = d.name;
+                    opt.dataset.id = d.id;
                     opt.dataset.type = 'FARMER';
                     opt.dataset.name = d.name;
-                    opt.dataset.khasra = d.khasra_record_no;
-                    opt.dataset.village = d.village;
-                    sel.appendChild(opt);
-                    sel.value = d.id;
+                    opt.dataset.phone = d.phone || '';
+                    opt.dataset.khasra = d.khasra_record_no || '';
+                    opt.dataset.village = d.village || '';
+                    if (sel) {
+                        sel.appendChild(opt);
+                        sel.value = d.id;
+                    }
+                    if (partyIdInput) partyIdInput.value = d.id;
+                    if (mobileInput) mobileInput.value = d.phone || '';
+                    if (badge) {
+                        badge.style.display = 'inline-block';
+                        badge.style.background = '#ecfdf5';
+                        badge.style.color = '#065f46';
+                        badge.style.border = '1px solid #a7f3d0';
+                        badge.innerHTML = '✓ Verified Master Cultivator';
+                    }
+                    if (regBtn) regBtn.style.display = 'none';
+
                     closeFarmerModal();
-                    handlePartyChange();
+                    handleFarmerSelectChange(sel);
                 } else {
                     alert('Error: ' + d.error);
                 }
@@ -2034,18 +2270,24 @@
         }
 
         function openEditFarmerModalForSelected() {
-            const sel = document.getElementById('party_id');
-            const farmerId = sel.value;
-            openEditFarmerModal(farmerId);
+            const sel = document.getElementById('farmer_select') || document.getElementById('party_id');
+            const farmerId = sel ? sel.value : '';
+            if (farmerId && !farmerId.startsWith('UNREGISTERED_')) {
+                openEditFarmerModal(farmerId);
+            } else {
+                alert('Please select an active Master Cultivator to edit, or register a new cultivator.');
+            }
         }
 
         function openEditFarmerModal(partyId) {
-            const sel = document.getElementById('party_id');
+            const sel = document.getElementById('farmer_select') || document.getElementById('party_id');
             let opt = null;
-            for (let i = 0; i < sel.options.length; i++) {
-                if (sel.options[i].value === partyId) {
-                    opt = sel.options[i];
-                    break;
+            if (sel) {
+                for (let i = 0; i < sel.options.length; i++) {
+                    if (sel.options[i].value === partyId) {
+                        opt = sel.options[i];
+                        break;
+                    }
                 }
             }
 
@@ -2199,6 +2441,303 @@
         // ==============================================
         let pendingQCTicketsList = [];
         let selectedQCTicketData = null;
+        let supabaseClient = null;
+
+        // --- CULTIVATOR PHONE & IDENTITY NORMALIZATION (SECTION 17) ---
+        function normalizePhoneNumber(phone) {
+            if (!phone) return '';
+            let cleaned = String(phone).replace(/\D/g, '');
+            if (cleaned.startsWith('91') && cleaned.length > 10) {
+                cleaned = cleaned.substring(2);
+            }
+            cleaned = cleaned.replace(/^0+/, '');
+            return cleaned;
+        }
+
+        function resolveTicketFarmer(t) {
+            const farmerSel = document.getElementById('farmer_select');
+            const partyIdInput = document.getElementById('party_id');
+            const mobileInput = document.getElementById('farmer_mobile');
+            const villageInput = document.getElementById('farmer_village');
+            const badge = document.getElementById('farmerStatusBadge');
+            const regBtn = document.getElementById('btnRegisterNewCultivator');
+
+            const ticketFarmerName = (t.farmer_name || '').trim();
+            const rawTicketPhone = (t.farmer_phone || '').trim();
+            const ticketVillage = (t.village || t.farmer_village || '').trim();
+            const normTicketPhone = normalizePhoneNumber(rawTicketPhone);
+            const normTicketName = ticketFarmerName.toLowerCase();
+
+            let matchedOption = null;
+
+            if (farmerSel) {
+                for (let i = 0; i < farmerSel.options.length; i++) {
+                    const opt = farmerSel.options[i];
+                    if (!opt.value || opt.value.startsWith('UNREGISTERED_')) continue;
+
+                    // 1. Check matching party_id if ticket has party_id
+                    if (t.party_id && (opt.value === t.party_id || opt.dataset.id === t.party_id)) {
+                        matchedOption = opt;
+                        break;
+                    }
+
+                    // 2. Check matching normalized phone
+                    const optPhone = normalizePhoneNumber(opt.dataset.phone || '');
+                    if (normTicketPhone && optPhone && normTicketPhone === optPhone) {
+                        matchedOption = opt;
+                        break;
+                    }
+
+                    // 3. Check matching farmer name
+                    const optName = (opt.dataset.name || opt.text || '').toLowerCase().trim();
+                    if (ticketFarmerName && (optName === normTicketName || optName.includes(normTicketName) || normTicketName.includes(optName))) {
+                        matchedOption = opt;
+                        break;
+                    }
+                }
+            }
+
+            if (matchedOption) {
+                // Match Found: Verified Master Cultivator
+                farmerSel.value = matchedOption.value;
+                if (partyIdInput) partyIdInput.value = matchedOption.value;
+                if (mobileInput) mobileInput.value = matchedOption.dataset.phone || rawTicketPhone;
+                if (villageInput) villageInput.value = matchedOption.dataset.village || ticketVillage;
+
+                const ben = document.getElementById('rtgs_beneficiary_name');
+                if (ben) ben.value = matchedOption.dataset.name || ticketFarmerName;
+                if (matchedOption.dataset.bank) document.getElementById('rtgs_bank_name').value = matchedOption.dataset.bank;
+                if (matchedOption.dataset.account) document.getElementById('rtgs_account_no').value = matchedOption.dataset.account;
+                if (matchedOption.dataset.ifsc) document.getElementById('rtgs_ifsc_code').value = matchedOption.dataset.ifsc;
+
+                if (badge) {
+                    badge.style.display = 'inline-block';
+                    badge.style.background = '#ecfdf5';
+                    badge.style.color = '#065f46';
+                    badge.style.border = '1px solid #a7f3d0';
+                    badge.innerHTML = '✓ Verified Master Cultivator';
+                }
+                if (regBtn) regBtn.style.display = 'none';
+            } else {
+                // Not Found: Unregistered Cultivator (STRICTLY NO DB INSERT!)
+                let unverifiedOpt = document.getElementById('unregistered_farmer_option');
+                if (!unverifiedOpt && farmerSel) {
+                    unverifiedOpt = document.createElement('option');
+                    unverifiedOpt.id = 'unregistered_farmer_option';
+                    farmerSel.add(unverifiedOpt, 1);
+                }
+                if (unverifiedOpt && farmerSel) {
+                    unverifiedOpt.value = `UNREGISTERED_${ticketFarmerName}`;
+                    unverifiedOpt.text = `${ticketFarmerName} (⚠️ Unregistered)`;
+                    unverifiedOpt.dataset.name = ticketFarmerName;
+                    unverifiedOpt.dataset.phone = rawTicketPhone;
+                    unverifiedOpt.dataset.village = ticketVillage;
+                    farmerSel.value = unverifiedOpt.value;
+                }
+
+                if (partyIdInput) partyIdInput.value = '';
+                if (mobileInput) mobileInput.value = rawTicketPhone;
+                if (villageInput) villageInput.value = ticketVillage;
+
+                const ben = document.getElementById('rtgs_beneficiary_name');
+                if (ben) ben.value = ticketFarmerName;
+
+                if (badge) {
+                    badge.style.display = 'inline-block';
+                    badge.style.background = '#fef3c7';
+                    badge.style.color = '#92400e';
+                    badge.style.border = '1px solid #fde68a';
+                    badge.innerHTML = '⚠️ Unregistered Cultivator';
+                }
+                if (regBtn) {
+                    regBtn.style.display = 'inline-flex';
+                    regBtn.onclick = function() {
+                        openFarmerModalWithDetails(ticketFarmerName, rawTicketPhone, ticketVillage);
+                    };
+                }
+            }
+        }
+
+        // --- 3-CLUSTER HEADER STANDARD TOGGLES ---
+        function toggleHealthPopover() {
+            const pop = document.getElementById('healthDiagnosticPopover');
+            if (pop) pop.style.display = pop.style.display === 'block' ? 'none' : 'block';
+            const menu = document.getElementById('quickToolsMenu');
+            if (menu) menu.style.display = 'none';
+        }
+        function toggleQuickToolsDropdown() {
+            const menu = document.getElementById('quickToolsMenu');
+            if (menu) menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+            const pop = document.getElementById('healthDiagnosticPopover');
+            if (pop) pop.style.display = 'none';
+        }
+        document.addEventListener('click', function(e) {
+            const pop = document.getElementById('healthDiagnosticPopover');
+            const healthPill = document.getElementById('systemHealthPill');
+            if (pop && healthPill && !healthPill.contains(e.target) && !pop.contains(e.target)) {
+                pop.style.display = 'none';
+            }
+            const menu = document.getElementById('quickToolsMenu');
+            const btn = document.getElementById('quickToolsDropdownBtn');
+            if (menu && btn && !btn.contains(e.target) && !menu.contains(e.target)) {
+                menu.style.display = 'none';
+            }
+        });
+
+        // --- DIRECT SUPABASE REALTIME & AUDIO ALERT CHIME ---
+        function playAudioChime() {
+            try {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (!AudioCtx) return;
+                const ctx = new AudioCtx();
+                if (ctx.state === 'suspended') ctx.resume();
+                const now = ctx.currentTime;
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(523.25, now);
+                osc.frequency.exponentialRampToValueAtTime(659.25, now + 0.1);
+                osc.frequency.exponentialRampToValueAtTime(783.99, now + 0.2);
+                osc.frequency.exponentialRampToValueAtTime(1046.50, now + 0.3);
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.7);
+                osc.start(now);
+                osc.stop(now + 0.7);
+            } catch(e) {
+                console.warn('Audio chime notice:', e);
+            }
+        }
+
+        function showRealtimeDeskAlertCard(ticket) {
+            const container = document.getElementById('realtimeTicketAlertBox');
+            if (!container) return;
+
+            const tNo = ticket.ticket_no || ticket.token_number || '';
+            const farmer = ticket.farmer_name || 'Farmer';
+            const comm = ticket.commodity_name || '';
+            const rate = ticket.suggested_buying_rate_per_qtl ? `₹${Number(ticket.suggested_buying_rate_per_qtl).toLocaleString()}/Qtl` : '';
+            const moisture = ticket.moisture_pct ? `${Number(ticket.moisture_pct).toFixed(1)}%` : '';
+
+            container.innerHTML = `
+                <div class="pulse-glow-green" style="background:#f0fdf4; border:2px solid #22c55e; border-radius:10px; padding:10px 14px; margin-top:8px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span style="font-size:18px;">⚡</span>
+                        <div>
+                            <div style="font-size:12.5px; font-weight:800; color:#14532d;">
+                                Incoming Yard Ticket #${escapeHtml(tNo)}: <strong>${escapeHtml(farmer)}</strong> • ${escapeHtml(comm)}
+                            </div>
+                            <div style="font-size:11px; color:#15803d;">
+                                Moisture: <strong>${moisture}</strong> • Suggested Rate: <strong>${rate}</strong> • Vehicle: <code>${escapeHtml(ticket.vehicle_no || 'N/A')}</code>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display:flex; gap:6px;">
+                        <button type="button" class="btn btn-branch" onclick="applySelectedQCToForm(pendingQCTicketsList[0])" style="padding:6px 12px; font-size:11.5px; font-weight:800; background:#059669; border-color:#059669;">
+                            ⚡ Load to Weighment Form
+                        </button>
+                        <button type="button" class="btn btn-secondary" onclick="openQCInspectionModal()" style="padding:6px 10px; font-size:11.5px; font-weight:700;">
+                            🔍 Review Proofs
+                        </button>
+                    </div>
+                </div>
+            `;
+            container.style.display = 'block';
+        }
+
+        function handleIncomingRealtimeTicket(ticket) {
+            if (!ticket) return;
+
+            const ticketNo = ticket.ticket_no || ticket.token_number || ticket.id || '';
+            const tokenNum = ticket.token_number || ticket.ticket_no || ticketNo;
+
+            // Deduplication check
+            const alreadyExists = pendingQCTicketsList.some(t => {
+                const curNo = (t.ticket_no || t.token_number || '').trim().toUpperCase();
+                const inNo = ticketNo.trim().toUpperCase();
+                return (curNo && inNo && curNo === inNo) || (t.id && ticket.id && t.id === ticket.id);
+            });
+
+            if (alreadyExists) {
+                console.log(`[Realtime QC] Ticket #${ticketNo} deduplicated.`);
+                return;
+            }
+
+            // Unshift ticket into desk container
+            pendingQCTicketsList.unshift(ticket);
+
+            // Increment badge counter
+            const badge = document.getElementById('pendingQCCountBadge');
+            if (badge) {
+                const count = parseInt(badge.innerText, 10) || 0;
+                badge.innerText = count + 1;
+            }
+
+            // Play audio alert chime
+            playAudioChime();
+
+            // Toast notification: "⚡ New QC Ticket received from yard: " + ticket.token_number
+            const toastMsg = "⚡ New QC Ticket received from yard: " + tokenNum;
+            if (window.MandiLiveSync && window.MandiLiveSync.toast) {
+                window.MandiLiveSync.toast("⚡ QC Ticket Received", toastMsg, "success");
+            }
+
+            // Prepend ticket card with green glowing pulse animation
+            renderQCTicketsTable(pendingQCTicketsList);
+            const firstRow = document.querySelector('#qcTicketsTableWrapper tbody tr:first-child');
+            if (firstRow) {
+                firstRow.classList.add('pulse-glow-green');
+            }
+
+            // Show alert banner card right above the weighment desk form
+            showRealtimeDeskAlertCard(ticket);
+        }
+
+        function initSupabaseRealtimeDesk() {
+            const sbUrl = (typeof SUPABASE_URL !== 'undefined' && SUPABASE_URL) ? SUPABASE_URL : 'https://dbhcpebchoyjyffqjgih.supabase.co';
+            const sbKey = (typeof SUPABASE_ANON_KEY !== 'undefined' && SUPABASE_ANON_KEY) ? SUPABASE_ANON_KEY : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRiaGNwZWJjaG95anlmZnFqZ2loIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMyMDgwNTcsImV4cCI6MjEwODc4NDA1N30.nEY7Gtu7kJtJJkYATgV8-Gtsf3GrL6w119uSmaoVbGc';
+            const currentBranchId = document.getElementById('branch_id')?.value || '{{ current_branch.id }}';
+
+            if (!window.supabase || !sbUrl || !sbKey) {
+                console.warn('[Supabase Realtime] SDK or credentials not loaded. Direct realtime subscription skipped.');
+                return;
+            }
+
+            try {
+                supabaseClient = window.supabase.createClient(sbUrl, sbKey);
+                const channelName = `desk-qc-${currentBranchId}`;
+
+                supabaseClient
+                    .channel(channelName)
+                    .on(
+                        'postgres_changes',
+                        {
+                            event: 'INSERT',
+                            schema: 'public',
+                            table: 'quality_inspections',
+                            filter: `branch_id=eq.${currentBranchId}`
+                        },
+                        (payload) => {
+                            console.log('⚡ Direct Supabase Realtime Ticket Received:', payload.new);
+                            handleIncomingRealtimeTicket(payload.new);
+                        }
+                    )
+                    .subscribe((status, err) => {
+                        console.log(`📡 Direct Supabase Realtime (${channelName}) Status: ${status}`);
+                        const badge = document.getElementById('cloudSyncStatusBadge');
+                        if (badge && status === 'SUBSCRIBED') {
+                            badge.style.background = '#ecfdf5';
+                            badge.style.color = '#065f46';
+                            badge.style.borderColor = '#34d399';
+                            badge.innerHTML = '⚡ Realtime Live (Supabase)';
+                            badge.title = "Supabase Realtime: Direct PostgreSQL WebSocket Active";
+                        }
+                    });
+            } catch (err) {
+                console.error('[Supabase Realtime] Initialization error:', err);
+            }
+        }
 
         function openQCInspectionModal() {
             const modal = document.getElementById('qcInspectionModal');
@@ -2475,61 +3014,8 @@
                 }
             }
 
-            // 7. Farmer / Cultivator Selection
-            const partySel = document.getElementById('party_id');
-            if (partySel && t.farmer_name) {
-                const normFarmer = t.farmer_name.toLowerCase().trim();
-                const farmerPhone = (t.farmer_phone || '').trim();
-                let farmerFound = false;
-
-                for (let i = 0; i < partySel.options.length; i++) {
-                    const opt = partySel.options[i];
-                    const optText = opt.text.toLowerCase();
-                    const optPhone = (opt.dataset.phone || '').trim();
-                    if ((farmerPhone && optPhone && optPhone === farmerPhone) || optText.includes(normFarmer)) {
-                        partySel.selectedIndex = i;
-                        handlePartyChange();
-                        farmerFound = true;
-                        break;
-                    }
-                }
-
-                if (!farmerFound) {
-                    // Create option immediately so Cashier sees farmer name populated
-                    const tempId = `p-farmer-${Date.now()}`;
-                    const newOpt = document.createElement('option');
-                    newOpt.value = tempId;
-                    newOpt.dataset.type = 'FARMER';
-                    newOpt.dataset.name = t.farmer_name;
-                    newOpt.dataset.phone = t.farmer_phone || '';
-                    newOpt.text = `${t.farmer_name} (FARMER) — ${t.farmer_phone || 'Phone Pending'}`;
-                    partySel.add(newOpt, 0);
-                    partySel.selectedIndex = 0;
-                    handlePartyChange();
-
-                    // Pre-fill RTGS beneficiary name as well
-                    const rtgsBen = document.getElementById('rtgs_beneficiary_name');
-                    if (rtgsBen) rtgsBen.value = t.farmer_name;
-
-                    // Automatically register in SQLite parties table in background so database FK is satisfied
-                    const regData = new FormData();
-                    regData.append('name', t.farmer_name);
-                    regData.append('phone', t.farmer_phone || '9999999999');
-                    regData.append('village', 'Yard Arrival');
-                    regData.append('khasra_record_no', `QC-${t.ticket_no.split('-').pop()}`);
-                    const bIdInput = document.getElementById('branch_id');
-                    if (bIdInput) regData.append('home_branch_id', bIdInput.value);
-
-                    fetch('/api/branch/farmers/register', {
-                        method: 'POST',
-                        body: regData
-                    }).then(r => r.json()).then(data => {
-                        if (data && data.party && data.party.id) {
-                            newOpt.value = data.party.id;
-                        }
-                    }).catch(e => console.warn('Farmer auto-registration note:', e));
-                }
-            }
+            // 7. Cultivator Identification & Master Resolution (Section 17)
+            resolveTicketFarmer(t);
 
             // 8. Verified QC Status Banner & Badge
             const badgeContainer = document.getElementById('verifiedQCBadgeContainer');
@@ -2575,8 +3061,9 @@
             const curBranchId = '{{ current_branch.id }}' || 'br-chikhali';
             let targetUrl = 'https://mandi-erp-tracker.vercel.app/app?branch_id=' + encodeURIComponent(curBranchId);
             if (mode === 'lan') {
-                const host = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost' ? '192.168.0.140' : window.location.hostname;
-                targetUrl = 'http://' + host + ':8080/inspector/portal?branch_id=' + encodeURIComponent(curBranchId);
+                const host = window.location.hostname || '127.0.0.1';
+                const port = window.location.port ? ':' + window.location.port : ':8080';
+                targetUrl = window.location.protocol + '//' + host + port + '/inspector/portal?branch_id=' + encodeURIComponent(curBranchId);
                 if (btnLan) { btnLan.style.background = '#047857'; btnLan.style.color = '#fff'; }
                 if (btnCloud) { btnCloud.style.background = '#f1f5f9'; btnCloud.style.color = '#475569'; }
             } else {
@@ -2660,6 +3147,7 @@
         }
 
         window.onload = function() {
+            initSupabaseRealtimeDesk();
             fetchPendingQCTickets();
             const firstCard = document.querySelector('.commodity-card');
             if (firstCard) {
@@ -2667,7 +3155,7 @@
             } else {
                 checkRateAndRecalculate();
             }
-            handlePartyChange();
+            handleFarmerSelectChange(document.getElementById('farmer_select'));
             recalculateOutward();
             const buyerSel = document.getElementById('outward_buyer_id');
             if (buyerSel) handleBuyerSelect(buyerSel);
@@ -2742,7 +3230,7 @@
                     </span>
                 </div>
                 <div id="branchSysNote" style="font-size:12px; color:#334155; line-height:1.6;">
-                    <strong>Master PC Host:</strong> <code>192.168.0.140:8080</code><br>
+                    <strong>Master Host:</strong> <code id="branchHostDisplay">Localhost / Cloud Edge</code><br>
                     <strong>QC Assayer Engine:</strong> Multi-Spectral Norm-Chroma Assayer v3.0<br>
                     Terminal is listening for real-time Master PC hotfixes.
                 </div>

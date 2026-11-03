@@ -10,6 +10,8 @@ import unittest
 from fastapi.testclient import TestClient
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from tests.test_support import setup_test_database
+setup_test_database()
 from server import app, create_session_token
 
 class TestMandiDesignAudit(unittest.TestCase):

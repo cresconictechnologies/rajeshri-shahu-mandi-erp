@@ -11,6 +11,10 @@ import atexit
 import hashlib
 import sqlite3
 
+# Force air-gapped mock mode and testing flag for all test suites
+os.environ["MANDI_MOCK_SUPABASE"] = "1"
+os.environ["MANDI_TESTING"] = "1"
+
 _TEST_DB_PATH = None
 _DEV_DB_HASH_BEFORE = None
 _DEV_DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "commodity_mandi.db")
@@ -25,6 +29,21 @@ def record_dev_db_hash() -> str:
     """Computes and caches the SHA-256 digest of the development database before tests run."""
     global _DEV_DB_HASH_BEFORE
     if os.path.exists(_DEV_DB_PATH):
+        # Checkpoint WAL if present to ensure clean baseline state
+        try:
+            conn = sqlite3.connect(_DEV_DB_PATH)
+            conn.execute("PRAGMA wal_checkpoint(TRUNCATE);")
+            conn.close()
+            for ext in ["-wal", "-shm"]:
+                p = _DEV_DB_PATH + ext
+                if os.path.exists(p):
+                    try:
+                        os.remove(p)
+                    except OSError:
+                        pass
+        except Exception:
+            pass
+
         with open(_DEV_DB_PATH, "rb") as f:
             _DEV_DB_HASH_BEFORE = hashlib.sha256(f.read()).hexdigest()
     return _DEV_DB_HASH_BEFORE

@@ -12,8 +12,6 @@ cmd = [
     "--name", "Rajarshi_Shahu_Trading",
     "--add-data", f"{os.path.join(current_dir, 'templates')};templates",
     "--add-data", f"{os.path.join(current_dir, 'static')};static",
-    "--add-data", f"{os.path.join(current_dir, 'commodity_mandi.db')};.",
-    "--add-data", f"{os.path.join(current_dir, '.env')};.",
     "--collect-all", "webview",
     "--collect-all", "uvicorn",
     "--collect-all", "fastapi",

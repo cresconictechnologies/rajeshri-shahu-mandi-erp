@@ -18,6 +18,9 @@ CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 PARENT_DIR = os.path.dirname(CURRENT_DIR)
 sys.path.insert(0, PARENT_DIR)
 
+from tests.test_support import setup_test_database
+setup_test_database()
+
 from server import app, create_session_token
 from database import get_connection
 import supabase_sync

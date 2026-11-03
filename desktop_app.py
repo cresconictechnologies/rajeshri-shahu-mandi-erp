@@ -70,7 +70,7 @@ def start_server():
             port=PORT,
             log_level="warning",
             loop="asyncio",
-            lifespan="off",
+            lifespan="on",
             access_log=False
         )
         server = uvicorn.Server(config)

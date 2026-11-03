@@ -8,6 +8,7 @@ import os
 import sys
 import uuid
 import json
+import re
 import hashlib
 import hmac
 import base64
@@ -21,6 +22,7 @@ import logging
 import uvicorn
 import asyncio
 import httpx
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, Form, Depends, UploadFile, File, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -75,7 +77,9 @@ from quality_engine import (
     calculate_mandi_corridor_rate,
     generate_qc_ticket_number,
     format_qc_slip_text,
-    COMMODITY_STANDARDS
+    COMMODITY_STANDARDS,
+    analyze_grain_with_gemini,
+    ocr_moisture_meter_with_gemini
 )
 from supabase_sync import (
     trigger_async_sync,
@@ -138,6 +142,20 @@ def get_service_worker():
     if os.path.exists(sw_path):
         return FileResponse(sw_path, media_type="application/javascript")
     raise HTTPException(status_code=404, detail="Service worker not found")
+
+TRACKER_DIR = os.path.join(os.path.dirname(BASE_DIR), "mandi-erp-tracker")
+TRACKER_ICONS_DIR = os.path.join(TRACKER_DIR, "icons")
+if os.path.exists(TRACKER_ICONS_DIR):
+    app.mount("/icons", StaticFiles(directory=TRACKER_ICONS_DIR), name="tracker_icons")
+
+@app.get("/app", response_class=HTMLResponse, include_in_schema=False)
+def get_tracker_pwa_app():
+    """Serves the standalone handheld inspector PWA app.html directly at /app."""
+    pwa_file = os.path.join(TRACKER_DIR, "app.html")
+    if os.path.exists(pwa_file):
+        with open(pwa_file, "r", encoding="utf-8") as f:
+            return HTMLResponse(f.read())
+    raise HTTPException(status_code=404, detail="Inspector app.html not found")
 
 TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
@@ -313,34 +331,58 @@ class LiveSyncHub:
 
 live_sync_hub = LiveSyncHub()
 
+@asynccontextmanager
+async def mandi_lifespan(app: FastAPI):
+    global MAIN_EVENT_LOOP
+    try:
+        MAIN_EVENT_LOOP = asyncio.get_running_loop()
+    except Exception:
+        MAIN_EVENT_LOOP = None
+
+    import supabase_sync
+    sync_task = None
+    if not supabase_sync.is_mock_sync_enabled():
+        asyncio.create_task(push_cloud_telemetry("system_start", {"summary": "Mandi ERP Server Online & Ready"}))
+
+        async def _supabase_cloud_sync_daemon():
+            """Periodic background sync worker that keeps all branches in sync with Supabase Cloud."""
+            logger.info("Starting Supabase Cloud background synchronization daemon (15s interval)...")
+            while True:
+                try:
+                    await asyncio.sleep(15)
+                    # Pull rates, inspections, and invoices from cloud
+                    await asyncio.to_thread(supabase_sync.pull_supabase_to_local, [
+                        "daily_commodity_rates",
+                        "quality_inspections",
+                        "purchase_invoices",
+                        "cashier_payouts"
+                    ])
+                    # Push any pending locally queued sync events
+                    await asyncio.to_thread(supabase_sync.process_sync_queue)
+                except asyncio.CancelledError:
+                    break
+                except Exception as ex:
+                    logger.debug(f"Cloud sync daemon notice: {ex}")
+
+        sync_task = asyncio.create_task(_supabase_cloud_sync_daemon())
+
+    try:
+        yield
+    finally:
+        if sync_task:
+            sync_task.cancel()
+
+# Wire lifespan context manager directly to FastAPI router
+app.router.lifespan_context = mandi_lifespan
+
 @app.on_event("startup")
 async def startup_event():
-    global MAIN_EVENT_LOOP
-    MAIN_EVENT_LOOP = asyncio.get_running_loop()
-    asyncio.create_task(push_cloud_telemetry("system_start", {"summary": "Mandi ERP Server Online & Ready"}))
-
-    async def _supabase_cloud_sync_daemon():
-        """Periodic background sync worker that keeps all branches in sync with Supabase Cloud."""
-        logger.info("Starting Supabase Cloud background synchronization daemon (15s interval)...")
-        while True:
-            try:
-                await asyncio.sleep(15)
-                import supabase_sync
-                # Pull rates, inspections, and invoices from cloud
-                await asyncio.to_thread(supabase_sync.pull_supabase_to_local, [
-                    "daily_commodity_rates",
-                    "quality_inspections",
-                    "purchase_invoices",
-                    "cashier_payouts"
-                ])
-                # Push any pending locally queued sync events
-                await asyncio.to_thread(supabase_sync.process_sync_queue)
-            except Exception as ex:
-                logger.debug(f"Cloud sync daemon notice: {ex}")
-
-    asyncio.create_task(_supabase_cloud_sync_daemon())
+    pass
 
 async def push_cloud_telemetry(event_type: str, data: dict):
+    import supabase_sync
+    if supabase_sync.is_mock_sync_enabled():
+        return
     tracker_url = os.environ.get("MANDI_TRACKER_URL", "https://mandi-erp-tracker.vercel.app/api/track")
     try:
         conn = get_connection()
@@ -2145,6 +2187,11 @@ def branch_dashboard_view(request: Request, branch_id: str = "br-chikhali", targ
     finally:
         conn.close()
 
+    import supabase_sync
+    sb_cfg = supabase_sync.get_supabase_config()
+    supabase_url = sb_cfg.get("supabase_url") or os.environ.get("SUPABASE_URL", "")
+    supabase_anon_key = os.environ.get("SUPABASE_ANON_KEY") or sb_cfg.get("supabase_key") or ""
+
     return templates.TemplateResponse(
         request=request,
         name="branch_dashboard.html",
@@ -2166,7 +2213,9 @@ def branch_dashboard_view(request: Request, branch_id: str = "br-chikhali", targ
             "drawer": drawer,
             "logged_in_user": logged_in_user,
             "selected_date": selected_date,
-            "today_str": today_str
+            "today_str": today_str,
+            "supabase_url": supabase_url,
+            "supabase_anon_key": supabase_anon_key
         }
     )
 
@@ -2205,6 +2254,82 @@ def api_calculate_inward(
         advance_to_deduct=advance_to_deduct
     )
 
+def get_financial_year(d: Optional[date] = None) -> str:
+    """
+    Returns Indian financial year string, e.g. 202627 for FY 2026-27 (Apr 2026 - Mar 2027).
+    """
+    if d is None:
+        d = date.today()
+    if d.month >= 4:
+        start_year = d.year
+        end_year = (d.year + 1) % 100
+    else:
+        start_year = d.year - 1
+        end_year = d.year % 100
+    return f"{start_year}{end_year:02d}"
+
+def get_next_branch_invoice_sequence(cur, branch_code: str, fin_year: str) -> int:
+    """
+    Generates the next atomic sequential integer for a branch and financial year.
+    Uses SQLite branch_invoice_sequences table for atomicity within the invoice creation transaction.
+    """
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS branch_invoice_sequences (
+            branch_code TEXT NOT NULL,
+            fin_year TEXT NOT NULL,
+            last_seq INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (branch_code, fin_year)
+        )
+    """)
+    cur.execute("SELECT last_seq FROM branch_invoice_sequences WHERE branch_code=? AND fin_year=?", (branch_code, fin_year))
+    row = cur.fetchone()
+    if row is None:
+        # Determine highest existing sequence from purchase_invoices matching INV-{branch_code}-{fin_year}-%
+        cur.execute("SELECT token_number FROM purchase_invoices WHERE token_number LIKE ?", (f"INV-{branch_code}-{fin_year}-%",))
+        max_num = 0
+        for inv_r in cur.fetchall():
+            tn = inv_r["token_number"] if isinstance(inv_r, dict) else inv_r[0]
+            try:
+                parts = tn.split("-")
+                num = int(parts[-1])
+                if num > max_num:
+                    max_num = num
+            except Exception as e:
+                logger.debug(f"Invoice sequence parsing skipped invalid token: {e}")
+        next_seq = max_num + 1
+        cur.execute("""
+            INSERT INTO branch_invoice_sequences (branch_code, fin_year, last_seq)
+            VALUES (?, ?, ?)
+        """, (branch_code, fin_year, next_seq))
+        return next_seq
+    else:
+        cur.execute("""
+            UPDATE branch_invoice_sequences 
+            SET last_seq = last_seq + 1 
+            WHERE branch_code=? AND fin_year=?
+            RETURNING last_seq
+        """, (branch_code, fin_year))
+        upd_row = cur.fetchone()
+        return upd_row["last_seq"] if isinstance(upd_row, dict) else upd_row[0]
+
+def generate_branch_invoice_token(cur, branch_code: str, target_date: Optional[date] = None, style: str = "daily") -> str:
+    """
+    Generates branch-prefixed atomic sequence tokens:
+    - style='daily': produces unique INV-{BRANCH_CODE}-{YYYYMMDD}-{SEQ:04d} (e.g. INV-CHK-20261103-0001)
+    - style='fin_year': produces unique INV-{BRANCH_CODE}-{FIN_YEAR}-{SEQ:06d}
+    """
+    d = target_date or date.today()
+    b_code = branch_code.replace("BR-", "").strip().upper()
+    if style == "daily":
+        date_str = d.strftime("%Y%m%d")
+        seq = get_next_branch_invoice_sequence(cur, b_code, date_str)
+        return f"INV-{b_code}-{date_str}-{seq:04d}"
+    else:
+        fin_year = get_financial_year(d)
+        seq = get_next_branch_invoice_sequence(cur, b_code, fin_year)
+        return f"INV-{b_code}-{fin_year}-{seq:06d}"
+
+
 @app.post("/api/branch/invoices/create")
 def api_branch_create_invoice(
     request: Request,
@@ -2241,6 +2366,7 @@ def api_branch_create_invoice(
     rtgs_beneficiary_name: Optional[str] = Form(""),
     cashier_user_id: Optional[str] = Form("cashier"),
     qc_ticket_no: Optional[str] = Form(None),
+    qc_ticket_id: Optional[str] = Form(None),
     dominant_breed: Optional[str] = Form(None),
     breed_purity_pct: Optional[float] = Form(None)
 ):
@@ -2311,15 +2437,41 @@ def api_branch_create_invoice(
                 is_rate_overridden = 1
                 rate_override_status = "PENDING"
 
-        # Generate Unique Mandi Token: e.g. IND-20261028-0042
+        # Verify QC ticket and prevent QC Double-Spend (HTTP 409)
+        eff_qc_ticket = (qc_ticket_no or qc_ticket_id or "").strip()
+        if eff_qc_ticket:
+            cur.execute("""
+                SELECT id, token_number FROM purchase_invoices 
+                WHERE qc_ticket_no = ? AND payout_status != 'CANCELLED'
+            """, (eff_qc_ticket,))
+            existing_inv = cur.fetchone()
+            if existing_inv:
+                inv_tn = existing_inv["token_number"] if isinstance(existing_inv, dict) else existing_inv[1]
+                inv_eid = existing_inv["id"] if isinstance(existing_inv, dict) else existing_inv[0]
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Conflict: QC Ticket '{eff_qc_ticket}' is already attached to active invoice '{inv_tn}' ({inv_eid}). QC double-spend rejected."
+                )
+
+            cur.execute("SELECT status, invoice_id FROM quality_inspections WHERE ticket_no=? OR id=?", (eff_qc_ticket, eff_qc_ticket))
+            qc_row = cur.fetchone()
+            if qc_row:
+                qc_st = qc_row["status"] if isinstance(qc_row, dict) else qc_row[0]
+                qc_inv = qc_row["invoice_id"] if isinstance(qc_row, dict) else qc_row[1]
+                if qc_st == "LINKED" and qc_inv:
+                    raise HTTPException(
+                        status_code=409,
+                        detail=f"Conflict: QC Ticket '{eff_qc_ticket}' is already LINKED to invoice '{qc_inv}'. QC double-spend rejected."
+                    )
+
+        # Atomic Branch-Prefixed Financial Year Sequence: INV-{BRANCH_CODE}-{FIN_YEAR}-{SEQ:06d}
         cur.execute("SELECT branch_code FROM branches WHERE id=?", (branch_id,))
         b_code_row = cur.fetchone()
-        b_code = b_code_row["branch_code"].replace("BR-", "") if b_code_row else "BR"
+        b_code = (b_code_row["branch_code"] if b_code_row else "BR").replace("BR-", "").strip().upper()
         token_date = datetime.now().strftime("%Y%m%d")
-
-        cur.execute("SELECT count(*) as cnt FROM purchase_invoices WHERE branch_id=? AND invoice_date=?", (branch_id, today_str))
-        seq = cur.fetchone()["cnt"] + 1
-        token_number = f"{b_code}-{token_date}-{seq:04d}"
+        fin_year = get_financial_year(date.today())
+        seq = get_next_branch_invoice_sequence(cur, b_code, fin_year)
+        token_number = f"INV-{b_code}-{fin_year}-{seq:06d}"
         invoice_id = f"inv-{uuid.uuid4().hex[:10]}"
 
         # Look up commodity HSN
@@ -2390,9 +2542,13 @@ def api_branch_create_invoice(
             float(breed_purity_pct) if breed_purity_pct is not None else 100.0
         ))
 
-        # Link QC ticket if provided
-        if qc_ticket_no and qc_ticket_no.strip():
-            cur.execute("UPDATE quality_inspections SET status='LINKED', invoice_id=? WHERE ticket_no=?", (invoice_id, qc_ticket_no.strip()))
+        # Link QC ticket if provided with updated_at=CURRENT_TIMESTAMP to prevent LWW reversion
+        if eff_qc_ticket:
+            cur.execute("""
+                UPDATE quality_inspections 
+                SET status='LINKED', invoice_id=?, updated_at=CURRENT_TIMESTAMP 
+                WHERE ticket_no=? OR id=?
+            """, (invoice_id, eff_qc_ticket, eff_qc_ticket))
 
         # IF CASH SETTLEMENT: Record Cashier Payout, update cash drawer, write ledger
         voucher_id = None
@@ -2504,6 +2660,8 @@ def api_branch_create_invoice(
 
         # Supabase Cloud Live Sync Trigger (offline-resilient)
         trigger_async_sync("purchase_invoices", invoice_id)
+        if eff_qc_ticket:
+            trigger_async_sync("quality_inspections", eff_qc_ticket)
         if effective_payout_status == "PAID":
             trigger_async_sync("cashier_payouts", f"pay-{invoice_id}")
 
@@ -2519,6 +2677,9 @@ def api_branch_create_invoice(
             "rate_override_status": rate_override_status,
             "qc_ticket_no": qc_ticket_no
         }
+    except HTTPException:
+        conn.rollback()
+        raise
     except Exception as e:
         conn.rollback()
         return {"success": False, "error": str(e)}
@@ -4352,6 +4513,194 @@ async def api_inspector_analyze_sample(
     }
 
 
+# --------------------------------------------------------------------------
+# GEMINI AI MULTI-MODAL COMPUTER VISION ENDPOINTS
+# --------------------------------------------------------------------------
+
+@app.post("/api/ai/ocr-moisture")
+async def api_ai_ocr_moisture(
+    request: Request,
+    meter_photo: Optional[UploadFile] = File(None),
+    image: Optional[UploadFile] = File(None),
+    meter_photo_b64: Optional[str] = Form(None),
+    image_b64: Optional[str] = Form(None)
+):
+    """
+    Direct Gemini AI Multi-Modal endpoint for Reading Moisture Meter 7-segment/LCD screens.
+    Falls back gracefully to embedded OpenCV OCR.
+    """
+    raw_bytes = b""
+    photo_url = ""
+    active_upload = meter_photo or image
+
+    # Handle JSON payload fallback if submitted as application/json
+    if not active_upload and not meter_photo_b64 and not image_b64 and request.headers.get("content-type", "").startswith("application/json"):
+        try:
+            body = await request.json()
+            meter_photo_b64 = body.get("meter_photo_b64") or body.get("image") or body.get("meter_photo")
+        except Exception as e:
+            logger.debug(f"Moisture request JSON body decode notice: {e}")
+
+    if active_upload and active_upload.filename:
+        content = await active_upload.read()
+        photo_url, raw_bytes = save_qc_image_data(content, prefix="meter")
+    elif meter_photo_b64 or image_b64:
+        photo_url, raw_bytes = save_qc_image_data(meter_photo_b64 or image_b64, prefix="meter")
+
+    # Attempt real Gemini Vision OCR if GEMINI_API_KEY is available
+    gemini_key = os.environ.get("GEMINI_API_KEY")
+    if gemini_key and raw_bytes:
+        try:
+            from google import genai
+            from google.genai import types
+            client = genai.Client(api_key=gemini_key)
+            prompt = (
+                "You are an expert Mandi grain moisture meter reader. "
+                "Analyze this digital moisture meter LCD display photo. "
+                "Extract the numeric moisture percentage (e.g. 10.4, 11.2, 12.5). "
+                "Return ONLY a valid JSON object without markdown formatting: "
+                '{"moisture_pct": 11.2, "confidence": 0.98, "detected_text": "11.2%"}'
+            )
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=[
+                    types.Part.from_bytes(data=raw_bytes, mime_type="image/jpeg"),
+                    prompt
+                ]
+            )
+            txt = response.text.strip()
+            txt = re.sub(r"^```(?:json)?\s*", "", txt)
+            txt = re.sub(r"\s*```$", "", txt).strip()
+            data = json.loads(txt)
+            m_pct = float(data.get("moisture_pct", 0.0))
+            if 6.0 <= m_pct <= 35.0:
+                return {
+                    "success": True,
+                    "moisture_pct": m_pct,
+                    "ocr_raw_text": data.get("detected_text", f"{m_pct}%"),
+                    "confidence": float(data.get("confidence", 0.98)),
+                    "meter_model_detected": "Gemini 2.5 Flash Vision OCR",
+                    "meter_photo_url": photo_url
+                }
+        except Exception as e:
+            logger.warning(f"Gemini moisture OCR fallback to OpenCV engine: {e}")
+
+    # Fallback to local OpenCV topological OCR engine
+    ocr_result = read_moisture_meter_display(raw_bytes if raw_bytes else None)
+    return {
+        "success": True,
+        "moisture_pct": ocr_result["moisture_pct"],
+        "ocr_raw_text": ocr_result.get("ocr_raw_text", f"{ocr_result['moisture_pct']}%"),
+        "confidence": ocr_result.get("confidence", 0.92),
+        "meter_model_detected": ocr_result.get("meter_model_detected", "Digital Mandi Assayer LCD"),
+        "meter_photo_url": photo_url
+    }
+
+
+@app.post("/api/ai/analyze-grain")
+async def api_ai_analyze_grain(
+    request: Request,
+    commodity_name: str = Form("Soyabean (Yellow)"),
+    moisture_pct: float = Form(11.2),
+    branch_id: Optional[str] = Form(None),
+    grain_photo: Optional[UploadFile] = File(None),
+    sample_photo: Optional[UploadFile] = File(None),
+    image: Optional[UploadFile] = File(None),
+    grain_photo_b64: Optional[str] = Form(None),
+    image_b64: Optional[str] = Form(None)
+):
+    """
+    Direct Gemini AI Multi-Modal endpoint for Grain Assaying & Admixture Quantification.
+    Evaluates varietal purity, karda, damage, green, broken, and sortex yield.
+    """
+    raw_bytes = b""
+    photo_url = ""
+    active_upload = grain_photo or sample_photo or image
+
+    # Handle JSON payload fallback if submitted as application/json
+    if not active_upload and not grain_photo_b64 and not image_b64 and request.headers.get("content-type", "").startswith("application/json"):
+        try:
+            body = await request.json()
+            commodity_name = body.get("commodity_name") or commodity_name
+            moisture_pct = float(body.get("moisture_pct") or moisture_pct)
+            branch_id = body.get("branch_id") or branch_id
+            grain_photo_b64 = body.get("grain_photo_b64") or body.get("image") or body.get("grain_photo")
+        except Exception as e:
+            logger.debug(f"Grain request JSON body decode notice: {e}")
+
+    if active_upload and active_upload.filename:
+        content = await active_upload.read()
+        photo_url, raw_bytes = save_qc_image_data(content, prefix="grain")
+    elif grain_photo_b64 or image_b64:
+        photo_url, raw_bytes = save_qc_image_data(grain_photo_b64 or image_b64, prefix="grain")
+
+    analysis = None
+    gemini_key = os.environ.get("GEMINI_API_KEY")
+    if gemini_key and raw_bytes:
+        try:
+            from google import genai
+            from google.genai import types
+            client = genai.Client(api_key=gemini_key)
+            prompt = (
+                f"You are a professional Mandi grain quality assayer in India. "
+                f"Analyze this sample image of {commodity_name} spread on the grading tray. "
+                f"Evaluate kernel instance metrics, foreign matter/karda %, rain damaged %, green seeds %, "
+                f"broken/split %, breed purity %, and sortex yield %. "
+                f"Return ONLY a valid JSON object without markdown formatting: "
+                '{"karda_pct": 1.1, "damaged_pct": 1.4, "green_seeds_pct": 0.8, "broken_split_pct": 1.2, '
+                '"shriveled_pct": 0.5, "uniformity_index": 95.0, "total_seeds_analyzed": 480, '
+                '"dominant_breed": "JS-335", "breed_purity_pct": 96.0, "admixture_pct": 1.2, '
+                '"sortex_clean_yield_pct": 95.5, "sortex_reject_pct": 4.5, "sortex_grade": "SORTEX Grade B (Industrial Export)"}'
+            )
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=[
+                    types.Part.from_bytes(data=raw_bytes, mime_type="image/jpeg"),
+                    prompt
+                ]
+            )
+            txt = response.text.strip()
+            txt = re.sub(r"^```(?:json)?\s*", "", txt)
+            txt = re.sub(r"\s*```$", "", txt).strip()
+            data = json.loads(txt)
+            if "karda_pct" in data:
+                analysis = data
+        except Exception as e:
+            logger.warning(f"Gemini grain analysis fallback to OpenCV engine: {e}")
+
+    if not analysis:
+        analysis = analyze_grain_sample_image(raw_bytes if raw_bytes else None, commodity_name, moisture_pct)
+
+    today_str = date.today().isoformat()
+    conn = get_connection()
+    min_rate, target_rate, max_rate = None, None, None
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT min_rate_per_qtl, target_rate_per_qtl, max_rate_per_qtl 
+            FROM daily_commodity_rates 
+            WHERE commodity_name=? AND (branch_id=? OR branch_id IS NULL)
+            ORDER BY CASE WHEN rate_date=? THEN 0 ELSE 1 END, rate_date DESC
+            LIMIT 1
+        """, (commodity_name, branch_id, today_str))
+        r_row = cur.fetchone()
+        if r_row:
+            min_rate = r_row["min_rate_per_qtl"]
+            target_rate = r_row["target_rate_per_qtl"]
+            max_rate = r_row["max_rate_per_qtl"]
+    finally:
+        conn.close()
+
+    corridor = calculate_mandi_corridor_rate(commodity_name, analysis, min_rate, target_rate, max_rate)
+
+    return {
+        "success": True,
+        "analysis": analysis,
+        "corridor": corridor,
+        "grain_photo_url": photo_url
+    }
+
+
 @app.post("/api/inspector/submit-qc")
 async def api_inspector_submit_qc(
     request: Request,
@@ -4361,6 +4710,7 @@ async def api_inspector_submit_qc(
     commodity_name: Optional[str] = Form(None),
     moisture_pct: Optional[float] = Form(None),
     farmer_phone: Optional[str] = Form(""),
+    farmer_village: Optional[str] = Form(""),
     inspector_id: Optional[str] = Form(""),
     inspector_name: Optional[str] = Form(""),
     inspector_signature: Optional[str] = Form(""),
@@ -4425,6 +4775,7 @@ async def api_inspector_submit_qc(
                 commodity_name = body.get("commodity_name") or commodity_name
                 moisture_pct = _pf(body.get("moisture_pct"), moisture_pct if moisture_pct is not None else 10.0)
                 farmer_phone = body.get("farmer_phone", "") or farmer_phone
+                farmer_village = body.get("farmer_village") or body.get("village") or farmer_village
                 inspector_id = body.get("inspector_id", "") or inspector_id
                 inspector_name = body.get("inspector_name", "") or inspector_name
                 inspector_signature = body.get("inspector_signature", "") or inspector_signature
@@ -4509,6 +4860,7 @@ async def api_inspector_submit_qc(
         "branch_id": branch_id,
         "farmer_name": farmer_name.strip(),
         "farmer_phone": (farmer_phone or "").strip(),
+        "farmer_village": (farmer_village or "").strip(),
         "vehicle_no": vehicle_no.strip().upper(),
         "commodity_name": commodity_name.strip(),
         "inspector_id": inspector_id or None,
@@ -4593,6 +4945,37 @@ def api_get_qc_ticket_details(ticket_no: str, request: Request):
     require_active_license()
     user = require_role(request, ["BRANCH_CASHIER", "BRANCH_MUNIM", "ACCOUNTANT_HQ", "SUPER_ADMIN", "QUALITY_INSPECTOR"])
     ticket = get_quality_inspection_by_ticket(ticket_no)
+
+    # On-Demand Cloud Fallback Ticket Lookup: query Supabase Cloud PostgREST if not found in local SQLite
+    if not ticket:
+        try:
+            import supabase_sync
+            client = supabase_sync.get_rest_client()
+            if client:
+                resp = client.get(f"/rest/v1/quality_inspections?ticket_no=eq.{ticket_no}&select=*")
+                if resp.status_code == 200:
+                    remote_tickets = resp.json()
+                    if remote_tickets and len(remote_tickets) > 0:
+                        remote_ticket = remote_tickets[0]
+                        conn = get_connection()
+                        try:
+                            cur = conn.cursor()
+                            cur.execute("PRAGMA table_info(quality_inspections)")
+                            local_cols = [c["name"] if isinstance(c, dict) else c[1] for c in cur.fetchall()]
+                            filtered = {k: v for k, v in remote_ticket.items() if k in local_cols}
+                            if filtered:
+                                cols = list(filtered.keys())
+                                placeholders = ", ".join(["?"] * len(cols))
+                                col_str = ", ".join(cols)
+                                insert_sql = f"INSERT OR REPLACE INTO quality_inspections ({col_str}) VALUES ({placeholders})"
+                                cur.execute(insert_sql, tuple(filtered.values()))
+                                conn.commit()
+                        finally:
+                            conn.close()
+                        ticket = get_quality_inspection_by_ticket(ticket_no)
+        except Exception as cloud_err:
+            logger.debug(f"On-demand cloud fallback ticket lookup notice: {cloud_err}")
+
     if not ticket:
         raise HTTPException(status_code=404, detail="Quality inspection ticket not found.")
     if user.get("role") == "QUALITY_INSPECTOR" and ticket.get("branch_id") != user.get("branch_id"):
@@ -4691,3 +5074,5 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
     print(f"Starting Commodity Mandi ERP Server on http://0.0.0.0:{port} ...")
     uvicorn.run("server:app", host="0.0.0.0", port=port, reload=False)
+
+api_inspector_get_ticket = api_get_qc_ticket_details

@@ -153,6 +153,178 @@ body {
 }
 
 /* ==========================================================================
+   3-CLUSTER HEADER STANDARD & DE-CLUTTERING SYSTEM
+   ========================================================================== */
+
+.header-cluster-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    gap: 16px;
+}
+
+.header-cluster-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-shrink: 0;
+}
+
+.header-cluster-center {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    justify-content: center;
+}
+
+.header-cluster-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+/* System Health Combined Status Pill & Popover */
+.system-health-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 14px;
+    border-radius: 9999px;
+    font-size: 12.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid #a7f3d0;
+    background: #ecfdf5;
+    color: #065f46;
+    user-select: none;
+    position: relative;
+}
+
+.system-health-pill:hover {
+    background: #d1fae5;
+    box-shadow: 0 2px 8px rgba(5, 150, 105, 0.15);
+}
+
+.system-health-pill.syncing {
+    background: #fffbeb;
+    color: #92400e;
+    border-color: #fde68a;
+}
+
+.system-health-pill.offline {
+    background: #fef2f2;
+    color: #991b1b;
+    border-color: #fecaca;
+}
+
+.health-popover {
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    width: 320px;
+    background: #ffffff;
+    border: 1.5px solid var(--card-border);
+    border-radius: 12px;
+    box-shadow: 0 12px 30px -4px rgba(15, 23, 42, 0.15), 0 4px 10px -2px rgba(15, 23, 42, 0.05);
+    padding: 16px;
+    z-index: 1000;
+    display: none;
+    text-align: left;
+}
+
+.health-popover.active {
+    display: block;
+    animation: headerFadeInDown 0.18s ease-out;
+}
+
+/* Quick Tools Dropdown Menu */
+.quick-tools-wrapper {
+    position: relative;
+    display: inline-block;
+}
+
+.quick-tools-btn {
+    padding: 7px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    background: #0f172a;
+    color: #f8fafc;
+    border: 1px solid #334155;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.quick-tools-btn:hover {
+    background: #1e293b;
+    border-color: #475569;
+}
+
+.quick-tools-menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    width: 250px;
+    background: #ffffff;
+    border: 1.5px solid var(--card-border);
+    border-radius: 12px;
+    box-shadow: 0 12px 30px -4px rgba(15, 23, 42, 0.15);
+    padding: 8px;
+    z-index: 1000;
+    display: none;
+}
+
+.quick-tools-menu.active {
+    display: block;
+    animation: headerFadeInDown 0.18s ease-out;
+}
+
+.quick-tools-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    text-decoration: none;
+    border-radius: 6px;
+    transition: background 0.15s;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    width: 100%;
+    text-align: left;
+}
+
+.quick-tools-item:hover {
+    background: #f1f5f9;
+}
+
+.quick-tools-divider {
+    height: 1px;
+    background: #e2e8f0;
+    margin: 6px 0;
+}
+
+@keyframes headerFadeInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ==========================================================================
    METRIC / BENTO STATS CARDS
    ========================================================================== */
 

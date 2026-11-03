@@ -85,6 +85,13 @@ CREATE TABLE IF NOT EXISTS branches (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()
 );
 
+-- Multi-Branch Sequence Counters for Atomic Slip Numbering
+CREATE TABLE IF NOT EXISTS branch_sequence_counters (
+    branch_code TEXT PRIMARY KEY,
+    current_val INTEGER NOT NULL DEFAULT 0,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Users / Operators (Linked to local credentials or Supabase Auth UUID)
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -173,6 +180,7 @@ CREATE TABLE IF NOT EXISTS purchase_invoices (
     quality_grade TEXT NOT NULL DEFAULT 'STANDARD',
     vehicle_number TEXT,
     qc_ticket_no TEXT,
+    qc_ticket_id TEXT,
     
     -- Weighment mode and external slip capture
     weighment_mode weighment_mode_t NOT NULL DEFAULT 'MANUAL_YARD',
@@ -437,6 +445,8 @@ CREATE INDEX IF NOT EXISTS idx_invoices_party ON purchase_invoices(party_id);
 CREATE INDEX IF NOT EXISTS idx_invoices_date ON purchase_invoices(invoice_date);
 CREATE INDEX IF NOT EXISTS idx_invoices_payout_status ON purchase_invoices(payout_status);
 CREATE INDEX IF NOT EXISTS idx_invoices_qc_ticket ON purchase_invoices(qc_ticket_no);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_purchase_invoices_qc_ticket_id ON purchase_invoices (qc_ticket_id) WHERE qc_ticket_id IS NOT NULL AND payout_status != 'CANCELLED';
+CREATE UNIQUE INDEX IF NOT EXISTS uq_purchase_invoices_qc_ticket_no ON purchase_invoices (qc_ticket_no) WHERE qc_ticket_no IS NOT NULL AND payout_status != 'CANCELLED';
 
 CREATE INDEX IF NOT EXISTS idx_payouts_branch ON cashier_payouts(branch_id);
 CREATE INDEX IF NOT EXISTS idx_payouts_invoice ON cashier_payouts(invoice_id);
@@ -588,6 +598,7 @@ ALTER TABLE quality_inspections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_change_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE system_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE branch_sequence_counters ENABLE ROW LEVEL SECURITY;
 
 -- Helper Functions to read authenticated JWT claims
 CREATE OR REPLACE FUNCTION auth_user_role()
@@ -694,13 +705,15 @@ CREATE POLICY "Cashiers and Admins can insert payouts"
     );
 
 -- RLS: quality_inspections
-CREATE POLICY "Inspectors and Yard staff view inspections for their branch or HQ"
+CREATE POLICY "Allow cashiers and staff to read quality inspections"
     ON quality_inspections FOR SELECT
-    TO authenticated
-    USING (
-        auth_user_role() IN ('SUPER_ADMIN', 'ACCOUNTANT_HQ')
-        OR branch_id = auth_user_branch_id()
-    );
+    TO anon, authenticated
+    USING (true);
+
+CREATE POLICY "Allow yard inspectors to insert quality inspections"
+    ON quality_inspections FOR INSERT
+    TO anon, authenticated
+    WITH CHECK (true);
 
 CREATE POLICY "Inspectors and Munims create and update quality inspections"
     ON quality_inspections FOR ALL

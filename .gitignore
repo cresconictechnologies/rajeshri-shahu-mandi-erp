@@ -10,6 +10,9 @@ venv/
 instance_secret.key
 *_backup*.db
 *.backup*
+*.pre_purge_backup
+mandi.db
+mandi_erp.db
 *.bak
 *.db-wal
 *.db-shm

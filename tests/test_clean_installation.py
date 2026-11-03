@@ -19,6 +19,9 @@ from fastapi.testclient import TestClient
 # Ensure parent directory is in sys.path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from tests.test_support import setup_test_database
+setup_test_database()
+
 from vendor_license_issuer import generate_signed_license_token
 from cryptography.hazmat.primitives.asymmetric import ed25519
 from cryptography.hazmat.primitives import serialization
@@ -57,7 +60,7 @@ class TestCleanInstallation(unittest.TestCase):
         if cls.orig_test_db:
             os.environ["MANDI_TEST_DB_PATH"] = cls.orig_test_db
         else:
-            os.environ.pop("MANDI_TEST_DB_PATH", None)
+            setup_test_database()
 
         # Cleanup clean customer install files
         for f in os.listdir(cls.temp_dir):

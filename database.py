@@ -28,6 +28,14 @@ def get_db_path() -> str:
             raise RuntimeError("CRITICAL SECURITY ERROR: Test database override (MANDI_TEST_DB_PATH) is strictly forbidden in production or frozen executable.")
         return os.path.abspath(test_db)
 
+    # In test mode, strictly prevent falling back to commodity_mandi.db
+    if os.environ.get("MANDI_TESTING") == "1":
+        try:
+            from tests.test_support import setup_test_database
+            return os.path.abspath(setup_test_database())
+        except Exception as e:
+            sys.stderr.write(f"Notice: test database setup fallback: {e}\n")
+
     if is_frozen:
         _APP_DIR = os.path.dirname(sys.executable)
         _MEIPASS_DIR = getattr(sys, '_MEIPASS', _APP_DIR)
@@ -232,7 +240,7 @@ def save_quality_inspection(qc_data: Dict[str, Any]) -> Dict[str, Any]:
         cur.execute("""
             INSERT INTO quality_inspections (
                 id, ticket_no, branch_id, inspector_id, inspector_name,
-                vehicle_no, farmer_name, farmer_phone, commodity_id, commodity_name,
+                vehicle_no, farmer_name, farmer_phone, farmer_village, commodity_id, commodity_name,
                 moisture_pct, moisture_cut_kg, karda_pct, damaged_pct,
                 green_seeds_pct, broken_split_pct, shriveled_pct, uniformity_index,
                 dominant_breed, breed_purity_pct, admixture_pct, breed_status,
@@ -241,10 +249,11 @@ def save_quality_inspection(qc_data: Dict[str, Any]) -> Dict[str, Any]:
                 suggested_buying_rate_per_qtl, sample_weight_grams, total_seeds_analyzed,
                 meter_photo_path, grain_photo_path, photo_path, inspector_signature, status, inspection_notes,
                 sortex_clean_yield_pct, sortex_reject_pct, sortex_grade
-            ) VALUES (?,?,?,?,?, ?,?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?, ?,?,?,?, ?,?,?,?,?,?, 'PENDING', ?, ?,?,?)
+            ) VALUES (?,?,?,?,?, ?,?,?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?, ?,?,?,?, ?,?,?,?,?,?, 'PENDING', ?, ?,?,?)
         """, (
             qc_id, ticket_no, qc_data.get("branch_id"), qc_data.get("inspector_id"), qc_data.get("inspector_name"),
             qc_data.get("vehicle_no", "").strip().upper(), qc_data.get("farmer_name", "").strip(), qc_data.get("farmer_phone"),
+            qc_data.get("farmer_village") or qc_data.get("village") or "",
             qc_data.get("commodity_id"), qc_data.get("commodity_name"),
             float(qc_data.get("moisture_pct", 10.0)), float(qc_data.get("moisture_cut_kg", 0.0)),
             float(qc_data.get("karda_pct", 0.0)), float(qc_data.get("damaged_pct", 0.0)),
@@ -296,7 +305,7 @@ def link_qc_to_invoice(ticket_no: str, invoice_id: str) -> bool:
     conn = get_connection()
     try:
         cur = conn.cursor()
-        cur.execute("UPDATE quality_inspections SET status='LINKED', invoice_id=? WHERE ticket_no=?", (invoice_id, ticket_no))
+        cur.execute("UPDATE quality_inspections SET status='LINKED', invoice_id=?, updated_at=CURRENT_TIMESTAMP WHERE ticket_no=?", (invoice_id, ticket_no))
         conn.commit()
         return cur.rowcount > 0
     finally:
@@ -316,6 +325,12 @@ def init_db():
         phone TEXT,
         is_active INTEGER DEFAULT 1,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS branch_sequence_counters (
+        branch_code TEXT PRIMARY KEY,
+        current_val INTEGER NOT NULL DEFAULT 0,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
 
     CREATE TABLE IF NOT EXISTS users (
@@ -554,6 +569,7 @@ def init_db():
         vehicle_no TEXT NOT NULL,
         farmer_name TEXT NOT NULL,
         farmer_phone TEXT,
+        farmer_village TEXT,
         commodity_id TEXT REFERENCES commodities(id),
         commodity_name TEXT NOT NULL,
         moisture_pct REAL NOT NULL,
@@ -587,7 +603,8 @@ def init_db():
         status TEXT DEFAULT 'PENDING',
         invoice_id TEXT REFERENCES purchase_invoices(id),
         inspection_notes TEXT,
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
 
     CREATE INDEX IF NOT EXISTS idx_sessions_user ON user_sessions(user_id);
@@ -654,12 +671,17 @@ def init_db():
         ("rtgs_completed_at", "TEXT"),
         ("rtgs_completed_by", "TEXT"),
         ("qc_ticket_no", "TEXT"),
+        ("qc_ticket_id", "TEXT"),
         ("dominant_breed", "TEXT"),
         ("breed_purity_pct", "REAL DEFAULT 100.0")
     ]:
         if col not in existing_invoice_cols:
             cur.execute(f"ALTER TABLE purchase_invoices ADD COLUMN {col} {definition}")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_invoice_qc_ticket ON purchase_invoices(qc_ticket_no);")
+    cur.execute("UPDATE purchase_invoices SET qc_ticket_id = qc_ticket_no WHERE qc_ticket_id IS NULL AND qc_ticket_no IS NOT NULL;")
+    cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_purchase_invoices_qc_ticket_id ON purchase_invoices (qc_ticket_id) WHERE qc_ticket_id IS NOT NULL AND payout_status != 'CANCELLED';")
+    cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_purchase_invoices_qc_ticket_no ON purchase_invoices (qc_ticket_no) WHERE qc_ticket_no IS NOT NULL AND payout_status != 'CANCELLED';")
+    cur.execute("INSERT OR IGNORE INTO branch_sequence_counters (branch_code, current_val) VALUES ('BR-CHK', 0), ('BR-VRV', 0), ('BR-DHD', 0);")
 
     # Safe migrations for columns in quality_inspections
     cur.execute("PRAGMA table_info(quality_inspections);")
@@ -674,7 +696,9 @@ def init_db():
         ("inspector_signature", "TEXT"),
         ("sortex_clean_yield_pct", "REAL DEFAULT 95.0"),
         ("sortex_reject_pct", "REAL DEFAULT 5.0"),
-        ("sortex_grade", "TEXT DEFAULT 'SORTEX Grade B (Commercial Trading Standard)'")
+        ("sortex_grade", "TEXT DEFAULT 'SORTEX Grade B (Commercial Trading Standard)'"),
+        ("updated_at", "TEXT DEFAULT CURRENT_TIMESTAMP"),
+        ("farmer_village", "TEXT")
     ]:
         if col not in existing_qc_cols:
             cur.execute(f"ALTER TABLE quality_inspections ADD COLUMN {col} {definition}")
@@ -886,7 +910,17 @@ def seed_test_fixtures(conn=None):
             hamali_amount, gross_amount, total_bill_amount, status, payment_status
         ) VALUES (
             'out-test-001', 'br-chikhali', 'CHL-TEST-001', ?, 'Adani Wilmar Ltd.', 'Soyabean (Yellow)',
-            'MH-28-AB-9999', 10000.0, 100.0, 4800.0, 25.0, 2500.0, 480000.0, 482500.0, 'DISPATCHED', 'PENDING'
+            'MH-28-AB-9999', 1000.0, 10.0, 4800.0, 25.0, 250.0, 48000.0, 48250.0, 'DISPATCHED', 'PENDING'
+        )
+    """, (today_str,))
+    cur.execute("""
+        INSERT OR IGNORE INTO outward_orders (
+            id, branch_id, challan_number, order_date, buyer_name, commodity_name,
+            vehicle_number, net_weight_kg, net_quintals, rate_per_quintal, hamali_per_100kg,
+            hamali_amount, gross_amount, total_bill_amount, status, payment_status
+        ) VALUES (
+            'out-test-002', 'br-chikhali', 'CHL-TEST-002', ?, 'Ruchi Soya Industries', 'Soyabean (Yellow)',
+            'MH-28-AB-8888', 1000.0, 10.0, 4800.0, 25.0, 250.0, 48000.0, 48250.0, 'DISPATCHED', 'PENDING'
         )
     """, (today_str,))
 

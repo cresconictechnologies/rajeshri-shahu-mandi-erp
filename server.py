@@ -1702,6 +1702,14 @@ def api_accounts_set_rate(
                 VALUES (?,?,?,?,?,?,?,?,?)
             """, (rid, rate_date, branch_id, commodity_name, quality_grade, min_rate, target_rate, max_rate, now_iso))
 
+        # When updating master rate (branch_id=None), also synchronize any existing branch rates for this date so all branches get the new rate
+        if not branch_id:
+            cur.execute("""
+                UPDATE daily_commodity_rates 
+                SET min_rate_per_qtl=?, target_rate_per_qtl=?, max_rate_per_qtl=?, updated_at=?
+                WHERE rate_date=? AND commodity_name=? AND quality_grade=?
+            """, (min_rate, target_rate, max_rate, now_iso, rate_date, commodity_name, quality_grade))
+
         conn.commit()
         try:
             import supabase_sync
@@ -2280,17 +2288,17 @@ def branch_dashboard_view(request: Request, branch_id: str = "br-chikhali", targ
         except Exception as pull_ex:
             logger.debug(f"Branch rates cloud pull notice: {pull_ex}")
 
-        # Daily rates for selected_date (prioritizes branch-specific rates, then newest updated)
+        # Daily rates for selected_date (strictly prioritizes the newest published rate via updated_at DESC)
         cur.execute("""
-            SELECT commodity_name, quality_grade, min_rate_per_qtl, target_rate_per_qtl, max_rate_per_qtl 
+            SELECT commodity_name, quality_grade, min_rate_per_qtl, target_rate_per_qtl, max_rate_per_qtl, updated_at 
             FROM daily_commodity_rates 
             WHERE rate_date=? AND (branch_id=? OR branch_id IS NULL)
-            ORDER BY (branch_id IS NOT NULL) ASC, updated_at ASC
+            ORDER BY updated_at DESC
         """, (selected_date, actual_branch_id))
         daily_rates = cur.fetchall()
         if not daily_rates:
             cur.execute("""
-                SELECT d1.commodity_name, d1.quality_grade, d1.min_rate_per_qtl, d1.target_rate_per_qtl, d1.max_rate_per_qtl 
+                SELECT d1.commodity_name, d1.quality_grade, d1.min_rate_per_qtl, d1.target_rate_per_qtl, d1.max_rate_per_qtl, d1.updated_at 
                 FROM daily_commodity_rates d1
                 JOIN (
                     SELECT commodity_name, MAX(rate_date) as max_date
@@ -2299,12 +2307,12 @@ def branch_dashboard_view(request: Request, branch_id: str = "br-chikhali", targ
                     GROUP BY commodity_name
                 ) d2 ON d1.commodity_name = d2.commodity_name AND d1.rate_date = d2.max_date
                 WHERE (d1.branch_id=? OR d1.branch_id IS NULL)
-                ORDER BY (d1.branch_id IS NOT NULL) ASC, d1.updated_at ASC
+                ORDER BY d1.updated_at DESC
             """, (actual_branch_id, selected_date, actual_branch_id))
             daily_rates = cur.fetchall()
         if not daily_rates:
             cur.execute("""
-                SELECT d1.commodity_name, d1.quality_grade, d1.min_rate_per_qtl, d1.target_rate_per_qtl, d1.max_rate_per_qtl 
+                SELECT d1.commodity_name, d1.quality_grade, d1.min_rate_per_qtl, d1.target_rate_per_qtl, d1.max_rate_per_qtl, d1.updated_at 
                 FROM daily_commodity_rates d1
                 JOIN (
                     SELECT commodity_name, MAX(rate_date) as max_date
@@ -2313,11 +2321,15 @@ def branch_dashboard_view(request: Request, branch_id: str = "br-chikhali", targ
                     GROUP BY commodity_name
                 ) d2 ON d1.commodity_name = d2.commodity_name AND d1.rate_date = d2.max_date
                 WHERE (d1.branch_id=? OR d1.branch_id IS NULL)
-                ORDER BY (d1.branch_id IS NOT NULL) ASC, d1.updated_at ASC
+                ORDER BY d1.updated_at DESC
             """, (actual_branch_id, actual_branch_id))
             daily_rates = cur.fetchall()
 
-        rates_map = {r["commodity_name"]: dict(r) for r in daily_rates}
+        rates_map = {}
+        for r in daily_rates:
+            c_name = r["commodity_name"]
+            if c_name not in rates_map:
+                rates_map[c_name] = dict(r)
         daily_rates_list = list(rates_map.values())
         daily_rates = daily_rates_list
 
@@ -2646,7 +2658,7 @@ def api_branch_rates(
             SELECT commodity_name, quality_grade, min_rate_per_qtl, target_rate_per_qtl, max_rate_per_qtl, rate_date, branch_id, updated_at
             FROM daily_commodity_rates 
             WHERE rate_date=? AND (branch_id=? OR branch_id IS NULL)
-            ORDER BY (branch_id IS NOT NULL) ASC, updated_at ASC
+            ORDER BY updated_at DESC
         """, (target_date, target_branch_id))
         rows = cur.fetchall()
         if not rows:
@@ -2660,7 +2672,7 @@ def api_branch_rates(
                     GROUP BY commodity_name
                 ) d2 ON d1.commodity_name = d2.commodity_name AND d1.rate_date = d2.max_date
                 WHERE (d1.branch_id=? OR d1.branch_id IS NULL)
-                ORDER BY (d1.branch_id IS NOT NULL) ASC, d1.updated_at ASC
+                ORDER BY d1.updated_at DESC
             """, (target_branch_id, target_date, target_branch_id))
             rows = cur.fetchall()
         if not rows:
@@ -2674,11 +2686,15 @@ def api_branch_rates(
                     GROUP BY commodity_name
                 ) d2 ON d1.commodity_name = d2.commodity_name AND d1.rate_date = d2.max_date
                 WHERE (d1.branch_id=? OR d1.branch_id IS NULL)
-                ORDER BY (d1.branch_id IS NOT NULL) ASC, d1.updated_at ASC
+                ORDER BY d1.updated_at DESC
             """, (target_branch_id, target_branch_id))
             rows = cur.fetchall()
 
-        rates_map = {r["commodity_name"]: dict(r) for r in rows}
+        rates_map = {}
+        for r in rows:
+            c_name = r["commodity_name"]
+            if c_name not in rates_map:
+                rates_map[c_name] = dict(r)
         return JSONResponse({
             "success": True,
             "rate_date": target_date,

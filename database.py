@@ -284,7 +284,18 @@ def get_pending_quality_inspections(branch_id: Optional[str] = None) -> List[Dic
     try:
         cur = conn.cursor()
         if branch_id:
-            cur.execute("SELECT * FROM quality_inspections WHERE branch_id=? AND status='PENDING' ORDER BY created_at DESC", (branch_id,))
+            b_clean = branch_id.lower().replace("br-", "")
+            cur.execute("""
+                SELECT * FROM quality_inspections 
+                WHERE (
+                    branch_id=? 
+                    OR branch_id=? 
+                    OR LOWER(branch_id) LIKE ? 
+                    OR branch_id IS NULL
+                ) 
+                AND status='PENDING' 
+                ORDER BY created_at DESC
+            """, (branch_id, f"br-{b_clean}", f"%{b_clean}%"))
         else:
             cur.execute("SELECT * FROM quality_inspections WHERE status='PENDING' ORDER BY created_at DESC")
         return [dict(r) for r in cur.fetchall()]

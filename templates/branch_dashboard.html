@@ -3137,9 +3137,10 @@
         }
 
         async function fetchPendingQCTickets() {
-            const branchId = document.getElementById('branch_id')?.value || '';
+            const branchId = document.getElementById('branch_id')?.value || 'br-chikhali';
             try {
                 const res = await fetch(`/api/inspector/tickets/pending?branch_id=${branchId}`);
+                if (!res.ok) return;
                 const data = await res.json();
                 if (data.success) {
                     pendingQCTicketsList = data.tickets || [];
@@ -3147,20 +3148,18 @@
                     if (badge) badge.innerText = pendingQCTicketsList.length;
 
                     renderQCTicketsTable(pendingQCTicketsList);
+
+                    // Show top alert card prominently on cashier screen if there are pending tickets
+                    const alertBox = document.getElementById('realtimeTicketAlertBox');
+                    if (pendingQCTicketsList.length > 0) {
+                        showRealtimeDeskAlertCard(pendingQCTicketsList[0]);
+                    } else if (alertBox) {
+                        alertBox.style.display = 'none';
+                    }
                 }
             } catch (err) {
                 console.error("Failed to fetch QC tickets:", err);
             }
-        }
-
-        function escapeHtml(str) {
-            if (str === null || str === undefined) return '';
-            return String(str)
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#039;');
         }
 
         function renderQCTicketsTable(tickets) {
@@ -3540,7 +3539,7 @@
             if (buyerSel) handleBuyerSelect(buyerSel);
 
             // Auto-poll for incoming mobile inspector tickets every 10 seconds
-            setInterval(fetchPendingQCTickets, 10000);
+            fetchPendingQCTickets(); setInterval(fetchPendingQCTickets, 5000);
         };
     </script>
     <!-- MODAL: INSPECTOR MOBILE APP QR CODE -->

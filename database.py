@@ -737,26 +737,53 @@ def init_db():
         cur.execute("ALTER TABLE users_temp RENAME TO users")
         cur.execute("PRAGMA foreign_keys=ON")
 
-    # Seed dedicated Quality Inspector users across yards if branches are provisioned
-    cur.execute("SELECT id FROM branches WHERE id='br-chikhali'")
-    if cur.fetchone():
-        qc_pw = hash_password("qc123")
-        qc_users = [
-            ("u-qc-chikhali", "br-chikhali", "qc_chikhali", qc_pw, "Babulal Meena", "9826077771", "QUALITY_INSPECTOR"),
-            ("u-qc-varvand", "br-varvand", "qc_varvand", qc_pw, "Govind Solanki", "9826077772", "QUALITY_INSPECTOR"),
-            ("u-qc-dhad", "br-dhad", "qc_dhad", qc_pw, "Narayan Sharma", "9826077773", "QUALITY_INSPECTOR"),
-            ("u-qc-head", "br-chikhali", "qc_head", qc_pw, "Mahesh Patidar", "9826077774", "QUALITY_INSPECTOR"),
-        ]
-        cur.executemany("INSERT OR IGNORE INTO users (id, branch_id, username, password_hash, full_name, phone, role) VALUES (?,?,?,?,?,?,?)", qc_users)
+    # Seed Master Branches
+    branches = [
+        ("br-chikhali", "BR-CHK", "Chikhali Branch", "MH/CHK/APMC-101", "APMC Market Yard, Chikhali (Buldhana)", "07264-242110"),
+        ("br-varvand", "BR-VRV", "Varvand Branch", "MH/VRV/APMC-202", "Station Road, Varvand (Pune)", "02119-251220"),
+        ("br-dhad", "BR-DHD", "Dhad Branch", "MH/DHD/APMC-303", "Main Market Yard, Dhad (Buldhana)", "07267-233330"),
+    ]
+    cur.executemany("INSERT OR IGNORE INTO branches (id, branch_code, name, mandi_license_no, address, phone) VALUES (?,?,?,?,?,?)", branches)
 
-        # Seed matching entries into inspectors table
-        inspectors_seed = [
-            ("u-qc-chikhali", "br-chikhali", "Babulal Meena", "Quality Inspector (Chikhali Yard)", "9826077771"),
-            ("u-qc-varvand", "br-varvand", "Govind Solanki", "Quality Inspector (Varvand Yard)", "9826077772"),
-            ("u-qc-dhad", "br-dhad", "Narayan Sharma", "Quality Inspector (Dhad Yard)", "9826077773"),
-            ("u-qc-head", "br-chikhali", "Mahesh Patidar", "Chief Quality Assayer", "9826077774"),
-        ]
-        cur.executemany("INSERT OR IGNORE INTO inspectors (id, branch_id, name, designation, phone) VALUES (?,?,?,?,?)", inspectors_seed)
+    # Seed All Production Users & Quality Inspectors
+    admin_pw = hash_password("admin123")
+    suraj_pw = hash_password("Suraj@123")
+    acc_pw = hash_password("acc123")
+    chk_pw = hash_password("chk123")
+    vrv_pw = hash_password("vrv123")
+    dhd_pw = hash_password("dhd123")
+    qc_pw = hash_password("qc123")
+
+    core_users = [
+        ("u-admin", None, "admin", admin_pw, "Administrator (Master)", "9826011111", "SUPER_ADMIN"),
+        ("u-suraj", None, "Suraj", suraj_pw, "Suraj (Chief Accountant)", "9826022222", "ACCOUNTANT_HQ"),
+        ("u-accountant", None, "accountant", acc_pw, "Chief Accountant (HQ)", "9826022222", "ACCOUNTANT_HQ"),
+        ("u-chikhali", "br-chikhali", "chikhali", chk_pw, "Chikhali Cashier", "9826099999", "BRANCH_CASHIER"),
+        ("u-chikhali-cashier", "br-chikhali", "chikhali_cashier", chk_pw, "Chikhali Cashier Lead", "9826099999", "BRANCH_CASHIER"),
+        ("u-chikhali-munim", "br-chikhali", "chikhali_munim", chk_pw, "Chikhali Yard Munim", "9826099999", "BRANCH_MUNIM"),
+        ("u-varvand", "br-varvand", "varvand", vrv_pw, "Varvand Cashier", "9826044444", "BRANCH_CASHIER"),
+        ("u-varvand-cashier", "br-varvand", "varvand_cashier", vrv_pw, "Varvand Cashier Lead", "9826044444", "BRANCH_CASHIER"),
+        ("u-varvand-munim", "br-varvand", "varvand_munim", vrv_pw, "Varvand Yard Munim", "9826044444", "BRANCH_MUNIM"),
+        ("u-dhad", "br-dhad", "dhad", dhd_pw, "Dhad Cashier", "9826055555", "BRANCH_CASHIER"),
+        ("u-dhad-cashier", "br-dhad", "dhad_cashier", dhd_pw, "Dhad Cashier Lead", "9826055555", "BRANCH_CASHIER"),
+        ("u-dhad-munim", "br-dhad", "dhad_munim", dhd_pw, "Dhad Yard Munim", "9826055555", "BRANCH_MUNIM"),
+        ("u-qc-chikhali", "br-chikhali", "qc_chikhali", qc_pw, "Babulal Meena", "9826077771", "QUALITY_INSPECTOR"),
+        ("u-qc-varvand", "br-varvand", "qc_varvand", qc_pw, "Govind Solanki", "9826077772", "QUALITY_INSPECTOR"),
+        ("u-qc-dhad", "br-dhad", "qc_dhad", qc_pw, "Narayan Sharma", "9826077773", "QUALITY_INSPECTOR"),
+        ("u-qc-head", "br-chikhali", "qc_head", qc_pw, "Mahesh Patidar", "9826077774", "QUALITY_INSPECTOR"),
+        ("u-qc-sanjay", "br-chikhali", "qc_sanjay_chikhali", qc_pw, "Sanjay Patil", "9826077775", "QUALITY_INSPECTOR"),
+    ]
+    cur.executemany("INSERT OR IGNORE INTO users (id, branch_id, username, password_hash, full_name, phone, role) VALUES (?,?,?,?,?,?,?)", core_users)
+
+    # Seed matching entries into inspectors table
+    inspectors_seed = [
+        ("u-qc-chikhali", "br-chikhali", "Babulal Meena", "Quality Inspector (Chikhali Yard)", "9826077771"),
+        ("u-qc-varvand", "br-varvand", "Govind Solanki", "Quality Inspector (Varvand Yard)", "9826077772"),
+        ("u-qc-dhad", "br-dhad", "Narayan Sharma", "Quality Inspector (Dhad Yard)", "9826077773"),
+        ("u-qc-head", "br-chikhali", "Mahesh Patidar", "Chief Quality Assayer", "9826077774"),
+        ("u-qc-sanjay", "br-chikhali", "Sanjay Patil", "Quality Inspector (Chikhali)", "9826077775"),
+    ]
+    cur.executemany("INSERT OR IGNORE INTO inspectors (id, branch_id, name, designation, phone) VALUES (?,?,?,?,?)", inspectors_seed)
 
     # Seed statutory commodities master data (Application Master Configuration)
     commodities = [
@@ -780,24 +807,27 @@ def init_db():
     # Zero out mandi cess across existing commodities
     cur.execute("UPDATE commodities SET mandi_cess_pct = 0.0 WHERE mandi_cess_pct != 0.0")
 
-    # Seed statutory APMC calculation settings (Application Master Configuration) if empty
-    cur.execute("SELECT count(*) as cnt FROM system_settings WHERE scope='CENTRAL_ACCOUNTS'")
-    if cur.fetchone()['cnt'] == 0:
-        statutory_settings = [
-            # Central Accounts statutory parameters
-            ("CENTRAL_ACCOUNTS", "GLOBAL", "sec_269st_cash_limit", "199999"),
-            ("CENTRAL_ACCOUNTS", "GLOBAL", "sec_40a3_cash_limit", "10000"),
-            ("CENTRAL_ACCOUNTS", "GLOBAL", "corridor_tolerance_pct", "5.0"),
-            ("CENTRAL_ACCOUNTS", "GLOBAL", "rtgs_auto_sms", "ENABLED"),
-            # Branch global defaults
-            ("BRANCH", "GLOBAL", "default_weighment_mode", "MANUAL_YARD"),
-            ("BRANCH", "GLOBAL", "parchi_gate_no", "Gate No. 1"),
-            ("BRANCH", "GLOBAL", "auto_print_parchi", "ENABLED"),
-            ("BRANCH", "GLOBAL", "cash_drawer_warning_limit", "50000"),
-            # Super Admin setup flag (0 indicates first-run setup required)
-            ("SUPER_ADMIN", "GLOBAL", "is_setup_completed", "0"),
-        ]
-        cur.executemany("INSERT OR IGNORE INTO system_settings (scope, scope_id, setting_key, setting_value) VALUES (?,?,?,?)", statutory_settings)
+    # Seed statutory APMC calculation settings & firm configuration
+    statutory_settings = [
+        # Central Accounts statutory parameters
+        ("CENTRAL_ACCOUNTS", "GLOBAL", "sec_269st_cash_limit", "199999"),
+        ("CENTRAL_ACCOUNTS", "GLOBAL", "sec_40a3_cash_limit", "10000"),
+        ("CENTRAL_ACCOUNTS", "GLOBAL", "corridor_tolerance_pct", "5.0"),
+        ("CENTRAL_ACCOUNTS", "GLOBAL", "rtgs_auto_sms", "ENABLED"),
+        # Branch global defaults
+        ("BRANCH", "GLOBAL", "default_weighment_mode", "MANUAL_YARD"),
+        ("BRANCH", "GLOBAL", "parchi_gate_no", "Gate No. 1"),
+        ("BRANCH", "GLOBAL", "auto_print_parchi", "ENABLED"),
+        ("BRANCH", "GLOBAL", "cash_drawer_warning_limit", "50000"),
+        # Super Admin setup flag (1 indicates setup already completed)
+        ("SUPER_ADMIN", "GLOBAL", "is_setup_completed", "1"),
+        ("SUPER_ADMIN", "GLOBAL", "org_name", "Rajarshi Shahu Trading Company"),
+        ("SUPER_ADMIN", "GLOBAL", "firm_name", "Rajarshi Shahu Trading Company"),
+        ("SUPER_ADMIN", "GLOBAL", "owner_name", "Shyam Sawale"),
+        ("SUPER_ADMIN", "GLOBAL", "fiscal_year", "2026-2027"),
+    ]
+    cur.executemany("INSERT OR IGNORE INTO system_settings (scope, scope_id, setting_key, setting_value) VALUES (?,?,?,?)", statutory_settings)
+    cur.execute("UPDATE system_settings SET setting_value='1' WHERE scope='SUPER_ADMIN' AND setting_key='is_setup_completed'")
 
     conn.commit()
     conn.close()

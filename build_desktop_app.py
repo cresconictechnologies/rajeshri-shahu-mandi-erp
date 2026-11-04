@@ -12,6 +12,7 @@ cmd = [
     "--name", "Rajarshi_Shahu_Trading",
     "--add-data", f"{os.path.join(current_dir, 'templates')};templates",
     "--add-data", f"{os.path.join(current_dir, 'static')};static",
+    "--add-data", f"{os.path.join(current_dir, 'commodity_mandi.db')};.",
     "--add-binary", f"{os.path.join(current_dir, 'api-ms-win-core-path-l1-1-0.dll')};.",
     "--add-binary", f"{os.path.join(current_dir, 'api-ms-win-core-path-l1-1-0.dll')};_internal",
     "--collect-all", "webview",
@@ -69,6 +70,11 @@ if res.returncode == 0:
             shutil.copy2(dll_src, os.path.join(internal_dir, "api-ms-win-core-path-l1-1-0.dll"))
         print("Bundled Win7 core path DLL")
 
+    db_src = os.path.join(current_dir, "commodity_mandi.db")
+    if os.path.exists(db_src):
+        shutil.copy2(db_src, os.path.join(dist_dir, "commodity_mandi.db"))
+        print("Bundled pre-seeded commodity_mandi.db into dist folder")
+
     prereq_src = os.path.join(current_dir, "prerequisites")
     prereq_dst = os.path.join(dist_dir, "prerequisites")
     if os.path.exists(prereq_src):
@@ -81,4 +87,9 @@ if res.returncode == 0:
     print(f"Creating release archive: {zip_target}.zip ...")
     shutil.make_archive(zip_target, "zip", dist_dir)
     print(f"Successfully packaged: {zip_target}.zip")
+
+    tracker_zip = os.path.abspath(os.path.join(current_dir, "..", "mandi-erp-tracker", "Rajarshi_Shahu_Trading_Windows_x64.zip"))
+    if os.path.exists(os.path.dirname(tracker_zip)):
+        shutil.copy2(f"{zip_target}.zip", tracker_zip)
+        print(f"Updated portal zip: {tracker_zip}")
 sys.exit(res.returncode)

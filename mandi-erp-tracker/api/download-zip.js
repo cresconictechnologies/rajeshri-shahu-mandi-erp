@@ -1,11 +1,7 @@
-// Vercel Serverless Function: Streamlined Direct Windows Package Download
+// Vercel Serverless Function: Ultra-Fast High-Speed CDN Download (Bypasses GitHub ISP throttling)
 module.exports = (req, res) => {
-    const TARGET_URL = "https://github.com/cresconictechnologies/rajeshri-shahu-mandi-erp/releases/download/v1.0/Rajarshi_Shahu_Trading_Windows_x64.zip";
-    
-    res.setHeader('Content-Type', 'application/octet-stream');
-    res.setHeader('Content-Disposition', 'attachment; filename="Rajarshi_Shahu_Trading_Windows_x64.zip"');
-    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-    
-    res.writeHead(302, { Location: TARGET_URL });
+    // 302 Redirect directly to static asset on Vercel High-Speed Edge CDN (Mumbai/Delhi Pop)
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.writeHead(302, { Location: '/Rajarshi_Shahu_Trading_Windows_x64.zip' });
     res.end();
 };

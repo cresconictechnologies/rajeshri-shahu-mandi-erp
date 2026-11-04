@@ -12,11 +12,14 @@ cmd = [
     "--name", "Rajarshi_Shahu_Trading",
     "--add-data", f"{os.path.join(current_dir, 'templates')};templates",
     "--add-data", f"{os.path.join(current_dir, 'static')};static",
+    "--add-binary", f"{os.path.join(current_dir, 'api-ms-win-core-path-l1-1-0.dll')};.",
+    "--add-binary", f"{os.path.join(current_dir, 'api-ms-win-core-path-l1-1-0.dll')};_internal",
     "--collect-all", "webview",
     "--collect-all", "uvicorn",
     "--collect-all", "fastapi",
     "--collect-all", "starlette",
     "--collect-all", "PIL",
+    "--collect-all", "numpy",
     "--exclude-module", "vendor_license_issuer",
     "--hidden-import", "clr",
     "--hidden-import", "clr_loader",
@@ -30,6 +33,9 @@ cmd = [
     "--hidden-import", "licensing",
     "--hidden-import", "cryptography",
     "--hidden-import", "PIL",
+    "--hidden-import", "numpy",
+    "--hidden-import", "scipy",
+    "--hidden-import", "scipy.ndimage",
     "--hidden-import", "supabase_sync",
     "--hidden-import", "httpx",
     "--hidden-import", "sqlalchemy",
@@ -43,6 +49,34 @@ res = subprocess.run(cmd, cwd=current_dir)
 if res.returncode == 0:
     import shutil
     dist_dir = os.path.join(current_dir, "dist", "Rajarshi_Shahu_Trading")
+    
+    # Copy Launcher, batch scripts, and prerequisites into dist folder
+    launcher_src = os.path.join(current_dir, "Launcher.exe")
+    if os.path.exists(launcher_src):
+        shutil.copy2(launcher_src, os.path.join(dist_dir, "Launcher.exe"))
+        print("Bundled Launcher.exe")
+
+    bat_src = os.path.join(current_dir, "Setup_and_Launch.bat")
+    if os.path.exists(bat_src):
+        shutil.copy2(bat_src, os.path.join(dist_dir, "Setup_and_Launch.bat"))
+        print("Bundled Setup_and_Launch.bat")
+
+    dll_src = os.path.join(current_dir, "api-ms-win-core-path-l1-1-0.dll")
+    if os.path.exists(dll_src):
+        shutil.copy2(dll_src, os.path.join(dist_dir, "api-ms-win-core-path-l1-1-0.dll"))
+        internal_dir = os.path.join(dist_dir, "_internal")
+        if os.path.exists(internal_dir):
+            shutil.copy2(dll_src, os.path.join(internal_dir, "api-ms-win-core-path-l1-1-0.dll"))
+        print("Bundled Win7 core path DLL")
+
+    prereq_src = os.path.join(current_dir, "prerequisites")
+    prereq_dst = os.path.join(dist_dir, "prerequisites")
+    if os.path.exists(prereq_src):
+        if os.path.exists(prereq_dst):
+            shutil.rmtree(prereq_dst)
+        shutil.copytree(prereq_src, prereq_dst)
+        print("Bundled prerequisites folder (VC++ Redist, WebView2, Win7 DLL)")
+
     zip_target = os.path.join(current_dir, "dist", "Rajarshi_Shahu_Trading_Windows_x64")
     print(f"Creating release archive: {zip_target}.zip ...")
     shutil.make_archive(zip_target, "zip", dist_dir)

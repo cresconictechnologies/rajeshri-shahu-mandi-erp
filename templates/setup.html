@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Owner License & Staff Setup — Rajarshi Shahu Trading</title>
+    <title>System Setup & Staff Provisioning — Rajarshi Shahu Trading</title>
     <link rel="stylesheet" href="/static/theme.css">
     <style>
         .setup-container {
@@ -226,40 +226,7 @@
             </div>
         </div>
 
-        <!-- SECTION 2: LICENSE KEY ACTIVATION -->
-        <div style="margin-bottom:28px;">
-            <div style="display:flex; align-items:center; gap:8px; margin-bottom:14px; border-bottom:1.5px solid var(--card-border); padding-bottom:8px;">
-                <span style="font-size:20px;">🔑</span>
-                <h2 style="font-size:18px; margin:0; font-weight:800; color:var(--text-primary);">Step 2: Commercial License Key Activation</h2>
-            </div>
-
-            <div class="license-banner">
-                <div>
-                    <div style="font-weight:800; font-size:14px; color:#065f46; display:flex; align-items:center; gap:8px;">
-                        <span>🛡️</span> Commercial License Status: <span class="license-badge">ACTIVE</span>
-                    </div>
-                    <div style="font-size:12.5px; color:#047857; margin-top:3px;">
-                        Tier: <strong>Pro Tier — 3 Operating Branches (Chikhali, Varvand, Dhad)</strong> • Valid Until: <strong>31-March-2027</strong>
-                    </div>
-                </div>
-                <span style="font-size:22px;">🔒</span>
-            </div>
-
-            <div class="form-grid-2">
-                <div class="form-group">
-                    <label style="font-weight:700; font-size:13px; margin-bottom:5px; display:block;">Commercial License Key *</label>
-                    <input type="text" name="license_key" id="licenseKeyInput" value="{{ settings.license_key or 'RST-PRO-2026-MH3B-89A12F' }}" required
-                           style="width:100%; padding:10px; font-family:monospace; font-weight:700; color:#1e40af; background:#f0f9ff; border:1.5px solid #93c5fd; border-radius:8px; font-size:14px;">
-                </div>
-                <div class="form-group">
-                    <label style="font-weight:700; font-size:13px; margin-bottom:5px; display:block;">License Validity Period</label>
-                    <input type="text" name="license_valid_until" value="{{ settings.license_valid_until or '31-March-2027' }}" readonly
-                           style="width:100%; padding:10px; background:#f8fafc; border:1.5px solid var(--input-border); border-radius:8px; font-size:14px; color:var(--text-muted);">
-                </div>
-            </div>
-        </div>
-
-        <!-- SECTION 3: STAFF CREDENTIAL GENERATOR -->
+        <!-- SECTION 2: STAFF CREDENTIAL GENERATOR -->
         <div style="margin-bottom:28px;">
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:14px; border-bottom:1.5px solid var(--card-border); padding-bottom:8px;">
                 <span style="font-size:20px;">👥</span>
@@ -395,7 +362,7 @@
                 🔒 All passwords are automatically salted and hashed via SHA-256 before storage.
             </div>
             <button type="submit" class="btn btn-primary" style="padding:12px 28px; font-size:15px; font-weight:800; background:var(--admin-gradient);">
-                💾 Activate License & Generate All Staff Credentials
+                💾 Save Setup & Generate All Staff Credentials
             </button>
         </div>
     </form>

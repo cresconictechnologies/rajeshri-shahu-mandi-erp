@@ -18,7 +18,7 @@ import webview
 
 APP_TITLE = "Rajarshi Shahu Trading — Mandi ERP (Powered by Cresconic)"
 PORT = 8080
-TARGET_URL = f"http://127.0.0.1:{PORT}"
+TARGET_URL = f"http://127.0.0.1:{PORT}/login"
 
 # Determine app directory for persistent logs and database
 if getattr(sys, 'frozen', False):
@@ -131,9 +131,20 @@ def main():
         try:
             webview.start()
         except Exception as e2:
-            log(f"Fatal GUI launch error: {e2}")
-            show_error("GUI Error", f"Unable to display application window:\n{e2}")
-            sys.exit(1)
+            log(f"Native GUI unavailable ({e2}). Launching in default web browser fallback...")
+            try:
+                import webbrowser
+                webbrowser.open(TARGET_URL)
+                ctypes.windll.user32.MessageBoxW(
+                    0,
+                    "Rajarshi Shahu Trading Mandi ERP is running in your web browser.\n\nKeep this dialog open while using the Mandi ERP system.\nClick OK when you want to stop the server.",
+                    APP_TITLE,
+                    0x40
+                )
+            except Exception:
+                while True:
+                    time.sleep(1)
+            sys.exit(0)
 
 if __name__ == "__main__":
     multiprocessing.freeze_support()

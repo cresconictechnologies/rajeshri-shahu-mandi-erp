@@ -3,6 +3,8 @@ Database module for Mandi / Commodity Trading ERP.
 Local-first SQLite with WAL mode, foreign keys, and seed data.
 """
 
+from __future__ import annotations
+
 import sqlite3
 import os
 import sys

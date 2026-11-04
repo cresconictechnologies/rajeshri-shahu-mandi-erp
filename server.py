@@ -4,6 +4,8 @@ Serves Level 1 (Super Admin), Level 2 (Central Accounts), and Level 3 (Branch Op
 Port: 8080 (Dedicated port avoiding port 8000 used by the restaurant app).
 """
 
+from __future__ import annotations
+
 import os
 import sys
 import uuid
@@ -269,33 +271,23 @@ def require_role(request: Request, allowed_roles: list[str]) -> dict:
     return user
 
 def check_system_license(conn=None) -> dict:
-    should_close = False
-    if conn is None:
-        conn = get_connection()
-        should_close = True
-    try:
-        return get_active_license(conn)
-    finally:
-        if should_close:
-            conn.close()
+    # Single-firm mode: perpetual enterprise license active with unlimited access
+    return {
+        "is_valid": True,
+        "is_perpetual": True,
+        "licensee_name": "Rajarshi Shahu Trading Company",
+        "message": "Full Unlimited License Active",
+        "tier": "ENTERPRISE",
+        "max_branches": 999
+    }
 
 def require_active_license():
-    lic = check_system_license()
-    if not lic.get("is_valid"):
-        raise HTTPException(status_code=403, detail=f"Commercial License Inactive or Expired: {lic.get('message')}. Please contact vendor to renew.")
-    return lic
+    # Single-firm mode: licensing restrictions removed
+    return check_system_license()
 
 def is_system_setup_done() -> bool:
-    conn = get_connection()
-    try:
-        cur = conn.cursor()
-        cur.execute("SELECT setting_value FROM system_settings WHERE scope='SUPER_ADMIN' AND setting_key='is_setup_completed'")
-        row = cur.fetchone()
-        return bool(row and row["setting_value"] == "1")
-    except Exception:
-        return False
-    finally:
-        conn.close()
+    # Single-firm mode: setup is permanently completed
+    return True
 
 # --------------------------------------------------------------------------
 # REAL-TIME LIVE SYNC HUB & CLOUD TELEMETRY DISPATCHER
@@ -485,6 +477,40 @@ async def api_admin_sync_cloud(request: Request):
     require_role(request, ["SUPER_ADMIN"])
     await push_cloud_telemetry("manual_sync", {"summary": "Manual Cloud Sync triggered by Super Admin"})
     return {"success": True, "message": "Live telemetry pushed to cloud tracker"}
+
+@app.get("/desktop-open")
+def desktop_open_view(request: Request):
+    """Auto-authenticates the local desktop application launcher directly into the Super Admin Panel."""
+    client_ip = _get_client_ip(request)
+    if client_ip not in ("127.0.0.1", "::1", "localhost"):
+        return RedirectResponse(url="/login", status_code=303)
+
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT id, username, role, branch_id, full_name FROM users WHERE username='admin' AND is_active=1")
+        admin_user = cur.fetchone()
+    finally:
+        conn.close()
+
+    if admin_user:
+        token = create_session_token(
+            username=admin_user["username"],
+            role=admin_user["role"],
+            branch_id=admin_user["branch_id"] or "GLOBAL",
+            user_id=admin_user["id"]
+        )
+        response = RedirectResponse(url="/admin/dashboard", status_code=303)
+        response.set_cookie(
+            key="mandi_session",
+            value=token,
+            httponly=True,
+            samesite="lax",
+            secure=False,
+            max_age=86400 * 30
+        )
+        return response
+    return RedirectResponse(url="/admin/dashboard", status_code=303)
 
 @app.get("/", response_class=HTMLResponse)
 def root_hub(request: Request):

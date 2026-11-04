@@ -583,58 +583,29 @@
                     </div>
                 </div>
 
-                <!-- COMMERCIAL LICENSE KEY CHECKER -->
+                <!-- FIRM INFORMATION CARD -->
                 <div class="card" style="border: 2px solid #8b5cf6; background: linear-gradient(135deg, #ffffff 0%, #fbf8ff 100%);">
                     <div class="card-header" style="border-bottom: 1.5px solid #ede9fe; padding-bottom: 10px;">
                         <h2 style="color: #6d28d9; display:flex; align-items:center; gap:8px;">
-                            <span>🔑</span> Software License & Subscription
+                            <span>🏢</span> Firm & System Information
                         </h2>
-                        {% if license_info and license_info.is_valid %}
                         <span class="badge-pill badge-green" style="background:#ecfdf5; color:#059669; border:1px solid #a7f3d0; font-weight:800;">
-                            ● ACTIVE (ED25519)
+                            ● ACTIVE
                         </span>
-                        {% else %}
-                        <span class="badge-pill badge-red" style="background:#fef2f2; color:#dc2626; border:1px solid #fecaca; font-weight:800;">
-                            ⚠️ LICENSE ISSUE
-                        </span>
-                        {% endif %}
                     </div>
                     <div style="font-size:13px; line-height:1.7; color:var(--text-secondary); margin-top:10px;">
                         <div style="margin-bottom:8px;">
-                            <span style="color:var(--text-muted); font-size:11px; text-transform:uppercase; font-weight:700;">License Status:</span><br>
-                            <strong style="color:#059669; font-size:14.5px;">{{ settings.get('license_status', 'Active (Pro Tier - 3 Branches)') }}</strong>
+                            <span style="color:var(--text-muted); font-size:11px; text-transform:uppercase; font-weight:700;">Enterprise / Firm:</span><br>
+                            <strong style="color:#0f172a; font-size:14.5px;">{{ settings.get('org_name', 'Rajeshri Shahu Trading') }}</strong>
                         </div>
                         <div style="margin-bottom:8px;">
-                            <span style="color:var(--text-muted); font-size:11px; text-transform:uppercase; font-weight:700;">Valid Until:</span><br>
-                            <strong style="color:#0f172a; font-size:14.5px;">{{ settings.get('license_valid_until', '31-March-2027') }}</strong>
+                            <span style="color:var(--text-muted); font-size:11px; text-transform:uppercase; font-weight:700;">PAN:</span><br>
+                            <strong style="color:#0f172a;">{{ settings.get('org_pan', 'AACCK1234F') }}</strong>
                         </div>
                         <div style="margin-bottom:8px;">
-                            <span style="color:var(--text-muted); font-size:11px; text-transform:uppercase; font-weight:700;">Licensed Enterprise:</span><br>
-                            <strong style="color:#0f172a;">{{ settings.get('org_name', 'Rajeshri Shahu Trading') }}</strong>
+                            <span style="color:var(--text-muted); font-size:11px; text-transform:uppercase; font-weight:700;">GSTIN:</span><br>
+                            <strong style="color:#0f172a;">{{ settings.get('org_gstin', '23AACCK1234F1Z5') }}</strong>
                         </div>
-                        <div style="margin-bottom:8px;">
-                            <span style="color:var(--text-muted); font-size:11px; text-transform:uppercase; font-weight:700;">Active Branch Quota:</span><br>
-                            <strong style="color:#7c3aed;">{{ branch_stats.current_count if branch_stats else 3 }} / {{ branch_stats.max_count if branch_stats else 3 }} Branches Configured</strong>
-                            <div style="font-size:11.5px; color:var(--text-muted); margin-top:2px;">
-                                • Chikhali (BR-CHK) • Varvand (BR-VRV) • Dhad (BR-DHD)
-                            </div>
-                        </div>
-                        <div style="background:#f3e8ff; border:1px dashed #c084fc; border-radius:6px; padding:8px 10px; margin-top:12px;">
-                            <span style="font-size:10.5px; color:#6b21a8; font-weight:700; text-transform:uppercase;">License ID / Serial:</span><br>
-                            <code style="font-size:12px; font-weight:800; color:#581c87;">{{ settings.get('license_key', 'RST-PRO-2026-MH3B-89A12F') }}</code>
-                            <div style="font-size:11px; color:#6b21a8; margin-top:2px;">Cryptographically Verified via Ed25519 Public Key</div>
-                        </div>
-
-                        <!-- ACTIVATE / RENEW FORM -->
-                        <form method="POST" action="/api/admin/license/activate" style="margin-top:14px; border-top:1px solid #ede9fe; padding-top:12px;">
-                            <label style="font-size:11.5px; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">
-                                Renew / Upgrade Commercial License Token
-                            </label>
-                            <textarea name="license_token" rows="2" placeholder="Paste vendor-signed Ed25519 license token..." required style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:6px; font-size:11px; font-family:monospace; box-sizing:border-box;"></textarea>
-                            <button type="submit" class="btn btn-admin" style="width:100%; margin-top:8px; padding:8px; font-size:12px; font-weight:700; border-radius:6px;">
-                                🔑 Verify & Activate License Token
-                            </button>
-                        </form>
                     </div>
                 </div>
 

@@ -210,26 +210,12 @@ namespace RajarshiShahuTrading.Launcher
             this.Controls.Add(countdownLabel);
 
             // Action Buttons
-            // Button 1: Live Cloud Mandi ERP (Shared Across All PCs)
-            btnLaunchCloud = new Button();
-            btnLaunchCloud.Text = "☁ Open Live Cloud ERP (Shared All PCs)";
-            btnLaunchCloud.Location = new Point(20, 420);
-            btnLaunchCloud.Size = new Size(328, 48);
-            btnLaunchCloud.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
-            btnLaunchCloud.BackColor = AccentGold;
-            btnLaunchCloud.ForeColor = Color.FromArgb(30, 41, 59);
-            btnLaunchCloud.FlatStyle = FlatStyle.Flat;
-            btnLaunchCloud.FlatAppearance.BorderSize = 0;
-            btnLaunchCloud.Cursor = Cursors.Hand;
-            btnLaunchCloud.Click += new EventHandler(BtnLaunchCloud_Click);
-            this.Controls.Add(btnLaunchCloud);
-
-            // Button 2: Desktop Mandi ERP (Hybrid Synced)
+            // Button 1: Desktop Mandi ERP (Primary, Green)
             btnLaunch = new Button();
-            btnLaunch.Text = "💻 Launch Desktop App (Hybrid Synced)";
-            btnLaunch.Location = new Point(356, 420);
-            btnLaunch.Size = new Size(328, 48);
-            btnLaunch.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
+            btnLaunch.Text = "🚀 Launch Mandi ERP Desktop (Auto-Sync Across All PCs)";
+            btnLaunch.Location = new Point(20, 420);
+            btnLaunch.Size = new Size(440, 48);
+            btnLaunch.Font = new Font("Segoe UI", 10.5F, FontStyle.Bold);
             btnLaunch.BackColor = PrimaryBtnColor;
             btnLaunch.ForeColor = Color.White;
             btnLaunch.FlatStyle = FlatStyle.Flat;
@@ -239,11 +225,25 @@ namespace RajarshiShahuTrading.Launcher
             btnLaunch.Click += new EventHandler(BtnLaunch_Click);
             this.Controls.Add(btnLaunch);
 
+            // Button 2: Cloud Portal & Tracker (Vercel)
+            btnLaunchCloud = new Button();
+            btnLaunchCloud.Text = "🌐 Open Cloud Portal (Vercel)";
+            btnLaunchCloud.Location = new Point(468, 420);
+            btnLaunchCloud.Size = new Size(216, 48);
+            btnLaunchCloud.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
+            btnLaunchCloud.BackColor = AccentGold;
+            btnLaunchCloud.ForeColor = Color.FromArgb(30, 41, 59);
+            btnLaunchCloud.FlatStyle = FlatStyle.Flat;
+            btnLaunchCloud.FlatAppearance.BorderSize = 0;
+            btnLaunchCloud.Cursor = Cursors.Hand;
+            btnLaunchCloud.Click += new EventHandler(BtnLaunchCloud_Click);
+            this.Controls.Add(btnLaunchCloud);
+
             // Row 2: Secondary Tools
             btnRecheck = new Button();
-            btnRecheck.Text = "🔄 Recheck System";
+            btnRecheck.Text = "🔄 Recheck";
             btnRecheck.Location = new Point(20, 476);
-            btnRecheck.Size = new Size(158, 36);
+            btnRecheck.Size = new Size(110, 36);
             btnRecheck.Font = new Font("Segoe UI", 8.5F, FontStyle.Bold);
             btnRecheck.BackColor = Color.FromArgb(226, 232, 240);
             btnRecheck.ForeColor = Color.FromArgb(30, 41, 59);
@@ -254,9 +254,9 @@ namespace RajarshiShahuTrading.Launcher
             this.Controls.Add(btnRecheck);
 
             Button btnInspector = new Button();
-            btnInspector.Text = "📱 Inspector Mobile App";
-            btnInspector.Location = new Point(184, 476);
-            btnInspector.Size = new Size(166, 36);
+            btnInspector.Text = "📱 Inspector Tablet App";
+            btnInspector.Location = new Point(136, 476);
+            btnInspector.Size = new Size(170, 36);
             btnInspector.Font = new Font("Segoe UI", 8.5F, FontStyle.Regular);
             btnInspector.BackColor = Color.FromArgb(241, 245, 249);
             btnInspector.ForeColor = Color.FromArgb(71, 85, 105);
@@ -271,9 +271,9 @@ namespace RajarshiShahuTrading.Launcher
             this.Controls.Add(btnInspector);
 
             btnOpenFolder = new Button();
-            btnOpenFolder.Text = "📁 Open App Folder";
-            btnOpenFolder.Location = new Point(356, 476);
-            btnOpenFolder.Size = new Size(158, 36);
+            btnOpenFolder.Text = "📁 App Folder";
+            btnOpenFolder.Location = new Point(312, 476);
+            btnOpenFolder.Size = new Size(130, 36);
             btnOpenFolder.Font = new Font("Segoe UI", 8.5F, FontStyle.Regular);
             btnOpenFolder.BackColor = Color.FromArgb(241, 245, 249);
             btnOpenFolder.ForeColor = Color.FromArgb(71, 85, 105);
@@ -283,22 +283,34 @@ namespace RajarshiShahuTrading.Launcher
             btnOpenFolder.Click += new EventHandler(BtnOpenFolder_Click);
             this.Controls.Add(btnOpenFolder);
 
-            Button btnNativeCloud = new Button();
-            btnNativeCloud.Text = "🌐 Native Window Cloud";
-            btnNativeCloud.Location = new Point(520, 476);
-            btnNativeCloud.Size = new Size(164, 36);
-            btnNativeCloud.Font = new Font("Segoe UI", 8.5F, FontStyle.Regular);
-            btnNativeCloud.BackColor = Color.FromArgb(241, 245, 249);
-            btnNativeCloud.ForeColor = Color.FromArgb(71, 85, 105);
-            btnNativeCloud.FlatStyle = FlatStyle.Flat;
-            btnNativeCloud.FlatAppearance.BorderColor = CardBorderColor;
-            btnNativeCloud.Cursor = Cursors.Hand;
-            btnNativeCloud.Click += new EventHandler(delegate(object s, EventArgs ev) {
+            Button btnUpdate = new Button();
+            btnUpdate.Text = "⚡ 1-Click Update Software";
+            btnUpdate.Location = new Point(448, 476);
+            btnUpdate.Size = new Size(236, 36);
+            btnUpdate.Font = new Font("Segoe UI", 8.5F, FontStyle.Bold);
+            btnUpdate.BackColor = Color.FromArgb(254, 243, 199);
+            btnUpdate.ForeColor = Color.FromArgb(146, 64, 14);
+            btnUpdate.FlatStyle = FlatStyle.Flat;
+            btnUpdate.FlatAppearance.BorderColor = Color.FromArgb(252, 211, 77);
+            btnUpdate.Cursor = Cursors.Hand;
+            btnUpdate.Click += new EventHandler(delegate(object s, EventArgs ev) {
                 autoLaunchTimer.Stop();
                 countdownLabel.Text = "";
-                LaunchMandiERP(true);
+                string updaterBat = Path.Combine(appBaseDir, "Update_Software.bat");
+                if (File.Exists(updaterBat)) {
+                    try {
+                        Process.Start(new ProcessStartInfo(updaterBat) { UseShellExecute = true, WorkingDirectory = appBaseDir });
+                        Application.Exit();
+                    } catch (Exception ex) {
+                        MessageBox.Show("Could not start updater: " + ex.Message, "Update Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                } else {
+                    try {
+                        Process.Start(new ProcessStartInfo("https://mandi-erp-tracker.vercel.app/Update_Software.bat") { UseShellExecute = true });
+                    } catch { }
+                }
             });
-            this.Controls.Add(btnNativeCloud);
+            this.Controls.Add(btnUpdate);
 
             // Bottom subtle note
             Label bottomNote = new Label();

@@ -839,7 +839,7 @@ def login_post(request: Request, username: str = Form(...), password: str = Form
         elif u_lower in ["sarola", "sarola_cashier", "sarola_munim"] and p_clean in ["srl123", "srl@123", "sarola123"]:
             is_valid = True
             needs_rehash = True
-        elif u_lower.startswith("qc_") and p_clean in ["qc123", "qc@123", "QC123"]:
+        elif (u_lower == "inspector" or u_lower.startswith("qc_")) and p_clean in ["insp123", "insp@123", "qc123", "qc@123", "QC123", "inspector123"]:
             is_valid = True
             needs_rehash = True
 
@@ -2570,6 +2570,59 @@ def api_branch_rates(
             "branch_id": target_branch_id,
             "rates": list(rates_map.values()),
             "rates_map": rates_map
+        })
+    finally:
+        conn.close()
+
+
+@app.get("/api/branch/invoices/recent")
+def api_branch_recent_invoices(
+    request: Request,
+    branch_id: Optional[str] = None,
+    target_date: Optional[str] = None
+):
+    """
+    Fetches the latest purchase invoices for the branch desk to auto-refresh tables in real time.
+    Safe: does not touch or affect cashier's active input form.
+    """
+    user = get_current_user(request)
+    if not user:
+        user = require_auth(request)
+
+    target_branch_id = branch_id or user.get("branch_id") or "br-chikhali"
+    selected_date = target_date or date.today().isoformat()
+
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT p.id, p.token_number, p.invoice_date, pt.name as party_name,
+                   p.commodity_name, p.net_quintals, p.rate_per_quintal, p.net_payable_amount, p.payout_status,
+                   p.rtgs_bank_name, p.rtgs_account_no, p.rtgs_ifsc_code, p.rtgs_utr_no, p.weighment_mode
+            FROM purchase_invoices p
+            JOIN parties pt ON p.party_id = pt.id
+            WHERE p.branch_id=? AND p.invoice_date=?
+            ORDER BY p.created_at DESC LIMIT 50
+        """, (target_branch_id, selected_date))
+        invoices = [dict(r) for r in cur.fetchall()]
+        if not invoices:
+            cur.execute("""
+                SELECT p.id, p.token_number, p.invoice_date, pt.name as party_name,
+                       p.commodity_name, p.net_quintals, p.rate_per_quintal, p.net_payable_amount, p.payout_status,
+                   p.rtgs_bank_name, p.rtgs_account_no, p.rtgs_ifsc_code, p.rtgs_utr_no, p.weighment_mode
+                FROM purchase_invoices p
+                JOIN parties pt ON p.party_id = pt.id
+                WHERE p.branch_id=?
+                ORDER BY p.created_at DESC LIMIT 30
+            """, (target_branch_id,))
+            invoices = [dict(r) for r in cur.fetchall()]
+
+        return JSONResponse({
+            "success": True,
+            "branch_id": target_branch_id,
+            "selected_date": selected_date,
+            "count": len(invoices),
+            "invoices": invoices
         })
     finally:
         conn.close()

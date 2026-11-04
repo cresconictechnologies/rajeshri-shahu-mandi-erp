@@ -1065,7 +1065,7 @@
                     {% if selected_date and today_str and selected_date != today_str %}
                     <span class="badge-pill badge-blue">Date: {{ selected_date }}</span>
                     {% endif %}
-                    <span class="badge-pill badge-blue">{{ recent_invoices|length }} Inward Purchases</span>
+                    <span id="recent-invoices-badge" class="badge-pill badge-blue">{{ recent_invoices|length }} Inward Purchases</span>
                 </div>
             </div>
 
@@ -1085,7 +1085,7 @@
                             <th style="text-align:center;">Action</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody id="recent-invoices-tbody">
                         {% if recent_invoices %}
                         {% for inv in recent_invoices %}
                         <tr>
@@ -1716,7 +1716,14 @@
                 }
             });
 
-            // Active rate auto-refresher across internet
+            // Safe Rate & Entry Auto-Refresher (Runs in background without harming ongoing user entries)
+            let isUserEditingRate = false;
+            const rateInputEl = document.getElementById('rate_per_quintal');
+            if (rateInputEl) {
+                rateInputEl.addEventListener('input', () => { isUserEditingRate = true; });
+                rateInputEl.addEventListener('focus', () => { isUserEditingRate = true; });
+            }
+
             async function refreshBranchRates() {
                 try {
                     const bId = document.getElementById('branch_id')?.value || '{{ current_branch.id }}';
@@ -1726,6 +1733,16 @@
                     if (data.success && Array.isArray(data.rates)) {
                         data.rates.forEach(r => {
                             const comm = r.commodity_name;
+                            // 1. Update in-memory dailyRates
+                            if (typeof dailyRates !== 'undefined' && Array.isArray(dailyRates)) {
+                                const ex = dailyRates.find(item => item.commodity_name === comm);
+                                if (ex) {
+                                    ex.min_rate_per_qtl = r.min_rate_per_qtl;
+                                    ex.target_rate_per_qtl = r.target_rate_per_qtl;
+                                    ex.max_rate_per_qtl = r.max_rate_per_qtl;
+                                }
+                            }
+                            // 2. Update commodity selector cards
                             const card = document.querySelector(`.commodity-card[data-name="${comm}"]`);
                             if (card) {
                                 card.dataset.min = r.min_rate_per_qtl;
@@ -1737,13 +1754,93 @@
                                 if (pr) pr.innerText = `₹${Math.round(r.min_rate_per_qtl).toLocaleString('en-IN')} – ₹${Math.round(r.max_rate_per_qtl).toLocaleString('en-IN')}`;
                             }
                         });
+
+                        // 3. SAFE FORM INPUT REFRESH:
+                        // Only update input if cashier is NOT currently editing it
+                        const currentComm = document.getElementById('commodity_name')?.value;
+                        const activeRate = data.rates.find(r => r.commodity_name === currentComm);
+                        if (activeRate && rateInputEl) {
+                            if (!isUserEditingRate && document.activeElement !== rateInputEl && (!rateInputEl.value || rateInputEl.value === '0')) {
+                                rateInputEl.value = activeRate.target_rate_per_qtl;
+                                if (typeof checkRateAndRecalculate === 'function') checkRateAndRecalculate();
+                            }
+                        }
                     }
                 } catch (e) {
                     console.debug('Active rate auto-refresh notice:', e);
                 }
             }
-            window.addEventListener('focus', refreshBranchRates);
-            setInterval(refreshBranchRates, 30000);
+
+            // Auto-refresh branch purchase entries without touching active forms
+            async function refreshBranchEntries() {
+                // Safeguard: Do not refresh if user has open modal or form is submitting
+                const modalOpen = document.querySelector('.modal.active') || document.querySelector('.modal[style*="display: block"]');
+                if (modalOpen) return;
+
+                try {
+                    const bId = document.getElementById('branch_id')?.value || '{{ current_branch.id }}';
+                    const dateInput = document.querySelector('input[name="target_date"]');
+                    const targetDate = dateInput ? dateInput.value : '';
+                    const res = await fetch(`/api/branch/invoices/recent?branch_id=${encodeURIComponent(bId)}&target_date=${encodeURIComponent(targetDate)}`);
+                    if (!res.ok) return;
+                    const data = await res.json();
+                    if (data.success && Array.isArray(data.invoices)) {
+                        const tbody = document.getElementById('recent-invoices-tbody');
+                        const badge = document.getElementById('recent-invoices-badge');
+                        if (badge) badge.innerText = `${data.invoices.length} Inward Purchases`;
+                        if (!tbody) return;
+
+                        if (data.invoices.length === 0) {
+                            tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding:32px; color:var(--text-muted);">No purchases recorded for this date.</td></tr>';
+                            return;
+                        }
+
+                        let html = '';
+                        data.invoices.forEach(inv => {
+                            const qtl = Number(inv.net_quintals || 0).toFixed(2);
+                            const rate = Math.round(Number(inv.rate_per_quintal || 0)).toLocaleString('en-IN');
+                            const net = Number(inv.net_payable_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                            const isYard = inv.weighment_mode === 'MANUAL_YARD';
+                            const modeBadge = isYard 
+                                ? '<span class="badge-pill badge-green" style="font-size:11px;">Yard Scale</span>'
+                                : '<span class="badge-pill badge-blue" style="font-size:11px;">Weighbridge</span>';
+
+                            let statusBadge = '<span class="badge-pill badge-red">Pending</span>';
+                            if (inv.payout_status === 'PAID') {
+                                statusBadge = '<span class="badge-pill badge-green">✓ Cash Disbursed</span>';
+                            } else if (inv.payout_status === 'RTGS_PENDING') {
+                                statusBadge = '<span class="badge-pill badge-amber">⏳ RTGS at HQ</span>';
+                            } else if (inv.payout_status === 'SETTLED') {
+                                statusBadge = '<span class="badge-pill badge-green">✓ RTGS Settled</span>';
+                            }
+
+                            html += `<tr>
+                                <td><strong>${inv.token_number}</strong></td>
+                                <td style="font-size:11.5px; color:var(--text-muted);">${inv.invoice_date}</td>
+                                <td>${inv.party_name || '--'}</td>
+                                <td>${inv.commodity_name || '--'}</td>
+                                <td>${modeBadge}</td>
+                                <td style="text-align:right;">${qtl} Qtl</td>
+                                <td style="text-align:right;">₹${rate}</td>
+                                <td style="text-align:right; font-weight:800; color:#0f172a;">₹${net}</td>
+                                <td style="text-align:center;">${statusBadge}</td>
+                                <td style="text-align:center;">
+                                    <button class="btn btn-secondary" onclick="viewParchiSlip('${inv.token_number}')" style="padding:4px 8px; font-size:11px;">
+                                        🖨️ View Parchi
+                                    </button>
+                                </td>
+                            </tr>`;
+                        });
+                        tbody.innerHTML = html;
+                    }
+                } catch (e) {
+                    console.debug('Entries background refresh notice:', e);
+                }
+            }
+
+            // Auto-refresh interval (15 seconds) - rates and entries
+            window.addEventListener('focus', () => { refreshBranchRates(); refreshBranchEntries(); });
+            setInterval(() => { refreshBranchRates(); refreshBranchEntries(); }, 15000);
 
             // On rtgs_processed: show toast notification with UTR number for that branch
             MandiLiveSync.on('rtgs_processed', function(data) {

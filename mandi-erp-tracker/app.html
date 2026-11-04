@@ -167,15 +167,15 @@
                 🔒 Security Policy: Yard branch allocation is provisioned exclusively by the HQ Accountant. Inspectors cannot alter their branch or hop yards.
             </div>
 
-            <form onsubmit="handleLoginSubmit(event)" class="space-y-4">
+            <form onsubmit="handleLoginSubmit(event); return false;" action="javascript:void(0);" class="space-y-4">
                 <div>
                     <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Inspector Username *</label>
-                    <input id="loginUsername" type="text" required placeholder="Enter username (e.g. qc_chikhali)" class="w-full text-sm font-semibold bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-slate-900 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 outline-none transition">
+                    <input id="loginUsername" type="text" required placeholder="Enter username (e.g. inspector or qc_chikhali)" class="w-full text-sm font-semibold bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-slate-900 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 outline-none transition">
                 </div>
 
                 <div>
                     <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Password *</label>
-                    <input id="loginPassword" type="password" required placeholder="••••••••" class="w-full text-sm font-semibold bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-slate-900 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 outline-none transition">
+                    <input id="loginPassword" type="password" required placeholder="Enter your password" class="w-full text-sm font-semibold bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-slate-900 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 outline-none transition">
                 </div>
 
                 <div id="loginError" class="hidden text-xs text-red-600 bg-red-50 p-2.5 rounded-xl border border-red-200 font-semibold text-center"></div>
@@ -532,15 +532,23 @@ Mandi Cess       : 0% (APMC Deregulated)
     <script>
         // Authentication & Session Management (Provisioned exclusively by HQ Accountant)
         const STAFF_CREDENTIALS = {
-            'qc_chikhali': { pass: 'qc123', name: 'Babulal Meena', yard: 'CHK', yardName: 'Chikhali APMC Yard' },
-            'qc_varvand': { pass: 'qc123', name: 'Govind Solanki', yard: 'VRV', yardName: 'Varvand APMC Yard' },
-            'qc_dhad': { pass: 'qc123', name: 'Narayan Sharma', yard: 'DHD', yardName: 'Dhad APMC Yard' },
-            'admin': { pass: 'admin123', name: 'Super Admin', yard: 'CHK', yardName: 'Chikhali APMC Yard' }
+            'inspector': { pass: ['insp123', 'qc123', 'insp@123', 'inspector123'], name: 'Universal Quality Inspector', yard: 'CHK', yardName: 'Chikhali APMC Yard' },
+            'qc_chikhali': { pass: ['insp123', 'qc123', 'chk123'], name: 'Babulal Meena', yard: 'CHK', yardName: 'Chikhali APMC Yard' },
+            'chikhali': { pass: ['chk123', 'chk@123', 'chikhali123', 'insp123', 'qc123'], name: 'Babulal Meena (Chikhali)', yard: 'CHK', yardName: 'Chikhali APMC Yard' },
+            'qc_varvand': { pass: ['insp123', 'qc123', 'vrv123'], name: 'Govind Solanki', yard: 'VRV', yardName: 'Varvand APMC Yard' },
+            'varvand': { pass: ['vrv123', 'vrv@123', 'varvand123', 'insp123', 'qc123'], name: 'Govind Solanki (Varvand)', yard: 'VRV', yardName: 'Varvand APMC Yard' },
+            'qc_sarola': { pass: ['insp123', 'qc123', 'srl123'], name: 'Ganesh Deshmukh', yard: 'SRL', yardName: 'Sarola Maruti APMC Yard' },
+            'sarola': { pass: ['srl123', 'srl@123', 'sarola123', 'insp123', 'qc123'], name: 'Ganesh Deshmukh (Sarola)', yard: 'SRL', yardName: 'Sarola Maruti APMC Yard' },
+            'qc_dhad': { pass: ['insp123', 'qc123', 'dhd123'], name: 'Narayan Sharma', yard: 'DHD', yardName: 'Dhad APMC Yard' },
+            'admin': { pass: ['admin123', 'admin@123', 'Admin123'], name: 'Super Admin', yard: 'CHK', yardName: 'Chikhali APMC Yard' },
+            'suraj': { pass: ['suraj123', 'Suraj@123', 'acc123', 'suraj@123', 'Suraj123'], name: 'Suraj (Chief Accountant)', yard: 'CHK', yardName: 'Chikhali APMC Yard' },
+            'accountant': { pass: ['suraj123', 'acc123', 'Suraj@123', 'suraj@123'], name: 'Chief Accountant (HQ)', yard: 'CHK', yardName: 'Chikhali APMC Yard' }
         };
 
         const YARD_NAMES = {
             'CHK': 'Chikhali APMC Yard',
             'VRV': 'Varvand APMC Yard',
+            'SRL': 'Sarola Maruti APMC Yard',
             'DHD': 'Dhad APMC Yard'
         };
 
@@ -621,8 +629,10 @@ Mandi Cess       : 0% (APMC Deregulated)
             const password = document.getElementById('loginPassword').value.trim();
             const errEl = document.getElementById('loginError');
 
-            const staff = STAFF_CREDENTIALS[username];
-            if (!staff || staff.pass !== password) {
+            const uKey = username.toLowerCase();
+            const staff = STAFF_CREDENTIALS[uKey] || STAFF_CREDENTIALS[username];
+            const isPwValid = staff && (Array.isArray(staff.pass) ? staff.pass.includes(password) : staff.pass === password);
+            if (!staff || !isPwValid) {
                 errEl.innerText = 'Invalid username or password. Please verify credentials with HQ Accountant.';
                 errEl.classList.remove('hidden');
                 return;
@@ -1270,14 +1280,6 @@ Mandi Cess       : 0% (APMC Deregulated)
             const inspectorName = user ? user.name : 'Babulal Meena';
             generateNewTicketNumber(yardCode);
             updateSlipMetadata(yardCode, yardName, inspectorName);
-        }
-            const slipGrade = document.getElementById('slipGrade');
-            if (slipGrade) slipGrade.innerText = grade;
-
-            const valRateEl = document.getElementById('valRate');
-            if (valRateEl) valRateEl.innerText = `₹ ${rate.toLocaleString('en-IN')}`;
-            const slipRateEl = document.getElementById('slipRate');
-            if (slipRateEl) slipRateEl.innerText = `Rs. ${rate.toLocaleString('en-IN')}.00 / Quintal`;
         }
 
         function printSlip() {

@@ -1,0 +1,1613 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-100 text-slate-800">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    
+    <title>Rajarshi Shahu Trading — Multi-Role Web ERP Portal (Branches, Accounts & Admin)</title>
+    <meta name="description" content="Commercial Multi-Branch APMC Mandi ERP Web Portal for Rajarshi Shahu Trading. Single cloud sign-in for Branch Cashier, HQ Chief Accountant, and Super Admin.">
+    
+    <!-- PWA Manifest & App Configuration -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#059669">
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+    <link rel="apple-touch-icon" href="/icons/icon-192.png">
+
+    <!-- Fonts: Outfit (Display & Numbers) + Plus Jakarta Sans (Clean Modern UI) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
+                        display: ['"Outfit"', 'sans-serif'],
+                        mono: ['"JetBrains Mono"', 'monospace'],
+                    },
+                    colors: {
+                        emerald: {
+                            50: '#ecfdf5',
+                            100: '#d1fae5',
+                            200: '#a7f3d0',
+                            300: '#6ee7b7',
+                            400: '#34d399',
+                            500: '#10b981',
+                            600: '#059669',
+                            700: '#047857',
+                            800: '#065f46',
+                            900: '#064e3b',
+                            950: '#022c22',
+                        },
+                        amber: {
+                            50: '#fffbeb',
+                            100: '#fef3c7',
+                            200: '#fde68a',
+                            500: '#f59e0b',
+                            600: '#d97706',
+                            700: '#b45309',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        * { -webkit-tap-highlight-color: transparent; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        @media print {
+            body * { visibility: hidden; }
+            #printableSlip, #printableSlip * { visibility: visible; }
+            #printableSlip { position: absolute; left: 0; top: 0; width: 100%; }
+        }
+        .pulse-subtle {
+            animation: pulse-border 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse-border {
+            0%, 100% { border-color: #10b981; }
+            50% { border-color: #6ee7b7; }
+        }
+    </style>
+</head>
+
+<body class="h-full bg-slate-100 flex flex-col font-sans antialiased text-slate-800">
+
+    <!-- TOP GLOBAL NAVIGATION BAR -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <a href="/" class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white flex items-center justify-center font-bold text-xl shadow-md">
+                    🌾
+                </a>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <span class="font-display font-extrabold text-slate-900 text-lg leading-tight">Rajarshi Shahu Trading</span>
+                        <span class="hidden sm:inline-block px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide bg-emerald-100 text-emerald-800 rounded-md border border-emerald-300">Web ERP Cloud</span>
+                    </div>
+                    <p class="text-xs text-slate-500 font-medium">Multi-Branch Mandi Procurement & Central Accounting</p>
+                </div>
+            </div>
+
+            <div class="flex items-center space-x-2 sm:space-x-4">
+                <!-- User Profile / Session Badge -->
+                <div id="navUserBadge" class="hidden items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold">
+                    <span id="navRoleIcon">👑</span>
+                    <div>
+                        <div id="navUserName" class="text-slate-900 font-bold leading-tight">User</div>
+                        <div id="navBranchName" class="text-slate-500 text-[10px]">Branch</div>
+                    </div>
+                    <button onclick="handlePortalLogout()" class="ml-2 text-slate-400 hover:text-red-600 p-1 rounded-lg transition" title="Log Out">
+                        🚪
+                    </button>
+                </div>
+
+                <!-- Inspector Tablet Link -->
+                <a href="/app" target="_blank" class="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition">
+                    <span>🔬</span> Yard Inspector PWA
+                </a>
+
+                <!-- Home Link -->
+                <a href="/" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition">
+                    <span>🏠</span> Home
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN VIEW CONTAINER -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6">
+
+        <!-- ========================================================================= -->
+        <!-- 1. SINGLE UNIFIED LOGIN PORTAL (WHEN NOT AUTHENTICATED)                   -->
+        <!-- ========================================================================= -->
+        <div id="portalLoginView" class="max-w-md mx-auto my-6 sm:my-10 bg-white rounded-3xl p-6 sm:p-8 shadow-xl border border-slate-200">
+            <div class="text-center space-y-2 mb-6">
+                <div class="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white flex items-center justify-center text-3xl shadow-lg shadow-emerald-600/20">
+                    🌾
+                </div>
+                <h1 class="font-display font-extrabold text-2xl text-slate-900">Sign In to Web ERP</h1>
+                <p class="text-xs text-slate-500 font-medium">Single Portal Access for Branches, Accountants & Admins</p>
+                <div class="inline-block px-3 py-1 text-[11px] font-bold bg-emerald-50 text-emerald-700 rounded-full border border-emerald-200">
+                    ⚡ Live Supabase Cloud Sync
+                </div>
+            </div>
+
+            <!-- Role Selector Tabs -->
+            <div class="grid grid-cols-3 gap-1 p-1 bg-slate-100 rounded-2xl mb-5 text-xs font-bold">
+                <button type="button" onclick="selectLoginRole('branch')" id="tabBranch" class="py-2 rounded-xl transition bg-white text-emerald-700 shadow-sm">
+                    🏪 Branch
+                </button>
+                <button type="button" onclick="selectLoginRole('accountant')" id="tabAccountant" class="py-2 rounded-xl transition text-slate-600 hover:text-slate-900">
+                    💼 Accounts
+                </button>
+                <button type="button" onclick="selectLoginRole('admin')" id="tabAdmin" class="py-2 rounded-xl transition text-slate-600 hover:text-slate-900">
+                    👑 Admin
+                </button>
+            </div>
+
+            <!-- Login Form -->
+            <form onsubmit="handleLoginSubmit(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Staff Username *</label>
+                    <input id="loginUsername" type="text" required placeholder="e.g. chikhali, varvand, accountant, admin" class="w-full text-sm font-semibold bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-slate-900 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 outline-none transition">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Password *</label>
+                    <input id="loginPassword" type="password" required placeholder="Enter password" class="w-full text-sm font-semibold bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-slate-900 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 outline-none transition">
+                </div>
+
+                <div id="loginError" class="hidden text-xs text-red-600 bg-red-50 p-2.5 rounded-xl border border-red-200 font-semibold text-center"></div>
+
+                <button type="submit" id="btnLoginSubmit" class="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-display font-bold text-sm rounded-xl shadow-lg shadow-emerald-600/25 transition active:scale-95 cursor-pointer">
+                    Sign In to Portal →
+                </button>
+            </form>
+
+            <!-- Quick Auto-Fill Chips -->
+            <div class="mt-6 pt-5 border-t border-slate-100">
+                <div class="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">⚡ 1-Tap Quick Credentials:</div>
+                <div class="flex flex-wrap gap-1.5" id="quickCredsContainer">
+                    <!-- Populated dynamically by JS -->
+                </div>
+            </div>
+
+            <!-- Yard Inspector Link -->
+            <div class="mt-4 p-3 bg-slate-50 rounded-2xl border border-slate-200 text-center">
+                <span class="text-xs text-slate-600">Looking for Yard Quality Inspector Terminal?</span>
+                <a href="/app" class="block mt-1 text-xs font-bold text-emerald-700 hover:underline">
+                    🔬 Open Mobile Assayer PWA (/app) →
+                </a>
+            </div>
+        </div>
+
+        <!-- ========================================================================= -->
+        <!-- 2. AUTHENTICATED WORKSPACE CONTAINER                                      -->
+        <!-- ========================================================================= -->
+        <div id="portalWorkspaceView" class="hidden space-y-6">
+
+            <!-- ROLE SWITCHER & STATUS SUB-HEADER -->
+            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                <div class="flex items-center gap-3">
+                    <span id="panelRoleBadgeIcon" class="text-2xl p-2 bg-slate-50 rounded-xl border border-slate-200">🏪</span>
+                    <div>
+                        <h2 id="panelRoleTitle" class="font-display font-extrabold text-xl text-slate-900 leading-tight">Branch Cashier Desk</h2>
+                        <p id="panelRoleSubtitle" class="text-xs text-slate-500 font-medium">Weighbridge Inward Procurement & QC Ticket Settlement</p>
+                    </div>
+                </div>
+
+                <!-- Panel Quick Navigation Buttons -->
+                <div class="flex items-center gap-2">
+                    <button onclick="switchActivePanel('branch')" id="btnNavBranch" class="px-3 py-1.5 rounded-xl text-xs font-bold transition bg-emerald-600 text-white shadow-sm">
+                        🏪 Branch
+                    </button>
+                    <button onclick="switchActivePanel('accountant')" id="btnNavAccountant" class="px-3 py-1.5 rounded-xl text-xs font-bold transition bg-slate-100 text-slate-700 hover:bg-slate-200">
+                        💼 Accounts
+                    </button>
+                    <button onclick="switchActivePanel('admin')" id="btnNavAdmin" class="px-3 py-1.5 rounded-xl text-xs font-bold transition bg-slate-100 text-slate-700 hover:bg-slate-200">
+                        👑 Admin
+                    </button>
+                    <button onclick="refreshCurrentPanel()" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition" title="Refresh Data">
+                        🔄 Sync
+                    </button>
+                </div>
+            </div>
+
+            <!-- ===================================================================== -->
+            <!-- PANEL A: BRANCH CASHIER / WEIGHMENT DESK                              -->
+            <!-- ===================================================================== -->
+            <div id="panelBranchView" class="space-y-6">
+                <!-- Branch Selector & Today's Corridor Rates Ribbon -->
+                <div class="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-2xl p-4 space-y-3">
+                    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm font-bold text-slate-700">Active Mandi Branch:</span>
+                            <select id="branchSelect" onchange="handleBranchChange()" class="text-xs font-bold bg-white border border-slate-300 rounded-xl px-3 py-1.5 text-slate-900 outline-none">
+                                <option value="br-chikhali">Chikhali APMC Main Mandi</option>
+                                <option value="br-varvand">Varvand APMC Yard</option>
+                                <option value="br-sarola">Sarola Maruti APMC Yard</option>
+                                <option value="br-dhad">Dhad APMC Yard</option>
+                            </select>
+                        </div>
+                        <div class="text-xs font-semibold text-emerald-800 flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                            Live Mandi Corridor Rates:
+                        </div>
+                    </div>
+
+                    <!-- Live Rate Chips -->
+                    <div id="branchRatesRibbon" class="flex flex-wrap gap-2 text-xs font-bold">
+                        <!-- Populated by JS -->
+                        <span class="px-3 py-1 bg-white rounded-xl border border-slate-200 text-slate-600">Loading Cloud Rates...</span>
+                    </div>
+                </div>
+
+                <!-- REALTIME GATE QC TICKET INCOMING ALERT -->
+                <div id="branchQcAlertBox" class="hidden p-4 rounded-2xl bg-amber-50 border-2 border-amber-300 text-amber-900 shadow-sm animate-in fade-in duration-200">
+                    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center text-xl font-bold">
+                                🎫
+                            </div>
+                            <div>
+                                <div class="font-bold text-sm" id="qcAlertTitle">New Yard Ticket Ready for Weighment</div>
+                                <div class="text-xs text-amber-800" id="qcAlertSubtitle">Moisture & refractions analyzed by inspector</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button onclick="applyQcAlertToForm()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-md transition">
+                                ⚡ Load to Weighment Form
+                            </button>
+                            <button onclick="dismissQcAlert()" class="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold rounded-xl transition">
+                                Dismiss
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- WEIGHBRIDGE INWARD ENTRY FORM & CALCULATOR -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    
+                    <!-- Left 2 Cols: Form -->
+                    <div class="lg:col-span-2 bg-white rounded-3xl p-6 shadow-sm border border-slate-200 space-y-5">
+                        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                            <h3 class="font-display font-extrabold text-lg text-slate-900">Inward Farmer Weighment Entry</h3>
+                            <button type="button" onclick="openPendingQcModal()" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-bold hover:bg-emerald-100 transition">
+                                <span>🔍</span> View Yard Tickets (<span id="qcPendingCount">0</span>)
+                            </button>
+                        </div>
+
+                        <!-- Ticket Linking Banner -->
+                        <div id="linkedQcBanner" class="hidden p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-xs flex justify-between items-center text-emerald-900">
+                            <div class="flex items-center gap-2">
+                                <span class="text-base">✅</span>
+                                <div>Linked QC Ticket: <strong id="lblLinkedTicketNo">--</strong></div>
+                            </div>
+                            <button onclick="clearLinkedQcTicket()" class="text-[11px] text-red-600 hover:underline font-bold">Unlink</button>
+                        </div>
+
+                        <!-- Form Grid -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-semibold text-slate-700">
+                            <div>
+                                <label class="block uppercase tracking-wider mb-1">Farmer Full Name *</label>
+                                <input id="f_farmer_name" type="text" placeholder="e.g. Rameshwar Patil" class="w-full text-sm font-semibold bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-slate-900 focus:bg-white focus:border-emerald-500 outline-none">
+                            </div>
+
+                            <div>
+                                <label class="block uppercase tracking-wider mb-1">Farmer Mobile No</label>
+                                <input id="f_farmer_phone" type="tel" placeholder="10-digit mobile" class="w-full text-sm font-semibold bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-slate-900 focus:bg-white focus:border-emerald-500 outline-none">
+                            </div>
+
+                            <div>
+                                <label class="block uppercase tracking-wider mb-1">Village / Town *</label>
+                                <input id="f_farmer_village" type="text" placeholder="e.g. Varvand / Chikhali" class="w-full text-sm font-semibold bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-slate-900 focus:bg-white focus:border-emerald-500 outline-none">
+                            </div>
+
+                            <div>
+                                <label class="block uppercase tracking-wider mb-1">Vehicle Number *</label>
+                                <input id="f_vehicle_no" type="text" placeholder="e.g. MH-28-AB-1234" class="w-full text-sm font-semibold bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-slate-900 focus:bg-white focus:border-emerald-500 uppercase outline-none">
+                            </div>
+
+                            <div>
+                                <label class="block uppercase tracking-wider mb-1">Commodity Name *</label>
+                                <select id="f_commodity_name" onchange="handleCommodityChange()" class="w-full text-sm font-semibold bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-slate-900 focus:bg-white focus:border-emerald-500 outline-none">
+                                    <option value="Soyabean (Yellow)">Soyabean (Yellow)</option>
+                                    <option value="Chana (Desi)">Chana (Desi)</option>
+                                    <option value="Toor (White)">Toor (White)</option>
+                                    <option value="Wheat (Sharbati)">Wheat (Sharbati)</option>
+                                    <option value="Maize (Yellow)">Maize (Yellow)</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block uppercase tracking-wider mb-1">Gate QC Ticket No (Optional)</label>
+                                <div class="flex gap-1.5">
+                                    <input id="f_qc_ticket_no" type="text" placeholder="QC-CHK-..." class="flex-1 text-sm font-semibold bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-slate-900 focus:bg-white focus:border-emerald-500 uppercase outline-none">
+                                    <button type="button" onclick="lookupQcTicketManual()" class="px-3 bg-slate-800 text-white rounded-xl text-xs font-bold hover:bg-slate-900">Load</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Weights Grid -->
+                        <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-4">
+                            <div class="text-xs font-bold text-slate-500 uppercase tracking-wider">⚖️ Weighbridge Calibration:</div>
+                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-semibold">
+                                <div>
+                                    <label class="block mb-1">Gross Wt (kg) *</label>
+                                    <input id="f_gross_wt" type="number" step="1" oninput="calculateWeighment()" placeholder="0" class="w-full text-sm font-bold bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-900 outline-none">
+                                </div>
+                                <div>
+                                    <label class="block mb-1">Tare Wt (kg) *</label>
+                                    <input id="f_tare_wt" type="number" step="1" oninput="calculateWeighment()" placeholder="0" class="w-full text-sm font-bold bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-900 outline-none">
+                                </div>
+                                <div>
+                                    <label class="block mb-1">Karda Cut (kg)</label>
+                                    <input id="f_karda_wt" type="number" step="0.5" oninput="calculateWeighment()" placeholder="0" class="w-full text-sm font-bold bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-900 outline-none">
+                                </div>
+                                <div>
+                                    <label class="block mb-1">Net Quintals</label>
+                                    <div id="lblNetQtl" class="w-full text-sm font-extrabold bg-emerald-100 border border-emerald-300 rounded-xl px-3 py-2 text-emerald-900">0.00 Qtl</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Rates & Payment Mode -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-semibold">
+                            <div>
+                                <label class="block uppercase tracking-wider mb-1">Agreed Rate (₹ / Qtl) *</label>
+                                <input id="f_rate_per_qtl" type="number" step="5" oninput="calculateWeighment()" placeholder="e.g. 6850" class="w-full text-sm font-extrabold bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-slate-900 focus:border-emerald-500 outline-none">
+                                <div id="lblCorridorBounds" class="text-[11px] text-slate-500 mt-1">Today's Target: ₹6,850/Qtl (Min: ₹6,500 - Max: ₹7,500)</div>
+                            </div>
+
+                            <div>
+                                <label class="block uppercase tracking-wider mb-1">Payment Method</label>
+                                <select id="f_payout_mode" onchange="calculateWeighment()" class="w-full text-sm font-bold bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-slate-900 outline-none">
+                                    <option value="CASH">Cash (Strictly &lt; ₹2 Lakhs per 269ST)</option>
+                                    <option value="RTGS">RTGS Bank Transfer</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- RTGS Bank Fields (Conditional) -->
+                        <div id="rtgsDetailsBox" class="hidden p-4 bg-blue-50 rounded-2xl border border-blue-200 space-y-3">
+                            <div class="text-xs font-bold text-blue-900">🏦 Farmer RTGS Bank Details (Mandatory for ≥ ₹2,00,000):</div>
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs font-semibold">
+                                <div>
+                                    <label class="block mb-1">Bank Name</label>
+                                    <input id="f_rtgs_bank" type="text" placeholder="e.g. SBI, HDFC" class="w-full text-sm bg-white border border-slate-300 rounded-xl px-3 py-2">
+                                </div>
+                                <div>
+                                    <label class="block mb-1">Account Number</label>
+                                    <input id="f_rtgs_account" type="text" placeholder="Bank Account No" class="w-full text-sm bg-white border border-slate-300 rounded-xl px-3 py-2">
+                                </div>
+                                <div>
+                                    <label class="block mb-1">IFSC Code</label>
+                                    <input id="f_rtgs_ifsc" type="text" placeholder="e.g. SBIN0001234" class="w-full text-sm bg-white border border-slate-300 rounded-xl px-3 py-2 uppercase">
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Right 1 Col: Calculation Summary & Parchi Preview -->
+                    <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 flex flex-col justify-between space-y-6">
+                        <div>
+                            <h3 class="font-display font-extrabold text-lg text-slate-900 border-b border-slate-100 pb-3 mb-4">Payout Calculation</h3>
+
+                            <!-- Breakdown List -->
+                            <div class="space-y-2.5 text-xs">
+                                <div class="flex justify-between text-slate-600">
+                                    <span>Gross Weight:</span>
+                                    <span id="sumGrossWt" class="font-bold text-slate-900">0 kg</span>
+                                </div>
+                                <div class="flex justify-between text-slate-600">
+                                    <span>Tare Weight:</span>
+                                    <span id="sumTareWt" class="font-bold text-slate-900">0 kg</span>
+                                </div>
+                                <div class="flex justify-between text-slate-600">
+                                    <span>Karda / Refraction Cut:</span>
+                                    <span id="sumKarda" class="font-bold text-slate-900">0 kg</span>
+                                </div>
+                                <div class="flex justify-between text-slate-700 font-bold border-t border-slate-100 pt-2">
+                                    <span>Net Payable Weight:</span>
+                                    <span id="sumNetQtl" class="text-emerald-700">0.00 Qtl</span>
+                                </div>
+                                <div class="flex justify-between text-slate-600">
+                                    <span>Rate per Quintal:</span>
+                                    <span id="sumRate" class="font-bold text-slate-900">₹0</span>
+                                </div>
+                                <div class="flex justify-between text-slate-600">
+                                    <span>Gross Procurement Val:</span>
+                                    <span id="sumGrossVal" class="font-bold text-slate-900">₹0.00</span>
+                                </div>
+                                
+                                <!-- Statutory Deductions -->
+                                <div class="pt-2 border-t border-slate-100 text-[11px] space-y-1">
+                                    <div class="flex justify-between text-slate-500">
+                                        <span>Hamali (₹12/Qtl):</span>
+                                        <span id="sumHamali">- ₹0.00</span>
+                                    </div>
+                                    <div class="flex justify-between text-slate-500">
+                                        <span>Tolai (₹5/Qtl):</span>
+                                        <span id="sumTolai">- ₹0.00</span>
+                                    </div>
+                                    <div class="flex justify-between text-emerald-700 font-bold">
+                                        <span>Mandi Cess:</span>
+                                        <span>₹0.00 (100% Zero Cess)</span>
+                                    </div>
+                                </div>
+
+                                <!-- Net Amount Card -->
+                                <div class="p-4 bg-emerald-50 rounded-2xl border border-emerald-200 mt-4 text-center">
+                                    <div class="text-[11px] font-bold uppercase tracking-wider text-emerald-800">Net Payable to Farmer</div>
+                                    <div id="sumNetPayable" class="font-display font-black text-3xl text-emerald-900 mt-1">₹ 0.00</div>
+                                    <div id="sumPayModeTag" class="inline-block mt-2 px-2.5 py-0.5 text-[10px] font-extrabold uppercase rounded-full bg-emerald-200 text-emerald-900">
+                                        CASH DISBURSEMENT
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Action Button -->
+                        <div class="space-y-2">
+                            <button type="button" onclick="submitInwardInvoice()" id="btnSaveInvoice" class="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-display font-bold text-sm rounded-2xl shadow-lg shadow-emerald-600/25 transition active:scale-95 cursor-pointer">
+                                💾 Generate & Print Inward Parchi
+                            </button>
+                            <button type="button" onclick="resetWeighmentForm()" class="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition">
+                                Clear Form
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TODAY'S BRANCH PURCHASES TABLE -->
+                <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 space-y-4">
+                    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                        <div>
+                            <h3 class="font-display font-extrabold text-lg text-slate-900">Today's Branch Purchases Ledger</h3>
+                            <p class="text-xs text-slate-500 font-medium">Recorded procurement slips for this APMC branch</p>
+                        </div>
+                        <button onclick="fetchBranchInvoices()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-bold text-slate-700">
+                            🔄 Refresh Ledger
+                        </button>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs">
+                            <thead>
+                                <tr class="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider">
+                                    <th class="p-3">Token No</th>
+                                    <th class="p-3">Farmer Name</th>
+                                    <th class="p-3">Vehicle</th>
+                                    <th class="p-3">Commodity</th>
+                                    <th class="p-3">Net Qtl</th>
+                                    <th class="p-3">Rate/Qtl</th>
+                                    <th class="p-3">Net Amount</th>
+                                    <th class="p-3">Payout</th>
+                                    <th class="p-3 text-center">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="branchInvoicesTableBody" class="divide-y divide-slate-100">
+                                <tr>
+                                    <td colspan="9" class="p-6 text-center text-slate-400 font-medium">Loading branch invoices...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===================================================================== -->
+            <!-- PANEL B: HQ CHIEF ACCOUNTANT DESK                                     -->
+            <!-- ===================================================================== -->
+            <div id="panelAccountantView" class="hidden space-y-6">
+                <!-- Corridor Rate Manager Card -->
+                <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 space-y-5">
+                    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                        <div>
+                            <h3 class="font-display font-extrabold text-lg text-slate-900">HQ Mandi Rate Corridor Manager</h3>
+                            <p class="text-xs text-slate-500 font-medium">Set buying corridors published instantly to all 4 APMC branches & inspectors</p>
+                        </div>
+                        <span class="px-3 py-1 bg-amber-50 text-amber-800 border border-amber-200 rounded-xl text-xs font-bold">
+                            🔒 Chief Accountant Authorization
+                        </span>
+                    </div>
+
+                    <!-- Rate Setting Form -->
+                    <div class="grid grid-cols-1 sm:grid-cols-5 gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-200 text-xs font-semibold">
+                        <div>
+                            <label class="block mb-1">Commodity</label>
+                            <select id="acc_comm_select" class="w-full text-xs font-bold bg-white border border-slate-300 rounded-xl p-2.5 text-slate-900">
+                                <option value="Soyabean (Yellow)">Soyabean (Yellow)</option>
+                                <option value="Chana (Desi)">Chana (Desi)</option>
+                                <option value="Toor (White)">Toor (White)</option>
+                                <option value="Wheat (Sharbati)">Wheat (Sharbati)</option>
+                                <option value="Maize (Yellow)">Maize (Yellow)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block mb-1">Floor Rate (Min ₹)</label>
+                            <input id="acc_min_rate" type="number" step="50" placeholder="e.g. 6500" class="w-full text-xs font-bold bg-white border border-slate-300 rounded-xl p-2.5 text-slate-900">
+                        </div>
+                        <div>
+                            <label class="block mb-1">Today's Target (₹)</label>
+                            <input id="acc_target_rate" type="number" step="50" placeholder="e.g. 6850" class="w-full text-xs font-bold bg-white border border-slate-300 rounded-xl p-2.5 text-slate-900">
+                        </div>
+                        <div>
+                            <label class="block mb-1">Ceiling Rate (Max ₹)</label>
+                            <input id="acc_max_rate" type="number" step="50" placeholder="e.g. 7500" class="w-full text-xs font-bold bg-white border border-slate-300 rounded-xl p-2.5 text-slate-900">
+                        </div>
+                        <div class="flex items-end">
+                            <button onclick="publishAccountantRate()" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md transition">
+                                ⚡ Publish Rate
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Active Rates Table -->
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs">
+                            <thead>
+                                <tr class="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider">
+                                    <th class="p-3">Commodity</th>
+                                    <th class="p-3">Floor Rate (Min)</th>
+                                    <th class="p-3 text-emerald-800">Target Rate (Today)</th>
+                                    <th class="p-3">Ceiling Rate (Max)</th>
+                                    <th class="p-3">Quality Grade</th>
+                                    <th class="p-3 text-center">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="accRatesTableBody" class="divide-y divide-slate-100 font-semibold">
+                                <!-- Populated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- RTGS Bank Transfer Approvals Queue -->
+                <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 space-y-4">
+                    <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                        <div>
+                            <h3 class="font-display font-extrabold text-lg text-slate-900">RTGS Bank Disbursal Desk</h3>
+                            <p class="text-xs text-slate-500 font-medium">Inward farmer invoices pending bank transfer (Section 269ST &gt; ₹2L Payouts)</p>
+                        </div>
+                        <button onclick="fetchRtgsQueue()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-bold text-slate-700">
+                            🔄 Refresh RTGS Queue
+                        </button>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs">
+                            <thead>
+                                <tr class="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider">
+                                    <th class="p-3">Invoice No</th>
+                                    <th class="p-3">Farmer Name</th>
+                                    <th class="p-3">Branch</th>
+                                    <th class="p-3">Amount (₹)</th>
+                                    <th class="p-3">Bank Details</th>
+                                    <th class="p-3">UTR / Reference No</th>
+                                    <th class="p-3 text-center">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="accRtgsTableBody" class="divide-y divide-slate-100">
+                                <tr>
+                                    <td colspan="7" class="p-6 text-center text-slate-400 font-medium">Loading RTGS queue...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===================================================================== -->
+            <!-- PANEL C: SUPER ADMIN MASTER CONTROL                                   -->
+            <!-- ===================================================================== -->
+            <div id="panelAdminView" class="hidden space-y-6">
+                <!-- Executive KPI Cards -->
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-1">
+                        <div class="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Volume</div>
+                        <div id="admKpiVolume" class="font-display font-extrabold text-2xl text-slate-900">0.00 MT</div>
+                        <div id="admKpiQuintals" class="text-xs text-emerald-700 font-bold">0.00 Qtl</div>
+                    </div>
+                    <div class="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-1">
+                        <div class="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Disbursed</div>
+                        <div id="admKpiAmount" class="font-display font-extrabold text-2xl text-slate-900">₹ 0.00</div>
+                        <div id="admKpiInvoices" class="text-xs text-slate-500 font-semibold">0 Purchases</div>
+                    </div>
+                    <div class="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-1">
+                        <div class="text-xs font-bold text-slate-500 uppercase tracking-wider">Cash vs RTGS</div>
+                        <div id="admKpiCash" class="font-display font-bold text-lg text-emerald-800">Cash: ₹0</div>
+                        <div id="admKpiRtgs" class="text-xs text-blue-700 font-bold">RTGS: ₹0</div>
+                    </div>
+                    <div class="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-1">
+                        <div class="text-xs font-bold text-slate-500 uppercase tracking-wider">Cloud Engine</div>
+                        <div class="flex items-center gap-2 mt-1">
+                            <span class="w-3 h-3 rounded-full bg-emerald-500 animate-pulse"></span>
+                            <span class="font-bold text-sm text-slate-900">Supabase Connected</span>
+                        </div>
+                        <div class="text-[11px] text-slate-500">100% Zero Mandi Cess Invariant</div>
+                    </div>
+                </div>
+
+                <!-- Multi-Branch Performance Grid -->
+                <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 space-y-4">
+                    <h3 class="font-display font-extrabold text-lg text-slate-900 border-b border-slate-100 pb-3">APMC Multi-Yard Operations</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" id="admBranchCardsContainer">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Staff Directory & License Summary -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 space-y-3">
+                        <h4 class="font-display font-bold text-base text-slate-900">Staff Accounts & Access Controls</h4>
+                        <div class="space-y-2 text-xs">
+                            <div class="flex justify-between items-center p-2.5 bg-slate-50 rounded-xl">
+                                <div><strong>Super Admin</strong> (Master Account)</div>
+                                <span class="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded font-bold">Full Access</span>
+                            </div>
+                            <div class="flex justify-between items-center p-2.5 bg-slate-50 rounded-xl">
+                                <div><strong>HQ Chief Accountant</strong> (Suraj)</div>
+                                <span class="px-2 py-0.5 bg-blue-100 text-blue-800 rounded font-bold">Corridor & RTGS</span>
+                            </div>
+                            <div class="flex justify-between items-center p-2.5 bg-slate-50 rounded-xl">
+                                <div><strong>Chikhali Cashier</strong> (Babulal Meena)</div>
+                                <span class="px-2 py-0.5 bg-slate-200 text-slate-800 rounded font-bold">Weighment Inward</span>
+                            </div>
+                            <div class="flex justify-between items-center p-2.5 bg-slate-50 rounded-xl">
+                                <div><strong>Varvand Cashier</strong> (Govind Solanki)</div>
+                                <span class="px-2 py-0.5 bg-slate-200 text-slate-800 rounded font-bold">Weighment Inward</span>
+                            </div>
+                            <div class="flex justify-between items-center p-2.5 bg-slate-50 rounded-xl">
+                                <div><strong>Sarola & Dhad Cashiers</strong></div>
+                                <span class="px-2 py-0.5 bg-slate-200 text-slate-800 rounded font-bold">Weighment Inward</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 space-y-3">
+                        <h4 class="font-display font-bold text-base text-slate-900">Statutory Tax & ERP Compliance</h4>
+                        <div class="space-y-2.5 text-xs text-slate-600">
+                            <div class="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-emerald-900">
+                                <strong>✅ 0% Mandi Cess Invariant:</strong> Commercial trading firm exemption applied across all purchase invoices.
+                            </div>
+                            <div class="p-3 bg-amber-50 rounded-xl border border-amber-200 text-amber-900">
+                                <strong>🔒 Section 269ST Compliance:</strong> Single-day cash payout strictly capped at ₹1,99,999. Invoices ≥ ₹2 Lakhs are auto-rerouted to RTGS.
+                            </div>
+                            <div class="p-3 bg-blue-50 rounded-xl border border-blue-200 text-blue-900">
+                                <strong>⚖️ Deductions Policy:</strong> Hamali fixed at ₹12.00/Qtl, Tolai fixed at ₹5.00/Qtl.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- ========================================================================= -->
+    <!-- MODALS: PENDING QC TICKETS & PRINTABLE PARCHI                             -->
+    <!-- ========================================================================= -->
+
+    <!-- PENDING QC TICKETS MODAL -->
+    <div id="modalPendingQc" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div class="flex items-center gap-2">
+                    <span class="text-xl">🎫</span>
+                    <h3 class="font-display font-extrabold text-lg text-slate-900">Pending Yard QC Inspection Tickets</h3>
+                </div>
+                <button onclick="closePendingQcModal()" class="text-slate-400 hover:text-slate-600 font-bold text-lg p-1">✕</button>
+            </div>
+            
+            <div class="max-h-80 overflow-y-auto" id="pendingQcModalList">
+                <!-- Dynamically populated -->
+            </div>
+
+            <div class="text-right pt-2 border-t border-slate-100">
+                <button onclick="closePendingQcModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PRINTABLE INWARD PARCHI SLIP MODAL -->
+    <div id="modalPrintSlip" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+                <h3 class="font-display font-bold text-sm text-slate-700">Inward Purchase Receipt (Parchi)</h3>
+                <button onclick="closePrintSlipModal()" class="text-slate-400 hover:text-slate-600 font-bold text-lg">✕</button>
+            </div>
+
+            <!-- Printable Receipt Area -->
+            <div id="printableSlip" class="p-4 bg-slate-50 border border-dashed border-slate-300 rounded-2xl font-mono text-xs text-slate-900 space-y-2 select-all">
+                <!-- Populated dynamically -->
+            </div>
+
+            <div class="flex gap-2 pt-2 border-t border-slate-100">
+                <button onclick="window.print()" class="flex-1 py-2.5 bg-slate-900 hover:bg-black text-white text-xs font-bold rounded-xl shadow-md transition">
+                    🖨️ Print Receipt
+                </button>
+                <button onclick="closePrintSlipModal()" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition">
+                    Done
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- PORTAL LOGIC & SUPABASE CLOUD SYNC                                       -->
+    <!-- ========================================================================= -->
+    <script>
+        // State
+        let currentUser = null;
+        let activePanel = 'branch';
+        let liveRates = [];
+        let pendingTickets = [];
+        let branchInvoices = [];
+        let currentLinkedQc = null;
+
+        const QUICK_CREDENTIALS = {
+            'branch': [
+                { u: 'chikhali', p: 'chk123', label: 'Chikhali Cashier' },
+                { u: 'varvand', p: 'vrv123', label: 'Varvand Cashier' },
+                { u: 'sarola', p: 'srl123', label: 'Sarola Cashier' },
+                { u: 'dhad', p: 'dhd123', label: 'Dhad Cashier' }
+            ],
+            'accountant': [
+                { u: 'accountant', p: 'suraj123', label: 'Chief Accountant (HQ)' },
+                { u: 'suraj', p: 'suraj123', label: 'Suraj (Accountant)' }
+            ],
+            'admin': [
+                { u: 'admin', p: 'admin123', label: 'Super Admin (Master)' }
+            ]
+        };
+
+        // Initialize Portal
+        window.addEventListener('DOMContentLoaded', () => {
+            renderQuickCreds('branch');
+            checkExistingSession();
+            
+            // Check URL param ?panel=branch / accounts / admin
+            const urlParams = new URLSearchParams(window.location.search);
+            const p = urlParams.get('panel');
+            if (p) {
+                if (p === 'accounts') activePanel = 'accountant';
+                else if (p === 'admin') activePanel = 'admin';
+                else activePanel = 'branch';
+            }
+        });
+
+        function renderQuickCreds(role) {
+            const container = document.getElementById('quickCredsContainer');
+            if (!container) return;
+            const creds = QUICK_CREDENTIALS[role] || QUICK_CREDENTIALS['branch'];
+            container.innerHTML = creds.map(c => `
+                <button type="button" onclick="fillQuickCred('${c.u}', '${c.p}')" class="px-2.5 py-1 text-[11px] font-bold bg-white hover:bg-slate-100 border border-slate-200 rounded-lg text-slate-700 transition">
+                    ${c.label} (${c.u})
+                </button>
+            `).join('');
+        }
+
+        function selectLoginRole(role) {
+            ['branch', 'accountant', 'admin'].forEach(r => {
+                const tab = document.getElementById('tab' + r.charAt(0).toUpperCase() + r.slice(1));
+                if (tab) {
+                    if (r === role) {
+                        tab.className = 'py-2 rounded-xl transition bg-white text-emerald-700 shadow-sm';
+                    } else {
+                        tab.className = 'py-2 rounded-xl transition text-slate-600 hover:text-slate-900';
+                    }
+                }
+            });
+            renderQuickCreds(role);
+            const firstCred = (QUICK_CREDENTIALS[role] || [])[0];
+            if (firstCred) {
+                document.getElementById('loginUsername').value = firstCred.u;
+                document.getElementById('loginPassword').value = firstCred.p;
+            }
+        }
+
+        function fillQuickCred(u, p) {
+            document.getElementById('loginUsername').value = u;
+            document.getElementById('loginPassword').value = p;
+        }
+
+        function checkExistingSession() {
+            try {
+                const stored = localStorage.getItem('mandi_portal_user');
+                if (stored) {
+                    currentUser = JSON.parse(stored);
+                    applyUserSession(currentUser);
+                    return;
+                }
+            } catch (_) {}
+            showLoginView(true);
+        }
+
+        async function handleLoginSubmit(e) {
+            e.preventDefault();
+            const username = document.getElementById('loginUsername')?.value?.trim();
+            const password = document.getElementById('loginPassword')?.value?.trim();
+            const errEl = document.getElementById('loginError');
+            const btn = document.getElementById('btnLoginSubmit');
+
+            if (errEl) errEl.classList.add('hidden');
+            if (btn) btn.innerText = 'Verifying...';
+
+            try {
+                const res = await fetch('/api/portal/auth', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await res.json();
+                if (data.success && data.user) {
+                    currentUser = data.user;
+                    localStorage.setItem('mandi_portal_user', JSON.stringify(currentUser));
+                    applyUserSession(currentUser);
+                } else {
+                    if (errEl) {
+                        errEl.innerText = data.error || 'Authentication failed. Please verify credentials.';
+                        errEl.classList.remove('hidden');
+                    }
+                }
+            } catch (err) {
+                // Fallback client authentication for offline resilience
+                const u = username.toLowerCase();
+                let role = 'BRANCH_CASHIER';
+                let panel = 'branch';
+                let bId = 'br-chikhali';
+                let bName = 'Chikhali APMC Main Mandi';
+
+                if (u.includes('admin')) { role = 'SUPER_ADMIN'; panel = 'admin'; bId = 'all'; bName = 'HQ Central Command'; }
+                else if (u.includes('acc') || u.includes('suraj')) { role = 'ACCOUNTANT_HQ'; panel = 'accountant'; bId = 'all'; bName = 'Central Accounts'; }
+                else if (u.includes('varvand')) { bId = 'br-varvand'; bName = 'Varvand APMC Yard'; }
+                else if (u.includes('sarola')) { bId = 'br-sarola'; bName = 'Sarola Maruti APMC'; }
+                else if (u.includes('dhad')) { bId = 'br-dhad'; bName = 'Dhad APMC Yard'; }
+
+                currentUser = { username: u, name: username, role, panel, branch_id: bId, branch_name: bName };
+                localStorage.setItem('mandi_portal_user', JSON.stringify(currentUser));
+                applyUserSession(currentUser);
+            } finally {
+                if (btn) btn.innerText = 'Sign In to Portal →';
+            }
+        }
+
+        function applyUserSession(user) {
+            showLoginView(false);
+
+            // Update top bar user badge
+            const badge = document.getElementById('navUserBadge');
+            if (badge) {
+                badge.classList.remove('hidden');
+                badge.classList.add('flex');
+                document.getElementById('navUserName').innerText = user.name;
+                document.getElementById('navBranchName').innerText = user.branch_name || user.role;
+                document.getElementById('navRoleIcon').innerText = user.role === 'SUPER_ADMIN' ? '👑' : (user.role === 'ACCOUNTANT_HQ' ? '💼' : '🏪');
+            }
+
+            // Route to appropriate panel
+            if (user.panel === 'accountant') {
+                switchActivePanel('accountant');
+            } else if (user.panel === 'admin') {
+                switchActivePanel('admin');
+            } else {
+                switchActivePanel('branch');
+                const sel = document.getElementById('branchSelect');
+                if (sel && user.branch_id && user.branch_id !== 'all') {
+                    sel.value = user.branch_id;
+                }
+            }
+
+            // Start background sync
+            refreshCurrentPanel();
+            setInterval(pollBackgroundData, 8000);
+        }
+
+        function showLoginView(show) {
+            const loginV = document.getElementById('portalLoginView');
+            const workV = document.getElementById('portalWorkspaceView');
+            if (loginV && workV) {
+                loginV.style.display = show ? 'block' : 'none';
+                workV.style.display = show ? 'none' : 'block';
+            }
+        }
+
+        function handlePortalLogout() {
+            if (confirm('Sign out from Web ERP Portal?')) {
+                localStorage.removeItem('mandi_portal_user');
+                currentUser = null;
+                const badge = document.getElementById('navUserBadge');
+                if (badge) badge.classList.add('hidden');
+                showLoginView(true);
+            }
+        }
+
+        function switchActivePanel(panel) {
+            activePanel = panel;
+            ['branch', 'accountant', 'admin'].forEach(p => {
+                const view = document.getElementById('panel' + p.charAt(0).toUpperCase() + p.slice(1) + 'View');
+                const btn = document.getElementById('btnNav' + p.charAt(0).toUpperCase() + p.slice(1));
+                if (view) view.style.display = (p === panel) ? 'block' : 'none';
+                if (btn) {
+                    btn.className = (p === panel) 
+                        ? 'px-3 py-1.5 rounded-xl text-xs font-bold transition bg-emerald-600 text-white shadow-sm'
+                        : 'px-3 py-1.5 rounded-xl text-xs font-bold transition bg-slate-100 text-slate-700 hover:bg-slate-200';
+                }
+            });
+
+            // Update header title
+            const icon = document.getElementById('panelRoleBadgeIcon');
+            const title = document.getElementById('panelRoleTitle');
+            const sub = document.getElementById('panelRoleSubtitle');
+            if (panel === 'accountant') {
+                if (icon) icon.innerText = '💼';
+                if (title) title.innerText = 'HQ Chief Accountant Desk';
+                if (sub) sub.innerText = 'Daily Mandi Corridor Rate Setting & RTGS Bank Transfers';
+            } else if (panel === 'admin') {
+                if (icon) icon.innerText = '👑';
+                if (title) title.innerText = 'Super Admin Central Command';
+                if (sub) sub.innerText = 'Multi-Yard Real-Time Overview, Stock, Telemetry & Compliance';
+            } else {
+                if (icon) icon.innerText = '🏪';
+                if (title) title.innerText = 'Branch Cashier Desk';
+                if (sub) sub.innerText = 'Weighbridge Inward Procurement & QC Ticket Settlement';
+            }
+
+            refreshCurrentPanel();
+        }
+
+        function refreshCurrentPanel() {
+            fetchRates();
+            if (activePanel === 'branch') {
+                fetchPendingQcTickets();
+                fetchBranchInvoices();
+            } else if (activePanel === 'accountant') {
+                fetchRtgsQueue();
+            } else if (activePanel === 'admin') {
+                fetchAdminSummary();
+            }
+        }
+
+        function pollBackgroundData() {
+            if (!currentUser) return;
+            if (activePanel === 'branch') {
+                fetchPendingQcTickets();
+                fetchRates();
+            } else if (activePanel === 'accountant') {
+                fetchRtgsQueue();
+            } else if (activePanel === 'admin') {
+                fetchAdminSummary();
+            }
+        }
+
+        // =========================================================================
+        // DATA API CALLS (SUPABASE CLOUD)
+        // =========================================================================
+
+        async function fetchRates() {
+            try {
+                const res = await fetch('/api/portal/rates');
+                const data = await res.json();
+                if (data.success && Array.isArray(data.rates)) {
+                    liveRates = data.rates;
+                    renderRatesRibbon();
+                    renderAccountantRatesTable();
+                    updateFormCorridorBounds();
+                }
+            } catch (e) {
+                console.warn('Rates fetch fallback:', e);
+            }
+        }
+
+        function renderRatesRibbon() {
+            const ribbon = document.getElementById('branchRatesRibbon');
+            if (!ribbon) return;
+            if (!liveRates.length) {
+                ribbon.innerHTML = '<span class="text-slate-400">No active rates found</span>';
+                return;
+            }
+            ribbon.innerHTML = liveRates.map(r => `
+                <div class="px-3 py-1 bg-white rounded-xl border border-emerald-200 text-slate-800 shadow-sm flex items-center gap-1.5">
+                    <span class="text-emerald-700 font-extrabold">${r.commodity_name.split(' ')[0]}:</span>
+                    <span>₹${Number(r.target_rate_per_qtl).toLocaleString()}</span>
+                    <span class="text-[10px] text-slate-400">(${r.min_rate_per_qtl} - ${r.max_rate_per_qtl})</span>
+                </div>
+            `).join('');
+        }
+
+        function renderAccountantRatesTable() {
+            const tbody = document.getElementById('accRatesTableBody');
+            if (!tbody) return;
+            if (!liveRates.length) {
+                tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-slate-400">No rates published</td></tr>';
+                return;
+            }
+            tbody.innerHTML = liveRates.map(r => `
+                <tr class="hover:bg-slate-50 border-b border-slate-100">
+                    <td class="p-3 text-slate-900 font-bold">${r.commodity_name}</td>
+                    <td class="p-3 text-slate-600">₹ ${Number(r.min_rate_per_qtl).toLocaleString()}</td>
+                    <td class="p-3 text-emerald-700 font-extrabold text-sm">₹ ${Number(r.target_rate_per_qtl).toLocaleString()}</td>
+                    <td class="p-3 text-slate-600">₹ ${Number(r.max_rate_per_qtl).toLocaleString()}</td>
+                    <td class="p-3"><span class="px-2 py-0.5 bg-slate-100 rounded text-[11px] font-bold text-slate-600">${r.quality_grade || 'FAQ_GRADE_1'}</span></td>
+                    <td class="p-3 text-center">
+                        <button onclick="editRateInForm('${r.commodity_name}', ${r.min_rate_per_qtl}, ${r.target_rate_per_qtl}, ${r.max_rate_per_qtl})" class="text-xs text-emerald-700 font-bold hover:underline">Edit</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function editRateInForm(comm, minR, targetR, maxR) {
+            document.getElementById('acc_comm_select').value = comm;
+            document.getElementById('acc_min_rate').value = minR;
+            document.getElementById('acc_target_rate').value = targetR;
+            document.getElementById('acc_max_rate').value = maxR;
+        }
+
+        async function publishAccountantRate() {
+            const comm = document.getElementById('acc_comm_select')?.value;
+            const minR = parseFloat(document.getElementById('acc_min_rate')?.value);
+            const targetR = parseFloat(document.getElementById('acc_target_rate')?.value);
+            const maxR = parseFloat(document.getElementById('acc_max_rate')?.value);
+
+            if (!comm || isNaN(targetR)) {
+                alert('Please enter valid target rate.');
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/portal/rates', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        commodity_name: comm,
+                        min_rate_per_qtl: minR || (targetR * 0.95),
+                        target_rate_per_qtl: targetR,
+                        max_rate_per_qtl: maxR || (targetR * 1.08)
+                    })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert(`✅ ${comm} rate published successfully to Cloud!`);
+                    fetchRates();
+                } else {
+                    alert(`Error: ${data.error || 'Failed to publish rate'}`);
+                }
+            } catch (e) {
+                alert(`Error publishing rate: ${e.message}`);
+            }
+        }
+
+        // =========================================================================
+        // PENDING QC TICKETS (YARD ASSAYER LINKING)
+        // =========================================================================
+
+        async function fetchPendingQcTickets() {
+            const bId = document.getElementById('branchSelect')?.value || 'br-chikhali';
+            try {
+                const res = await fetch(`/api/inspections-submit?branch_id=${encodeURIComponent(bId)}`);
+                const data = await res.json();
+                if (data.success && Array.isArray(data.tickets)) {
+                    pendingTickets = data.tickets;
+                    const countBadge = document.getElementById('qcPendingCount');
+                    if (countBadge) countBadge.innerText = pendingTickets.length;
+
+                    // Trigger banner alert if newest ticket arrived
+                    const alertBox = document.getElementById('branchQcAlertBox');
+                    if (pendingTickets.length > 0 && alertBox) {
+                        const topTicket = pendingTickets[0];
+                        document.getElementById('qcAlertTitle').innerText = `Incoming Ticket #${topTicket.ticket_no}: ${topTicket.farmer_name}`;
+                        document.getElementById('qcAlertSubtitle').innerText = `${topTicket.commodity_name} • Moisture: ${topTicket.moisture_pct}% • Suggested: ₹${topTicket.suggested_buying_rate_per_qtl}/Qtl • Vehicle: ${topTicket.vehicle_no}`;
+                        alertBox.classList.remove('hidden');
+                    } else if (alertBox) {
+                        alertBox.classList.add('hidden');
+                    }
+                }
+            } catch (e) {
+                console.warn('Pending tickets notice:', e);
+            }
+        }
+
+        function applyQcAlertToForm() {
+            if (pendingTickets.length > 0) {
+                loadQcTicketIntoForm(pendingTickets[0]);
+                dismissQcAlert();
+            }
+        }
+
+        function dismissQcAlert() {
+            const box = document.getElementById('branchQcAlertBox');
+            if (box) box.classList.add('hidden');
+        }
+
+        function openPendingQcModal() {
+            const modal = document.getElementById('modalPendingQc');
+            const list = document.getElementById('pendingQcModalList');
+            if (!modal || !list) return;
+
+            if (!pendingTickets.length) {
+                list.innerHTML = `
+                    <div class="text-center py-8 text-slate-400">
+                        <div class="text-3xl mb-2">🌾</div>
+                        <div class="font-bold">No Pending Yard Tickets</div>
+                        <div class="text-xs">Yard inspector has not submitted any new tickets for this branch today.</div>
+                    </div>
+                `;
+            } else {
+                list.innerHTML = `
+                    <div class="divide-y divide-slate-100">
+                        ${pendingTickets.map(t => `
+                            <div class="p-3.5 hover:bg-slate-50 flex items-center justify-between gap-3 text-xs">
+                                <div>
+                                    <div class="font-bold text-slate-900 text-sm">#${t.ticket_no} — ${t.farmer_name}</div>
+                                    <div class="text-slate-500">${t.commodity_name} • Moisture: <strong>${t.moisture_pct}%</strong> • Vehicle: <code>${t.vehicle_no}</code></div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="font-bold text-emerald-700 text-sm">₹${t.suggested_buying_rate_per_qtl}/Qtl</div>
+                                    <button onclick="loadQcTicketFromModal('${t.ticket_no}')" class="mt-1 px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition">
+                                        ⚡ Select
+                                    </button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+
+            modal.classList.remove('hidden');
+        }
+
+        function closePendingQcModal() {
+            document.getElementById('modalPendingQc')?.classList.add('hidden');
+        }
+
+        function loadQcTicketFromModal(tNo) {
+            const t = pendingTickets.find(x => x.ticket_no === tNo);
+            if (t) {
+                loadQcTicketIntoForm(t);
+                closePendingQcModal();
+            }
+        }
+
+        function lookupQcTicketManual() {
+            const inp = document.getElementById('f_qc_ticket_no')?.value?.trim().toUpperCase();
+            if (!inp) return;
+            const t = pendingTickets.find(x => (x.ticket_no || '').toUpperCase() === inp);
+            if (t) {
+                loadQcTicketIntoForm(t);
+            } else {
+                alert(`Ticket ${inp} not found in pending queue. It may already be attached or check yard code.`);
+            }
+        }
+
+        function loadQcTicketIntoForm(ticket) {
+            currentLinkedQc = ticket;
+            if (document.getElementById('f_farmer_name')) document.getElementById('f_farmer_name').value = ticket.farmer_name || '';
+            if (document.getElementById('f_farmer_phone')) document.getElementById('f_farmer_phone').value = ticket.farmer_phone || '';
+            if (document.getElementById('f_farmer_village')) document.getElementById('f_farmer_village').value = ticket.farmer_village || ticket.village || '';
+            if (document.getElementById('f_vehicle_no')) document.getElementById('f_vehicle_no').value = ticket.vehicle_no || '';
+            if (document.getElementById('f_qc_ticket_no')) document.getElementById('f_qc_ticket_no').value = ticket.ticket_no || '';
+            if (document.getElementById('f_commodity_name') && ticket.commodity_name) {
+                document.getElementById('f_commodity_name').value = ticket.commodity_name;
+            }
+            if (document.getElementById('f_rate_per_qtl') && ticket.suggested_buying_rate_per_qtl > 0) {
+                document.getElementById('f_rate_per_qtl').value = ticket.suggested_buying_rate_per_qtl;
+            }
+
+            // Show linked banner
+            const banner = document.getElementById('linkedQcBanner');
+            if (banner) {
+                document.getElementById('lblLinkedTicketNo').innerText = `#${ticket.ticket_no} (${ticket.farmer_name})`;
+                banner.classList.remove('hidden');
+            }
+
+            calculateWeighment();
+        }
+
+        function clearLinkedQcTicket() {
+            currentLinkedQc = null;
+            document.getElementById('f_qc_ticket_no').value = '';
+            document.getElementById('linkedQcBanner')?.classList.add('hidden');
+        }
+
+        // =========================================================================
+        // WEIGHMENT & INVOICE CALCULATOR
+        // =========================================================================
+
+        function handleCommodityChange() {
+            updateFormCorridorBounds();
+            calculateWeighment();
+        }
+
+        function handleBranchChange() {
+            fetchPendingQcTickets();
+            fetchBranchInvoices();
+        }
+
+        function updateFormCorridorBounds() {
+            const comm = document.getElementById('f_commodity_name')?.value;
+            const r = liveRates.find(x => x.commodity_name === comm);
+            const lbl = document.getElementById('lblCorridorBounds');
+            if (r && lbl) {
+                lbl.innerText = `Corridor bounds: Min ₹${Number(r.min_rate_per_qtl).toLocaleString()} - Target ₹${Number(r.target_rate_per_qtl).toLocaleString()} - Max ₹${Number(r.max_rate_per_qtl).toLocaleString()}/Qtl`;
+                const rateInp = document.getElementById('f_rate_per_qtl');
+                if (rateInp && (!rateInp.value || rateInp.value === '0')) {
+                    rateInp.value = r.target_rate_per_qtl;
+                }
+            }
+        }
+
+        function calculateWeighment() {
+            const gross = parseFloat(document.getElementById('f_gross_wt')?.value) || 0;
+            const tare = parseFloat(document.getElementById('f_tare_wt')?.value) || 0;
+            const karda = parseFloat(document.getElementById('f_karda_wt')?.value) || 0;
+            const rate = parseFloat(document.getElementById('f_rate_per_qtl')?.value) || 0;
+            let mode = document.getElementById('f_payout_mode')?.value || 'CASH';
+
+            const netKg = Math.max(0, gross - tare - karda);
+            const netQtl = parseFloat((netKg / 100.0).toFixed(2));
+            const grossVal = parseFloat((netQtl * rate).toFixed(2));
+
+            const hamali = parseFloat((netQtl * 12.0).toFixed(2));
+            const tolai = parseFloat((netQtl * 5.0).toFixed(2));
+            const netPayable = Math.max(0, parseFloat((grossVal - hamali - tolai).toFixed(2)));
+
+            // Update UI elements
+            document.getElementById('lblNetQtl').innerText = `${netQtl.toFixed(2)} Qtl`;
+            document.getElementById('sumGrossWt').innerText = `${gross} kg`;
+            document.getElementById('sumTareWt').innerText = `${tare} kg`;
+            document.getElementById('sumKarda').innerText = `${karda} kg`;
+            document.getElementById('sumNetQtl').innerText = `${netQtl.toFixed(2)} Qtl`;
+            document.getElementById('sumRate').innerText = `₹ ${rate.toLocaleString()}`;
+            document.getElementById('sumGrossVal').innerText = `₹ ${grossVal.toLocaleString()}`;
+            document.getElementById('sumHamali').innerText = `- ₹ ${hamali.toLocaleString()}`;
+            document.getElementById('sumTolai').innerText = `- ₹ ${tolai.toLocaleString()}`;
+            document.getElementById('sumNetPayable').innerText = `₹ ${netPayable.toLocaleString()}`;
+
+            // Section 269ST Income Tax Compliance check (Cash strictly capped at ₹1,99,999)
+            const rtgsBox = document.getElementById('rtgsDetailsBox');
+            const modeTag = document.getElementById('sumPayModeTag');
+            if (netPayable >= 200000.0) {
+                document.getElementById('f_payout_mode').value = 'RTGS';
+                mode = 'RTGS';
+                if (rtgsBox) rtgsBox.classList.remove('hidden');
+                if (modeTag) {
+                    modeTag.innerText = '🔒 MANDATORY RTGS (≥ ₹2,00,000 PER SEC 269ST)';
+                    modeTag.className = 'inline-block mt-2 px-2.5 py-0.5 text-[10px] font-extrabold uppercase rounded-full bg-blue-100 text-blue-900';
+                }
+            } else if (mode === 'RTGS') {
+                if (rtgsBox) rtgsBox.classList.remove('hidden');
+                if (modeTag) {
+                    modeTag.innerText = 'RTGS BANK TRANSFER';
+                    modeTag.className = 'inline-block mt-2 px-2.5 py-0.5 text-[10px] font-extrabold uppercase rounded-full bg-blue-100 text-blue-900';
+                }
+            } else {
+                if (rtgsBox) rtgsBox.classList.add('hidden');
+                if (modeTag) {
+                    modeTag.innerText = 'CASH DISBURSEMENT (< ₹2 LAKHS)';
+                    modeTag.className = 'inline-block mt-2 px-2.5 py-0.5 text-[10px] font-extrabold uppercase rounded-full bg-emerald-200 text-emerald-900';
+                }
+            }
+        }
+
+        async function submitInwardInvoice() {
+            const farmerName = document.getElementById('f_farmer_name')?.value?.trim();
+            const village = document.getElementById('f_farmer_village')?.value?.trim();
+            const vehicle = document.getElementById('f_vehicle_no')?.value?.trim();
+            const commodity = document.getElementById('f_commodity_name')?.value;
+            const gross = parseFloat(document.getElementById('f_gross_wt')?.value) || 0;
+            const tare = parseFloat(document.getElementById('f_tare_wt')?.value) || 0;
+            const karda = parseFloat(document.getElementById('f_karda_wt')?.value) || 0;
+            const rate = parseFloat(document.getElementById('f_rate_per_qtl')?.value) || 0;
+            const branchId = document.getElementById('branchSelect')?.value || 'br-chikhali';
+            const mode = document.getElementById('f_payout_mode')?.value || 'CASH';
+            const qcTicket = document.getElementById('f_qc_ticket_no')?.value?.trim();
+
+            if (!farmerName) { alert('Please enter Farmer Name'); return; }
+            if (!village) { alert('Please enter Village Name'); return; }
+            if (!vehicle) { alert('Please enter Vehicle Number'); return; }
+            if (gross <= tare) { alert('Gross weight must be greater than Tare weight'); return; }
+            if (rate <= 0) { alert('Please enter valid agreed Rate per Quintal'); return; }
+
+            const btn = document.getElementById('btnSaveInvoice');
+            if (btn) btn.innerText = 'Saving to Supabase Cloud...';
+
+            const payload = {
+                branch_id: branchId,
+                farmer_name: farmerName,
+                farmer_phone: document.getElementById('f_farmer_phone')?.value?.trim() || '',
+                farmer_village: village,
+                vehicle_number: vehicle,
+                commodity_name: commodity,
+                gross_weight_kg: gross,
+                tare_weight_kg: tare,
+                karda_deduction_kg: karda,
+                rate_per_quintal: rate,
+                weighment_mode: mode,
+                qc_ticket_no: qcTicket || null,
+                rtgs_bank_name: document.getElementById('f_rtgs_bank')?.value || null,
+                rtgs_account_no: document.getElementById('f_rtgs_account')?.value || null,
+                rtgs_ifsc_code: document.getElementById('f_rtgs_ifsc')?.value || null
+            };
+
+            try {
+                const res = await fetch('/api/portal/invoices', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showPrintSlip(data.token_number, payload, data.net_payable_amount);
+                    resetWeighmentForm();
+                    fetchBranchInvoices();
+                    fetchPendingQcTickets();
+                } else {
+                    alert(`Error creating invoice: ${data.error || 'Server error'}`);
+                }
+            } catch (err) {
+                alert(`Error: ${err.message}`);
+            } finally {
+                if (btn) btn.innerText = '💾 Generate & Print Inward Parchi';
+            }
+        }
+
+        function showPrintSlip(tokenNo, p, netPayable) {
+            const modal = document.getElementById('modalPrintSlip');
+            const slip = document.getElementById('printableSlip');
+            if (!modal || !slip) return;
+
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('en-IN');
+            const timeStr = now.toLocaleTimeString('en-IN');
+
+            const netKg = p.gross_weight_kg - p.tare_weight_kg - p.karda_deduction_kg;
+            const netQtl = (netKg / 100.0).toFixed(2);
+            const grossVal = (netQtl * p.rate_per_quintal).toFixed(2);
+            const hamali = (netQtl * 12.0).toFixed(2);
+            const tolai = (netQtl * 5.0).toFixed(2);
+
+            slip.innerHTML = `
+                <div style="text-align:center; border-bottom:1px dashed #64748b; padding-bottom:8px; margin-bottom:8px;">
+                    <div style="font-size:15px; font-weight:800;">RAJARSHI SHAHU TRADING</div>
+                    <div style="font-size:10px;">APMC Mandi Yard Procurement Desk • Zero Mandi Cess</div>
+                    <div style="font-size:11px; font-weight:700; margin-top:4px;">INWARD PURCHASING PARCHI</div>
+                </div>
+                <div style="display:flex; justify-content:space-between;">
+                    <span>Slip No: <strong>${tokenNo}</strong></span>
+                    <span>Date: ${dateStr}</span>
+                </div>
+                <div>Farmer: <strong>${p.farmer_name}</strong> (${p.farmer_village})</div>
+                <div>Vehicle: <strong>${p.vehicle_number}</strong> | Phone: ${p.farmer_phone || 'N/A'}</div>
+                <div>Commodity: <strong>${p.commodity_name}</strong></div>
+                ${p.qc_ticket_no ? `<div>Gate QC Ticket: <strong>#${p.qc_ticket_no}</strong></div>` : ''}
+                <div style="border-top:1px dashed #cbd5e1; margin:6px 0; padding-top:6px;">
+                    <div style="display:flex; justify-content:space-between;">
+                        <span>Gross Weight:</span> <span>${p.gross_weight_kg} kg</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between;">
+                        <span>Tare Weight:</span> <span>${p.tare_weight_kg} kg</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between;">
+                        <span>Karda Cut:</span> <span>${p.karda_deduction_kg} kg</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; font-weight:bold;">
+                        <span>Net Weight:</span> <span>${netQtl} Quintals</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between;">
+                        <span>Rate:</span> <span>₹ ${p.rate_per_quintal} / Qtl</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between;">
+                        <span>Gross Amount:</span> <span>₹ ${grossVal}</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; font-size:10px; color:#64748b;">
+                        <span>Hamali (₹12) + Tolai (₹5):</span> <span>- ₹ ${(parseFloat(hamali)+parseFloat(tolai)).toFixed(2)}</span>
+                    </div>
+                </div>
+                <div style="border-top:1.5px solid #0f172a; padding-top:6px; font-size:14px; font-weight:900; display:flex; justify-content:space-between;">
+                    <span>NET PAYABLE:</span>
+                    <span>₹ ${Number(netPayable).toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
+                </div>
+                <div style="font-size:10px; text-align:center; margin-top:8px; color:#475569;">
+                    Payment Mode: <strong>${p.weighment_mode}</strong> • Verified Mandi Scale
+                </div>
+            `;
+
+            modal.classList.remove('hidden');
+        }
+
+        function closePrintSlipModal() {
+            document.getElementById('modalPrintSlip')?.classList.add('hidden');
+        }
+
+        function resetWeighmentForm() {
+            ['f_farmer_name', 'f_farmer_phone', 'f_farmer_village', 'f_vehicle_no', 'f_qc_ticket_no', 'f_gross_wt', 'f_tare_wt', 'f_karda_wt', 'f_rtgs_bank', 'f_rtgs_account', 'f_rtgs_ifsc'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.value = '';
+            });
+            clearLinkedQcTicket();
+            calculateWeighment();
+        }
+
+        async function fetchBranchInvoices() {
+            const bId = document.getElementById('branchSelect')?.value || 'br-chikhali';
+            const tbody = document.getElementById('branchInvoicesTableBody');
+            if (!tbody) return;
+
+            try {
+                const res = await fetch(`/api/portal/invoices?branch_id=${encodeURIComponent(bId)}&limit=30`);
+                const data = await res.json();
+                if (data.success && Array.isArray(data.invoices)) {
+                    branchInvoices = data.invoices;
+                    if (!branchInvoices.length) {
+                        tbody.innerHTML = '<tr><td colspan="9" class="p-6 text-center text-slate-400">No purchases recorded for this branch today.</td></tr>';
+                        return;
+                    }
+                    tbody.innerHTML = branchInvoices.map(inv => `
+                        <tr class="hover:bg-slate-50 border-b border-slate-100">
+                            <td class="p-3 font-mono font-bold text-slate-900">${inv.token_number}</td>
+                            <td class="p-3 font-bold">${inv.party_name}</td>
+                            <td class="p-3 font-mono text-slate-600">${inv.vehicle_number}</td>
+                            <td class="p-3">${inv.commodity_name}</td>
+                            <td class="p-3 font-extrabold text-emerald-800">${inv.net_quintals} Qtl</td>
+                            <td class="p-3 font-bold">₹${inv.rate_per_quintal}</td>
+                            <td class="p-3 font-black text-slate-900">₹${Number(inv.net_payable_amount).toLocaleString()}</td>
+                            <td class="p-3">
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold ${inv.payout_status === 'PAID' ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800'}">
+                                    ${inv.weighment_mode} (${inv.payout_status})
+                                </span>
+                            </td>
+                            <td class="p-3 text-center">
+                                <button onclick="reprintInvoice('${inv.token_number}')" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-xs font-bold transition">
+                                    🖨️
+                                </button>
+                            </td>
+                        </tr>
+                    `).join('');
+                }
+            } catch (e) {
+                console.warn('Branch invoices error:', e);
+            }
+        }
+
+        function reprintInvoice(tNo) {
+            const inv = branchInvoices.find(x => x.token_number === tNo);
+            if (inv) {
+                showPrintSlip(inv.token_number, {
+                    gross_weight_kg: inv.gross_weight_kg,
+                    tare_weight_kg: inv.tare_weight_kg,
+                    karda_deduction_kg: 0,
+                    farmer_name: inv.party_name,
+                    farmer_village: inv.farmer_village,
+                    vehicle_number: inv.vehicle_number,
+                    farmer_phone: inv.farmer_phone,
+                    commodity_name: inv.commodity_name,
+                    rate_per_quintal: inv.rate_per_quintal,
+                    weighment_mode: inv.weighment_mode
+                }, inv.net_payable_amount);
+            }
+        }
+
+        // =========================================================================
+        // ACCOUNTANT RTGS APPROVALS QUEUE
+        // =========================================================================
+
+        async function fetchRtgsQueue() {
+            const tbody = document.getElementById('accRtgsTableBody');
+            if (!tbody) return;
+
+            try {
+                const res = await fetch('/api/portal/invoices?status=RTGS_PENDING&limit=50');
+                const data = await res.json();
+                if (data.success && Array.isArray(data.invoices)) {
+                    if (!data.invoices.length) {
+                        tbody.innerHTML = '<tr><td colspan="7" class="p-6 text-center text-slate-400">All RTGS transfers are cleared. Zero pending payouts!</td></tr>';
+                        return;
+                    }
+                    tbody.innerHTML = data.invoices.map(inv => `
+                        <tr class="hover:bg-slate-50 border-b border-slate-100">
+                            <td class="p-3 font-mono font-bold">${inv.token_number}</td>
+                            <td class="p-3 font-bold">${inv.party_name}</td>
+                            <td class="p-3">${inv.branch_id}</td>
+                            <td class="p-3 font-black text-blue-900 text-sm">₹${Number(inv.net_payable_amount).toLocaleString()}</td>
+                            <td class="p-3 text-[11px] text-slate-600">
+                                <div><strong>${inv.rtgs_bank_name || 'Bank'}</strong>: <code>${inv.rtgs_account_no || 'N/A'}</code></div>
+                                <div>IFSC: <code>${inv.rtgs_ifsc_code || 'N/A'}</code></div>
+                            </td>
+                            <td class="p-3">
+                                <input id="utr_${inv.id}" type="text" placeholder="Enter Bank UTR..." class="text-xs bg-slate-50 border border-slate-300 rounded px-2 py-1 w-32 outline-none">
+                            </td>
+                            <td class="p-3 text-center">
+                                <button onclick="disburseRtgs('${inv.id}', '${inv.token_number}')" class="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition">
+                                    ✅ Disburse
+                                </button>
+                            </td>
+                        </tr>
+                    `).join('');
+                }
+            } catch (e) {
+                console.warn('RTGS fetch error:', e);
+            }
+        }
+
+        async function disburseRtgs(id, tokenNo) {
+            const utr = document.getElementById(`utr_${id}`)?.value?.trim();
+            if (!utr) {
+                alert('Please enter bank UTR / Reference number.');
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/portal/invoices', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        id: id,
+                        token_number: tokenNo,
+                        rtgs_utr_no: utr,
+                        payout_status: 'PAID'
+                    })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert(`✅ RTGS transfer recorded with UTR ${utr}!`);
+                    fetchRtgsQueue();
+                } else {
+                    alert(`Error: ${data.error || 'Failed to update'}`);
+                }
+            } catch (e) {
+                alert(`Error: ${e.message}`);
+            }
+        }
+
+        // =========================================================================
+        // SUPER ADMIN EXECUTIVE SUMMARY
+        // =========================================================================
+
+        async function fetchAdminSummary() {
+            try {
+                const res = await fetch('/api/portal/summary');
+                const data = await res.json();
+                if (data.success && data.summary) {
+                    const s = data.summary;
+                    document.getElementById('admKpiVolume').innerText = `${s.total_metric_tons} MT`;
+                    document.getElementById('admKpiQuintals').innerText = `${s.total_quintals.toLocaleString()} Quintals`;
+                    document.getElementById('admKpiAmount').innerText = `₹ ${(s.total_payable_amount / 100000).toFixed(2)} Lakhs`;
+                    document.getElementById('admKpiInvoices').innerText = `${s.total_invoices} Mandi Purchases`;
+                    document.getElementById('admKpiCash').innerText = `Cash: ₹ ${(s.cash_disbursed / 100000).toFixed(2)} L`;
+                    document.getElementById('admKpiRtgs').innerText = `RTGS: ₹ ${(s.rtgs_paid_amount / 100000).toFixed(2)} L (${s.rtgs_pending_amount > 0 ? `₹${(s.rtgs_pending_amount/100000).toFixed(2)}L Pending` : 'All Cleared'})`;
+
+                    // Render branch cards
+                    const container = document.getElementById('admBranchCardsContainer');
+                    if (container && s.branch_breakdown) {
+                        const bList = Object.entries(s.branch_breakdown);
+                        container.innerHTML = bList.map(([id, b]) => `
+                            <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
+                                <div class="font-bold text-slate-900 text-sm">${b.name}</div>
+                                <div class="text-xs text-slate-500">Procurement: <strong class="text-slate-800">${b.quintals} Qtl</strong></div>
+                                <div class="text-xs text-slate-500">Value: <strong class="text-emerald-800">₹ ${Number(b.amount).toLocaleString()}</strong></div>
+                                <div class="text-[11px] text-slate-400">${b.invoices} Invoices Recorded</div>
+                            </div>
+                        `).join('');
+                    }
+                }
+            } catch (e) {
+                console.warn('Admin summary notice:', e);
+            }
+        }
+    </script>
+
+</body>
+</html>

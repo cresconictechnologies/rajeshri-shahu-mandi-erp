@@ -21,6 +21,9 @@ cmd = [
     "--collect-all", "starlette",
     "--collect-all", "PIL",
     "--collect-all", "numpy",
+    "--collect-all", "requests",
+    "--collect-all", "urllib3",
+    "--collect-all", "multipart",
     "--exclude-module", "vendor_license_issuer",
     "--hidden-import", "clr",
     "--hidden-import", "clr_loader",
@@ -39,6 +42,8 @@ cmd = [
     "--hidden-import", "scipy.ndimage",
     "--hidden-import", "supabase_sync",
     "--hidden-import", "httpx",
+    "--hidden-import", "requests",
+    "--hidden-import", "multipart",
     "--hidden-import", "sqlalchemy",
     "--hidden-import", "server",
     os.path.join(current_dir, "desktop_app.py")

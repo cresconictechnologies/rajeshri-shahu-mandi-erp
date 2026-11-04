@@ -109,7 +109,7 @@ if "%VC_INSTALLED%"=="1" (
 )
 
 echo.
-echo [4/5] Verifying Microsoft Edge WebView2 Evergreen Runtime...
+echo [4/5] Verifying Web Interface Engine / WebView2 Runtime...
 set "WV2_INSTALLED=0"
 reg query "HKLM\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}" /v pv >nul 2>&1
 if %ERRORLEVEL% equ 0 (
@@ -120,8 +120,23 @@ if %ERRORLEVEL% equ 0 (
     set "WV2_INSTALLED=1"
 )
 
+:: Detect Windows OS version (Major version < 10 is Windows 7, 8, or 8.1)
+set "IS_LEGACY_WIN=0"
+for /f "tokens=2 delims=[]" %%a in ('ver') do (
+    for /f "tokens=2 delims= " %%b in ("%%a") do (
+        for /f "tokens=1 delims=." %%c in ("%%b") do (
+            if %%c lss 10 (
+                set "IS_LEGACY_WIN=1"
+            )
+        )
+    )
+)
+
 if "%WV2_INSTALLED%"=="1" (
     echo       [OK] Microsoft Edge WebView2 Runtime is active.
+) else if "%IS_LEGACY_WIN%"=="1" (
+    echo       [OK] Windows 7/8 detected. WebView2 online installer skipped to avoid KERNEL32 errors.
+    echo            Using built-in browser engine / system web browser fallback.
 ) else (
     echo       [*] Installing Microsoft Edge WebView2 Runtime...
     if exist "%PREREQ_DIR%MicrosoftEdgeWebview2Setup.exe" (

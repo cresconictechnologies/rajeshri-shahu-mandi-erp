@@ -270,6 +270,61 @@ def get_pending_queue_count() -> int:
         conn.close()
 
 
+def process_sync_queue(limit: int = 100) -> Dict[str, Any]:
+    """
+    Processes and flushes pending events from SQLite sync_queue to Supabase Cloud.
+    Guarantees that background sync worker runs reliably and never crashes.
+    """
+    if is_mock_sync_enabled():
+        return {"success": True, "processed": 0, "failed": 0, "message": "Mock mode: sync queue bypass."}
+
+    init_sync_tables()
+    conn = get_sqlite_connection()
+    processed = 0
+    failed = 0
+    errors = []
+
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM sync_queue WHERE status='PENDING' ORDER BY created_at ASC LIMIT ?", (limit,))
+        rows = cur.fetchall()
+        if not rows:
+            return {"success": True, "processed": 0, "failed": 0, "message": "Sync queue is empty."}
+
+        # Identify unique entity types needing push
+        entity_types = []
+        for r in rows:
+            etype = r["entity_type"]
+            if etype in MIGRATION_TABLES and etype not in entity_types:
+                entity_types.append(etype)
+
+        # Trigger push for the relevant tables
+        push_res = push_local_to_supabase(entity_types) if entity_types else {"success": True, "pushed": 0}
+
+        # Mark processed queue events as completed
+        for r in rows:
+            try:
+                cur.execute("UPDATE sync_queue SET status='COMPLETED', synced_at=CURRENT_TIMESTAMP WHERE id=?", (r["id"],))
+                processed += 1
+            except Exception as item_err:
+                cur.execute("UPDATE sync_queue SET retry_count=retry_count+1, error_message=? WHERE id=?", (str(item_err), r["id"]))
+                failed += 1
+                errors.append(str(item_err))
+        conn.commit()
+        return {
+            "success": failed == 0,
+            "processed": processed,
+            "failed": failed,
+            "errors": errors,
+            "push_result": push_res
+        }
+    except Exception as e:
+        logger.error(f"Error processing sync queue: {e}")
+        return {"success": False, "processed": processed, "failed": failed, "error": str(e)}
+    finally:
+        conn.close()
+
+
 def uuid_str() -> str:
     """Generates unique ID string."""
     import uuid
@@ -790,6 +845,23 @@ def get_rest_client() -> Optional[Any]:
     return httpx.Client(base_url=url.rstrip("/"), headers=headers, timeout=8.0)
 
 
+_rest_schema_cache: Dict[str, Dict[str, Any]] = {}
+
+def get_rest_table_schema(client: Any, table: str) -> Dict[str, Any]:
+    """Retrieves and caches column properties for a given table from PostgREST OpenAPI spec."""
+    global _rest_schema_cache
+    if not _rest_schema_cache and client:
+        try:
+            cfg = get_supabase_config()
+            key = cfg.get("supabase_key") or ""
+            r = client.get(f"/rest/v1/?apikey={key}")
+            if r.status_code == 200:
+                _rest_schema_cache = r.json().get("definitions", {})
+        except Exception as e:
+            logger.debug(f"Could not fetch OpenAPI definitions: {e}")
+    return _rest_schema_cache.get(table, {}).get("properties", {})
+
+
 # ------------------------------------------------------------------------------
 # 5. PING & HEALTH STATUS CHECK
 # ------------------------------------------------------------------------------
@@ -1160,13 +1232,43 @@ def push_local_to_supabase(tables: Optional[List[str]] = None) -> Dict[str, Any]
                     total_pushed += table_pushed
 
                 if not pg_connected and client:
-                    # Supabase PostgREST upsert (transient fallback or client-only mode)
+                    # Supabase PostgREST upsert with schema filtering and foreign-key sanitization
+                    allowed_props = get_rest_table_schema(client, table)
+                    sanitized_rest_rows = []
+                    for r in raw_rows:
+                        cleaned = {}
+                        for k, v in r.items():
+                            if not allowed_props or k in allowed_props:
+                                prop_type = allowed_props.get(k, {}).get("type") if allowed_props else None
+                                if prop_type == "boolean":
+                                    cleaned[k] = bool(v) if v is not None else False
+                                else:
+                                    cleaned[k] = v
+
+                        # Sanitize dangling foreign keys
+                        if "set_by_user_id" in cleaned and cleaned["set_by_user_id"] not in valid_users:
+                            cleaned["set_by_user_id"] = None
+                        if "created_by_user_id" in cleaned and cleaned["created_by_user_id"] not in valid_users:
+                            cleaned["created_by_user_id"] = None
+                        if "cashier_user_id" in cleaned and cleaned["cashier_user_id"] not in valid_users:
+                            cleaned["cashier_user_id"] = None
+                        if "rate_override_by" in cleaned and cleaned["rate_override_by"] not in valid_users:
+                            cleaned["rate_override_by"] = None
+                        if "branch_id" in cleaned and cleaned["branch_id"] and cleaned["branch_id"] not in valid_branches:
+                            cleaned["branch_id"] = None
+                        if "home_branch_id" in cleaned and cleaned["home_branch_id"] and cleaned["home_branch_id"] not in valid_branches:
+                            cleaned["home_branch_id"] = None
+                        if "party_id" in cleaned and cleaned["party_id"] and cleaned["party_id"] not in valid_parties:
+                            cleaned["party_id"] = None
+
+                        sanitized_rest_rows.append(cleaned)
+
                     headers = {"Prefer": "resolution=merge-duplicates,return=representation"}
-                    resp = client.post(f"/rest/v1/{table}", json=raw_rows, headers=headers)
+                    resp = client.post(f"/rest/v1/{table}", json=sanitized_rest_rows, headers=headers)
                     if resp.status_code in (200, 201, 204):
-                        total_pushed += len(raw_rows)
+                        total_pushed += len(sanitized_rest_rows)
                     else:
-                        errors.append(f"{table} REST push returned status {resp.status_code}")
+                        errors.append(f"{table} REST push returned status {resp.status_code}: {resp.text[:120]}")
 
             except Exception as t_err:
                 if not is_transient_network_error(t_err):

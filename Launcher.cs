@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.ComponentModel;
 using System.Windows.Forms;
 using System.Security.Principal;
+using System.Runtime.InteropServices;
 using Microsoft.Win32;
 
 namespace RajarshiShahuTrading.Launcher
@@ -50,12 +51,21 @@ namespace RajarshiShahuTrading.Launcher
         private System.Windows.Forms.Timer autoLaunchTimer;
         private int countdownSeconds = 3;
         private bool isAutoLaunch = true;
+        private bool isWin7BrowserMode = false;
 
         // Discovered Paths
         private string appBaseDir;
         private string targetExePath;
         private string prereqDir;
         private string corePathDllSource;
+
+        private static readonly string[] defaultTitles = new string[] {
+            "1. OS Architecture & Compatibility",
+            "2. Windows 7/8 Core Path DLL (api-ms-win-core-path-l1-1-0.dll)",
+            "3. Microsoft Visual C++ 2015-2022 Runtime (x64)",
+            "4. Microsoft Edge WebView2 Evergreen Runtime",
+            "5. Desktop Shortcut Integration"
+        };
 
         public LauncherForm()
         {
@@ -134,14 +144,6 @@ namespace RajarshiShahuTrading.Launcher
             cardPanel.Size = new Size(644, 255);
             cardPanel.BackColor = CardBgColor;
             cardPanel.Paint += new PaintEventHandler(CardPanel_Paint);
-
-            string[] defaultTitles = new string[] {
-                "1. OS Architecture & Compatibility",
-                "2. Windows 7/8 Core Path DLL (api-ms-win-core-path-l1-1-0.dll)",
-                "3. Microsoft Visual C++ 2015-2022 Runtime (x64)",
-                "4. Microsoft Edge WebView2 Evergreen Runtime",
-                "5. Desktop Shortcut Integration"
-            };
 
             int startY = 12;
             int rowHeight = 47;
@@ -342,6 +344,7 @@ namespace RajarshiShahuTrading.Launcher
         {
             if (worker.IsBusy) return;
 
+            isWin7BrowserMode = false;
             btnLaunch.Enabled = false;
             btnRecheck.Enabled = false;
             progressBar.Value = 5;
@@ -349,8 +352,11 @@ namespace RajarshiShahuTrading.Launcher
 
             for (int i = 0; i < 5; i++)
             {
+                stepBadges[i].Size = new Size(50, 22);
                 stepBadges[i].Text = "[ .. ]";
                 stepBadges[i].ForeColor = PendingGray;
+                stepTitles[i].Left = 70;
+                stepTitles[i].Text = defaultTitles[i];
                 stepDetails[i].Text = "Checking...";
                 stepDetails[i].ForeColor = Color.FromArgb(100, 116, 139);
             }
@@ -365,6 +371,8 @@ namespace RajarshiShahuTrading.Launcher
             public string Badge;
             public Color BadgeColor;
             public string Detail;
+            public string Title;
+            public string StatusText;
         }
 
         private void Worker_DoWork(object sender, DoWorkEventArgs e)
@@ -374,7 +382,7 @@ namespace RajarshiShahuTrading.Launcher
             // STEP 1: OS Architecture & Compatibility
             {
                 bool is64Bit = Environment.Is64BitOperatingSystem;
-                Version ver = Environment.OSVersion.Version;
+                Version ver = GetRealOSVersion();
                 string osName = GetFriendlyOSName(ver);
 
                 StepResult sr = new StepResult();
@@ -537,14 +545,39 @@ namespace RajarshiShahuTrading.Launcher
                 System.Threading.Thread.Sleep(200);
             }
 
-            // STEP 4: Microsoft Edge WebView2 Evergreen Runtime
+            // STEP 4: Microsoft Edge WebView2 Evergreen Runtime / Web Interface Engine
             {
                 StepResult sr = new StepResult();
                 sr.StepIndex = 3;
 
+                Version ver = GetRealOSVersion();
+                bool isLegacyWin = (ver.Major < 10);
                 string webView2Version = GetWebView2Version();
-                if (string.IsNullOrEmpty(webView2Version))
+
+                if (!string.IsNullOrEmpty(webView2Version))
                 {
+                    sr.Success = true;
+                    sr.Badge = "[ ✓ ]";
+                    sr.BadgeColor = SuccessGreen;
+                    sr.Title = "4. Microsoft Edge WebView2 Evergreen Runtime";
+                    sr.Detail = string.Format("WebView2 Evergreen Runtime Active (Version {0})", webView2Version);
+                }
+                else if (isLegacyWin)
+                {
+                    // Windows 7 / 8 / 8.1: Do NOT run MicrosoftEdgeWebview2Setup.exe!
+                    // Microsoft dropped support in Jan 2023. Running online bootstrapper causes
+                    // MicrosoftEdgeUpdate.exe to fail looking for PackageIdFromFullName in KERNEL32.dll.
+                    sr.Success = true;
+                    sr.Badge = "[OK] Win 7 Mode";
+                    sr.BadgeColor = SuccessGreen;
+                    sr.Title = "4. Web Interface Engine (Windows 7 Native Browser / Trident Fallback)";
+                    sr.Detail = "Windows 7 detected. Using built-in browser engine / system web browser.";
+                    sr.StatusText = "Ready (Windows 7 browser mode active)";
+                    isWin7BrowserMode = true;
+                }
+                else
+                {
+                    // Windows 10 and 11 (OS version >= 10.0): if missing, run MicrosoftEdgeWebview2Setup.exe
                     string wvInstaller = prereqDir != null ? Path.Combine(prereqDir, "MicrosoftEdgeWebview2Setup.exe") : null;
                     if (wvInstaller != null && File.Exists(wvInstaller))
                     {
@@ -572,22 +605,25 @@ namespace RajarshiShahuTrading.Launcher
                             webView2Version = GetWebView2Version();
                         }
                     }
+
+                    if (!string.IsNullOrEmpty(webView2Version))
+                    {
+                        sr.Success = true;
+                        sr.Badge = "[ ✓ ]";
+                        sr.BadgeColor = SuccessGreen;
+                        sr.Title = "4. Microsoft Edge WebView2 Evergreen Runtime";
+                        sr.Detail = string.Format("WebView2 Evergreen Runtime Active (Version {0})", webView2Version);
+                    }
+                    else
+                    {
+                        sr.Success = false;
+                        sr.Badge = "[ ! ]";
+                        sr.BadgeColor = WarnOrange;
+                        sr.Title = "4. Microsoft Edge WebView2 Evergreen Runtime";
+                        sr.Detail = "WebView2 not found. (Will fallback to standard web browser window)";
+                    }
                 }
 
-                if (!string.IsNullOrEmpty(webView2Version))
-                {
-                    sr.Success = true;
-                    sr.Badge = "[ ✓ ]";
-                    sr.BadgeColor = SuccessGreen;
-                    sr.Detail = string.Format("WebView2 Evergreen Runtime Active (Version {0})", webView2Version);
-                }
-                else
-                {
-                    sr.Success = false;
-                    sr.Badge = "[ ! ]";
-                    sr.BadgeColor = WarnOrange;
-                    sr.Detail = "WebView2 not found. (Will fallback to standard web browser window)";
-                }
                 worker.ReportProgress(80, sr);
                 System.Threading.Thread.Sleep(200);
             }
@@ -636,8 +672,31 @@ namespace RajarshiShahuTrading.Launcher
                 StepResult sr = (StepResult)e.UserState;
                 stepBadges[sr.StepIndex].Text = sr.Badge;
                 stepBadges[sr.StepIndex].ForeColor = sr.BadgeColor;
+
+                if (!string.IsNullOrEmpty(sr.Title))
+                {
+                    stepTitles[sr.StepIndex].Text = sr.Title;
+                }
+
+                if (sr.Badge != null && sr.Badge.Length > 5)
+                {
+                    Size measured = TextRenderer.MeasureText(sr.Badge, stepBadges[sr.StepIndex].Font);
+                    stepBadges[sr.StepIndex].Width = measured.Width + 4;
+                    stepTitles[sr.StepIndex].Left = stepBadges[sr.StepIndex].Right + 6;
+                }
+                else
+                {
+                    stepBadges[sr.StepIndex].Width = 50;
+                    stepTitles[sr.StepIndex].Left = 70;
+                }
+
                 stepDetails[sr.StepIndex].Text = sr.Detail;
                 stepDetails[sr.StepIndex].ForeColor = Color.FromArgb(51, 65, 85);
+
+                if (!string.IsNullOrEmpty(sr.StatusText))
+                {
+                    statusLabel.Text = sr.StatusText;
+                }
             }
         }
 
@@ -654,8 +713,16 @@ namespace RajarshiShahuTrading.Launcher
                 return;
             }
 
-            statusLabel.Text = "All requirements verified successfully. System is 100% ready.";
-            statusLabel.ForeColor = SuccessGreen;
+            if (isWin7BrowserMode)
+            {
+                statusLabel.Text = "Ready (Windows 7 browser mode active)";
+                statusLabel.ForeColor = SuccessGreen;
+            }
+            else
+            {
+                statusLabel.Text = "All requirements verified successfully. System is 100% ready.";
+                statusLabel.ForeColor = SuccessGreen;
+            }
 
             if (isAutoLaunch)
             {
@@ -730,6 +797,61 @@ namespace RajarshiShahuTrading.Launcher
         }
 
         // --- Helper Methods ---
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        private struct OSVERSIONINFOEX
+        {
+            public int dwOSVersionInfoSize;
+            public int dwMajorVersion;
+            public int dwMinorVersion;
+            public int dwBuildNumber;
+            public int dwPlatformId;
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
+            public string szCSDVersion;
+            public ushort wServicePackMajor;
+            public ushort wServicePackMinor;
+            public ushort wSuiteMask;
+            public byte wProductType;
+            public byte wReserved;
+        }
+
+        [DllImport("ntdll.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+        private static extern int RtlGetVersion(ref OSVERSIONINFOEX versionInfo);
+
+        private static Version GetRealOSVersion()
+        {
+            try
+            {
+                OSVERSIONINFOEX osvi = new OSVERSIONINFOEX();
+                osvi.dwOSVersionInfoSize = Marshal.SizeOf(typeof(OSVERSIONINFOEX));
+                if (RtlGetVersion(ref osvi) == 0)
+                {
+                    return new Version(osvi.dwMajorVersion, osvi.dwMinorVersion, osvi.dwBuildNumber);
+                }
+            }
+            catch { }
+
+            try
+            {
+                using (RegistryKey key = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion"))
+                {
+                    if (key != null)
+                    {
+                        object majorVal = key.GetValue("CurrentMajorVersionNumber");
+                        if (majorVal != null)
+                        {
+                            int major = Convert.ToInt32(majorVal);
+                            int minor = Convert.ToInt32(key.GetValue("CurrentMinorVersionNumber") ?? 0);
+                            int build = Convert.ToInt32(key.GetValue("CurrentBuildNumber") ?? key.GetValue("CurrentBuild") ?? 0);
+                            return new Version(major, minor, build);
+                        }
+                    }
+                }
+            }
+            catch { }
+
+            return Environment.OSVersion.Version;
+        }
 
         private static string GetFriendlyOSName(Version v)
         {

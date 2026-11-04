@@ -454,16 +454,16 @@
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:14px;">
                 <div class="form-row" style="margin-bottom:0;">
                     <label>Detected Moisture % (Nami)</label>
-                    <input type="number" step="0.1" id="moisturePct" value="11.2" style="font-size:18px; font-weight:800; color:#059669;">
+                    <input type="number" step="0.1" id="moisturePct" value="" placeholder="--" style="font-size:18px; font-weight:800; color:#059669;">
                 </div>
                 <div class="form-row" style="margin-bottom:0;">
                     <label>OCR Confidence</label>
-                    <div id="ocrConfidenceBadge" style="background:#ecfdf5; border:1.5px solid #a7f3d0; border-radius:10px; padding:12px; color:#065f46; font-weight:800; text-align:center;">
-                        94% Verified
+                    <div id="ocrConfidenceBadge" style="background:#f8fafc; border:1.5px solid #cbd5e1; border-radius:10px; padding:12px; color:#64748b; font-weight:800; text-align:center;">
+                        Awaiting Scan
                     </div>
                 </div>
             </div>
-            <div id="meterDetectText" style="font-size:11px; color:#64748b; margin-top:6px;">Auto-detected: Digital Mandi Moisture Tester LCD</div>
+            <div id="meterDetectText" style="font-size:11px; color:#64748b; margin-top:6px;">Snap photo of tester LCD to run OCR</div>
         </div>
 
         <!-- ======================================================== -->
@@ -1007,6 +1007,12 @@
                 document.getElementById("vehicleNo").focus();
                 return;
             }
+            const moistureVal = document.getElementById("moisturePct").value?.trim();
+            if (!moistureVal) {
+                alert("Please enter or scan moisture percentage at Step 2!");
+                document.getElementById("moisturePct").focus();
+                return;
+            }
 
             // Ensure grain analysis was executed
             if (!currentAnalysis || !currentCorridor) {
@@ -1028,7 +1034,7 @@
             payload.append("inspector_id", document.getElementById("inspectorId")?.value || "");
             payload.append("inspector_signature", "");
 
-            payload.append("moisture_pct", document.getElementById("moisturePct").value || "11.2");
+            payload.append("moisture_pct", moistureVal);
             payload.append("karda_pct", currentAnalysis.karda_pct);
             payload.append("damaged_pct", currentAnalysis.damaged_pct);
             payload.append("green_seeds_pct", currentAnalysis.green_seeds_pct);
@@ -1101,6 +1107,14 @@
                 document.getElementById("farmerName").value = "";
                 document.getElementById("farmerPhone").value = "";
                 document.getElementById("vehicleNo").value = "";
+                document.getElementById("moisturePct").value = "";
+                const confBadge = document.getElementById("ocrConfidenceBadge");
+                if (confBadge) {
+                    confBadge.innerText = "Awaiting Scan";
+                    confBadge.style.background = "#f8fafc";
+                    confBadge.style.color = "#64748b";
+                    confBadge.style.borderColor = "#cbd5e1";
+                }
                 document.getElementById("meterPhotoPreview").style.display = "none";
                 document.getElementById("grainPhotoPreview").style.display = "none";
                 document.getElementById("analysisDashboard").style.display = "none";

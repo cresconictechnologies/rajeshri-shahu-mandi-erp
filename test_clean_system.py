@@ -60,7 +60,7 @@ assert "42.50 Qtl" in html_out
 assert "5600.00" in html_out
 assert "Hamali Deduction" in html_out
 assert "236,937.50" in html_out
-assert "Cashier / Munim Sign" in html_out
+assert "अधिकृत मुनीम / कॅशियर सही" in html_out or "Munim / Cashier" in html_out
 print("  [PASS] Parchi slip renders correctly with clean layout, commodity, rate, qtl, hamali deduction, and net payable!")
 
 print("\n=== ALL SYSTEM CHECKS PASSED SUCCESSFULLY ===")

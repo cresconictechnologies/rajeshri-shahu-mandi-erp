@@ -222,21 +222,21 @@
                 <div class="space-y-3 text-left">
                     <div>
                         <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Farmer Full Name *</label>
-                        <input id="inpFarmer" type="text" placeholder="e.g. Rameshwar Ganpat Patil" value="Rameshwar Patil" class="w-full text-sm font-semibold bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-slate-900 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 outline-none transition">
+                        <input id="inpFarmer" type="text" placeholder="Enter Farmer Full Name / शेतकरी नाव" value="" class="w-full text-sm font-semibold bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-slate-900 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 outline-none transition">
                     </div>
 
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div>
                             <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Vehicle No *</label>
-                            <input id="inpVehicle" type="text" placeholder="MH-28-AB-1234" value="MH-28-AB-1234" class="w-full text-sm font-mono font-bold bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-slate-900 focus:bg-white focus:border-emerald-500 outline-none transition uppercase">
+                            <input id="inpVehicle" type="text" placeholder="MH-28-XXXX / Vehicle No" value="" class="w-full text-sm font-mono font-bold bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-slate-900 focus:bg-white focus:border-emerald-500 outline-none transition uppercase">
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Farmer Phone *</label>
-                            <input id="inpPhone" type="tel" placeholder="9822XXXXXX" value="9822012345" class="w-full text-sm font-mono bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-slate-900 focus:bg-white focus:border-emerald-500 outline-none transition">
+                            <input id="inpPhone" type="tel" placeholder="10-digit mobile" value="" class="w-full text-sm font-mono bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-slate-900 focus:bg-white focus:border-emerald-500 outline-none transition">
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Village Name *</label>
-                            <input id="inpVillage" type="text" placeholder="e.g. Chikhali" value="Chikhali" class="w-full text-sm font-semibold bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-slate-900 focus:bg-white focus:border-emerald-500 outline-none transition">
+                            <input id="inpVillage" type="text" placeholder="Enter Village / गाव" value="" class="w-full text-sm font-semibold bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-slate-900 focus:bg-white focus:border-emerald-500 outline-none transition">
                         </div>
                     </div>
 
@@ -280,7 +280,7 @@
                         <div class="flex-1">
                             <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Moisture Readout (%)</label>
                             <div class="relative">
-                                <input id="inpMoisture" type="number" step="0.1" min="7.0" max="24.0" value="10.8" class="w-full text-2xl font-mono font-extrabold bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-slate-900 focus:bg-white focus:border-emerald-500 outline-none transition">
+                                <input id="inpMoisture" type="number" step="0.1" min="7.0" max="24.0" value="" placeholder="--" class="w-full text-2xl font-mono font-extrabold bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-slate-900 focus:bg-white focus:border-emerald-500 outline-none transition">
                                 <span class="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">%</span>
                             </div>
                         </div>
@@ -308,15 +308,15 @@
                     <div class="pt-3 border-t border-slate-100 space-y-1.5 text-xs">
                         <div class="flex items-center justify-between font-mono">
                             <span class="text-slate-600">Topological Bitmask Match:</span>
-                            <span class="font-bold text-emerald-700">100% Match (0 vs 8 Immune)</span>
+                            <span id="ocrBitmaskStatus" class="font-bold text-slate-500">Awaiting LCD Capture</span>
                         </div>
                         <div class="flex items-center justify-between font-mono">
                             <span class="text-slate-600">Bottom Quadrant Decimal:</span>
-                            <span class="font-bold text-emerald-700">Dot Detected (10.8%)</span>
+                            <span id="ocrDotStatus" class="font-bold text-slate-500">Awaiting LCD Capture</span>
                         </div>
                         <div class="flex items-center justify-between font-mono">
                             <span class="text-slate-600">APMC Feasibility Boundary:</span>
-                            <span class="font-bold text-emerald-700">VERIFIED SOUND [7.0 - 24.0%]</span>
+                            <span id="ocrBoundaryStatus" class="font-bold text-slate-500">7.0% - 24.0% Gated</span>
                         </div>
                     </div>
                 </div>
@@ -354,15 +354,15 @@
                     <div class="p-3 bg-emerald-50/70 rounded-xl text-xs space-y-1">
                         <div class="flex justify-between">
                             <span class="text-slate-600">Kernels Profiled:</span>
-                            <span id="statKernels" class="font-mono font-bold text-emerald-800">842 Seeds</span>
+                            <span id="statKernels" class="font-mono font-bold text-emerald-800">-- Seeds</span>
                         </div>
                         <div class="flex justify-between">
                             <span class="text-slate-600">Breed Purity:</span>
-                            <span id="statPurity" class="font-mono font-bold text-emerald-800">96.8% Pure</span>
+                            <span id="statPurity" class="font-mono font-bold text-emerald-800">-- % Pure</span>
                         </div>
                         <div class="flex justify-between">
                             <span class="text-slate-600">Size Uniformity:</span>
-                            <span id="statUniformity" class="font-mono font-bold text-emerald-800">94.2%</span>
+                            <span id="statUniformity" class="font-mono font-bold text-emerald-800">-- %</span>
                         </div>
                     </div>
                 </div>
@@ -380,26 +380,26 @@
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2 text-left">
                     <div class="p-3 rounded-xl bg-slate-50">
                         <div class="text-[11px] font-bold text-slate-500 uppercase">Foreign Matter (Karda)</div>
-                        <div class="text-xl font-display font-extrabold text-slate-900 mt-1" id="valKarda">1.10 %</div>
-                        <div class="text-[10px] text-emerald-700 font-semibold mt-0.5">Within 2.0% Limit</div>
+                        <div class="text-xl font-display font-extrabold text-slate-900 mt-1" id="valKarda">-- %</div>
+                        <div class="text-[10px] text-slate-500 font-semibold mt-0.5">Limit: 2.0%</div>
                     </div>
 
                     <div class="p-3 rounded-xl bg-slate-50">
                         <div class="text-[11px] font-bold text-slate-500 uppercase">Weather / Rain Damaged</div>
-                        <div class="text-xl font-display font-extrabold text-slate-900 mt-1" id="valDamaged">1.25 %</div>
-                        <div class="text-[10px] text-emerald-700 font-semibold mt-0.5">Within 3.0% Limit</div>
+                        <div class="text-xl font-display font-extrabold text-slate-900 mt-1" id="valDamaged">-- %</div>
+                        <div class="text-[10px] text-slate-500 font-semibold mt-0.5">Limit: 3.0%</div>
                     </div>
 
                     <div class="p-3 rounded-xl bg-slate-50">
                         <div class="text-[11px] font-bold text-slate-500 uppercase">Immature Green Seeds</div>
-                        <div class="text-xl font-display font-extrabold text-slate-900 mt-1" id="valGreen">1.40 %</div>
-                        <div class="text-[10px] text-emerald-700 font-semibold mt-0.5">Within 3.0% Limit</div>
+                        <div class="text-xl font-display font-extrabold text-slate-900 mt-1" id="valGreen">-- %</div>
+                        <div class="text-[10px] text-slate-500 font-semibold mt-0.5">Limit: 3.0%</div>
                     </div>
 
                     <div class="p-3 rounded-xl bg-slate-50">
                         <div class="text-[11px] font-bold text-slate-500 uppercase">Broken & Split Dal</div>
-                        <div class="text-xl font-display font-extrabold text-slate-900 mt-1" id="valBroken">1.50 %</div>
-                        <div class="text-[10px] text-emerald-700 font-semibold mt-0.5">Within 3.0% Limit</div>
+                        <div class="text-xl font-display font-extrabold text-slate-900 mt-1" id="valBroken">-- %</div>
+                        <div class="text-[10px] text-slate-500 font-semibold mt-0.5">Limit: 3.0%</div>
                     </div>
                 </div>
 
@@ -410,17 +410,17 @@
                             <span class="bg-blue-600 text-white text-[10px] font-extrabold px-2 py-0.5 rounded tracking-wide">BÜHLER SORTEX</span>
                             <span class="text-xs font-bold text-slate-200">Industrial Optical Assaying</span>
                         </div>
-                        <span id="badgeSortexGrade" class="bg-emerald-600 text-white text-[10px] font-extrabold px-2.5 py-0.5 rounded-full">SORTEX Grade B</span>
+                        <span id="badgeSortexGrade" class="bg-slate-700 text-slate-300 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full">Awaiting Assaying</span>
                     </div>
                     <div class="grid grid-cols-3 gap-2 text-center">
                         <div class="bg-white/5 p-2 rounded-lg border border-slate-700">
                             <div class="text-[10px] text-slate-400 font-medium">Clean Yield</div>
-                            <div id="valSortexClean" class="text-base font-extrabold text-emerald-400">94.0 %</div>
+                            <div id="valSortexClean" class="text-base font-extrabold text-emerald-400">-- %</div>
                             <div class="text-[9px] text-slate-300">Sound Kernels</div>
                         </div>
                         <div class="bg-white/5 p-2 rounded-lg border border-slate-700">
                             <div class="text-[10px] text-slate-400 font-medium">Reject Eject</div>
-                            <div id="valSortexReject" class="text-base font-extrabold text-rose-400">6.0 %</div>
+                            <div id="valSortexReject" class="text-base font-extrabold text-rose-400">-- %</div>
                             <div class="text-[9px] text-slate-300">Valve Ejections</div>
                         </div>
                         <div class="bg-white/5 p-2 rounded-lg border border-slate-700">
@@ -439,8 +439,8 @@
                         <span class="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-800 font-bold text-xs flex items-center justify-center">4</span>
                         <h2 class="font-display font-bold text-slate-900 text-base">Mandi Corridor Rate Discovery & Instant Printable Slip</h2>
                     </div>
-                    <span id="badgeGrade" class="text-xs font-bold text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full border border-emerald-200">
-                        Grade 1 (Premium FAQ)
+                    <span id="badgeGrade" class="text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-full border border-slate-200">
+                        Awaiting Assaying
                     </span>
                 </div>
 
@@ -450,7 +450,7 @@
                         <div class="p-4 rounded-xl bg-emerald-50/70">
                             <span class="text-xs font-bold text-emerald-800 uppercase tracking-wide">Suggested Procurement Price</span>
                             <div class="text-3xl font-display font-extrabold text-emerald-800 mt-1 flex items-baseline gap-2">
-                                <span id="valRate">₹ 4,700</span>
+                                <span id="valRate">₹ --</span>
                                 <span class="text-xs text-emerald-950 font-bold font-sans">/ Quintal</span>
                             </div>
                             <div class="text-xs text-slate-600 mt-1">
@@ -459,12 +459,15 @@
                         </div>
 
                         <!-- Slip action buttons -->
-                        <div class="flex items-center gap-3">
-                            <button onclick="printSlip()" class="flex-1 py-3 px-4 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow transition flex items-center justify-center gap-2 active:scale-95">
-                                <span>🖨️</span> <span>Print 80mm Slip</span>
+                        <div class="flex items-center gap-2">
+                            <button type="button" onclick="resetInspectorForm()" class="py-3 px-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl border border-slate-300 transition flex items-center justify-center gap-1.5 active:scale-95" title="Clear all fields for next farmer">
+                                <span>🔄</span> <span>Clear</span>
                             </button>
-                            <button onclick="issueTicket()" id="btnIssueTicket" class="flex-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow transition flex items-center justify-center gap-2 active:scale-95">
-                                <span>⚡</span> <span>Sync to Cashier Desk</span>
+                            <button onclick="printSlip()" class="flex-1 py-3 px-3 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5 active:scale-95">
+                                <span>🖨️</span> <span>Print 80mm</span>
+                            </button>
+                            <button onclick="issueTicket()" id="btnIssueTicket" class="flex-1 py-3 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5 active:scale-95">
+                                <span>⚡</span> <span>Sync to Cashier</span>
                             </button>
                         </div>
                     </div>
@@ -475,36 +478,36 @@
      RAJESHRI SHAHU MANDI & COMMODITY TRADING
        APMC YARD QUALITY ASSAYING CERTIFICATE
 ======================================================
-Certificate No : <span id="slipTicket">QC-CHK-261102-92A4</span>
-Date & Time    : <span id="slipTime">2026-11-02 14:30</span>
-Vehicle No     : <span id="slipVehicle">MH-28-AB-1234</span>
-Farmer Name    : <span id="slipFarmer">Rameshwar Patil</span>
-Village        : <span id="slipVillage">Chikhali</span>
-Commodity      : <span id="slipCommodity">Soyabean (Yellow)</span>
-Inspector      : <span id="slipInspector">Babulal Meena (🔒 Locked QC - CHK)</span>
-Branch Yard    : <span id="slipYard">Chikhali APMC Yard [CHK]</span>
+Certificate No : <span id="slipTicket">--</span>
+Date & Time    : <span id="slipTime">--</span>
+Vehicle No     : <span id="slipVehicle">--</span>
+Farmer Name    : <span id="slipFarmer">--</span>
+Village        : <span id="slipVillage">--</span>
+Commodity      : <span id="slipCommodity">--</span>
+Inspector      : <span id="slipInspector">--</span>
+Branch Yard    : <span id="slipYard">--</span>
 Gate Auth      : <span class="font-bold text-emerald-700">HQ ACCOUNTANT PROVISIONED</span>
 ------------------------------------------------------
         PHYSICAL QUALITY PARAMETERS & REFRACTIONS
 ------------------------------------------------------
-1. Moisture (Nami) %       : <span id="slipMoisture">10.8%</span> (Topological OCR)
-2. Foreign Matter (Karda)% : <span id="slipKarda">1.10%</span> (Within FAQ)
-3. Rain & Damaged %        : <span id="slipDamaged">1.25%</span> (Sound Kernel)
-4. Immature Green %        : <span id="slipGreen">1.40%</span> (Chlorophyll Safe)
-5. Broken & Split Dal %    : <span id="slipBroken">1.50%</span> (Mechanical Sound)
-6. Size Uniformity Index   : <span id="slipUniformity">94.2%</span> (AGMARK High)
+1. Moisture (Nami) %       : <span id="slipMoisture">--</span> (Topological OCR)
+2. Foreign Matter (Karda)% : <span id="slipKarda">--</span>
+3. Rain & Damaged %        : <span id="slipDamaged">--</span>
+4. Immature Green %        : <span id="slipGreen">--</span>
+5. Broken & Split Dal %    : <span id="slipBroken">--</span>
+6. Size Uniformity Index   : <span id="slipUniformity">--</span>
 ------------------------------------------------------
           VARIETAL PURITY & BREED DETECTION
 ------------------------------------------------------
-Dominant Breed Identified : JS-335 (Standard Commercial)
-Breed Purity Score        : <span id="slipPurity">96.8%</span> (Pure Lot)
-Admixture (Other Breed) % : 3.2%
+Dominant Breed Identified : <span id="slipBreed">--</span>
+Breed Purity Score        : <span id="slipPurity">--</span>
+Admixture (Other Breed) % : <span id="slipAdmixture">--</span>
 ------------------------------------------------------
         APMC CORRIDOR RATE DISCOVERY & PRICING
 ------------------------------------------------------
 Today's Corridor : Rs. 4,400 - Rs. 4,800 / Qtl
-APMC FAQ Grade   : <span id="slipGrade">Grade 1 (Premium FAQ)</span>
-SUGGESTED RATE   : <span id="slipRate">Rs. 4,700.00 / Quintal</span>
+APMC FAQ Grade   : <span id="slipGrade">--</span>
+SUGGESTED RATE   : <span id="slipRate">--</span>
 ------------------------------------------------------
 Farmer Hamali    : Rs. 25.00 / 100 Kg
 Mandi Cess       : 0% (APMC Deregulated)
@@ -659,19 +662,19 @@ Mandi Cess       : 0% (APMC Deregulated)
             // Bind input sync to thermal slip
             document.getElementById('inpFarmer')?.addEventListener('input', (e) => {
                 const el = document.getElementById('slipFarmer');
-                if (el) el.innerText = e.target.value || 'Farmer';
+                if (el) el.innerText = e.target.value.trim() || '--';
             });
             document.getElementById('inpVillage')?.addEventListener('input', (e) => {
                 const el = document.getElementById('slipVillage');
-                if (el) el.innerText = e.target.value || 'Village';
+                if (el) el.innerText = e.target.value.trim() || '--';
             });
             document.getElementById('inpVehicle')?.addEventListener('input', (e) => {
                 const el = document.getElementById('slipVehicle');
-                if (el) el.innerText = e.target.value || 'Vehicle';
+                if (el) el.innerText = e.target.value.trim().toUpperCase() || '--';
             });
             document.getElementById('inpCommodity')?.addEventListener('change', (e) => {
                 const el = document.getElementById('slipCommodity');
-                if (el) el.innerText = e.target.value;
+                if (el) el.innerText = e.target.value || '--';
                 recalculateRate();
             });
             document.getElementById('inpMoisture')?.addEventListener('input', () => {
@@ -1049,11 +1052,11 @@ Mandi Cess       : 0% (APMC Deregulated)
             }
 
             // Update slip details
-            document.getElementById('slipFarmer').innerText = document.getElementById('inpFarmer').value || 'Farmer';
+            document.getElementById('slipFarmer').innerText = document.getElementById('inpFarmer')?.value?.trim() || '--';
             const elSlipVil = document.getElementById('slipVillage');
-            if (elSlipVil) elSlipVil.innerText = document.getElementById('inpVillage')?.value || 'Village';
-            document.getElementById('slipVehicle').innerText = document.getElementById('inpVehicle').value || 'Vehicle';
-            document.getElementById('slipCommodity').innerText = document.getElementById('inpCommodity').value;
+            if (elSlipVil) elSlipVil.innerText = document.getElementById('inpVillage')?.value?.trim() || '--';
+            document.getElementById('slipVehicle').innerText = document.getElementById('inpVehicle')?.value?.trim()?.toUpperCase() || '--';
+            document.getElementById('slipCommodity').innerText = document.getElementById('inpCommodity')?.value || '--';
             const slipKarda = document.getElementById('slipKarda');
             if (slipKarda) slipKarda.innerText = `${karda}%`;
             const slipDamaged = document.getElementById('slipDamaged');
@@ -1116,14 +1119,33 @@ Mandi Cess       : 0% (APMC Deregulated)
         }
 
         function recalculateRate() {
+            const moistInput = document.getElementById('inpMoisture')?.value?.trim();
+            const slipMoisture = document.getElementById('slipMoisture');
+            const badgeGrade = document.getElementById('badgeGrade');
+            const slipGrade = document.getElementById('slipGrade');
+            const valRateEl = document.getElementById('valRate');
+            const slipRateEl = document.getElementById('slipRate');
+
+            if (!moistInput) {
+                if (slipMoisture) slipMoisture.innerText = '--';
+                if (badgeGrade) {
+                    badgeGrade.innerText = 'Awaiting Assaying';
+                    badgeGrade.className = 'text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-full border border-slate-200';
+                }
+                if (slipGrade) slipGrade.innerText = '--';
+                if (valRateEl) valRateEl.innerText = '₹ --';
+                if (slipRateEl) slipRateEl.innerText = '--';
+                return;
+            }
+
+            const moisture = parseFloat(moistInput);
+            if (isNaN(moisture)) return;
+            if (slipMoisture) slipMoisture.innerText = `${moisture.toFixed(1)}%`;
+
             const commVal = document.getElementById('inpCommodity')?.value || 'Soyabean (Yellow)';
             const commCfg = getCommodityConfig(commVal);
             const baseRate = commCfg.baseRate;
             const stdMoisture = commCfg.stdMoisture;
-
-            const moisture = parseFloat(document.getElementById('inpMoisture')?.value) || stdMoisture;
-            const slipMoisture = document.getElementById('slipMoisture');
-            if (slipMoisture) slipMoisture.innerText = `${moisture.toFixed(1)}%`;
 
             let rate = baseRate;
             let grade = 'Grade 1 (Premium FAQ)';
@@ -1143,11 +1165,112 @@ Mandi Cess       : 0% (APMC Deregulated)
                 badgeClass = 'text-xs font-bold text-red-800 bg-red-100 px-3 py-1 rounded-full border border-red-300';
             }
 
-            const badgeGrade = document.getElementById('badgeGrade');
             if (badgeGrade) {
                 badgeGrade.innerText = grade;
                 badgeGrade.className = badgeClass;
             }
+            if (slipGrade) slipGrade.innerText = grade;
+
+            if (valRateEl) valRateEl.innerText = `₹ ${rate.toLocaleString('en-IN')}`;
+            if (slipRateEl) slipRateEl.innerText = `Rs. ${rate.toLocaleString('en-IN')}.00 / Quintal`;
+        }
+
+        function resetInspectorForm() {
+            const fName = document.getElementById('inpFarmer');
+            if (fName) fName.value = '';
+            const vNo = document.getElementById('inpVehicle');
+            if (vNo) vNo.value = '';
+            const fPhone = document.getElementById('inpPhone');
+            if (fPhone) fPhone.value = '';
+            const fVillage = document.getElementById('inpVillage');
+            if (fVillage) fVillage.value = '';
+            const fMoist = document.getElementById('inpMoisture');
+            if (fMoist) fMoist.value = '';
+
+            const elSF = document.getElementById('slipFarmer');
+            if (elSF) elSF.innerText = '--';
+            const elSV = document.getElementById('slipVehicle');
+            if (elSV) elSV.innerText = '--';
+            const elSVil = document.getElementById('slipVillage');
+            if (elSVil) elSVil.innerText = '--';
+            const elSM = document.getElementById('slipMoisture');
+            if (elSM) elSM.innerText = '--';
+            const elSK = document.getElementById('slipKarda');
+            if (elSK) elSK.innerText = '--';
+            const elSD = document.getElementById('slipDamaged');
+            if (elSD) elSD.innerText = '--';
+            const elSG = document.getElementById('slipGreen');
+            if (elSG) elSG.innerText = '--';
+            const elSB = document.getElementById('slipBroken');
+            if (elSB) elSB.innerText = '--';
+            const elSP = document.getElementById('slipPurity');
+            if (elSP) elSP.innerText = '--';
+            const elSU = document.getElementById('slipUniformity');
+            if (elSU) elSU.innerText = '--';
+            const elSBr = document.getElementById('slipBreed');
+            if (elSBr) elSBr.innerText = '--';
+            const elSAd = document.getElementById('slipAdmixture');
+            if (elSAd) elSAd.innerText = '--';
+
+            const elVK = document.getElementById('valKarda');
+            if (elVK) elVK.innerText = '-- %';
+            const elVD = document.getElementById('valDamaged');
+            if (elVD) elVD.innerText = '-- %';
+            const elVG = document.getElementById('valGreen');
+            if (elVG) elVG.innerText = '-- %';
+            const elVB = document.getElementById('valBroken');
+            if (elVB) elVB.innerText = '-- %';
+            const elSC = document.getElementById('valSortexClean');
+            if (elSC) elSC.innerText = '-- %';
+            const elSR = document.getElementById('valSortexReject');
+            if (elSR) elSR.innerText = '-- %';
+            const elVR = document.getElementById('valRate');
+            if (elVR) elVR.innerText = '₹ --';
+
+            const elSKer = document.getElementById('statKernels');
+            if (elSKer) elSKer.innerText = '-- Seeds';
+            const elSPur = document.getElementById('statPurity');
+            if (elSPur) elSPur.innerText = '-- % Pure';
+            const elSUni = document.getElementById('statUniformity');
+            if (elSUni) elSUni.innerText = '-- %';
+
+            const badgeSortex = document.getElementById('badgeSortexGrade');
+            if (badgeSortex) {
+                badgeSortex.innerText = 'Awaiting Assaying';
+                badgeSortex.className = 'bg-slate-700 text-slate-300 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full';
+            }
+            const badgeGrade = document.getElementById('badgeGrade');
+            if (badgeGrade) {
+                badgeGrade.innerText = 'Awaiting Assaying';
+                badgeGrade.className = 'text-xs font-bold text-slate-600 bg-slate-100 px-3 py-1 rounded-full border border-slate-200';
+            }
+            const slipGrade = document.getElementById('slipGrade');
+            if (slipGrade) slipGrade.innerText = '--';
+            const slipRate = document.getElementById('slipRate');
+            if (slipRate) slipRate.innerText = '--';
+
+            const moistBox = document.getElementById('moisturePhotoPreviewBox');
+            if (moistBox) moistBox.classList.add('hidden');
+            const trayBox = document.getElementById('trayPhotoPreviewBox');
+            if (trayBox) trayBox.classList.add('hidden');
+
+            const mImg = document.getElementById('moisturePhotoPreview');
+            if (mImg) mImg.src = '';
+            const tImg = document.getElementById('trayPhotoPreview');
+            if (tImg) tImg.src = '';
+
+            const dotStatus = document.getElementById('ocrDotStatus');
+            if (dotStatus) dotStatus.innerText = 'Awaiting LCD Capture';
+            const bitmaskStatus = document.getElementById('ocrBitmaskStatus');
+            if (bitmaskStatus) bitmaskStatus.innerText = 'Awaiting LCD Capture';
+
+            const user = getCurrentUser();
+            const yardCode = user ? user.yard : 'CHK';
+            const yardName = user ? (YARD_NAMES[user.yard] || user.yardName) : 'Chikhali APMC Yard';
+            const inspectorName = user ? user.name : 'Babulal Meena';
+            generateNewTicketNumber(yardCode);
+            updateSlipMetadata(yardCode, yardName, inspectorName);
+        }
             const slipGrade = document.getElementById('slipGrade');
             if (slipGrade) slipGrade.innerText = grade;
 
@@ -1172,23 +1295,53 @@ Mandi Cess       : 0% (APMC Deregulated)
             btn.disabled = true;
             btn.innerHTML = '<span>⏳</span> <span>Syncing to Cloud & Branch...</span>';
 
-            const farmerName = document.getElementById('inpFarmer')?.value?.trim() || 'Rameshwar Patil';
-            const vehicleNo = document.getElementById('inpVehicle')?.value?.trim() || 'MH-28-AB-1234';
+            const farmerName = document.getElementById('inpFarmer')?.value?.trim();
+            if (!farmerName) {
+                alert('⚠️ Please enter Farmer Full Name.');
+                document.getElementById('inpFarmer')?.focus();
+                btn.disabled = false;
+                btn.innerHTML = '<span>⚡</span> <span>Sync to Cashier Desk</span>';
+                return;
+            }
+            const vehicleNo = document.getElementById('inpVehicle')?.value?.trim();
+            if (!vehicleNo) {
+                alert('⚠️ Please enter Vehicle Number.');
+                document.getElementById('inpVehicle')?.focus();
+                btn.disabled = false;
+                btn.innerHTML = '<span>⚡</span> <span>Sync to Cashier Desk</span>';
+                return;
+            }
             const farmerPhone = document.getElementById('inpPhone')?.value?.trim() || '';
-            const farmerVillage = document.getElementById('inpVillage')?.value?.trim() || 'Chikhali';
+            const farmerVillage = document.getElementById('inpVillage')?.value?.trim();
+            if (!farmerVillage) {
+                alert('⚠️ Please enter Village Name.');
+                document.getElementById('inpVillage')?.focus();
+                btn.disabled = false;
+                btn.innerHTML = '<span>⚡</span> <span>Sync to Cashier Desk</span>';
+                return;
+            }
             const commRaw = document.getElementById('inpCommodity')?.value || 'Soyabean (Yellow)';
             const commodityName = commRaw.split(' - ')[0].trim();
-            const moisturePct = parseFloat(document.getElementById('inpMoisture')?.value || '10.8');
-            const kardaPct = parseFloat(document.getElementById('valKarda')?.innerText?.replace(/[^0-9.]/g, '') || '1.1');
-            const damagedPct = parseFloat(document.getElementById('valDamaged')?.innerText?.replace(/[^0-9.]/g, '') || '1.25');
-            const greenPct = parseFloat(document.getElementById('valGreen')?.innerText?.replace(/[^0-9.]/g, '') || '1.4');
-            const brokenPct = parseFloat(document.getElementById('valBroken')?.innerText?.replace(/[^0-9.]/g, '') || '1.5');
-            const sortexClean = parseFloat(document.getElementById('valSortexClean')?.innerText?.replace(/[^0-9.]/g, '') || '94.0');
-            const sortexReject = parseFloat(document.getElementById('valSortexReject')?.innerText?.replace(/[^0-9.]/g, '') || '6.0');
-            const sortexGrade = document.getElementById('badgeSortexGrade')?.innerText?.trim() || 'SORTEX Grade B';
-            const gradeLabel = document.getElementById('badgeGrade')?.innerText?.trim() || 'Grade 1 (Premium FAQ)';
-            const rateStr = document.getElementById('valRate')?.innerText?.replace(/[^0-9.]/g, '') || '4700';
-            const suggestedRate = parseFloat(rateStr) || 4700.0;
+            const moistureVal = document.getElementById('inpMoisture')?.value?.trim();
+            if (!moistureVal) {
+                alert('⚠️ Please enter or capture Moisture Readout (%) before issuing ticket.');
+                document.getElementById('inpMoisture')?.focus();
+                btn.disabled = false;
+                btn.innerHTML = '<span>⚡</span> <span>Sync to Cashier Desk</span>';
+                return;
+            }
+            const moisturePct = parseFloat(moistureVal);
+
+            const kardaPct = parseFloat(document.getElementById('valKarda')?.innerText?.replace(/[^0-9.]/g, '') || '0.0');
+            const damagedPct = parseFloat(document.getElementById('valDamaged')?.innerText?.replace(/[^0-9.]/g, '') || '0.0');
+            const greenPct = parseFloat(document.getElementById('valGreen')?.innerText?.replace(/[^0-9.]/g, '') || '0.0');
+            const brokenPct = parseFloat(document.getElementById('valBroken')?.innerText?.replace(/[^0-9.]/g, '') || '0.0');
+            const sortexClean = parseFloat(document.getElementById('valSortexClean')?.innerText?.replace(/[^0-9.]/g, '') || '0.0');
+            const sortexReject = parseFloat(document.getElementById('valSortexReject')?.innerText?.replace(/[^0-9.]/g, '') || '0.0');
+            const sortexGrade = document.getElementById('badgeSortexGrade')?.innerText?.trim() || 'Awaiting Assaying';
+            const gradeLabel = document.getElementById('badgeGrade')?.innerText?.trim() || 'Awaiting Assaying';
+            const rateStr = document.getElementById('valRate')?.innerText?.replace(/[^0-9.]/g, '') || '0';
+            const suggestedRate = parseFloat(rateStr) || 0.0;
             const meterPhoto = document.getElementById('moisturePhotoPreview')?.src || null;
             const grainPhoto = document.getElementById('trayPhotoPreview')?.src || null;
 
@@ -1263,8 +1416,7 @@ Mandi Cess       : 0% (APMC Deregulated)
             btn.innerHTML = '<span>⚡</span> <span>Sync to Cashier Desk</span>';
 
             alert(`🎉 QC Certificate ${ticket} Issued & Synced!\n\nAuthenticated Inspector: ${inspectorName}\nAssigned APMC Yard: ${yardName} (${yardCode})\nStatus: 🔒 FORWARDED TO BRANCH CASHIER\n\nTicket successfully delivered to Supabase Cloud & Branch Cashier Desk for weighment deduction and farmer payment settlement.`);
-            generateNewTicketNumber(yardCode);
-            updateSlipMetadata(yardCode, yardName, inspectorName);
+            resetInspectorForm();
         }
 
         // Service Worker registration

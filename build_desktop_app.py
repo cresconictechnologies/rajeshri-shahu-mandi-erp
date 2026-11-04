@@ -67,6 +67,11 @@ if res.returncode == 0:
         shutil.copy2(bat_src, os.path.join(dist_dir, "Setup_and_Launch.bat"))
         print("Bundled Setup_and_Launch.bat")
 
+    updater_src = os.path.join(current_dir, "Update_Software.bat")
+    if os.path.exists(updater_src):
+        shutil.copy2(updater_src, os.path.join(dist_dir, "Update_Software.bat"))
+        print("Bundled Update_Software.bat")
+
     dll_src = os.path.join(current_dir, "api-ms-win-core-path-l1-1-0.dll")
     if os.path.exists(dll_src):
         shutil.copy2(dll_src, os.path.join(dist_dir, "api-ms-win-core-path-l1-1-0.dll"))

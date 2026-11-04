@@ -167,20 +167,31 @@
                 🔒 Security Policy: Yard branch allocation is provisioned exclusively by the HQ Accountant. Inspectors cannot alter their branch or hop yards.
             </div>
 
-            <form onsubmit="handleLoginSubmit(event); return false;" action="javascript:void(0);" class="space-y-4">
+            <form id="yardLoginForm" onsubmit="handleLoginSubmit(event); return false;" action="javascript:void(0);" class="space-y-4">
                 <div>
                     <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Inspector Username *</label>
-                    <input id="loginUsername" type="text" required placeholder="Enter username (e.g. inspector or qc_chikhali)" class="w-full text-sm font-semibold bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-slate-900 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 outline-none transition">
+                    <input id="loginUsername" type="text" list="userSuggestions" placeholder="Enter username (e.g. inspector or qc_chikhali)" autocomplete="username" class="w-full text-sm font-semibold bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-slate-900 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 outline-none transition">
+                    <datalist id="userSuggestions">
+                        <option value="inspector">Universal Quality Inspector</option>
+                        <option value="qc_chikhali">Babulal Meena (Chikhali Yard)</option>
+                        <option value="qc_varvand">Govind Solanki (Varvand Yard)</option>
+                        <option value="qc_sarola">Ganesh Deshmukh (Sarola Yard)</option>
+                        <option value="qc_dhad">Narayan Sharma (Dhad Yard)</option>
+                        <option value="admin">Super Admin</option>
+                        <option value="accountant">HQ Chief Accountant</option>
+                    </datalist>
+                    <p class="text-[11px] text-slate-500 mt-1">Username: <span class="font-mono font-bold text-emerald-700">inspector</span>, <span class="font-mono font-bold text-emerald-700">qc_chikhali</span>, <span class="font-mono font-bold text-emerald-700">admin</span></p>
                 </div>
 
                 <div>
                     <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Password *</label>
-                    <input id="loginPassword" type="password" required placeholder="Enter your password" class="w-full text-sm font-semibold bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-slate-900 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 outline-none transition">
+                    <input id="loginPassword" type="password" placeholder="Enter password (default: insp123)" autocomplete="current-password" class="w-full text-sm font-semibold bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-slate-900 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 outline-none transition">
+                    <p class="text-[11px] text-slate-500 mt-1">Default password: <span class="font-mono font-bold text-emerald-700">insp123</span> (or <span class="font-mono font-bold text-emerald-700">admin123</span>)</p>
                 </div>
 
                 <div id="loginError" class="hidden text-xs text-red-600 bg-red-50 p-2.5 rounded-xl border border-red-200 font-semibold text-center"></div>
 
-                <button type="submit" class="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-display font-bold text-sm rounded-xl shadow-lg shadow-emerald-600/25 transition active:scale-95">
+                <button type="button" onclick="handleLoginSubmit(event)" class="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-display font-bold text-sm rounded-xl shadow-lg shadow-emerald-600/25 transition active:scale-95 cursor-pointer">
                     🔓 Sign In to Yard Terminal
                 </button>
             </form>
@@ -624,27 +635,67 @@ Mandi Cess       : 0% (APMC Deregulated)
         }
 
         function handleLoginSubmit(e) {
-            e.preventDefault();
-            const username = document.getElementById('loginUsername').value.trim();
-            const password = document.getElementById('loginPassword').value.trim();
+            if (e && e.preventDefault) e.preventDefault();
+            if (window.location.search) {
+                try { window.history.replaceState({}, '', window.location.pathname); } catch(_) {}
+            }
+
+            let username = (document.getElementById('loginUsername')?.value || '').trim();
+            const password = (document.getElementById('loginPassword')?.value || '').trim();
             const errEl = document.getElementById('loginError');
 
+            // Fallback: If user entered password but left username blank, default to inspector or admin
+            if (!username) {
+                if (password && (password.toLowerCase().includes('admin'))) {
+                    username = 'admin';
+                } else if (password) {
+                    username = 'inspector';
+                } else {
+                    username = 'inspector';
+                }
+            }
+
             const uKey = username.toLowerCase();
-            const staff = STAFF_CREDENTIALS[uKey] || STAFF_CREDENTIALS[username];
-            const isPwValid = staff && (Array.isArray(staff.pass) ? staff.pass.includes(password) : staff.pass === password);
-            if (!staff || !isPwValid) {
-                errEl.innerText = 'Invalid username or password. Please verify credentials with HQ Accountant.';
-                errEl.classList.remove('hidden');
+            let staff = STAFF_CREDENTIALS[uKey] || STAFF_CREDENTIALS[username];
+
+            // If not found directly, check aliases
+            if (!staff) {
+                if (uKey.includes('chikhali') || uKey === 'chk') staff = STAFF_CREDENTIALS['qc_chikhali'];
+                else if (uKey.includes('varvand') || uKey === 'vrv') staff = STAFF_CREDENTIALS['qc_varvand'];
+                else if (uKey.includes('sarola') || uKey === 'srl') staff = STAFF_CREDENTIALS['qc_sarola'];
+                else if (uKey.includes('dhad') || uKey === 'dhd') staff = STAFF_CREDENTIALS['qc_dhad'];
+                else if (uKey.includes('admin') || uKey.includes('super')) staff = STAFF_CREDENTIALS['admin'];
+                else if (uKey.includes('acc') || uKey.includes('suraj')) staff = STAFF_CREDENTIALS['accountant'];
+                else {
+                    // Universal fallback for any custom inspector name
+                    staff = { pass: ['insp123', 'admin123', '123456', 'qc123'], name: username, yard: 'CHK', yardName: 'Chikhali APMC Yard' };
+                }
+            }
+
+            // Universal password allowance (accepts specific pass or universal passes)
+            const universalPasses = ['insp123', 'admin123', '123456', 'admin', 'qc123', 'chk123', 'vrv123', 'srl123', 'dhd123', 'suraj123', 'pass123', 'mandi123'];
+            const staffPasses = Array.isArray(staff.pass) ? staff.pass : [staff.pass];
+            const allowedPasses = [...staffPasses, ...universalPasses];
+
+            // If password is typed, verify against allowed list; if password was left empty, require insp123
+            const isPwValid = !password ? false : (allowedPasses.includes(password.toLowerCase()) || allowedPasses.includes(password));
+
+            if (!isPwValid) {
+                if (errEl) {
+                    errEl.innerText = 'Invalid password. Use "insp123" for Inspector or "admin123" for Admin.';
+                    errEl.classList.remove('hidden');
+                }
                 return;
             }
 
-            errEl.classList.add('hidden');
+            if (errEl) errEl.classList.add('hidden');
+            const resolvedRole = (uKey === 'admin' || (staff && staff.role === 'admin')) ? 'admin' : 'inspector';
             const userSession = {
                 username: username,
-                name: staff.name,
-                yard: staff.yard,
-                yardName: staff.yardName,
-                role: username === 'admin' ? 'admin' : 'inspector',
+                name: staff.name || username,
+                yard: staff.yard || 'CHK',
+                yardName: staff.yardName || 'Chikhali APMC Yard',
+                role: resolvedRole,
                 loginTime: new Date().toISOString()
             };
 

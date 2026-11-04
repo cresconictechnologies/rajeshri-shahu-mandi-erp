@@ -15,6 +15,7 @@ import hashlib
 import hmac
 import base64
 import io
+import urllib.parse
 import time
 from datetime import date, datetime, timezone, timedelta
 from typing import Optional, Tuple, List, Dict, Any
@@ -581,6 +582,12 @@ def setup_view(request: Request):
         cur.execute("SELECT * FROM users WHERE role='BRANCH_CASHIER' AND branch_id='br-dhad' LIMIT 1")
         dhd_cashier = cur.fetchone()
 
+        cur.execute("SELECT * FROM users WHERE role='BRANCH_CASHIER' AND branch_id='br-sarola' LIMIT 1")
+        srl_cashier = cur.fetchone()
+
+        cur.execute("SELECT * FROM users WHERE role='BRANCH_CASHIER' AND branch_id='br-sarola' LIMIT 1")
+        srl_cashier = cur.fetchone()
+
         return templates.TemplateResponse(request=request, name="setup.html", context={
             "settings": settings,
             "owner": dict(owner) if owner else {},
@@ -827,6 +834,9 @@ def login_post(request: Request, username: str = Form(...), password: str = Form
             is_valid = True
             needs_rehash = True
         elif u_lower in ["dhad", "dhad_cashier", "dhad_munim"] and p_clean in ["dhd123", "dhd@123", "dhad123"]:
+            is_valid = True
+            needs_rehash = True
+        elif u_lower in ["sarola", "sarola_cashier", "sarola_munim"] and p_clean in ["srl123", "srl@123", "sarola123"]:
             is_valid = True
             needs_rehash = True
         elif u_lower.startswith("qc_") and p_clean in ["qc123", "qc@123", "QC123"]:
@@ -1228,24 +1238,79 @@ def api_admin_add_branch(
     return RedirectResponse(url="/admin/dashboard", status_code=303)
 
 @app.post("/api/admin/branches/toggle")
-def api_admin_toggle_branch(request: Request, branch_id: str = Form(...)):
+async def api_admin_toggle_branch(request: Request, branch_id: Optional[str] = Form(None)):
     require_role(request, ["SUPER_ADMIN"])
+    if not branch_id:
+        try:
+            body = await request.json()
+            if isinstance(body, dict):
+                branch_id = body.get("branch_id")
+        except Exception:
+            pass
+    if not branch_id:
+        branch_id = request.query_params.get("branch_id")
+
+    accept = request.headers.get("accept", "")
+    content_type = request.headers.get("content-type", "")
+    is_json = "application/json" in accept or "application/json" in content_type
+
+    if not branch_id:
+        if is_json:
+            return JSONResponse(status_code=400, content={"success": False, "error": "branch_id is required", "detail": "branch_id is required"})
+        return RedirectResponse(url="/admin/dashboard?msg=Error:+branch_id+is+required", status_code=303)
+
     conn = get_connection()
     try:
         cur = conn.cursor()
-        cur.execute("SELECT is_active FROM branches WHERE id=?", (branch_id,))
+        cur.execute("SELECT id, name, branch_code, is_active FROM branches WHERE id=?", (branch_id,))
         b_row = cur.fetchone()
-        if b_row and b_row["is_active"] == 0:
+        if not b_row:
+            msg = f"Branch '{branch_id}' not found."
+            if is_json:
+                return JSONResponse(status_code=404, content={"success": False, "error": msg, "detail": msg})
+            return RedirectResponse(url=f"/admin/dashboard?msg=Error:+{urllib.parse.quote_plus(msg)}", status_code=303)
+
+        current_active = b_row["is_active"]
+        new_active = 0 if current_active == 1 else 1
+
+        if current_active == 0:
             allowed, msg, cur_cnt, max_cnt = check_branch_limit(conn)
             if not allowed:
+                if is_json:
+                    return JSONResponse(status_code=403, content={"success": False, "error": msg, "detail": msg})
                 raise HTTPException(status_code=403, detail=msg)
-        cur.execute("UPDATE branches SET is_active = CASE WHEN is_active=1 THEN 0 ELSE 1 END WHERE id=?", (branch_id,))
+
+        cur.execute("UPDATE branches SET is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE id=?", (new_active, branch_id))
         conn.commit()
+        trigger_async_sync("branches", branch_id)
+
+        # Sync toggle to Supabase Cloud if configured
+        try:
+            import supabase_sync
+            import sqlalchemy
+            pg_engine = supabase_sync.get_pg_engine()
+            if pg_engine:
+                with pg_engine.connect() as pg_conn:
+                    pg_conn.execute(sqlalchemy.text("UPDATE branches SET is_active=:act, updated_at=clock_timestamp() WHERE id=:bid"), {"act": new_active, "bid": branch_id})
+                    pg_conn.commit()
+        except Exception as pg_err:
+            logger.debug(f"Notice syncing toggle to Supabase: {pg_err}")
+
+        if is_json:
+            return JSONResponse({
+                "success": True,
+                "branch_id": branch_id,
+                "is_active": new_active,
+                "message": f"Branch '{b_row['name']}' status changed to {'Active' if new_active == 1 else 'Deactivated'}."
+            })
     except HTTPException:
         raise
     except Exception as e:
         conn.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+        err_msg = str(e)
+        if is_json:
+            return JSONResponse(status_code=400, content={"success": False, "error": err_msg, "detail": err_msg})
+        raise HTTPException(status_code=400, detail=err_msg)
     finally:
         conn.close()
     return RedirectResponse(url="/admin/dashboard", status_code=303)
@@ -1350,15 +1415,23 @@ def accounts_dashboard_view(request: Request, target_date: Optional[str] = None)
 
     today_str = date.today().isoformat()
     selected_date = target_date or today_str
+
+    # Cloud sync: actively pull latest daily rates from Supabase so rates changed on other PCs or HQ are visible
+    try:
+        import supabase_sync
+        supabase_sync.pull_supabase_to_local(["daily_commodity_rates"])
+    except Exception as pull_ex:
+        logger.debug(f"Accountant rates cloud pull notice: {pull_ex}")
+
     conn = get_connection()
     try:
         cur = conn.cursor()
-        # Daily rates (prioritizes rates for selected_date)
+        # Daily rates (prioritizes rates for selected_date, then branch-specific and latest updated)
         cur.execute("""
             SELECT id, rate_date, commodity_name, quality_grade, 
-                   min_rate_per_qtl, target_rate_per_qtl, max_rate_per_qtl, updated_at 
+                   min_rate_per_qtl, target_rate_per_qtl, max_rate_per_qtl, branch_id, updated_at 
             FROM daily_commodity_rates 
-            ORDER BY (rate_date = ?) DESC, rate_date DESC, commodity_name ASC
+            ORDER BY (rate_date = ?) DESC, (branch_id IS NOT NULL) DESC, rate_date DESC, updated_at DESC, commodity_name ASC
         """, (selected_date,))
         rates = cur.fetchall()
 
@@ -1500,18 +1573,19 @@ def api_accounts_set_rate(
         """, (rate_date, commodity_name, quality_grade, branch_id, branch_id))
         row = cur.fetchone()
 
+        now_iso = datetime.now(timezone.utc).isoformat()
         if row:
             cur.execute("""
                 UPDATE daily_commodity_rates 
-                SET min_rate_per_qtl=?, target_rate_per_qtl=?, max_rate_per_qtl=?, updated_at=CURRENT_TIMESTAMP
+                SET min_rate_per_qtl=?, target_rate_per_qtl=?, max_rate_per_qtl=?, updated_at=?
                 WHERE id=?
-            """, (min_rate, target_rate, max_rate, row["id"]))
+            """, (min_rate, target_rate, max_rate, now_iso, row["id"]))
         else:
             rid = f"r-{uuid.uuid4().hex[:8]}"
             cur.execute("""
-                INSERT INTO daily_commodity_rates (id, rate_date, branch_id, commodity_name, quality_grade, min_rate_per_qtl, target_rate_per_qtl, max_rate_per_qtl)
-                VALUES (?,?,?,?,?,?,?,?)
-            """, (rid, rate_date, branch_id, commodity_name, quality_grade, min_rate, target_rate, max_rate))
+                INSERT INTO daily_commodity_rates (id, rate_date, branch_id, commodity_name, quality_grade, min_rate_per_qtl, target_rate_per_qtl, max_rate_per_qtl, updated_at)
+                VALUES (?,?,?,?,?,?,?,?,?)
+            """, (rid, rate_date, branch_id, commodity_name, quality_grade, min_rate, target_rate, max_rate, now_iso))
 
         conn.commit()
         try:
@@ -1548,6 +1622,35 @@ def api_accounts_set_rate(
         })
 
     return RedirectResponse(url="/accounts/dashboard", status_code=303)
+
+
+@app.get("/api/accounts/rates")
+def api_accounts_get_rates(
+    request: Request,
+    target_date: Optional[str] = None
+):
+    """Actively fetches latest daily rates from Supabase Cloud for Accountant / HQ view."""
+    user = require_role(request, ["ACCOUNTANT_HQ", "SUPER_ADMIN"])
+    t_date = target_date or date.today().isoformat()
+    try:
+        import supabase_sync
+        supabase_sync.pull_supabase_to_local(["daily_commodity_rates"])
+    except Exception as ex:
+        logger.debug(f"API accounts rates cloud pull notice: {ex}")
+
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT id, rate_date, commodity_name, quality_grade, 
+                   min_rate_per_qtl, target_rate_per_qtl, max_rate_per_qtl, branch_id, updated_at 
+            FROM daily_commodity_rates 
+            ORDER BY (rate_date = ?) DESC, (branch_id IS NOT NULL) DESC, rate_date DESC, updated_at DESC, commodity_name ASC
+        """, (t_date,))
+        rates = [dict(r) for r in cur.fetchall()]
+        return JSONResponse({"success": True, "target_date": t_date, "rates": rates})
+    finally:
+        conn.close()
 
 
 # --------------------------------------------------------------------------
@@ -2062,37 +2165,46 @@ def branch_dashboard_view(request: Request, branch_id: str = "br-chikhali", targ
         except Exception as pull_ex:
             logger.debug(f"Branch rates cloud pull notice: {pull_ex}")
 
-        # Daily rates for selected_date (falls back to latest published corridor on or before selected_date)
+        # Daily rates for selected_date (prioritizes branch-specific rates, then newest updated)
         cur.execute("""
             SELECT commodity_name, quality_grade, min_rate_per_qtl, target_rate_per_qtl, max_rate_per_qtl 
             FROM daily_commodity_rates 
             WHERE rate_date=? AND (branch_id=? OR branch_id IS NULL)
-            ORDER BY commodity_name
+            ORDER BY (branch_id IS NOT NULL) ASC, updated_at ASC
         """, (selected_date, actual_branch_id))
         daily_rates = cur.fetchall()
         if not daily_rates:
             cur.execute("""
-                SELECT commodity_name, quality_grade, min_rate_per_qtl, target_rate_per_qtl, max_rate_per_qtl 
-                FROM daily_commodity_rates 
-                WHERE (branch_id=? OR branch_id IS NULL) AND rate_date <= ?
-                GROUP BY commodity_name
-                HAVING MAX(rate_date)
-                ORDER BY commodity_name
-            """, (actual_branch_id, selected_date))
+                SELECT d1.commodity_name, d1.quality_grade, d1.min_rate_per_qtl, d1.target_rate_per_qtl, d1.max_rate_per_qtl 
+                FROM daily_commodity_rates d1
+                JOIN (
+                    SELECT commodity_name, MAX(rate_date) as max_date
+                    FROM daily_commodity_rates
+                    WHERE (branch_id=? OR branch_id IS NULL) AND rate_date <= ?
+                    GROUP BY commodity_name
+                ) d2 ON d1.commodity_name = d2.commodity_name AND d1.rate_date = d2.max_date
+                WHERE (d1.branch_id=? OR d1.branch_id IS NULL)
+                ORDER BY (d1.branch_id IS NOT NULL) ASC, d1.updated_at ASC
+            """, (actual_branch_id, selected_date, actual_branch_id))
             daily_rates = cur.fetchall()
         if not daily_rates:
             cur.execute("""
-                SELECT commodity_name, quality_grade, min_rate_per_qtl, target_rate_per_qtl, max_rate_per_qtl 
-                FROM daily_commodity_rates 
-                WHERE (branch_id=? OR branch_id IS NULL)
-                GROUP BY commodity_name
-                HAVING MAX(rate_date)
-                ORDER BY commodity_name
-            """, (actual_branch_id,))
+                SELECT d1.commodity_name, d1.quality_grade, d1.min_rate_per_qtl, d1.target_rate_per_qtl, d1.max_rate_per_qtl 
+                FROM daily_commodity_rates d1
+                JOIN (
+                    SELECT commodity_name, MAX(rate_date) as max_date
+                    FROM daily_commodity_rates
+                    WHERE (branch_id=? OR branch_id IS NULL)
+                    GROUP BY commodity_name
+                ) d2 ON d1.commodity_name = d2.commodity_name AND d1.rate_date = d2.max_date
+                WHERE (d1.branch_id=? OR d1.branch_id IS NULL)
+                ORDER BY (d1.branch_id IS NOT NULL) ASC, d1.updated_at ASC
+            """, (actual_branch_id, actual_branch_id))
             daily_rates = cur.fetchall()
 
-        daily_rates_list = [dict(r) for r in daily_rates]
         rates_map = {r["commodity_name"]: dict(r) for r in daily_rates}
+        daily_rates_list = list(rates_map.values())
+        daily_rates = daily_rates_list
 
         commodity_cards = []
         for c in commodities:
@@ -2386,6 +2498,81 @@ def generate_branch_invoice_token(cur, branch_code: str, target_date: Optional[d
         fin_year = get_financial_year(d)
         seq = get_next_branch_invoice_sequence(cur, b_code, fin_year)
         return f"INV-{b_code}-{fin_year}-{seq:06d}"
+
+
+@app.get("/api/branch/rates")
+def api_branch_rates(
+    request: Request,
+    branch_id: Optional[str] = None,
+    rate_date: Optional[str] = None
+):
+    """
+    Actively fetches latest commodity buying corridor rates from Supabase Cloud.
+    Returns effective rates for the cashier desk, prioritizing branch-specific overrides.
+    """
+    user = get_current_user(request)
+    if not user:
+        user = require_auth(request)
+
+    target_branch_id = branch_id or user.get("branch_id") or "br-chikhali"
+    target_date = rate_date or date.today().isoformat()
+
+    # Cloud sync: actively pull latest rates from Supabase Cloud
+    try:
+        import supabase_sync
+        supabase_sync.pull_supabase_to_local(["daily_commodity_rates"])
+    except Exception as ex:
+        logger.debug(f"API branch rates cloud pull notice: {ex}")
+
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT commodity_name, quality_grade, min_rate_per_qtl, target_rate_per_qtl, max_rate_per_qtl, rate_date, branch_id, updated_at
+            FROM daily_commodity_rates 
+            WHERE rate_date=? AND (branch_id=? OR branch_id IS NULL)
+            ORDER BY (branch_id IS NOT NULL) ASC, updated_at ASC
+        """, (target_date, target_branch_id))
+        rows = cur.fetchall()
+        if not rows:
+            cur.execute("""
+                SELECT d1.commodity_name, d1.quality_grade, d1.min_rate_per_qtl, d1.target_rate_per_qtl, d1.max_rate_per_qtl, d1.rate_date, d1.branch_id, d1.updated_at
+                FROM daily_commodity_rates d1
+                JOIN (
+                    SELECT commodity_name, MAX(rate_date) as max_date
+                    FROM daily_commodity_rates
+                    WHERE (branch_id=? OR branch_id IS NULL) AND rate_date <= ?
+                    GROUP BY commodity_name
+                ) d2 ON d1.commodity_name = d2.commodity_name AND d1.rate_date = d2.max_date
+                WHERE (d1.branch_id=? OR d1.branch_id IS NULL)
+                ORDER BY (d1.branch_id IS NOT NULL) ASC, d1.updated_at ASC
+            """, (target_branch_id, target_date, target_branch_id))
+            rows = cur.fetchall()
+        if not rows:
+            cur.execute("""
+                SELECT d1.commodity_name, d1.quality_grade, d1.min_rate_per_qtl, d1.target_rate_per_qtl, d1.max_rate_per_qtl, d1.rate_date, d1.branch_id, d1.updated_at
+                FROM daily_commodity_rates d1
+                JOIN (
+                    SELECT commodity_name, MAX(rate_date) as max_date
+                    FROM daily_commodity_rates
+                    WHERE (branch_id=? OR branch_id IS NULL)
+                    GROUP BY commodity_name
+                ) d2 ON d1.commodity_name = d2.commodity_name AND d1.rate_date = d2.max_date
+                WHERE (d1.branch_id=? OR d1.branch_id IS NULL)
+                ORDER BY (d1.branch_id IS NOT NULL) ASC, d1.updated_at ASC
+            """, (target_branch_id, target_branch_id))
+            rows = cur.fetchall()
+
+        rates_map = {r["commodity_name"]: dict(r) for r in rows}
+        return JSONResponse({
+            "success": True,
+            "rate_date": target_date,
+            "branch_id": target_branch_id,
+            "rates": list(rates_map.values()),
+            "rates_map": rates_map
+        })
+    finally:
+        conn.close()
 
 
 @app.post("/api/branch/invoices/create")
@@ -3420,6 +3607,7 @@ def admin_settings_view(request: Request, msg: Optional[str] = None):
             "chk_cashier": chk_cashier,
             "vrv_cashier": vrv_cashier,
             "dhd_cashier": dhd_cashier,
+            "srl_cashier": srl_cashier,
             "audit_logs": audit_logs,
             "supabase_config": supabase_config,
             "supabase_status": supabase_status,
@@ -3653,21 +3841,45 @@ def api_admin_update_profile(
     return RedirectResponse(url="/admin/settings?msg=Owner+profile+and+admin+name+updated+successfully", status_code=303)
 
 @app.post("/api/admin/branches/create")
-def api_admin_settings_add_branch(
+async def api_admin_settings_add_branch(
     request: Request,
-    branch_code: str = Form(...),
-    name: str = Form(...),
+    branch_code: Optional[str] = Form(None),
+    name: Optional[str] = Form(None),
     address: Optional[str] = Form(""),
     phone: Optional[str] = Form(""),
     mandi_license_no: Optional[str] = Form("")
 ):
     require_role(request, ["SUPER_ADMIN"])
+    if not branch_code or not name:
+        try:
+            body = await request.json()
+            if isinstance(body, dict):
+                branch_code = branch_code or body.get("branch_code")
+                name = name or body.get("name")
+                address = address or body.get("address", "")
+                phone = phone or body.get("phone", "")
+                mandi_license_no = mandi_license_no or body.get("mandi_license_no", "")
+        except Exception:
+            pass
+
+    accept = request.headers.get("accept", "")
+    content_type = request.headers.get("content-type", "")
+    is_json = "application/json" in accept or "application/json" in content_type
+
+    if not branch_code or not name:
+        msg = "branch_code and name are required."
+        if is_json:
+            return JSONResponse(status_code=400, content={"success": False, "error": msg, "detail": msg})
+        return RedirectResponse(url=f"/admin/settings?msg=Error:+{urllib.parse.quote_plus(msg)}", status_code=303)
+
     conn = get_connection()
     try:
         cur = conn.cursor()
         allowed, msg, cur_cnt, max_cnt = check_branch_limit(conn)
         if not allowed:
-            return RedirectResponse(url=f"/admin/settings?msg=Error:+{msg}", status_code=303)
+            if is_json:
+                return JSONResponse(status_code=403, content={"success": False, "error": msg, "detail": msg})
+            return RedirectResponse(url=f"/admin/settings?msg=Error:+{urllib.parse.quote_plus(msg)}", status_code=303)
 
         b_code = branch_code.strip().upper()
         b_name = name.strip()
@@ -3675,7 +3887,10 @@ def api_admin_settings_add_branch(
 
         cur.execute("SELECT id FROM branches WHERE id=? OR branch_code=?", (branch_id, b_code))
         if cur.fetchone():
-            return RedirectResponse(url=f"/admin/settings?msg=Error:+Branch+with+code+{b_code}+already+exists", status_code=303)
+            msg = f"Branch with code {b_code} already exists."
+            if is_json:
+                return JSONResponse(status_code=400, content={"success": False, "error": msg, "detail": msg})
+            return RedirectResponse(url=f"/admin/settings?msg=Error:+{urllib.parse.quote_plus(msg)}", status_code=303)
 
         cur.execute("""
             INSERT INTO branches (id, branch_code, name, mandi_license_no, address, phone, is_active)
@@ -3696,36 +3911,212 @@ def api_admin_settings_add_branch(
         conn.commit()
         trigger_async_sync("branches", branch_id)
         trigger_async_sync("users", cashier_id)
+
+        # Sync new branch to Supabase Cloud if configured
+        try:
+            import supabase_sync
+            import sqlalchemy
+            pg_engine = supabase_sync.get_pg_engine()
+            if pg_engine:
+                with pg_engine.connect() as pg_conn:
+                    pg_conn.execute(sqlalchemy.text("""
+                        INSERT INTO branches (id, branch_code, name, mandi_license_no, address, phone, is_active)
+                        VALUES (:id, :code, :name, :lic, :addr, :phone, 1)
+                        ON CONFLICT (id) DO UPDATE SET
+                            branch_code = EXCLUDED.branch_code,
+                            name = EXCLUDED.name,
+                            mandi_license_no = EXCLUDED.mandi_license_no,
+                            address = EXCLUDED.address,
+                            phone = EXCLUDED.phone,
+                            is_active = 1;
+                    """), {
+                        "id": branch_id, "code": b_code, "name": b_name,
+                        "lic": (mandi_license_no or "").strip(),
+                        "addr": (address or "").strip(),
+                        "phone": (phone or "").strip()
+                    })
+                    pg_conn.commit()
+        except Exception as pg_err:
+            logger.debug(f"Notice syncing new branch to Supabase: {pg_err}")
+
+        if is_json:
+            return JSONResponse({
+                "success": True,
+                "message": "New branch added and cashier account provisioned successfully.",
+                "branch_id": branch_id,
+                "branch_code": b_code,
+                "name": b_name
+            })
+    except Exception as e:
+        conn.rollback()
+        err_msg = str(e)
+        if is_json:
+            return JSONResponse(status_code=400, content={"success": False, "error": err_msg, "detail": err_msg})
+        return RedirectResponse(url=f"/admin/settings?msg=Error:+{urllib.parse.quote_plus(err_msg)}", status_code=303)
     finally:
         conn.close()
     return RedirectResponse(url="/admin/settings?msg=New+branch+added+and+cashier+account+provisioned+successfully", status_code=303)
 
 @app.post("/api/admin/branches/delete")
-def api_admin_settings_delete_branch(request: Request, branch_id: str = Form(...)):
+async def api_admin_settings_delete_branch(
+    request: Request,
+    branch_id: Optional[str] = Form(None)
+):
     require_role(request, ["SUPER_ADMIN"])
+
+    # Support form-data, JSON body, or query param
+    if not branch_id:
+        try:
+            body = await request.json()
+            if isinstance(body, dict):
+                branch_id = body.get("branch_id")
+        except Exception:
+            pass
+    if not branch_id:
+        branch_id = request.query_params.get("branch_id")
+
+    accept = request.headers.get("accept", "")
+    content_type = request.headers.get("content-type", "")
+    is_json = "application/json" in accept or "application/json" in content_type
+
+    if not branch_id:
+        msg = "branch_id is required."
+        if is_json:
+            return JSONResponse(status_code=400, content={"success": False, "error": msg, "detail": msg})
+        return RedirectResponse(url=f"/admin/settings?msg=Error:+{urllib.parse.quote_plus(msg)}", status_code=303)
+
     conn = get_connection()
     try:
         cur = conn.cursor()
-        cur.execute("SELECT branch_code, name FROM branches WHERE id=?", (branch_id,))
+        cur.execute("SELECT id, branch_code, name, is_active FROM branches WHERE id=?", (branch_id,))
         b = cur.fetchone()
         if not b:
-            return RedirectResponse(url="/admin/settings?msg=Error:+Branch+not+found", status_code=303)
+            msg = f"Branch '{branch_id}' not found."
+            if is_json:
+                return JSONResponse(status_code=404, content={"success": False, "error": msg, "detail": msg})
+            return RedirectResponse(url=f"/admin/settings?msg=Error:+{urllib.parse.quote_plus(msg)}", status_code=303)
 
-        # Check if invoices exist for this branch
+        # 1. Audit check: Check if invoices or financial transactions exist for this branch
         cur.execute("SELECT count(*) FROM purchase_invoices WHERE branch_id=?", (branch_id,))
         inv_count = cur.fetchone()[0]
-        if inv_count > 0:
-            return RedirectResponse(url=f"/admin/settings?msg=Error:+Cannot+delete+branch+{b['name']}+because+it+has+{inv_count}+recorded+invoices.+Please+deactivate+it+instead.", status_code=303)
+        cur.execute("SELECT count(*) FROM cashier_payouts WHERE branch_id=?", (branch_id,))
+        payout_count = cur.fetchone()[0]
+        cur.execute("SELECT count(*) FROM outward_orders WHERE branch_id=? OR payment_branch_id=?", (branch_id, branch_id))
+        order_count = cur.fetchone()[0]
+        cur.execute("SELECT count(*) FROM ledger_entries WHERE branch_id=?", (branch_id,))
+        ledger_count = cur.fetchone()[0]
 
-        # Delete users associated with this branch (excluding super_admin)
-        cur.execute("DELETE FROM users WHERE branch_id=? AND role!='SUPER_ADMIN'", (branch_id,))
-        cur.execute("DELETE FROM inspectors WHERE branch_id=?", (branch_id,))
+        financial_count = inv_count + payout_count + order_count + ledger_count
+        if financial_count > 0:
+            # Cannot hard-delete due to audit/statutory integrity; soft-delete/deactivate instead
+            cur.execute("UPDATE branches SET is_active=0, updated_at=CURRENT_TIMESTAMP WHERE id=?", (branch_id,))
+            conn.commit()
+            trigger_async_sync("branches", branch_id)
+
+            # Sync deactivation to Supabase
+            try:
+                import supabase_sync
+                import sqlalchemy
+                pg_engine = supabase_sync.get_pg_engine()
+                if pg_engine:
+                    with pg_engine.connect() as pg_conn:
+                        pg_conn.execute(sqlalchemy.text("UPDATE branches SET is_active=0, updated_at=clock_timestamp() WHERE id=:bid"), {"bid": branch_id})
+                        pg_conn.commit()
+            except Exception as pg_err:
+                logger.debug(f"Notice syncing branch deactivation to Supabase: {pg_err}")
+
+            msg = (
+                f"Cannot delete branch '{b['name']}' because it has {financial_count} active financial/invoice "
+                f"records ({inv_count} invoices, {payout_count} payouts, {order_count} outward orders, "
+                f"{ledger_count} ledger entries); deactivated instead."
+            )
+            if is_json:
+                return JSONResponse(
+                    status_code=400,
+                    content={
+                        "success": False,
+                        "error": msg,
+                        "detail": msg,
+                        "action": "deactivated",
+                        "branch_id": branch_id,
+                        "branch_code": b["branch_code"],
+                        "invoice_count": inv_count,
+                        "financial_records_count": financial_count
+                    }
+                )
+            return RedirectResponse(url=f"/admin/settings?msg={urllib.parse.quote_plus(msg)}", status_code=303)
+
+        # 2. No financial records exist -> Safely cascade/clean child references to satisfy SQLite FK constraints
+        # a) Nullify home_branch_id on parties
+        cur.execute("UPDATE parties SET home_branch_id=NULL WHERE home_branch_id=?", (branch_id,))
+
+        # b) Remove daily commodity rates for this branch
+        cur.execute("DELETE FROM daily_commodity_rates WHERE branch_id=?", (branch_id,))
+
+        # c) Remove inspections for this branch (none linked to invoices since inv_count == 0)
+        cur.execute("DELETE FROM quality_inspections WHERE branch_id=?", (branch_id,))
+
+        # d) Remove daily cash drawers for this branch
         cur.execute("DELETE FROM branch_daily_cash_drawers WHERE branch_id=?", (branch_id,))
+
+        # e) Remove user sessions for branch users
+        cur.execute("SELECT id FROM users WHERE branch_id=? AND role!='SUPER_ADMIN'", (branch_id,))
+        branch_user_ids = [r["id"] for r in cur.fetchall()]
+        if branch_user_ids:
+            placeholders = ",".join("?" for _ in branch_user_ids)
+            cur.execute(f"DELETE FROM user_sessions WHERE user_id IN ({placeholders})", tuple(branch_user_ids))
+        cur.execute("DELETE FROM user_sessions WHERE branch_id=?", (branch_id,))
+
+        # f) Remove inspectors assigned to this branch
+        cur.execute("DELETE FROM inspectors WHERE branch_id=?", (branch_id,))
+
+        # g) Remove users assigned to this branch (except super_admin)
+        cur.execute("DELETE FROM users WHERE branch_id=? AND role!='SUPER_ADMIN'", (branch_id,))
+
+        # h) Clean up audit logs referencing this branch
+        cur.execute("UPDATE audit_change_logs SET branch_id=NULL WHERE branch_id=?", (branch_id,))
+
+        # i) Delete the branch itself
         cur.execute("DELETE FROM branches WHERE id=?", (branch_id,))
         conn.commit()
+
+        # j) Sync deletion to Supabase Cloud if configured
+        try:
+            import supabase_sync
+            import sqlalchemy
+            pg_engine = supabase_sync.get_pg_engine()
+            if pg_engine:
+                with pg_engine.connect() as pg_conn:
+                    pg_conn.execute(sqlalchemy.text("UPDATE users SET branch_id=NULL WHERE branch_id=:bid"), {"bid": branch_id})
+                    pg_conn.execute(sqlalchemy.text("UPDATE parties SET home_branch_id=NULL WHERE home_branch_id=:bid"), {"bid": branch_id})
+                    pg_conn.execute(sqlalchemy.text("DELETE FROM daily_commodity_rates WHERE branch_id=:bid"), {"bid": branch_id})
+                    pg_conn.execute(sqlalchemy.text("DELETE FROM quality_inspections WHERE branch_id=:bid"), {"bid": branch_id})
+                    pg_conn.execute(sqlalchemy.text("DELETE FROM inspectors WHERE branch_id=:bid"), {"bid": branch_id})
+                    pg_conn.execute(sqlalchemy.text("DELETE FROM branch_daily_cash_drawers WHERE branch_id=:bid"), {"bid": branch_id})
+                    pg_conn.execute(sqlalchemy.text("DELETE FROM branches WHERE id=:bid"), {"bid": branch_id})
+                    pg_conn.commit()
+        except Exception as cloud_err:
+            logger.warning(f"Supabase branch delete sync notice: {cloud_err}")
+
+        success_msg = f"Branch '{b['name']}' ({b['branch_code']}) deleted successfully."
+        if is_json:
+            return JSONResponse({
+                "success": True,
+                "message": success_msg,
+                "branch_id": branch_id,
+                "branch_code": b["branch_code"]
+            })
+        return RedirectResponse(url=f"/admin/settings?msg={urllib.parse.quote_plus(success_msg)}", status_code=303)
+
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"Error deleting branch {branch_id}: {e}", exc_info=True)
+        err_msg = f"Failed to delete branch: {str(e)}"
+        if is_json:
+            return JSONResponse(status_code=400, content={"success": False, "error": err_msg, "detail": err_msg})
+        return RedirectResponse(url=f"/admin/settings?msg=Error:+{urllib.parse.quote_plus(err_msg)}", status_code=303)
     finally:
         conn.close()
-    return RedirectResponse(url=f"/admin/settings?msg=Branch+{branch_id}+deleted+successfully", status_code=303)
 
 @app.post("/api/admin/database/reset")
 def api_admin_reset_database(request: Request, confirm_wipe: str = Form(...)):
@@ -5015,6 +5406,8 @@ async def api_inspector_submit_qc(
         branch_id = "br-varvand"
     elif branch_id in ("DHD", "dhad"):
         branch_id = "br-dhad"
+    elif branch_id in ("SRL", "sarola", "sarola-maruti", "br-sarola-maruti"):
+        branch_id = "br-sarola"
 
     # Defaults for required fields
     branch_id = branch_id or "br-chikhali"

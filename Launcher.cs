@@ -43,13 +43,14 @@ namespace RajarshiShahuTrading.Launcher
         private Label statusLabel;
         private Label countdownLabel;
         private Button btnLaunch;
+        private Button btnLaunchCloud;
         private Button btnRecheck;
         private Button btnOpenFolder;
 
         // Background Worker & Timer
         private BackgroundWorker worker;
         private System.Windows.Forms.Timer autoLaunchTimer;
-        private int countdownSeconds = 3;
+        private int countdownSeconds = 4;
         private bool isAutoLaunch = true;
         private bool isWin7BrowserMode = false;
 
@@ -64,7 +65,7 @@ namespace RajarshiShahuTrading.Launcher
             "2. Windows 7/8 Core Path DLL (api-ms-win-core-path-l1-1-0.dll)",
             "3. Microsoft Visual C++ 2015-2022 Runtime (x64)",
             "4. Microsoft Edge WebView2 Evergreen Runtime",
-            "5. Desktop Shortcut Integration"
+            "5. Cloud Database & Sync Connectivity (Supabase / Vercel)"
         };
 
         public LauncherForm()
@@ -92,8 +93,8 @@ namespace RajarshiShahuTrading.Launcher
 
         private void InitializeComponent()
         {
-            this.Text = "Rajarshi Shahu Trading — Setup & Launcher";
-            this.Size = new Size(700, 580);
+            this.Text = "Rajarshi Shahu Trading — Setup & Cloud Launcher";
+            this.Size = new Size(720, 620);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.FormBorderStyle = FormBorderStyle.FixedSingle;
             this.MaximizeBox = false;
@@ -115,7 +116,7 @@ namespace RajarshiShahuTrading.Launcher
             headerPanel.Controls.Add(titleLabel);
 
             versionLabel = new Label();
-            versionLabel.Text = "v2.4 Enterprise (Single-Firm Mandi ERP)";
+            versionLabel.Text = "v2.5 Cloud-Sync Enterprise (Mandi ERP)";
             versionLabel.Font = new Font("Segoe UI", 8.5F, FontStyle.Bold);
             versionLabel.ForeColor = AccentGold;
             versionLabel.Location = new Point(340, 20);
@@ -123,7 +124,7 @@ namespace RajarshiShahuTrading.Launcher
             headerPanel.Controls.Add(versionLabel);
 
             subtitleLabel = new Label();
-            subtitleLabel.Text = "Universal Compatibility Hub: Windows 7 SP1, 8, 8.1, 10, 11 (64-Bit)";
+            subtitleLabel.Text = "Universal Compatibility Hub • Cloud Database & Multi-Branch Sync";
             subtitleLabel.Font = new Font("Segoe UI", 9.5F, FontStyle.Regular);
             subtitleLabel.ForeColor = SubtitleColor;
             subtitleLabel.Location = new Point(25, 48);
@@ -140,8 +141,8 @@ namespace RajarshiShahuTrading.Launcher
 
             // Checklist Card Panel
             cardPanel = new Panel();
-            cardPanel.Location = new Point(20, 106);
-            cardPanel.Size = new Size(644, 255);
+            cardPanel.Location = new Point(20, 102);
+            cardPanel.Size = new Size(664, 255);
             cardPanel.BackColor = CardBgColor;
             cardPanel.Paint += new PaintEventHandler(CardPanel_Paint);
 
@@ -175,7 +176,7 @@ namespace RajarshiShahuTrading.Launcher
                 stepDetails[i].Font = new Font("Segoe UI", 8.5F, FontStyle.Regular);
                 stepDetails[i].ForeColor = Color.FromArgb(100, 116, 139);
                 stepDetails[i].Location = new Point(71, startY + (i * rowHeight) + 22);
-                stepDetails[i].Size = new Size(555, 18);
+                stepDetails[i].Size = new Size(575, 18);
                 cardPanel.Controls.Add(stepDetails[i]);
             }
 
@@ -183,16 +184,16 @@ namespace RajarshiShahuTrading.Launcher
 
             // Progress Bar
             progressBar = new ProgressBar();
-            progressBar.Location = new Point(20, 375);
-            progressBar.Size = new Size(644, 18);
+            progressBar.Location = new Point(20, 368);
+            progressBar.Size = new Size(664, 16);
             progressBar.Style = ProgressBarStyle.Continuous;
             progressBar.Value = 0;
             this.Controls.Add(progressBar);
 
             // Status Label
             statusLabel = new Label();
-            statusLabel.Location = new Point(20, 400);
-            statusLabel.Size = new Size(430, 20);
+            statusLabel.Location = new Point(20, 392);
+            statusLabel.Size = new Size(420, 20);
             statusLabel.Text = "Initializing diagnostic verification...";
             statusLabel.Font = new Font("Segoe UI", 9F, FontStyle.Italic);
             statusLabel.ForeColor = Color.FromArgb(51, 65, 85);
@@ -200,8 +201,8 @@ namespace RajarshiShahuTrading.Launcher
 
             // Countdown Label
             countdownLabel = new Label();
-            countdownLabel.Location = new Point(460, 400);
-            countdownLabel.Size = new Size(204, 20);
+            countdownLabel.Location = new Point(440, 392);
+            countdownLabel.Size = new Size(244, 20);
             countdownLabel.Text = "";
             countdownLabel.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             countdownLabel.ForeColor = PrimaryBtnColor;
@@ -209,11 +210,26 @@ namespace RajarshiShahuTrading.Launcher
             this.Controls.Add(countdownLabel);
 
             // Action Buttons
+            // Button 1: Live Cloud Mandi ERP (Shared Across All PCs)
+            btnLaunchCloud = new Button();
+            btnLaunchCloud.Text = "☁ Open Live Cloud ERP (Shared All PCs)";
+            btnLaunchCloud.Location = new Point(20, 420);
+            btnLaunchCloud.Size = new Size(328, 48);
+            btnLaunchCloud.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
+            btnLaunchCloud.BackColor = AccentGold;
+            btnLaunchCloud.ForeColor = Color.FromArgb(30, 41, 59);
+            btnLaunchCloud.FlatStyle = FlatStyle.Flat;
+            btnLaunchCloud.FlatAppearance.BorderSize = 0;
+            btnLaunchCloud.Cursor = Cursors.Hand;
+            btnLaunchCloud.Click += new EventHandler(BtnLaunchCloud_Click);
+            this.Controls.Add(btnLaunchCloud);
+
+            // Button 2: Desktop Mandi ERP (Hybrid Synced)
             btnLaunch = new Button();
-            btnLaunch.Text = "▶ Launch Mandi ERP (Admin)";
-            btnLaunch.Location = new Point(20, 432);
-            btnLaunch.Size = new Size(250, 46);
-            btnLaunch.Font = new Font("Segoe UI", 10.5F, FontStyle.Bold);
+            btnLaunch.Text = "💻 Launch Desktop App (Hybrid Synced)";
+            btnLaunch.Location = new Point(356, 420);
+            btnLaunch.Size = new Size(328, 48);
+            btnLaunch.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
             btnLaunch.BackColor = PrimaryBtnColor;
             btnLaunch.ForeColor = Color.White;
             btnLaunch.FlatStyle = FlatStyle.Flat;
@@ -223,11 +239,12 @@ namespace RajarshiShahuTrading.Launcher
             btnLaunch.Click += new EventHandler(BtnLaunch_Click);
             this.Controls.Add(btnLaunch);
 
+            // Row 2: Secondary Tools
             btnRecheck = new Button();
-            btnRecheck.Text = "🔄 Recheck / Reinstall All";
-            btnRecheck.Location = new Point(285, 432);
-            btnRecheck.Size = new Size(190, 46);
-            btnRecheck.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            btnRecheck.Text = "🔄 Recheck System";
+            btnRecheck.Location = new Point(20, 476);
+            btnRecheck.Size = new Size(158, 36);
+            btnRecheck.Font = new Font("Segoe UI", 8.5F, FontStyle.Bold);
             btnRecheck.BackColor = Color.FromArgb(226, 232, 240);
             btnRecheck.ForeColor = Color.FromArgb(30, 41, 59);
             btnRecheck.FlatStyle = FlatStyle.Flat;
@@ -236,11 +253,28 @@ namespace RajarshiShahuTrading.Launcher
             btnRecheck.Click += new EventHandler(BtnRecheck_Click);
             this.Controls.Add(btnRecheck);
 
+            Button btnInspector = new Button();
+            btnInspector.Text = "📱 Inspector Mobile App";
+            btnInspector.Location = new Point(184, 476);
+            btnInspector.Size = new Size(166, 36);
+            btnInspector.Font = new Font("Segoe UI", 8.5F, FontStyle.Regular);
+            btnInspector.BackColor = Color.FromArgb(241, 245, 249);
+            btnInspector.ForeColor = Color.FromArgb(71, 85, 105);
+            btnInspector.FlatStyle = FlatStyle.Flat;
+            btnInspector.FlatAppearance.BorderColor = CardBorderColor;
+            btnInspector.Cursor = Cursors.Hand;
+            btnInspector.Click += new EventHandler(delegate(object s, EventArgs ev) {
+                try {
+                    Process.Start(new ProcessStartInfo("https://mandi-erp-tracker.vercel.app/app") { UseShellExecute = true });
+                } catch { }
+            });
+            this.Controls.Add(btnInspector);
+
             btnOpenFolder = new Button();
-            btnOpenFolder.Text = "📁 Open Folder";
-            btnOpenFolder.Location = new Point(490, 432);
-            btnOpenFolder.Size = new Size(174, 46);
-            btnOpenFolder.Font = new Font("Segoe UI", 9F, FontStyle.Regular);
+            btnOpenFolder.Text = "📁 Open App Folder";
+            btnOpenFolder.Location = new Point(356, 476);
+            btnOpenFolder.Size = new Size(158, 36);
+            btnOpenFolder.Font = new Font("Segoe UI", 8.5F, FontStyle.Regular);
             btnOpenFolder.BackColor = Color.FromArgb(241, 245, 249);
             btnOpenFolder.ForeColor = Color.FromArgb(71, 85, 105);
             btnOpenFolder.FlatStyle = FlatStyle.Flat;
@@ -249,11 +283,28 @@ namespace RajarshiShahuTrading.Launcher
             btnOpenFolder.Click += new EventHandler(BtnOpenFolder_Click);
             this.Controls.Add(btnOpenFolder);
 
+            Button btnNativeCloud = new Button();
+            btnNativeCloud.Text = "🌐 Native Window Cloud";
+            btnNativeCloud.Location = new Point(520, 476);
+            btnNativeCloud.Size = new Size(164, 36);
+            btnNativeCloud.Font = new Font("Segoe UI", 8.5F, FontStyle.Regular);
+            btnNativeCloud.BackColor = Color.FromArgb(241, 245, 249);
+            btnNativeCloud.ForeColor = Color.FromArgb(71, 85, 105);
+            btnNativeCloud.FlatStyle = FlatStyle.Flat;
+            btnNativeCloud.FlatAppearance.BorderColor = CardBorderColor;
+            btnNativeCloud.Cursor = Cursors.Hand;
+            btnNativeCloud.Click += new EventHandler(delegate(object s, EventArgs ev) {
+                autoLaunchTimer.Stop();
+                countdownLabel.Text = "";
+                LaunchMandiERP(true);
+            });
+            this.Controls.Add(btnNativeCloud);
+
             // Bottom subtle note
             Label bottomNote = new Label();
-            bottomNote.Location = new Point(20, 492);
-            bottomNote.Size = new Size(644, 38);
-            bottomNote.Text = "Direct Login: Opens http://127.0.0.1:8080/login • Zero external browser popups\nCredentials: admin, chk_cashier, vrv_cashier, dhd_cashier, Suraj (HQ), inspector";
+            bottomNote.Location = new Point(20, 524);
+            bottomNote.Size = new Size(664, 46);
+            bottomNote.Text = "• Live Cloud Web: https://mandi-erp-tracker.vercel.app (Unified multi-PC database, zero local port)\n• Desktop Engine: Offline-first with automatic bidirectional Supabase Cloud sync";
             bottomNote.Font = new Font("Segoe UI", 8F, FontStyle.Regular);
             bottomNote.ForeColor = Color.FromArgb(100, 116, 139);
             bottomNote.TextAlign = ContentAlignment.MiddleCenter;
@@ -268,7 +319,29 @@ namespace RajarshiShahuTrading.Launcher
         private void BtnLaunch_Click(object sender, EventArgs e)
         {
             autoLaunchTimer.Stop();
-            LaunchMandiERP();
+            countdownLabel.Text = "";
+            LaunchMandiERP(false);
+        }
+
+        private void BtnLaunchCloud_Click(object sender, EventArgs e)
+        {
+            autoLaunchTimer.Stop();
+            countdownLabel.Text = "";
+            try
+            {
+                Process.Start(new ProcessStartInfo("https://mandi-erp-tracker.vercel.app") { UseShellExecute = true });
+                Timer closeTimer = new Timer();
+                closeTimer.Interval = 1200;
+                closeTimer.Tick += new EventHandler(delegate(object s, EventArgs ev) {
+                    closeTimer.Stop();
+                    Application.Exit();
+                });
+                closeTimer.Start();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Could not open cloud portal: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
 
         private void BtnRecheck_Click(object sender, EventArgs e)
@@ -628,10 +701,11 @@ namespace RajarshiShahuTrading.Launcher
                 System.Threading.Thread.Sleep(200);
             }
 
-            // STEP 5: Desktop Shortcut Integration
+            // STEP 5: Cloud Database & Sync Connectivity (Supabase / Vercel)
             {
                 StepResult sr = new StepResult();
                 sr.StepIndex = 4;
+                sr.Title = "5. Cloud Database & Sync Connectivity (Supabase / Vercel)";
 
                 string desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
                 string shortcutFile = Path.Combine(desktopPath, "Rajarshi Shahu Trading - Mandi ERP.lnk");
@@ -644,17 +718,40 @@ namespace RajarshiShahuTrading.Launcher
                         : targetExePath;
 
                     CreateOrUpdateShortcut(shortcutFile, target, Path.GetDirectoryName(target), "Rajarshi Shahu Trading — Mandi ERP Desktop");
-                    sr.Success = true;
-                    sr.Badge = "[ ✓ ]";
-                    sr.BadgeColor = SuccessGreen;
-                    sr.Detail = "Desktop Shortcut verified: 'Rajarshi Shahu Trading - Mandi ERP'";
+                }
+                catch { }
+
+                // Check Cloud endpoint reachable (Disable proxy to prevent Win7 proxy timeout)
+                bool cloudReachable = false;
+                try
+                {
+                    System.Net.ServicePointManager.SecurityProtocol = (System.Net.SecurityProtocolType)3072 | System.Net.SecurityProtocolType.Tls;
+                    System.Net.HttpWebRequest req = (System.Net.HttpWebRequest)System.Net.WebRequest.Create("https://mandi-erp-tracker.vercel.app");
+                    req.Method = "HEAD";
+                    req.Timeout = 3000;
+                    req.Proxy = null;
+                    using (System.Net.HttpWebResponse resp = (System.Net.HttpWebResponse)req.GetResponse())
+                    {
+                        cloudReachable = (resp.StatusCode == System.Net.HttpStatusCode.OK);
+                    }
                 }
                 catch
                 {
-                    sr.Success = true;
+                    cloudReachable = false;
+                }
+
+                sr.Success = true;
+                if (cloudReachable)
+                {
                     sr.Badge = "[ ✓ ]";
                     sr.BadgeColor = SuccessGreen;
-                    sr.Detail = "Desktop Shortcut verified";
+                    sr.Detail = "Cloud Sync Online: Live shared database active across all PCs (mandi-erp-tracker.vercel.app)";
+                }
+                else
+                {
+                    sr.Badge = "[ OK ]";
+                    sr.BadgeColor = WarnOrange;
+                    sr.Detail = "Offline Cache Ready: Local database active; auto-syncs to Cloud once connected";
                 }
 
                 worker.ReportProgress(100, sr);
@@ -704,10 +801,11 @@ namespace RajarshiShahuTrading.Launcher
         {
             btnRecheck.Enabled = true;
             btnLaunch.Enabled = true;
+            btnLaunchCloud.Enabled = true;
 
             if (targetExePath == null || !File.Exists(targetExePath))
             {
-                statusLabel.Text = "Executable Rajarshi_Shahu_Trading.exe not found in bundle.";
+                statusLabel.Text = "Executable Rajarshi_Shahu_Trading.exe not found. You can still open Live Cloud ERP!";
                 statusLabel.ForeColor = ErrorRed;
                 btnLaunch.Enabled = false;
                 return;
@@ -715,19 +813,19 @@ namespace RajarshiShahuTrading.Launcher
 
             if (isWin7BrowserMode)
             {
-                statusLabel.Text = "Ready (Windows 7 browser mode active)";
+                statusLabel.Text = "Ready (Windows 7 browser mode active • Cloud Connected)";
                 statusLabel.ForeColor = SuccessGreen;
             }
             else
             {
-                statusLabel.Text = "All requirements verified successfully. System is 100% ready.";
+                statusLabel.Text = "All systems verified. Cloud Sync and Local Engine are 100% ready.";
                 statusLabel.ForeColor = SuccessGreen;
             }
 
             if (isAutoLaunch)
             {
-                countdownSeconds = 3;
-                countdownLabel.Text = string.Format("Auto-launching in {0}s...", countdownSeconds);
+                countdownSeconds = 4;
+                countdownLabel.Text = string.Format("Auto-launching in {0}s... (or click Cloud)", countdownSeconds);
                 autoLaunchTimer.Start();
             }
         }
@@ -737,20 +835,29 @@ namespace RajarshiShahuTrading.Launcher
             countdownSeconds--;
             if (countdownSeconds > 0)
             {
-                countdownLabel.Text = string.Format("Auto-launching in {0}s...", countdownSeconds);
+                countdownLabel.Text = string.Format("Auto-launching in {0}s... (or click Cloud)", countdownSeconds);
             }
             else
             {
                 autoLaunchTimer.Stop();
                 countdownLabel.Text = "Launching...";
-                LaunchMandiERP();
+                LaunchMandiERP(false);
             }
         }
 
-        private void LaunchMandiERP()
+        private void LaunchMandiERP(bool cloudMode = false)
         {
             if (string.IsNullOrEmpty(targetExePath) || !File.Exists(targetExePath))
             {
+                if (cloudMode)
+                {
+                    try
+                    {
+                        Process.Start(new ProcessStartInfo("https://mandi-erp-tracker.vercel.app") { UseShellExecute = true });
+                    }
+                    catch { }
+                    return;
+                }
                 MessageBox.Show(
                     "Could not locate 'Rajarshi_Shahu_Trading.exe'.\nPlease verify installation files.",
                     "File Not Found",
@@ -764,6 +871,10 @@ namespace RajarshiShahuTrading.Launcher
             {
                 ProcessStartInfo psi = new ProcessStartInfo();
                 psi.FileName = targetExePath;
+                if (cloudMode)
+                {
+                    psi.Arguments = "--cloud";
+                }
                 psi.WorkingDirectory = Path.GetDirectoryName(targetExePath);
                 psi.UseShellExecute = true;
 

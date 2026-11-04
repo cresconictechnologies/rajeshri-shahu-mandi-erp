@@ -25,5 +25,7 @@ dist/
 static/uploads/
 
 
-prerequisites/*.exe
 prerequisites/
+*.zip*.exe
+prerequisites/
+*.zip

@@ -93,8 +93,12 @@ if res.returncode == 0:
     shutil.make_archive(zip_target, "zip", dist_dir)
     print(f"Successfully packaged: {zip_target}.zip")
 
-    tracker_zip = os.path.abspath(os.path.join(current_dir, "..", "mandi-erp-tracker", "Rajarshi_Shahu_Trading_Windows_x64.zip"))
-    if os.path.exists(os.path.dirname(tracker_zip)):
-        shutil.copy2(f"{zip_target}.zip", tracker_zip)
-        print(f"Updated portal zip: {tracker_zip}")
+    tracker_candidates = [
+        os.path.join(current_dir, "mandi-erp-tracker", "Rajarshi_Shahu_Trading_Windows_x64.zip"),
+        os.path.abspath(os.path.join(current_dir, "..", "mandi-erp-tracker", "Rajarshi_Shahu_Trading_Windows_x64.zip"))
+    ]
+    for tracker_zip in tracker_candidates:
+        if os.path.exists(os.path.dirname(tracker_zip)):
+            shutil.copy2(f"{zip_target}.zip", tracker_zip)
+            print(f"Updated portal zip: {tracker_zip}")
 sys.exit(res.returncode)

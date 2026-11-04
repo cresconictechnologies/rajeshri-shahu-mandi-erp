@@ -1665,7 +1665,85 @@
                         ribbon.appendChild(newChip);
                     }
                 }
+
+                // Update in-memory dailyRates array
+                if (typeof dailyRates !== 'undefined' && Array.isArray(dailyRates)) {
+                    const existingRate = dailyRates.find(r => r.commodity_name === comm);
+                    if (existingRate) {
+                        if (data.min_rate || data.min_rate_per_qtl) existingRate.min_rate_per_qtl = Number(data.min_rate || data.min_rate_per_qtl);
+                        if (data.target_rate || data.target_rate_per_qtl) existingRate.target_rate_per_qtl = Number(data.target_rate || data.target_rate_per_qtl);
+                        if (data.max_rate || data.max_rate_per_qtl) existingRate.max_rate_per_qtl = Number(data.max_rate || data.max_rate_per_qtl);
+                    } else if (data.min_rate || data.target_rate) {
+                        dailyRates.push({
+                            commodity_name: comm,
+                            quality_grade: data.quality_grade || 'STANDARD',
+                            min_rate_per_qtl: Number(data.min_rate || data.min_rate_per_qtl || 0),
+                            target_rate_per_qtl: Number(data.target_rate || data.target_rate_per_qtl || 0),
+                            max_rate_per_qtl: Number(data.max_rate || data.max_rate_per_qtl || 0)
+                        });
+                    }
+                }
+
+                // Update commodity card in selector grid
+                const card = document.querySelector(`.commodity-card[data-name="${comm}"]`);
+                if (card && (data.target_rate || data.target_rate_per_qtl)) {
+                    const minVal = Number(data.min_rate || data.min_rate_per_qtl || 0);
+                    const tgtVal = Number(data.target_rate || data.target_rate_per_qtl || 0);
+                    const maxVal = Number(data.max_rate || data.max_rate_per_qtl || 0);
+                    card.dataset.min = minVal;
+                    card.dataset.target = tgtVal;
+                    card.dataset.max = maxVal;
+                    const priceBadge = card.querySelector('.price-badge');
+                    if (priceBadge) {
+                        priceBadge.innerText = `₹${Math.round(tgtVal).toLocaleString('en-IN')}`;
+                    }
+                    const subRange = card.querySelector('.price-range');
+                    if (subRange) {
+                        subRange.innerText = `₹${Math.round(minVal).toLocaleString('en-IN')} – ₹${Math.round(maxVal).toLocaleString('en-IN')}`;
+                    }
+                }
+
+                // If this commodity is currently loaded in inward weighment form, update input and recalculate
+                const currentSelectedComm = document.getElementById('commodity_name')?.value;
+                if (currentSelectedComm === comm && (data.target_rate || data.target_rate_per_qtl)) {
+                    const rateInput = document.getElementById('rate_per_quintal');
+                    if (rateInput && (!rateInput.value || rateInput.value === "0")) {
+                        rateInput.value = Number(data.target_rate || data.target_rate_per_qtl);
+                    }
+                    if (typeof checkRateAndRecalculate === 'function') {
+                        checkRateAndRecalculate();
+                    }
+                }
             });
+
+            // Active rate auto-refresher across internet
+            async function refreshBranchRates() {
+                try {
+                    const bId = document.getElementById('branch_id')?.value || '{{ current_branch.id }}';
+                    const res = await fetch(`/api/branch/rates?branch_id=${encodeURIComponent(bId)}`);
+                    if (!res.ok) return;
+                    const data = await res.json();
+                    if (data.success && Array.isArray(data.rates)) {
+                        data.rates.forEach(r => {
+                            const comm = r.commodity_name;
+                            const card = document.querySelector(`.commodity-card[data-name="${comm}"]`);
+                            if (card) {
+                                card.dataset.min = r.min_rate_per_qtl;
+                                card.dataset.target = r.target_rate_per_qtl;
+                                card.dataset.max = r.max_rate_per_qtl;
+                                const pb = card.querySelector('.price-badge');
+                                if (pb) pb.innerText = `₹${Math.round(r.target_rate_per_qtl).toLocaleString('en-IN')}`;
+                                const pr = card.querySelector('.price-range');
+                                if (pr) pr.innerText = `₹${Math.round(r.min_rate_per_qtl).toLocaleString('en-IN')} – ₹${Math.round(r.max_rate_per_qtl).toLocaleString('en-IN')}`;
+                            }
+                        });
+                    }
+                } catch (e) {
+                    console.debug('Active rate auto-refresh notice:', e);
+                }
+            }
+            window.addEventListener('focus', refreshBranchRates);
+            setInterval(refreshBranchRates, 30000);
 
             // On rtgs_processed: show toast notification with UTR number for that branch
             MandiLiveSync.on('rtgs_processed', function(data) {

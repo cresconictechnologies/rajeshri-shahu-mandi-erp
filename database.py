@@ -741,6 +741,7 @@ def init_db():
     branches = [
         ("br-chikhali", "BR-CHK", "Chikhali Branch", "MH/CHK/APMC-101", "APMC Market Yard, Chikhali (Buldhana)", "07264-242110"),
         ("br-varvand", "BR-VRV", "Varvand Branch", "MH/VRV/APMC-202", "Station Road, Varvand (Pune)", "02119-251220"),
+        ("br-sarola", "BR-SRL", "Sarola Maruti Branch", "MH/SRL/APMC-303", "Main Market Yard, Sarola Maruti (Buldhana)", "07267-244440"),
         ("br-dhad", "BR-DHD", "Dhad Branch", "MH/DHD/APMC-303", "Main Market Yard, Dhad (Buldhana)", "07267-233330"),
     ]
     cur.executemany("INSERT OR IGNORE INTO branches (id, branch_code, name, mandi_license_no, address, phone) VALUES (?,?,?,?,?,?)", branches)
@@ -751,6 +752,7 @@ def init_db():
     acc_pw = hash_password("acc123")
     chk_pw = hash_password("chk123")
     vrv_pw = hash_password("vrv123")
+    srl_pw = hash_password("srl123")
     dhd_pw = hash_password("dhd123")
     qc_pw = hash_password("qc123")
 
@@ -758,17 +760,24 @@ def init_db():
         ("u-admin", None, "admin", admin_pw, "Administrator (Master)", "9826011111", "SUPER_ADMIN"),
         ("u-suraj", None, "Suraj", suraj_pw, "Suraj (Chief Accountant)", "9826022222", "ACCOUNTANT_HQ"),
         ("u-accountant", None, "accountant", acc_pw, "Chief Accountant (HQ)", "9826022222", "ACCOUNTANT_HQ"),
-        ("u-chikhali", "br-chikhali", "chikhali", chk_pw, "Chikhali Cashier", "9826099999", "BRANCH_CASHIER"),
+        ("u-indore-cashier", "br-chikhali", "chikhali", chk_pw, "Chikhali Cashier", "9826099999", "BRANCH_CASHIER"),
+        ("u-indore-munim", "br-chikhali", "indore_munim", chk_pw, "Chikhali Yard Munim (Datta Bhau)", "9826099999", "BRANCH_MUNIM"),
         ("u-chikhali-cashier", "br-chikhali", "chikhali_cashier", chk_pw, "Chikhali Cashier Lead", "9826099999", "BRANCH_CASHIER"),
         ("u-chikhali-munim", "br-chikhali", "chikhali_munim", chk_pw, "Chikhali Yard Munim", "9826099999", "BRANCH_MUNIM"),
-        ("u-varvand", "br-varvand", "varvand", vrv_pw, "Varvand Cashier", "9826044444", "BRANCH_CASHIER"),
+        ("u-ujjain-cashier", "br-varvand", "varvand", vrv_pw, "Varvand Cashier", "9826044444", "BRANCH_CASHIER"),
+        ("u-ujjain-munim", "br-varvand", "ujjain_munim", vrv_pw, "Varvand Yard Munim (Mohanlal Soni)", "9826044444", "BRANCH_MUNIM"),
         ("u-varvand-cashier", "br-varvand", "varvand_cashier", vrv_pw, "Varvand Cashier Lead", "9826044444", "BRANCH_CASHIER"),
         ("u-varvand-munim", "br-varvand", "varvand_munim", vrv_pw, "Varvand Yard Munim", "9826044444", "BRANCH_MUNIM"),
-        ("u-dhad", "br-dhad", "dhad", dhd_pw, "Dhad Cashier", "9826055555", "BRANCH_CASHIER"),
+        ("u-sarola", "br-sarola", "sarola", srl_pw, "Sarola Maruti Cashier", "9826066666", "BRANCH_CASHIER"),
+        ("u-sarola-cashier", "br-sarola", "sarola_cashier", srl_pw, "Sarola Maruti Cashier Lead", "9826066666", "BRANCH_CASHIER"),
+        ("u-sarola-munim", "br-sarola", "sarola_munim", srl_pw, "Sarola Maruti Yard Munim", "9826066666", "BRANCH_MUNIM"),
+        ("u-dewas-cashier", "br-dhad", "dhad", dhd_pw, "Dhad Cashier", "9826055555", "BRANCH_CASHIER"),
+        ("u-dewas-munim", "br-dhad", "dewas_munim", dhd_pw, "Dhad Yard Munim (Kailash Tiwari)", "9826055555", "BRANCH_MUNIM"),
         ("u-dhad-cashier", "br-dhad", "dhad_cashier", dhd_pw, "Dhad Cashier Lead", "9826055555", "BRANCH_CASHIER"),
         ("u-dhad-munim", "br-dhad", "dhad_munim", dhd_pw, "Dhad Yard Munim", "9826055555", "BRANCH_MUNIM"),
         ("u-qc-chikhali", "br-chikhali", "qc_chikhali", qc_pw, "Babulal Meena", "9826077771", "QUALITY_INSPECTOR"),
         ("u-qc-varvand", "br-varvand", "qc_varvand", qc_pw, "Govind Solanki", "9826077772", "QUALITY_INSPECTOR"),
+        ("u-qc-sarola", "br-sarola", "qc_sarola", qc_pw, "Ganesh Deshmukh", "9826077776", "QUALITY_INSPECTOR"),
         ("u-qc-dhad", "br-dhad", "qc_dhad", qc_pw, "Narayan Sharma", "9826077773", "QUALITY_INSPECTOR"),
         ("u-qc-head", "br-chikhali", "qc_head", qc_pw, "Mahesh Patidar", "9826077774", "QUALITY_INSPECTOR"),
         ("u-qc-sanjay", "br-chikhali", "qc_sanjay_chikhali", qc_pw, "Sanjay Patil", "9826077775", "QUALITY_INSPECTOR"),
@@ -779,6 +788,7 @@ def init_db():
     inspectors_seed = [
         ("u-qc-chikhali", "br-chikhali", "Babulal Meena", "Quality Inspector (Chikhali Yard)", "9826077771"),
         ("u-qc-varvand", "br-varvand", "Govind Solanki", "Quality Inspector (Varvand Yard)", "9826077772"),
+        ("u-qc-sarola", "br-sarola", "Ganesh Deshmukh", "Quality Inspector (Sarola Maruti Yard)", "9826077776"),
         ("u-qc-dhad", "br-dhad", "Narayan Sharma", "Quality Inspector (Dhad Yard)", "9826077773"),
         ("u-qc-head", "br-chikhali", "Mahesh Patidar", "Chief Quality Assayer", "9826077774"),
         ("u-qc-sanjay", "br-chikhali", "Sanjay Patil", "Quality Inspector (Chikhali)", "9826077775"),
@@ -849,6 +859,7 @@ def seed_test_fixtures(conn=None):
     branches = [
         ("br-chikhali", "BR-CHK", "Chikhali Branch", "MH/CHK/APMC-101", "APMC Market Yard, Chikhali (Buldhana)", "07264-242110"),
         ("br-varvand", "BR-VRV", "Varvand Branch", "MH/VRV/APMC-202", "Station Road, Varvand (Pune)", "02119-251220"),
+        ("br-sarola", "BR-SRL", "Sarola Maruti Branch", "MH/SRL/APMC-303", "Main Market Yard, Sarola Maruti (Buldhana)", "07267-244440"),
         ("br-dhad", "BR-DHD", "Dhad Branch", "MH/DHD/APMC-303", "Main Market Yard, Dhad (Buldhana)", "07267-233330"),
     ]
     cur.executemany("INSERT OR IGNORE INTO branches (id, branch_code, name, mandi_license_no, address, phone) VALUES (?,?,?,?,?,?)", branches)
@@ -858,20 +869,29 @@ def seed_test_fixtures(conn=None):
     acc_pw = hash_password("acc123")
     chk_pw = hash_password("chk123")
     vrv_pw = hash_password("vrv123")
+    srl_pw = hash_password("srl123")
     dhd_pw = hash_password("dhd123")
     qc_pw = hash_password("qc123")
 
     users = [
         ("u-admin", None, "admin", admin_pw, "Vikramaditya Singhal (Owner)", "9826011111", "SUPER_ADMIN"),
         ("u-accountant", None, "accountant", acc_pw, "Omprakash Agrawal (Chief Accountant)", "9826022222", "ACCOUNTANT_HQ"),
-        ("u-indore-munim", "br-chikhali", "chikhali_munim", chk_pw, "Santosh V. Patil (Chikhali Lead)", "9826099999", "BRANCH_MUNIM"),
-        ("u-indore-cashier", "br-chikhali", "chikhali_cashier", chk_pw, "Santosh V. Patil (Chikhali Lead)", "9826099999", "BRANCH_CASHIER"),
-        ("u-ujjain-munim", "br-varvand", "varvand_munim", vrv_pw, "Mohanlal Soni (Varvand Cashier)", "9826044444", "BRANCH_MUNIM"),
-        ("u-ujjain-cashier", "br-varvand", "varvand_cashier", vrv_pw, "Mohanlal Soni (Varvand Cashier)", "9826044444", "BRANCH_CASHIER"),
+        ("u-indore-munim", "br-chikhali", "indore_munim", chk_pw, "Santosh V. Patil (Chikhali Lead)", "9826099999", "BRANCH_MUNIM"),
+        ("u-indore-cashier", "br-chikhali", "chikhali", chk_pw, "Santosh V. Patil (Chikhali Lead)", "9826099999", "BRANCH_CASHIER"),
+        ("u-chikhali-munim", "br-chikhali", "chikhali_munim", chk_pw, "Chikhali Yard Munim", "9826099999", "BRANCH_MUNIM"),
+        ("u-chikhali-cashier", "br-chikhali", "chikhali_cashier", chk_pw, "Chikhali Cashier Lead", "9826099999", "BRANCH_CASHIER"),
+        ("u-ujjain-munim", "br-varvand", "ujjain_munim", vrv_pw, "Mohanlal Soni (Varvand Cashier)", "9826044444", "BRANCH_MUNIM"),
+        ("u-ujjain-cashier", "br-varvand", "varvand", vrv_pw, "Mohanlal Soni (Varvand Cashier)", "9826044444", "BRANCH_CASHIER"),
+        ("u-varvand-munim", "br-varvand", "varvand_munim", vrv_pw, "Varvand Yard Munim", "9826044444", "BRANCH_MUNIM"),
+        ("u-varvand-cashier", "br-varvand", "varvand_cashier", vrv_pw, "Varvand Cashier Lead", "9826044444", "BRANCH_CASHIER"),
+        ("u-sarola-munim", "br-sarola", "sarola_munim", srl_pw, "Sarola Maruti Yard Munim", "9826066666", "BRANCH_MUNIM"),
+        ("u-sarola-cashier", "br-sarola", "sarola_cashier", srl_pw, "Sarola Maruti Cashier Lead", "9826066666", "BRANCH_CASHIER"),
+        ("u-sarola", "br-sarola", "sarola", srl_pw, "Sarola Maruti Cashier", "9826066666", "BRANCH_CASHIER"),
         ("u-dewas-munim", "br-dhad", "dhad_munim", dhd_pw, "Kailash Tiwari (Dhad Cashier)", "9826055555", "BRANCH_MUNIM"),
         ("u-dewas-cashier", "br-dhad", "dhad_cashier", dhd_pw, "Kailash Tiwari (Dhad Cashier)", "9826055555", "BRANCH_CASHIER"),
         ("u-qc-chikhali", "br-chikhali", "qc_chikhali", qc_pw, "Babulal Meena", "9826077771", "QUALITY_INSPECTOR"),
         ("u-qc-varvand", "br-varvand", "qc_varvand", qc_pw, "Govind Solanki", "9826077772", "QUALITY_INSPECTOR"),
+        ("u-qc-sarola", "br-sarola", "qc_sarola", qc_pw, "Ganesh Deshmukh", "9826077776", "QUALITY_INSPECTOR"),
         ("u-qc-dhad", "br-dhad", "qc_dhad", qc_pw, "Narayan Sharma", "9826077773", "QUALITY_INSPECTOR"),
         ("u-qc-head", "br-chikhali", "qc_head", qc_pw, "Mahesh Patidar", "9826077774", "QUALITY_INSPECTOR"),
     ]

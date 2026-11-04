@@ -8,6 +8,13 @@ echo              Universal Compatibility Setup (Windows 7 to 11)
 echo ===============================================================================
 echo.
 
+:: 0. Check for Direct Cloud Parameter
+if /i "%1"=="cloud" (
+    echo [*] Opening Live Cloud Mandi ERP in default browser...
+    start https://mandi-erp-tracker.vercel.app
+    exit /b 0
+)
+
 :: 1. Admin Privilege Detection
 net session >nul 2>&1
 if %ERRORLEVEL% equ 0 (
@@ -164,13 +171,20 @@ if exist "%SHORTCUT_PATH%" (
 
 echo.
 echo ===============================================================================
-echo   All components verified! Launching Rajarshi Shahu Trading Mandi ERP...
-echo   Direct Login: http://127.0.0.1:8080/login
+echo   All components verified!
+echo   - Cloud Web Portal: https://mandi-erp-tracker.vercel.app (Shared all PCs)
+echo   - Desktop Hybrid:   Launching %LAUNCH_TARGET%
 echo ===============================================================================
 echo.
 
 cd /d "%EXE_DIR%"
-start "" "%TARGET_EXE%"
+if exist "%BASE_DIR%Launcher.exe" (
+    start "" "%BASE_DIR%Launcher.exe"
+) else if exist "%EXE_DIR%Launcher.exe" (
+    start "" "%EXE_DIR%Launcher.exe"
+) else (
+    start "" "%TARGET_EXE%"
+)
 
 timeout /t 2 /nobreak >nul 2>&1
 exit /b 0

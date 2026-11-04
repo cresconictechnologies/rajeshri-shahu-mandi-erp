@@ -719,6 +719,11 @@ ALTER TABLE outward_orders ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAU
 ALTER TABLE ledger_entries ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT clock_timestamp();
 ALTER TABLE branch_daily_cash_drawers ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT clock_timestamp();
 ALTER TABLE audit_change_logs ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT clock_timestamp();
+
+-- Enforce uniqueness of daily rates when branch_id is NULL (HQ Global rate)
+CREATE UNIQUE INDEX IF NOT EXISTS uq_daily_rates_null_branch 
+ON daily_commodity_rates (rate_date, commodity_name, quality_grade) 
+WHERE branch_id IS NULL;
 """
 
 
@@ -1047,6 +1052,28 @@ def migrate_schema_to_supabase() -> Dict[str, Any]:
 # 7. BI-DIRECTIONAL PUSH / PULL WITH LAST-WRITE-WINS (LWW)
 # ------------------------------------------------------------------------------
 
+def _parse_timestamp(val: Any) -> Optional[datetime]:
+    """Robustly parses ISO-8601 strings, SQL timestamps, or datetime objects into UTC datetime."""
+    if not val:
+        return None
+    if isinstance(val, datetime):
+        return val if val.tzinfo else val.replace(tzinfo=timezone.utc)
+    if isinstance(val, date):
+        return datetime(val.year, val.month, val.day, tzinfo=timezone.utc)
+    s = str(val).strip()
+    if not s:
+        return None
+    s = s.replace(" ", "T")
+    if s.endswith("Z"):
+        s = s[:-1] + "+00:00"
+    try:
+        dt = datetime.fromisoformat(s)
+        return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+    except Exception:
+        pass
+    return None
+
+
 def _row_to_dict(row: sqlite3.Row) -> Dict[str, Any]:
     """Converts a SQLite row into a clean dictionary with normalized types."""
     d = dict(row)
@@ -1114,9 +1141,14 @@ def push_local_to_supabase(tables: Optional[List[str]] = None) -> Dict[str, Any]
         local_conn.commit()
 
         # Build reference lookup sets to sanitize orphaned foreign keys
-        valid_users = {r["id"] for r in local_cur.execute("SELECT id FROM users").fetchall()}
-        valid_branches = {r["id"] for r in local_cur.execute("SELECT id FROM branches").fetchall()}
-        valid_parties = {r["id"] for r in local_cur.execute("SELECT id FROM parties").fetchall()}
+        def _get_existing_ids(tbl):
+            try:
+                return {r["id"] for r in local_cur.execute(f"SELECT id FROM {tbl}").fetchall()}
+            except Exception:
+                return set()
+        valid_users = _get_existing_ids("users")
+        valid_branches = _get_existing_ids("branches")
+        valid_parties = _get_existing_ids("parties")
 
         # Step 2: Push each table's active records in dependency order
         for table in target_tables:
@@ -1217,10 +1249,14 @@ def push_local_to_supabase(tables: Optional[List[str]] = None) -> Dict[str, Any]
                             try:
                                 with engine.begin() as pg_conn:
                                     if table == "daily_commodity_rates":
+                                        upd_cols = [c for c in cols if c != "id"]
+                                        pg_upd_assignments = ", ".join([f"{c} = :{c}" for c in upd_cols])
                                         upd_sql = f"""
-                                            UPDATE daily_commodity_rates SET {update_assignments}
-                                            WHERE rate_date = :rate_date AND (branch_id = :branch_id OR (branch_id IS NULL AND :branch_id IS NULL))
-                                              AND commodity_name = :commodity_name AND quality_grade = :quality_grade
+                                            UPDATE daily_commodity_rates SET {pg_upd_assignments}
+                                            WHERE rate_date = :rate_date 
+                                              AND ((branch_id = :branch_id) OR (branch_id IS NULL AND :branch_id IS NULL))
+                                              AND commodity_name = :commodity_name 
+                                              AND quality_grade = :quality_grade
                                         """
                                         pg_conn.execute(text(upd_sql), sr)
                                         table_pushed += 1
@@ -1264,11 +1300,36 @@ def push_local_to_supabase(tables: Optional[List[str]] = None) -> Dict[str, Any]
                         sanitized_rest_rows.append(cleaned)
 
                     headers = {"Prefer": "resolution=merge-duplicates,return=representation"}
-                    resp = client.post(f"/rest/v1/{table}", json=sanitized_rest_rows, headers=headers)
+                    if table == "daily_commodity_rates":
+                        endpoint = f"/rest/v1/{table}?on_conflict=rate_date,branch_id,commodity_name,quality_grade"
+                    else:
+                        endpoint = f"/rest/v1/{table}"
+                    resp = client.post(endpoint, json=sanitized_rest_rows, headers=headers)
                     if resp.status_code in (200, 201, 204):
                         total_pushed += len(sanitized_rest_rows)
                     else:
-                        errors.append(f"{table} REST push returned status {resp.status_code}: {resp.text[:120]}")
+                        table_rest_pushed = 0
+                        for r_item in sanitized_rest_rows:
+                            try:
+                                r_resp = client.post(f"/rest/v1/{table}", json=[r_item], headers=headers)
+                                if r_resp.status_code in (200, 201, 204):
+                                    table_rest_pushed += 1
+                                elif table == "daily_commodity_rates":
+                                    match_q = f"/rest/v1/{table}?rate_date=eq.{r_item['rate_date']}&commodity_name=eq.{r_item['commodity_name']}&quality_grade=eq.{r_item.get('quality_grade', 'STANDARD')}"
+                                    if r_item.get("branch_id"):
+                                        match_q += f"&branch_id=eq.{r_item['branch_id']}"
+                                    else:
+                                        match_q += "&branch_id=is.null"
+                                    patch_payload = {k: v for k, v in r_item.items() if k != "id"}
+                                    patch_resp = client.patch(match_q, json=patch_payload)
+                                    if patch_resp.status_code in (200, 204):
+                                        table_rest_pushed += 1
+                            except Exception:
+                                pass
+                        if table_rest_pushed > 0:
+                            total_pushed += table_rest_pushed
+                        else:
+                            errors.append(f"{table} REST push returned status {resp.status_code}: {resp.text[:120]}")
 
             except Exception as t_err:
                 if not is_transient_network_error(t_err):
@@ -1373,28 +1434,37 @@ def pull_supabase_to_local(tables: Optional[List[str]] = None) -> Dict[str, Any]
                     if not filtered:
                         continue
 
-                    # Conflict Resolution: Check existing local record
-                    pk_col = "id" if "id" in filtered else ("setting_key" if table == "system_settings" else None)
+                    # Conflict Resolution: Check existing local record with Last-Write-Wins (LWW)
                     has_updated = "updated_at" in local_cols
                     date_col = "updated_at" if has_updated else ("created_at" if "created_at" in local_cols else None)
 
-                    if pk_col and pk_col in filtered and date_col:
-                        if table == "system_settings":
-                            local_cur.execute(
-                                f"SELECT {date_col} FROM system_settings WHERE scope=? AND scope_id=? AND setting_key=?",
-                                (filtered.get("scope"), filtered.get("scope_id", "GLOBAL"), filtered.get("setting_key"))
-                            )
-                        else:
-                            local_cur.execute(f"SELECT {date_col} FROM {table} WHERE id=?", (filtered[pk_col],))
+                    loc_row = None
+                    if table == "system_settings":
+                        local_cur.execute(
+                            f"SELECT {date_col or 'setting_value'} FROM system_settings WHERE scope=? AND scope_id=? AND setting_key=?",
+                            (filtered.get("scope"), filtered.get("scope_id", "GLOBAL"), filtered.get("setting_key"))
+                        )
+                        loc_row = local_cur.fetchone()
+                    elif table == "daily_commodity_rates":
+                        local_cur.execute(
+                            f"""SELECT id, {date_col} FROM daily_commodity_rates 
+                                WHERE id=? OR (rate_date=? AND commodity_name=? AND quality_grade=? 
+                                  AND (branch_id=? OR (branch_id IS NULL AND ? IS NULL)))""",
+                            (filtered.get("id"), filtered.get("rate_date"), filtered.get("commodity_name"),
+                             filtered.get("quality_grade", "STANDARD"), filtered.get("branch_id"), filtered.get("branch_id"))
+                        )
+                        loc_row = local_cur.fetchone()
+                    elif "id" in filtered and date_col:
+                        local_cur.execute(f"SELECT {date_col} FROM {table} WHERE id=?", (filtered["id"],))
                         loc_row = local_cur.fetchone()
 
-                        if loc_row:
-                            loc_val = loc_row[0] if isinstance(loc_row, tuple) else loc_row[date_col]
-                            loc_updated = str(loc_val or "")
-                            rem_updated = str(filtered.get("updated_at") or filtered.get("created_at") or "")
-                            if loc_updated and rem_updated and loc_updated >= rem_updated:
-                                # Local is equal or newer, retain local
-                                continue
+                    if loc_row and date_col:
+                        loc_val = loc_row[date_col] if hasattr(loc_row, "keys") and date_col in loc_row.keys() else (loc_row[1] if table == "daily_commodity_rates" and len(loc_row) > 1 else loc_row[0])
+                        loc_dt = _parse_timestamp(loc_val)
+                        rem_dt = _parse_timestamp(filtered.get("updated_at") or filtered.get("created_at"))
+                        if loc_dt and rem_dt and loc_dt > rem_dt:
+                            # Local record is strictly newer, retain local
+                            continue
 
                     # Convert types for SQLite compatibility (booleans, Decimals, datetimes)
                     for k in filtered:
@@ -1418,14 +1488,30 @@ def pull_supabase_to_local(tables: Optional[List[str]] = None) -> Dict[str, Any]
                                 setting_value=excluded.setting_value,
                                 updated_at=excluded.updated_at
                         """, vals)
+                        total_pulled += 1
+                    elif table == "daily_commodity_rates":
+                        # Delete any conflicting local record by id OR unique corridor key to prevent unique constraint failures
+                        local_cur.execute(
+                            """DELETE FROM daily_commodity_rates 
+                               WHERE id=? OR (rate_date=? AND commodity_name=? AND quality_grade=? 
+                                 AND (branch_id=? OR (branch_id IS NULL AND ? IS NULL)))""",
+                            (filtered.get("id"), filtered.get("rate_date"), filtered.get("commodity_name"),
+                             filtered.get("quality_grade", "STANDARD"), filtered.get("branch_id"), filtered.get("branch_id"))
+                        )
+                        local_cur.execute(f"""
+                            INSERT INTO daily_commodity_rates ({col_names}) VALUES ({placeholders})
+                        """, vals)
+                        total_pulled += 1
                     else:
                         update_clause = ", ".join([f"{c}=excluded.{c}" for c in cols if c != "id"])
-                        local_cur.execute(f"""
-                            INSERT INTO {table} ({col_names}) VALUES ({placeholders})
-                            ON CONFLICT(id) DO UPDATE SET {update_clause}
-                        """, vals)
-
-                    total_pulled += 1
+                        try:
+                            local_cur.execute(f"""
+                                INSERT INTO {table} ({col_names}) VALUES ({placeholders})
+                                ON CONFLICT(id) DO UPDATE SET {update_clause}
+                            """, vals)
+                            total_pulled += 1
+                        except sqlite3.IntegrityError as row_err:
+                            logger.debug(f"Row pull conflict skipped on {table} id {filtered.get('id')}: {row_err}")
 
                 local_conn.commit()
 

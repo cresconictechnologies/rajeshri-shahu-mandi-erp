@@ -17,7 +17,10 @@ from typing import Dict, Any, List, Optional, Tuple
 from PIL import Image, ImageOps, ImageEnhance, ImageFilter
 import numpy as np
 from scipy import ndimage
-import requests
+try:
+    import requests
+except ImportError:
+    requests = None
 
 logger = logging.getLogger("quality_engine")
 

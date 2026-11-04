@@ -44,7 +44,7 @@
         android:layout_width="match_parent"
         android:layout_height="50dp"
         android:backgroundTint="@color/primary"
-        android:text="Save & Connect"
+        android:text="Save &amp; Connect"
         android:textStyle="bold" />
 
 </LinearLayout>

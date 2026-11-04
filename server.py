@@ -2638,10 +2638,8 @@ def api_branch_rates(
     Returns effective rates for the cashier desk, prioritizing branch-specific overrides.
     """
     user = get_current_user(request)
-    if not user:
-        user = require_auth(request)
-
-    target_branch_id = branch_id or user.get("branch_id") or "br-chikhali"
+    user_branch = user.get("branch_id") if user else None
+    target_branch_id = branch_id or user_branch or "br-chikhali"
     target_date = rate_date or date.today().isoformat()
 
     # Cloud sync: actively pull latest rates from Supabase Cloud
@@ -2717,10 +2715,8 @@ def api_branch_recent_invoices(
     Safe: does not touch or affect cashier's active input form.
     """
     user = get_current_user(request)
-    if not user:
-        user = require_auth(request)
-
-    target_branch_id = branch_id or user.get("branch_id") or "br-chikhali"
+    user_branch = user.get("branch_id") if user else None
+    target_branch_id = branch_id or user_branch or "br-chikhali"
     selected_date = target_date or date.today().isoformat()
 
     conn = get_connection()

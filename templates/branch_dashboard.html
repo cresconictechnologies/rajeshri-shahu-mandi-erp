@@ -219,14 +219,19 @@
         </div>
     </header>
 
-    <!-- Published Rates Ribbon Card -->
-    <div class="rates-ribbon">
-        <span class="title">⚡ Today's HQ Buying Corridor:</span>
-        {% for r in daily_rates %}
-        <div class="rate-chip">
-            {{ r.commodity_name }}: <strong>₹{{ "{:,.0f}".format(r.min_rate_per_qtl) }} – ₹{{ "{:,.0f}".format(r.max_rate_per_qtl) }}</strong> <span style="color:#b45309; font-weight:700; font-size:11.5px;">(Target: ₹{{ "{:,.0f}".format(r.target_rate_per_qtl) }})</span>
+        <!-- Published Rates Ribbon Card -->
+    <div class="rates-ribbon" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+        <div id="ratesRibbonChips" style="display:flex; align-items:center; flex-wrap:wrap; gap:10px;">
+            <span class="title">⚡ Today's HQ Buying Corridor:</span>
+            {% for r in daily_rates %}
+            <div class="rate-chip" data-comm="{{ r.commodity_name }}">
+                {{ r.commodity_name }}: <strong>₹{{ "{:,.0f}".format(r.min_rate_per_qtl) }} – ₹{{ "{:,.0f}".format(r.max_rate_per_qtl) }}</strong> <span style="color:#b45309; font-weight:700; font-size:11.5px;">(Target: ₹{{ "{:,.0f}".format(r.target_rate_per_qtl) }})</span>
+            </div>
+            {% endfor %}
         </div>
-        {% endfor %}
+        <button type="button" onclick="manualSyncRatesAndEntries(this)" style="background:#047857; color:#fff; border:none; border-radius:8px; padding:6px 14px; font-size:12px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:6px; box-shadow:0 1px 3px rgba(0,0,0,0.1); transition:all 0.15s ease;">
+            <span id="syncSpinner" style="display:inline-block;">🔄</span> <span>Sync Cloud Rates</span>
+        </button>
     </div>
 
     <!-- TABS NAVIGATION -->
@@ -1731,8 +1736,14 @@
                     if (!res.ok) return;
                     const data = await res.json();
                     if (data.success && Array.isArray(data.rates)) {
+                        const ribbonContainer = document.getElementById('ratesRibbonChips') || document.querySelector('.rates-ribbon');
+
                         data.rates.forEach(r => {
                             const comm = r.commodity_name;
+                            const minR = Math.round(Number(r.min_rate_per_qtl || 0));
+                            const tgtR = Math.round(Number(r.target_rate_per_qtl || 0));
+                            const maxR = Math.round(Number(r.max_rate_per_qtl || 0));
+
                             // 1. Update in-memory dailyRates
                             if (typeof dailyRates !== 'undefined' && Array.isArray(dailyRates)) {
                                 const ex = dailyRates.find(item => item.commodity_name === comm);
@@ -1742,32 +1753,77 @@
                                     ex.max_rate_per_qtl = r.max_rate_per_qtl;
                                 }
                             }
-                            // 2. Update commodity selector cards
+
+                            // 2. Update Live Ribbon Chips at the top of the screen
+                            if (ribbonContainer) {
+                                let chip = ribbonContainer.querySelector(`.rate-chip[data-comm="${comm}"]`);
+                                if (!chip) {
+                                    const allChips = ribbonContainer.querySelectorAll('.rate-chip');
+                                    for (const c of allChips) {
+                                        if (c.innerText.includes(comm)) { chip = c; break; }
+                                    }
+                                }
+                                if (chip) {
+                                    chip.setAttribute('data-comm', comm);
+                                    chip.innerHTML = `${comm}: <strong>₹${minR.toLocaleString('en-IN')} – ₹${maxR.toLocaleString('en-IN')}</strong> <span style="color:#b45309; font-weight:700; font-size:11.5px;">(Target: ₹${tgtR.toLocaleString('en-IN')})</span>`;
+                                }
+                            }
+
+                            // 3. Update Commodity Cards (Stats & Corridors)
                             const card = document.querySelector(`.commodity-card[data-name="${comm}"]`);
                             if (card) {
-                                card.dataset.min = r.min_rate_per_qtl;
-                                card.dataset.target = r.target_rate_per_qtl;
-                                card.dataset.max = r.max_rate_per_qtl;
-                                const pb = card.querySelector('.price-badge');
-                                if (pb) pb.innerText = `₹${Math.round(r.target_rate_per_qtl).toLocaleString('en-IN')}`;
-                                const pr = card.querySelector('.price-range');
-                                if (pr) pr.innerText = `₹${Math.round(r.min_rate_per_qtl).toLocaleString('en-IN')} – ₹${Math.round(r.max_rate_per_qtl).toLocaleString('en-IN')}`;
+                                card.dataset.min = minR;
+                                card.dataset.target = tgtR;
+                                card.dataset.max = maxR;
+
+                                const statTarget = card.querySelector('.target-rate-col .commodity-stat-val');
+                                if (statTarget) statTarget.innerText = `₹${tgtR.toLocaleString('en-IN')}`;
+
+                                const rateVals = card.querySelectorAll('.commodity-rates-box .rate-val');
+                                if (rateVals.length >= 3) {
+                                    rateVals[0].innerText = `₹${minR.toLocaleString('en-IN')}`;
+                                    rateVals[1].innerText = `₹${tgtR.toLocaleString('en-IN')}`;
+                                    rateVals[2].innerText = `₹${maxR.toLocaleString('en-IN')}`;
+                                }
                             }
                         });
 
-                        // 3. SAFE FORM INPUT REFRESH:
-                        // Only update input if cashier is NOT currently editing it
+                        // 4. Update Weighbridge Approved Rate input if current commodity is active
                         const currentComm = document.getElementById('commodity_name')?.value;
                         const activeRate = data.rates.find(r => r.commodity_name === currentComm);
                         if (activeRate && rateInputEl) {
+                            const corridorHint = document.getElementById('corridorLimits');
+                            if (corridorHint) {
+                                corridorHint.innerText = `Approved Range: ₹${Math.round(activeRate.min_rate_per_qtl).toLocaleString('en-IN')} – ₹${Math.round(activeRate.max_rate_per_qtl).toLocaleString('en-IN')}`;
+                            }
                             if (!isUserEditingRate && document.activeElement !== rateInputEl && (!rateInputEl.value || rateInputEl.value === '0')) {
-                                rateInputEl.value = activeRate.target_rate_per_qtl;
+                                rateInputEl.value = Math.round(activeRate.target_rate_per_qtl);
                                 if (typeof checkRateAndRecalculate === 'function') checkRateAndRecalculate();
                             }
                         }
                     }
                 } catch (e) {
                     console.debug('Active rate auto-refresh notice:', e);
+                }
+            }
+
+            async function manualSyncRatesAndEntries(btn) {
+                if (btn) {
+                    btn.disabled = true;
+                    const spin = btn.querySelector('#syncSpinner');
+                    if (spin) spin.style.transform = 'rotate(180deg)';
+                }
+                try {
+                    await Promise.all([refreshBranchRates(), refreshBranchEntries()]);
+                    if (window.MandiLiveSync && typeof window.MandiLiveSync.toast === 'function') {
+                        window.MandiLiveSync.toast('⚡ Rates & Entries Synced', 'Latest HQ commodity rates and transactions updated from cloud.', 'success');
+                    }
+                } finally {
+                    if (btn) {
+                        btn.disabled = false;
+                        const spin = btn.querySelector('#syncSpinner');
+                        if (spin) spin.style.transform = '';
+                    }
                 }
             }
 
@@ -1840,7 +1896,7 @@
 
             // Auto-refresh interval (15 seconds) - rates and entries
             window.addEventListener('focus', () => { refreshBranchRates(); refreshBranchEntries(); });
-            setInterval(() => { refreshBranchRates(); refreshBranchEntries(); }, 15000);
+            setInterval(() => { refreshBranchRates(); refreshBranchEntries(); }, 5000);
 
             // On rtgs_processed: show toast notification with UTR number for that branch
             MandiLiveSync.on('rtgs_processed', function(data) {

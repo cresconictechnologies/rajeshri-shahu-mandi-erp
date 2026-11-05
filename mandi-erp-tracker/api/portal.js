@@ -83,7 +83,7 @@ export default async function handler(req, res) {
 
     const vehicle_net_kg = Math.max(0, gross - tare);
     const moisture_cut_kg = (moisture > 12.0) ? (vehicle_net_kg * (moisture - 12.0) / 100.0) : 0;
-    const weighbridge_cut_kg = (mode === 'WEIGHBRIDGE') ? (vehicle_net_kg * 0.005) : 0;
+    const weighbridge_cut_kg = (mode === 'WEIGHBRIDGE') ? (vehicle_net_kg * 0.003) : 0;
     const net_weight_kg = Math.max(0, vehicle_net_kg - moisture_cut_kg - weighbridge_cut_kg);
     const net_quintals = parseFloat((net_weight_kg / 100.0).toFixed(2));
     const gross_amount = parseFloat((net_quintals * rate).toFixed(2));

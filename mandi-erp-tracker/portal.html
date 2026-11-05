@@ -217,8 +217,8 @@
                         <span>⚙️</span> Settings
                     </a>
                     <div style="border-top:1px solid #f1f5f9; margin:4px 0;"></div>
-                    <a href="javascript:void(0)" onclick="openLoginModal()" style="display:flex; align-items:center; gap:8px; padding:8px 14px; color:#b91c1c; text-decoration:none; font-weight:700;">
-                        <span>🚪</span> Logout
+                    <a href="/login" onclick="localStorage.removeItem('mandi_user')" style="display:flex; align-items:center; gap:8px; padding:8px 14px; color:#b91c1c; text-decoration:none; font-weight:700;">
+                        <span>🚪</span> Sign Out / Switch Terminal
                     </a>
                 </div>
             </div>
@@ -4666,7 +4666,65 @@ div>
             }
         }
 
+        
+        function applyUserSession(user) {
+            if (!user) return;
+            currentRole = user.role || 'BRANCH_CASHIER';
+            if (user.branch_id && user.branch_id !== 'all') {
+                currentBranchId = user.branch_id;
+                const bInput = document.getElementById('branch_id');
+                if (bInput) bInput.value = currentBranchId;
+            }
+
+            const hName = document.getElementById('headerBranchName');
+            if (hName) hName.innerText = user.branch_name || (currentBranchId === 'br-varvand' ? 'Varvand Branch' : 'Chikhali Branch');
+            const hCode = document.getElementById('headerBranchCode');
+            if (hCode) hCode.innerText = user.yard_code || (currentBranchId === 'br-varvand' ? 'BR-VRV' : 'BR-CHK');
+            const hLic = document.getElementById('headerMandiLicense');
+            if (hLic) hLic.innerText = user.mandi_license || (currentBranchId === 'br-varvand' ? 'MH/VRV/APMC-204' : 'MH/CHK/APMC-101');
+
+            const roleTag = document.getElementById('userRoleTag');
+            if (roleTag) {
+                roleTag.innerText = '👤 ' + (user.name || user.username);
+                if (currentRole === 'BRANCH_CASHIER') {
+                    roleTag.style.background = '#fef3c7';
+                    roleTag.style.color = '#b45309';
+                    roleTag.style.borderColor = '#fde68a';
+                } else if (currentRole === 'ACCOUNTANT_HQ') {
+                    roleTag.style.background = '#ecfdf5';
+                    roleTag.style.color = '#065f46';
+                    roleTag.style.borderColor = '#a7f3d0';
+                } else if (currentRole === 'SUPER_ADMIN') {
+                    roleTag.style.background = '#eff6ff';
+                    roleTag.style.color = '#1e40af';
+                    roleTag.style.borderColor = '#bfdbfe';
+                }
+            }
+
+            const btnAcc = document.getElementById('btnTabCentralAccounts');
+            const btnAdm = document.getElementById('btnTabSuperAdmin');
+            if (currentRole === 'BRANCH_CASHIER') {
+                if (btnAcc) btnAcc.style.display = 'none';
+                if (btnAdm) btnAdm.style.display = 'none';
+            } else if (currentRole === 'ACCOUNTANT_HQ') {
+                if (btnAcc) btnAcc.style.display = 'inline-block';
+                if (btnAdm) btnAdm.style.display = 'none';
+            } else if (currentRole === 'SUPER_ADMIN') {
+                if (btnAcc) btnAcc.style.display = 'inline-block';
+                if (btnAdm) btnAdm.style.display = 'inline-block';
+                fetchAdminKpis();
+            }
+        }
+
         window.onload = function() {
+            const savedUserStr = localStorage.getItem('mandi_user');
+            if (savedUserStr) {
+                try {
+                    const u = JSON.parse(savedUserStr);
+                    if (u && u.role) applyUserSession(u);
+                } catch (_) {}
+            }
+
             initSupabaseRealtimeDesk();
             fetchPendingQCTickets();
             const firstCard = document.querySelector('.commodity-card');

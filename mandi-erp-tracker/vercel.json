@@ -12,7 +12,11 @@
     },
     {
       "source": "/login",
-      "destination": "/portal.html"
+      "destination": "/login.html"
+    },
+    {
+      "source": "/logout",
+      "destination": "/login.html"
     },
     {
       "source": "/branch",

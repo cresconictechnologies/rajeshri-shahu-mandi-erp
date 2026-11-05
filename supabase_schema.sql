@@ -128,6 +128,7 @@ CREATE TABLE IF NOT EXISTS daily_commodity_rates (
     target_rate_per_qtl NUMERIC(10, 2) NOT NULL CHECK (target_rate_per_qtl >= min_rate_per_qtl),
     max_rate_per_qtl NUMERIC(10, 2) NOT NULL CHECK (max_rate_per_qtl >= target_rate_per_qtl),
     set_by_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    version INTEGER NOT NULL DEFAULT 1,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
     CONSTRAINT uq_daily_rates UNIQUE (rate_date, branch_id, commodity_name, quality_grade)
 );
@@ -232,6 +233,7 @@ CREATE TABLE IF NOT EXISTS purchase_invoices (
     net_payable_amount NUMERIC(14, 2) NOT NULL,
     payout_status payout_status_t NOT NULL DEFAULT 'PENDING',
     created_by_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    version INTEGER NOT NULL DEFAULT 1,
     created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()
 );
@@ -381,6 +383,7 @@ CREATE TABLE IF NOT EXISTS quality_inspections (
     -- Lifecycle state and linkage to Purchase Invoice
     status qc_status_t NOT NULL DEFAULT 'PENDING',
     invoice_id UUID REFERENCES purchase_invoices(id) ON DELETE SET NULL,
+    version INTEGER NOT NULL DEFAULT 1,
     inspection_notes TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()
@@ -569,13 +572,21 @@ ALTER PUBLICATION supabase_realtime ADD TABLE
     purchase_invoices, 
     quality_inspections, 
     daily_commodity_rates, 
-    cashier_payouts;
+    cashier_payouts,
+    outward_orders,
+    ledger_entries,
+    branch_daily_cash_drawers,
+    parties;
 
 -- Set replica identity to FULL so realtime events transmit complete before/after records
 ALTER TABLE purchase_invoices REPLICA IDENTITY FULL;
 ALTER TABLE quality_inspections REPLICA IDENTITY FULL;
 ALTER TABLE daily_commodity_rates REPLICA IDENTITY FULL;
 ALTER TABLE cashier_payouts REPLICA IDENTITY FULL;
+ALTER TABLE outward_orders REPLICA IDENTITY FULL;
+ALTER TABLE ledger_entries REPLICA IDENTITY FULL;
+ALTER TABLE branch_daily_cash_drawers REPLICA IDENTITY FULL;
+ALTER TABLE parties REPLICA IDENTITY FULL;
 
 -- ------------------------------------------------------------------------------
 -- 12. ROW LEVEL SECURITY (RLS) POLICIES

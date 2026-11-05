@@ -146,6 +146,77 @@ export default async function handler(req, res) {
   }
 
   // =========================================================================
+  // 3b. OUTWARD ACTION (COMMODITY SALES & DISPATCH)
+  // =========================================================================
+  if (action === 'outward') {
+    if (req.method === 'GET') {
+      try {
+        const branchId = req.query.branch_id;
+        let queryParams = `select=*&order=created_at.desc&limit=50`;
+        if (branchId && branchId !== 'all') queryParams += `&branch_id=eq.${encodeURIComponent(branchId)}`;
+        const resp = await fetch(`${supabaseUrl}/rest/v1/outward_orders?${queryParams}`, {
+          headers: { 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}` }
+        });
+        const orders = resp.ok ? await resp.json() : [];
+        return res.status(200).json({ success: true, orders: orders });
+      } catch (err) {
+        return res.status(500).json({ success: false, error: err.message, orders: [] });
+      }
+    }
+    if (req.method === 'POST') {
+      try {
+        let body = req.body;
+        if (typeof body === 'string') { try { body = JSON.parse(body); } catch (_) {} }
+        const now = new Date();
+        const challanNo = `OUT-${now.getFullYear().toString().slice(-2)}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}-${Math.random().toString(36).substring(2,6).toUpperCase()}`;
+        const gross = parseFloat(body.gross_weight_kg) || 0;
+        const tare = parseFloat(body.tare_weight_kg) || 0;
+        const netKg = Math.max(0, gross - tare);
+        const netQtl = parseFloat(body.net_quintals) || parseFloat((netKg / 100).toFixed(4));
+        const rate = parseFloat(body.rate_per_quintal) || 0;
+        const total = parseFloat((netQtl * rate).toFixed(2));
+
+        const orderPayload = {
+          id: `ord-${Date.now()}-${Math.random().toString(36).substring(2,5)}`,
+          challan_number: challanNo,
+          branch_id: body.branch_id || 'br-chikhali',
+          buyer_name: (body.buyer_name || 'Agro Industries').trim(),
+          buyer_phone: body.buyer_phone || '',
+          commodity_name: body.commodity_name || 'Soyabean (Yellow)',
+          vehicle_number: (body.vehicle_number || body.vehicle_no || 'MH28-OUTWARD').toUpperCase().trim(),
+          bags_count: parseInt(body.bags_count || body.bags || 0, 10),
+          gross_weight_kg: gross,
+          tare_weight_kg: tare,
+          net_weight_kg: netKg,
+          net_quintals: netQtl,
+          rate_per_quintal: rate,
+          total_amount: total,
+          mandi_cess_amount: 0.0,
+          payment_status: body.payment_status || 'PENDING',
+          updated_at: now.toISOString()
+        };
+
+        const resp = await fetch(`${supabaseUrl}/rest/v1/outward_orders`, {
+          method: 'POST',
+          headers: {
+            'apikey': serviceKey,
+            'Authorization': `Bearer ${serviceKey}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'resolution=merge-duplicates,return=representation'
+          },
+          body: JSON.stringify(orderPayload)
+        });
+
+        if (!resp.ok) return res.status(resp.status).json({ success: false, error: await resp.text() });
+        const inserted = await resp.json();
+        return res.status(200).json({ success: true, message: `Outward Dispatch #${challanNo} recorded!`, challan_number: challanNo, data: inserted });
+      } catch (err) {
+        return res.status(500).json({ success: false, error: err.message });
+      }
+    }
+  }
+
+  // =========================================================================
   // 3. INVOICES ACTION (WEIGHMENT PURCHASES & RTGS)
   // =========================================================================
   if (action === 'invoices') {

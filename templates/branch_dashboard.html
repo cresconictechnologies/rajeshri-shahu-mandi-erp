@@ -3087,19 +3087,42 @@
                 supabaseClient = window.supabase.createClient(sbUrl, sbKey);
                 const channelName = `desk-qc-${currentBranchId}`;
 
-                supabaseClient
+                const deskChannel = supabaseClient
                     .channel(channelName)
                     .on(
                         'postgres_changes',
                         {
-                            event: 'INSERT',
+                            event: '*',
                             schema: 'public',
                             table: 'quality_inspections',
                             filter: `branch_id=eq.${currentBranchId}`
                         },
                         (payload) => {
-                            console.log('⚡ Direct Supabase Realtime Ticket Received:', payload.new);
-                            handleIncomingRealtimeTicket(payload.new);
+                            console.log('⚡ Direct Supabase Realtime Ticket Event:', payload.eventType, payload);
+                            if (payload.eventType === 'INSERT') {
+                                const newTicket = payload.new;
+                                newTicket._isRealtime = true;
+                                handleIncomingRealtimeTicket(newTicket);
+                            } else if (payload.eventType === 'UPDATE') {
+                                const updated = payload.new;
+                                if (updated.status === 'COMPLETED' || updated.status === 'LINKED') {
+                                    pendingQCTicketsList = pendingQCTicketsList.filter(t => t.ticket_no !== updated.ticket_no);
+                                } else {
+                                    const idx = pendingQCTicketsList.findIndex(t => t.ticket_no === updated.ticket_no);
+                                    if (idx >= 0) pendingQCTicketsList[idx] = { ...pendingQCTicketsList[idx], ...updated };
+                                }
+                                renderQCTicketsTable(pendingQCTicketsList);
+                                const badge = document.getElementById('pendingQCCountBadge');
+                                if (badge) badge.innerText = pendingQCTicketsList.length;
+                            } else if (payload.eventType === 'DELETE') {
+                                const delOld = payload.old;
+                                if (delOld && delOld.ticket_no) {
+                                    pendingQCTicketsList = pendingQCTicketsList.filter(t => t.ticket_no !== delOld.ticket_no);
+                                    renderQCTicketsTable(pendingQCTicketsList);
+                                    const badge = document.getElementById('pendingQCCountBadge');
+                                    if (badge) badge.innerText = pendingQCTicketsList.length;
+                                }
+                            }
                         }
                     )
                     .subscribe((status, err) => {
@@ -3111,8 +3134,18 @@
                             badge.style.borderColor = '#34d399';
                             badge.innerHTML = '⚡ Realtime Live (Supabase)';
                             badge.title = "Supabase Realtime: Direct PostgreSQL WebSocket Active";
+                            // Reconcile state on connection to bridge events missed while offline
+                            fetchPendingQCTickets();
                         }
                     });
+
+                window.addEventListener('beforeunload', () => {
+                    try {
+                        if (supabaseClient && deskChannel) {
+                            supabaseClient.removeChannel(deskChannel);
+                        }
+                    } catch (_) {}
+                });
             } catch (err) {
                 console.error('[Supabase Realtime] Initialization error:', err);
             }
@@ -3136,14 +3169,24 @@
             document.getElementById('qcTicketsListContainer').style.display = 'block';
         }
 
-        async function fetchPendingQCTickets() {
+        async function fetchPendingQCTickets(forceRefresh = false) {
             const branchId = document.getElementById('branch_id')?.value || 'br-chikhali';
             try {
-                const res = await fetch(`/api/inspector/tickets/pending?branch_id=${branchId}`);
+                const url = forceRefresh ? `/api/inspector/tickets/pending?branch_id=${branchId}&refresh=1` : `/api/inspector/tickets/pending?branch_id=${branchId}`;
+                const res = await fetch(url);
                 if (!res.ok) return;
                 const data = await res.json();
                 if (data.success) {
-                    pendingQCTicketsList = data.tickets || [];
+                    const serverTickets = data.tickets || [];
+                    const serverMap = new Map(serverTickets.map(t => [t.ticket_no, t]));
+                    // Preserve in-memory realtime tickets if local server SQLite has not completed pull yet
+                    const merged = [...serverTickets];
+                    for (const rt of pendingQCTicketsList) {
+                        if (rt && rt._isRealtime && !serverMap.has(rt.ticket_no) && rt.status === 'PENDING') {
+                            merged.unshift(rt);
+                        }
+                    }
+                    pendingQCTicketsList = merged;
                     const badge = document.getElementById('pendingQCCountBadge');
                     if (badge) badge.innerText = pendingQCTicketsList.length;
 

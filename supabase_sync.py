@@ -720,6 +720,47 @@ ALTER TABLE ledger_entries ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAU
 ALTER TABLE branch_daily_cash_drawers ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT clock_timestamp();
 ALTER TABLE audit_change_logs ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT clock_timestamp();
 
+-- Ensure optimistic locking version column exists on key transactional tables
+ALTER TABLE quality_inspections ADD COLUMN IF NOT EXISTS version INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE purchase_invoices ADD COLUMN IF NOT EXISTS version INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE daily_commodity_rates ADD COLUMN IF NOT EXISTS version INTEGER NOT NULL DEFAULT 1;
+
+-- Ensure replica identity FULL is configured for CDC realtime event diffs
+ALTER TABLE purchase_invoices REPLICA IDENTITY FULL;
+ALTER TABLE quality_inspections REPLICA IDENTITY FULL;
+ALTER TABLE daily_commodity_rates REPLICA IDENTITY FULL;
+ALTER TABLE cashier_payouts REPLICA IDENTITY FULL;
+ALTER TABLE outward_orders REPLICA IDENTITY FULL;
+ALTER TABLE ledger_entries REPLICA IDENTITY FULL;
+ALTER TABLE branch_daily_cash_drawers REPLICA IDENTITY FULL;
+ALTER TABLE parties REPLICA IDENTITY FULL;
+
+-- Safely add tables to supabase_realtime publication
+DO 
+DECLARE
+    tbl text;
+    tables_to_add text[] := ARRAY[
+        'purchase_invoices',
+        'quality_inspections',
+        'daily_commodity_rates',
+        'cashier_payouts',
+        'outward_orders',
+        'ledger_entries',
+        'branch_daily_cash_drawers',
+        'parties'
+    ];
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+        FOREACH tbl IN ARRAY tables_to_add LOOP
+            BEGIN
+                EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE %I', tbl);
+            EXCEPTION WHEN duplicate_object THEN
+                NULL;
+            END;
+        END LOOP;
+    END IF;
+END ;
+
 -- Enforce uniqueness of daily rates when branch_id is NULL (HQ Global rate)
 CREATE UNIQUE INDEX IF NOT EXISTS uq_daily_rates_null_branch 
 ON daily_commodity_rates (rate_date, commodity_name, quality_grade) 

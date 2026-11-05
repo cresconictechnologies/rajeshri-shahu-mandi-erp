@@ -20,6 +20,7 @@
 
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -112,6 +113,14 @@
                 <!-- Inspector Tablet Link -->
                 <a href="/app" target="_blank" class="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition">
                     <span>🔬</span> Yard Inspector PWA
+                </a>
+
+                <!-- Direct Downloads -->
+                <a href="/Mandi_QC_Inspector_v1.0.apk" download="Mandi_QC_Inspector_v1.0.apk" class="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200 transition shadow-sm" title="Download Android QC Inspector APK">
+                    <span>📱</span> <span>APK (5.7M)</span>
+                </a>
+                <a href="/Rajarshi_Shahu_Trading_Windows_x64.zip" download="Rajarshi_Shahu_Trading_Windows_x64.zip" class="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-800 hover:bg-slate-200 border border-slate-200 transition shadow-sm" title="Download Windows Mandi ERP Software">
+                    <span>💻</span> <span>Windows (85M)</span>
                 </a>
 
                 <!-- Home Link -->
@@ -248,6 +257,22 @@
                         <!-- Populated by JS -->
                         <span class="px-3 py-1 bg-white rounded-xl border border-slate-200 text-slate-600">Loading Cloud Rates...</span>
                     </div>
+                </div>
+
+                <!-- BRANCH SUB-TABS NAVIGATION -->
+                <div class="flex items-center gap-2 border-b border-slate-200 pb-2 overflow-x-auto text-xs font-bold">
+                    <button type="button" onclick="switchBranchSubTab('inward')" id="subTabBtnInward" class="px-4 py-2 rounded-xl bg-emerald-600 text-white shadow-sm transition whitespace-nowrap">
+                        🌾 Unified Inward & Cashier Desk
+                    </button>
+                    <button type="button" onclick="switchBranchSubTab('outward')" id="subTabBtnOutward" class="px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition whitespace-nowrap">
+                        🚚 Outward Dispatch & Sales Entry
+                    </button>
+                    <button type="button" onclick="switchBranchSubTab('rtgs')" id="subTabBtnRtgs" class="px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition whitespace-nowrap">
+                        🏦 RTGS Payout Status (<span id="branchRtgsPendingCount">0</span> Pending)
+                    </button>
+                    <button type="button" onclick="switchBranchSubTab('farmers')" id="subTabBtnFarmers" class="px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition whitespace-nowrap">
+                        🧑‍🌾 Registered Farmers & Corridor Rates
+                    </button>
                 </div>
 
                 <!-- REALTIME GATE QC TICKET INCOMING ALERT -->
@@ -699,24 +724,110 @@
     <!-- MODALS: PENDING QC TICKETS & PRINTABLE PARCHI                             -->
     <!-- ========================================================================= -->
 
-    <!-- PENDING QC TICKETS MODAL -->
+    <!-- PENDING QC TICKETS & INSPECTOR VERIFICATION MODAL -->
     <div id="modalPendingQc" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+        <div class="bg-white rounded-3xl max-w-3xl w-full p-6 shadow-2xl border border-slate-200 space-y-4 max-h-[90vh] overflow-y-auto">
+            
+            <!-- MODAL HEADER -->
             <div class="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div class="flex items-center gap-2">
-                    <span class="text-xl">🎫</span>
-                    <h3 class="font-display font-extrabold text-lg text-slate-900">Pending Yard QC Inspection Tickets</h3>
+                    <span class="text-2xl">🔬</span>
+                    <div>
+                        <h3 class="font-display font-extrabold text-lg text-slate-900">Quality Assaying & Inspector Verification Desk</h3>
+                        <p class="text-xs text-slate-500 font-medium">Verify Moisture Meter Display Photo, Seed Sample & Inspector Credentials before Form Entry</p>
+                    </div>
                 </div>
-                <button onclick="closePendingQcModal()" class="text-slate-400 hover:text-slate-600 font-bold text-lg p-1">✕</button>
+                <button onclick="closePendingQcModal()" class="text-slate-400 hover:text-slate-600 font-bold text-xl p-1 rounded-lg">✕</button>
             </div>
             
-            <div class="max-h-80 overflow-y-auto" id="pendingQcModalList">
-                <!-- Dynamically populated -->
+            <!-- VIEW A: LIST OF PENDING TICKETS -->
+            <div id="qcTicketsListContainer" class="space-y-3">
+                <div class="flex items-center justify-between text-xs font-bold text-slate-700">
+                    <div>Pending Quality Tickets from Mandi Yard (<span id="modalTicketsCount">0</span>):</div>
+                    <button type="button" onclick="fetchPendingQcTickets()" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg">🔄 Refresh Tickets</button>
+                </div>
+                <div class="max-h-80 overflow-y-auto" id="pendingQcModalList">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+
+            <!-- VIEW B: DETAILED INSPECTOR VERIFICATION CARD (VERIFY THEN APPLY) -->
+            <div id="qcTicketDetailBox" class="hidden space-y-4 p-5 bg-slate-50 rounded-2xl border-2 border-emerald-600">
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-slate-200 pb-3">
+                    <div>
+                        <span id="v_ticket_grade" class="px-2.5 py-1 rounded-md text-[11px] font-extrabold bg-emerald-600 text-white uppercase">Grade 1 (Premium FAQ)</span>
+                        <h4 id="v_ticket_no" class="font-display font-extrabold text-lg text-slate-900 mt-1">Ticket #QC-CHK-XXXX</h4>
+                    </div>
+                    <div class="sm:text-right">
+                        <div class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Suggested Buying Rate</div>
+                        <div id="v_ticket_rate" class="font-display font-extrabold text-xl text-emerald-700">₹ 0 / Qtl</div>
+                    </div>
+                </div>
+
+                <!-- Proof Photos & Inspector Signature Grid -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
+                    
+                    <!-- Card 1: Inspector Credentials -->
+                    <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm space-y-2">
+                        <div class="text-[11px] font-extrabold text-slate-700 uppercase">👤 Inspector Verified Login</div>
+                        <div class="p-3 bg-emerald-50 rounded-lg border border-emerald-200">
+                            <div class="text-2xl">🛡️</div>
+                            <div class="text-xs font-extrabold text-emerald-800 mt-1">Verified Staff Account</div>
+                        </div>
+                        <div class="text-xs font-extrabold text-slate-900" id="v_inspector_name">Yard Inspector</div>
+                        <div class="text-[10px] font-bold text-emerald-700">Digital Seal Authenticated</div>
+                    </div>
+
+                    <!-- Card 2: Moisture Meter LCD Photo -->
+                    <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm space-y-2">
+                        <div class="text-[11px] font-extrabold text-slate-700 uppercase">📸 Moisture Meter LCD</div>
+                        <div class="h-24 bg-slate-100 rounded-lg flex items-center justify-center overflow-hidden border border-slate-200">
+                            <img id="v_meter_photo" src="" alt="Moisture Meter Photo" class="max-h-full max-w-full object-cover hidden">
+                            <span id="v_meter_placeholder" class="text-2xl">📟</span>
+                        </div>
+                        <div class="text-xs font-extrabold text-emerald-800" id="v_moisture_val">--% (OCR Verified)</div>
+                    </div>
+
+                    <!-- Card 3: Grain Sample Tray Photo -->
+                    <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm space-y-2">
+                        <div class="text-[11px] font-extrabold text-slate-700 uppercase">🌾 Grain Sample Tray</div>
+                        <div class="h-24 bg-slate-100 rounded-lg flex items-center justify-center overflow-hidden border border-slate-200">
+                            <img id="v_grain_photo" src="" alt="Grain Sample Photo" class="max-h-full max-w-full object-cover hidden">
+                            <span id="v_grain_placeholder" class="text-2xl">🌾</span>
+                        </div>
+                        <div class="text-xs font-extrabold text-amber-800" id="v_variety_val">Standard (Pure Breed)</div>
+                    </div>
+                </div>
+
+                <!-- 8-Factor Quality Parameters Table -->
+                <div class="bg-white p-4 rounded-xl border border-slate-200">
+                    <div class="text-xs font-bold text-slate-700 mb-2 uppercase tracking-wide">🔬 Assaying Quality Breakdown:</div>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                        <div><span class="text-slate-500">Farmer:</span> <strong id="v_farmer_name" class="block text-slate-900">-</strong></div>
+                        <div><span class="text-slate-500">Vehicle:</span> <strong id="v_vehicle_no" class="block text-slate-900">-</strong></div>
+                        <div><span class="text-slate-500">Commodity:</span> <strong id="v_commodity_name" class="block text-slate-900">-</strong></div>
+                        <div><span class="text-slate-500">Foreign Matter:</span> <strong id="v_karda_pct" class="block text-slate-900">0.0%</strong></div>
+                        <div><span class="text-slate-500">Rain Damaged:</span> <strong id="v_damaged_pct" class="block text-slate-900">0.0%</strong></div>
+                        <div><span class="text-slate-500">Green Seeds:</span> <strong id="v_green_pct" class="block text-slate-900">0.0%</strong></div>
+                        <div><span class="text-slate-500">Broken / Split:</span> <strong id="v_broken_pct" class="block text-slate-900">0.0%</strong></div>
+                        <div><span class="text-slate-500">Uniformity Index:</span> <strong id="v_uniformity_index" class="block text-slate-900">95.0%</strong></div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="flex flex-col sm:flex-row items-center gap-3 pt-2">
+                    <button type="button" onclick="applyVerifiedQCToForm()" class="w-full sm:flex-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-display font-bold text-sm rounded-xl shadow-md transition active:scale-95">
+                        ✅ Verify & Apply QC Ticket to Weighment Form
+                    </button>
+                    <button type="button" onclick="closeQcDetailCard()" class="w-full sm:w-auto py-3 px-5 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold rounded-xl transition">
+                        Back to List
+                    </button>
+                </div>
             </div>
 
             <div class="text-right pt-2 border-t border-slate-100">
                 <button onclick="closePendingQcModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl">
-                    Close
+                    Close Desk
                 </button>
             </div>
         </div>
@@ -888,6 +999,25 @@
         function applyUserSession(user) {
             showLoginView(false);
 
+            // Role tab visibility lock: strictly hide Accounts & Admin from Cashiers
+            const btnBranch = document.getElementById('btnNavBranch');
+            const btnAccountant = document.getElementById('btnNavAccountant');
+            const btnAdmin = document.getElementById('btnNavAdmin');
+
+            if (user.role === 'BRANCH_CASHIER') {
+                if (btnAccountant) btnAccountant.style.display = 'none';
+                if (btnAdmin) btnAdmin.style.display = 'none';
+                if (btnBranch) btnBranch.style.display = 'inline-block';
+            } else if (user.role === 'ACCOUNTANT_HQ') {
+                if (btnBranch) btnBranch.style.display = 'none';
+                if (btnAdmin) btnAdmin.style.display = 'none';
+                if (btnAccountant) btnAccountant.style.display = 'inline-block';
+            } else if (user.role === 'SUPER_ADMIN') {
+                if (btnBranch) btnBranch.style.display = 'inline-block';
+                if (btnAccountant) btnAccountant.style.display = 'inline-block';
+                if (btnAdmin) btnAdmin.style.display = 'inline-block';
+            }
+
             // Update top bar user badge
             const badge = document.getElementById('navUserBadge');
             if (badge) {
@@ -899,10 +1029,12 @@
             }
 
             // Route to appropriate panel
-            if (user.panel === 'accountant') {
+            if (user.role === 'ACCOUNTANT_HQ') {
                 switchActivePanel('accountant');
-            } else if (user.panel === 'admin') {
-                switchActivePanel('admin');
+            } else if (user.role === 'SUPER_ADMIN') {
+                if (user.panel === 'accountant') switchActivePanel('accountant');
+                else if (user.panel === 'admin') switchActivePanel('admin');
+                else switchActivePanel('branch');
             } else {
                 switchActivePanel('branch');
                 const sel = document.getElementById('branchSelect');
@@ -910,6 +1042,10 @@
                     sel.value = user.branch_id;
                 }
             }
+
+            // Initialize Branch subtabs and Supabase Realtime
+            switchBranchSubTab('inward');
+            initPortalRealtime();
 
             // Start background sync
             refreshCurrentPanel();
@@ -936,6 +1072,16 @@
         }
 
         function switchActivePanel(panel) {
+            // Strict role-based navigation guards
+            if (currentUser && currentUser.role === 'BRANCH_CASHIER' && panel !== 'branch') {
+                alert('Access Restricted: Cashier desk is strictly locked to Branch Operations.');
+                return;
+            }
+            if (currentUser && currentUser.role === 'ACCOUNTANT_HQ' && panel !== 'accountant') {
+                alert('Access Restricted: Accountant role is locked to HQ Central Accounts.');
+                return;
+            }
+
             activePanel = panel;
             ['branch', 'accountant', 'admin'].forEach(p => {
                 const view = document.getElementById('panel' + p.charAt(0).toUpperCase() + p.slice(1) + 'View');
@@ -1132,10 +1278,18 @@
             if (box) box.classList.add('hidden');
         }
 
+        let selectedQcTicket = null;
+
         function openPendingQcModal() {
             const modal = document.getElementById('modalPendingQc');
             const list = document.getElementById('pendingQcModalList');
+            const cnt = document.getElementById('modalTicketsCount');
             if (!modal || !list) return;
+
+            // Reset view to list view
+            closeQcDetailCard();
+
+            if (cnt) cnt.innerText = pendingTickets.length;
 
             if (!pendingTickets.length) {
                 list.innerHTML = `
@@ -1152,12 +1306,15 @@
                             <div class="p-3.5 hover:bg-slate-50 flex items-center justify-between gap-3 text-xs">
                                 <div>
                                     <div class="font-bold text-slate-900 text-sm">#${t.ticket_no} — ${t.farmer_name}</div>
-                                    <div class="text-slate-500">${t.commodity_name} • Moisture: <strong>${t.moisture_pct}%</strong> • Vehicle: <code>${t.vehicle_no}</code></div>
+                                    <div class="text-slate-500">${t.commodity_name} • Moisture: <strong>${t.moisture_pct}%</strong> • Vehicle: <code>${t.vehicle_no}</code> • Grade: <span class="text-emerald-700 font-bold">${t.grade_label || t.faq_grade || 'Grade 1'}</span></div>
                                 </div>
-                                <div class="text-right">
+                                <div class="text-right flex items-center gap-2">
                                     <div class="font-bold text-emerald-700 text-sm">₹${t.suggested_buying_rate_per_qtl}/Qtl</div>
-                                    <button onclick="loadQcTicketFromModal('${t.ticket_no}')" class="mt-1 px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition">
-                                        ⚡ Select
+                                    <button type="button" onclick="showQcTicketDetail('${t.ticket_no}')" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition shadow-sm">
+                                        🔍 Review & Verify
+                                    </button>
+                                    <button type="button" onclick="loadQcTicketFromModal('${t.ticket_no}')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition shadow-sm" title="Apply directly">
+                                        ⚡ Apply
                                     </button>
                                 </div>
                             </div>
@@ -1171,6 +1328,76 @@
 
         function closePendingQcModal() {
             document.getElementById('modalPendingQc')?.classList.add('hidden');
+        }
+
+        function showQcTicketDetail(tNo) {
+            const t = pendingTickets.find(x => x.ticket_no === tNo);
+            if (!t) return;
+            selectedQcTicket = t;
+
+            const setEl = (id, val) => {
+                const el = document.getElementById(id);
+                if (el) el.innerText = (val !== null && val !== undefined) ? String(val) : '-';
+            };
+
+            setEl('v_ticket_grade', t.grade_label || t.faq_grade || 'Grade 1 (Premium FAQ)');
+            setEl('v_ticket_no', `Ticket #${t.ticket_no}`);
+            setEl('v_ticket_rate', `₹ ${Number(t.suggested_buying_rate_per_qtl || 0).toLocaleString()} / Qtl`);
+            setEl('v_inspector_name', t.inspector_name || 'Yard Inspector (Authenticated)');
+            setEl('v_moisture_val', `${Number(t.moisture_pct || 0).toFixed(1)}% (OCR Verified)`);
+            setEl('v_variety_val', `${t.dominant_breed || 'Standard'} (${t.breed_purity_pct || 96}% Pure)`);
+
+            setEl('v_farmer_name', t.farmer_name || '-');
+            setEl('v_vehicle_no', t.vehicle_no || '-');
+            setEl('v_commodity_name', t.commodity_name || '-');
+            setEl('v_karda_pct', `${t.karda_pct || 0}%`);
+            setEl('v_damaged_pct', `${t.damaged_pct || 0}%`);
+            setEl('v_green_pct', `${t.green_seeds_pct || 0}%`);
+            setEl('v_broken_pct', `${t.broken_split_pct || 0}%`);
+            setEl('v_uniformity_index', `${t.uniformity_index || 95}%`);
+
+            // Photo rendering
+            const meterImg = document.getElementById('v_meter_photo');
+            const meterPl = document.getElementById('v_meter_placeholder');
+            if (meterImg) {
+                const photoSrc = t.meter_photo_url || t.image_data;
+                if (photoSrc) {
+                    meterImg.src = photoSrc;
+                    meterImg.classList.remove('hidden');
+                    if (meterPl) meterPl.classList.add('hidden');
+                } else {
+                    meterImg.classList.add('hidden');
+                    if (meterPl) meterPl.classList.remove('hidden');
+                }
+            }
+
+            const grainImg = document.getElementById('v_grain_photo');
+            const grainPl = document.getElementById('v_grain_placeholder');
+            if (grainImg) {
+                const photoSrc = t.grain_photo_url;
+                if (photoSrc) {
+                    grainImg.src = photoSrc;
+                    grainImg.classList.remove('hidden');
+                    if (grainPl) grainPl.classList.add('hidden');
+                } else {
+                    grainImg.classList.add('hidden');
+                    if (grainPl) grainPl.classList.remove('hidden');
+                }
+            }
+
+            document.getElementById('qcTicketsListContainer').classList.add('hidden');
+            document.getElementById('qcTicketDetailBox').classList.remove('hidden');
+        }
+
+        function closeQcDetailCard() {
+            document.getElementById('qcTicketDetailBox')?.classList.add('hidden');
+            document.getElementById('qcTicketsListContainer')?.classList.remove('hidden');
+        }
+
+        function applyVerifiedQCToForm() {
+            if (!selectedQcTicket) return;
+            loadQcTicketIntoForm(selectedQcTicket);
+            closePendingQcModal();
         }
 
         function loadQcTicketFromModal(tNo) {

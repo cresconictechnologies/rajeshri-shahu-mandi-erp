@@ -4990,6 +4990,14 @@ def api_cashier_disburse_payout(
 
         conn.commit()
 
+        # Trigger background sync to propagate cashier payout and updated invoice to Supabase Cloud
+        try:
+            import supabase_sync
+            supabase_sync.trigger_background_sync("cashier_payouts", payout_id)
+            supabase_sync.trigger_background_sync("purchase_invoices", invoice_id)
+        except Exception as sync_ex:
+            logger.debug(f"Cashier payout background sync trigger notice: {sync_ex}")
+
         return {
             "success": True,
             "voucher_id": v_token,
@@ -5692,17 +5700,18 @@ async def api_inspector_submit_qc(
 
 
 @app.get("/api/inspector/tickets/pending")
-def api_get_pending_qc_tickets(request: Request, branch_id: Optional[str] = None):
+def api_get_pending_qc_tickets(request: Request, branch_id: Optional[str] = None, refresh: bool = False):
     """Returns unlinked quality inspections for the branch cashier desk to review and attach."""
     user = get_current_user(request)
     target_branch = branch_id or (user.get("branch_id") if user else None) or "br-chikhali"
 
-    # Cloud sync: Attempt to pull latest pending tickets from Supabase if connected
-    try:
-        import supabase_sync
-        supabase_sync.pull_supabase_to_local(["quality_inspections"])
-    except Exception as ex:
-        logger.debug(f"QC tickets cloud pull notice: {ex}")
+    # Synchronous cloud pull only on explicit manual refresh request, never during automated background polling
+    if refresh:
+        try:
+            import supabase_sync
+            supabase_sync.pull_supabase_to_local(["quality_inspections"])
+        except Exception as ex:
+            logger.debug(f"QC tickets cloud pull notice: {ex}")
 
     tickets = get_pending_quality_inspections(target_branch)
     return {

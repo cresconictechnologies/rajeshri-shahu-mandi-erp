@@ -4,6 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Terminal Login — Rajarshi Shahu Trading</title>
+    <!-- PWA Web App Manifest & Mobile/Desktop Meta -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Rajarshi ERP">
+    <link rel="apple-touch-icon" href="/icons/icon-192.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+
     <link rel="stylesheet" href="/static/theme.css">
     <style>
         .login-wrapper {
@@ -135,6 +144,17 @@
             color: #047857;
             border: 1px solid #a7f3d0;
         }
+        .pwa-banner {
+            margin-top: 20px;
+            padding: 12px 14px;
+            background: linear-gradient(135deg, #f0fdf4 0%, #e0f2fe 100%);
+            border: 1.5px solid #bae6fd;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
     </style>
 </head>
 <body>
@@ -176,16 +196,18 @@
             </button>
         </form>
 
-        <div style="margin-top: 18px; padding: 12px; background: #f8fafc; border-radius: 10px; border: 1px solid #e2e8f0; font-size: 11.5px;">
-            <div style="font-weight: 700; color: #475569; margin-bottom: 8px;">⚡ Quick Sign-In (Click to Auto-Fill):</div>
-            <div style="display: flex; flex-wrap: wrap; gap: 5px;">
-                <button type="button" onclick="setCreds('admin', 'admin123')" style="padding: 4px 8px; font-size: 11px; border: 1px solid #cbd5e1; background: #ffffff; border-radius: 6px; cursor: pointer; font-weight: 600;">👑 Admin</button>
-                <button type="button" onclick="setCreds('accountant', 'suraj123')" style="padding: 4px 8px; font-size: 11px; border: 1px solid #cbd5e1; background: #ffffff; border-radius: 6px; cursor: pointer; font-weight: 600;">💼 Accountant</button>
-                <button type="button" onclick="setCreds('chikhali', 'chk123')" style="padding: 4px 8px; font-size: 11px; border: 1px solid #cbd5e1; background: #ffffff; border-radius: 6px; cursor: pointer; font-weight: 600;">🏪 Chikhali</button>
-                <button type="button" onclick="setCreds('varvand', 'vrv123')" style="padding: 4px 8px; font-size: 11px; border: 1px solid #cbd5e1; background: #ffffff; border-radius: 6px; cursor: pointer; font-weight: 600;">🏪 Varvand</button>
-                <button type="button" onclick="setCreds('sarola', 'srl123')" style="padding: 4px 8px; font-size: 11px; border: 1px solid #cbd5e1; background: #ffffff; border-radius: 6px; cursor: pointer; font-weight: 600;">🏪 Sarola</button>
-                <button type="button" onclick="setCreds('inspector', 'insp123')" style="padding: 4px 8px; font-size: 11px; border: 1px solid #10b981; background: #ecfdf5; color: #047857; border-radius: 6px; cursor: pointer; font-weight: 700;">🔬 Inspector</button>
+        <!-- Progressive Web App (PWA) Desktop Install Card -->
+        <div id="pwaInstallBanner" class="pwa-banner">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 22px;">💻</span>
+                <div>
+                    <div style="font-size: 12.5px; font-weight: 800; color: #0f172a;" id="pwaBannerTitle">Install Desktop ERP App</div>
+                    <div style="font-size: 11px; color: #475569;" id="pwaBannerDesc">Download & pin to computer taskbar for 1-click access</div>
+                </div>
             </div>
+            <button type="button" id="btnInstallPwa" onclick="handlePwaInstallClick()" style="padding: 7px 13px; font-size: 12px; font-weight: 800; border: none; background: #0f172a; color: #ffffff; border-radius: 7px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.15); transition: background 0.15s; white-space: nowrap;">
+                <span>📥</span> <span id="btnInstallPwaLabel">Install App</span>
+            </button>
         </div>
 
         <div class="login-footer">
@@ -195,10 +217,98 @@
     </div>
 </div>
 
+<!-- Modal for browser-specific desktop installation instructions -->
+<div id="pwaHelpModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.6); z-index:99999; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">
+    <div style="background:#ffffff; border-radius:16px; max-width:440px; width:100%; padding:24px; box-shadow:0 20px 40px rgba(0,0,0,0.25); position:relative;">
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #e2e8f0; padding-bottom:12px; margin-bottom:16px;">
+            <div style="font-size:16px; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:8px;">
+                <span>💻</span> Install Rajarshi ERP on PC
+            </div>
+            <button type="button" onclick="document.getElementById('pwaHelpModal').style.display='none'" style="background:none; border:none; font-size:18px; cursor:pointer; color:#64748b; padding:4px;">✕</button>
+        </div>
+
+        <p style="font-size:13px; color:#334155; line-height:1.5; margin:0 0 14px 0;">
+            You can run this ERP as a standalone desktop app with full offline support and instant launch without opening a browser:
+        </p>
+
+        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px 14px; margin-bottom:12px; font-size:12.5px; color:#1e293b;">
+            <strong style="display:block; margin-bottom:4px; color:#2563eb;">🌐 Google Chrome / Brave:</strong>
+            Look at the right side of your address bar and click the <strong>Install icon (⊕)</strong> or open Menu (⋮) → <strong>"Install Rajarshi Shahu Trading..."</strong>
+        </div>
+
+        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px 14px; margin-bottom:14px; font-size:12.5px; color:#1e293b;">
+            <strong style="display:block; margin-bottom:4px; color:#0284c7;">🌐 Microsoft Edge:</strong>
+            Look in the address bar for the <strong>App icon (⊞)</strong> or open Menu (⋯) → <strong>"Apps"</strong> → <strong>"Install this site as an app"</strong>
+        </div>
+
+        <div style="display:flex; gap:10px; justify-content:flex-end;">
+            <button type="button" onclick="document.getElementById('pwaHelpModal').style.display='none'" style="padding:8px 16px; background:#0f172a; color:#ffffff; border:none; border-radius:8px; font-weight:700; font-size:13px; cursor:pointer;">
+                Got it
+            </button>
+        </div>
+    </div>
+</div>
+
 <script>
-    function setCreds(u, p) {
-        document.getElementById('username').value = u;
-        document.getElementById('password').value = p;
+    // PWA Desktop Installation Handling
+    let deferredPrompt = null;
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+        // Prevent default mini-infobar
+        e.preventDefault();
+        deferredPrompt = e;
+        const btn = document.getElementById('btnInstallPwa');
+        if (btn) {
+            btn.style.background = '#2563eb';
+            document.getElementById('btnInstallPwaLabel').innerText = '📥 Install App';
+        }
+    });
+
+    window.addEventListener('appinstalled', () => {
+        deferredPrompt = null;
+        const banner = document.getElementById('pwaInstallBanner');
+        if (banner) {
+            banner.innerHTML = '<div style="display:flex; align-items:center; gap:8px;"><span style="font-size:20px;">✅</span><span style="font-size:12.5px; font-weight:800; color:#059669;">Running as Installed Desktop Application</span></div>';
+            banner.style.background = '#f0fdf4';
+            banner.style.borderColor = '#86efac';
+        }
+    });
+
+    // Check if already running as installed desktop standalone app
+    if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
+        window.addEventListener('DOMContentLoaded', () => {
+            const banner = document.getElementById('pwaInstallBanner');
+            if (banner) {
+                banner.innerHTML = '<div style="display:flex; align-items:center; gap:8px;"><span style="font-size:20px;">✅</span><span style="font-size:12.5px; font-weight:800; color:#059669;">Running as Installed Desktop Application</span></div>';
+                banner.style.background = '#f0fdf4';
+                banner.style.borderColor = '#86efac';
+            }
+        });
+    }
+
+    function handlePwaInstallClick() {
+        if (deferredPrompt) {
+            deferredPrompt.prompt();
+            deferredPrompt.userChoice.then((result) => {
+                if (result.outcome === 'accepted') {
+                    console.log('Rajarshi ERP PWA installation accepted');
+                }
+                deferredPrompt = null;
+            });
+        } else {
+            document.getElementById('pwaHelpModal').style.display = 'flex';
+        }
+    }
+
+    // Register Service Worker
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js').then((reg) => {
+                console.log('Rajarshi ERP Service Worker active:', reg.scope);
+            }).catch((err) => {
+                console.warn('Service Worker registration note:', err);
+            });
+        });
     }
 
     async function handleLoginSubmit(event) {
@@ -247,6 +357,7 @@
                 'suraj': { name: 'Suraj (Chief Accountant HQ)', role: 'ACCOUNTANT_HQ', branch_id: 'all', branch_name: 'Rate Authority Desk (HQ)', yard_code: 'HQ-ACC', mandi_license: 'MH/HQ/CENTRAL-01' },
                 'chikhali': { name: 'Babulal Meena (Chikhali Cashier)', role: 'BRANCH_CASHIER', branch_id: 'br-chikhali', branch_name: 'Chikhali Branch', yard_code: 'BR-CHK', mandi_license: 'MH/CHK/APMC-101' },
                 'varvand': { name: 'Govind Solanki (Varvand Cashier)', role: 'BRANCH_CASHIER', branch_id: 'br-varvand', branch_name: 'Varvand Branch', yard_code: 'BR-VRV', mandi_license: 'MH/VRV/APMC-204' },
+                'sarola': { name: 'Kisan Rathod (Sarola Cashier)', role: 'BRANCH_CASHIER', branch_id: 'br-sarola', branch_name: 'Sarola Branch', yard_code: 'BR-SRL', mandi_license: 'MH/SRL/APMC-305' },
                 'inspector': { name: 'Babulal Meena (Assayer)', role: 'INSPECTOR', branch_id: 'br-chikhali', branch_name: 'Chikhali APMC Main Mandi', yard_code: 'CHK' }
             };
 

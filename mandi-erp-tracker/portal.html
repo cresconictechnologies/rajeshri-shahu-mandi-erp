@@ -4,6 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Branch Yard Terminal — Rajarshi Shahu Trading (Powered by Cresconic)</title>
+    <!-- PWA Web App Manifest & Mobile/Desktop Meta -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Rajarshi ERP">
+    <link rel="apple-touch-icon" href="/icons/icon-192.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
     <link rel="stylesheet" href="/static/theme.css">
     <style>
         .layout-grid {
@@ -159,6 +167,9 @@
             <a href="/Rajarshi_Shahu_Trading_Windows_x64.zip" download class="btn" style="background:#eff6ff; color:#1e40af; border:1.5px solid #bfdbfe; padding:5px 11px; border-radius:8px; font-weight:700; font-size:11.5px; text-decoration:none; display:inline-flex; align-items:center; gap:5px;" title="Download Windows x64 Desktop Software (84.9 MB)">
                 <span>💻</span> Win x64 (85M)
             </a>
+            <button type="button" id="btnInstallPwaPortal" onclick="handlePwaInstallClick()" class="btn" style="background:#fef3c7; color:#92400e; border:1.5px solid #fcd34d; padding:5px 11px; border-radius:8px; font-weight:800; font-size:11.5px; display:inline-flex; align-items:center; gap:5px; cursor:pointer;" title="Install Rajarshi ERP on this Computer (PWA)">
+                <span>⚡</span> <span id="portalInstallBtnText">Install App</span>
+            </button>
 
             <div style="position:relative;">
                 <button type="button" id="systemHealthPill" onclick="toggleHealthPopover()" style="display:inline-flex; align-items:center; gap:6px; background:#ecfdf5; color:#065f46; border:1.5px solid #a7f3d0; padding:5px 11px; border-radius:20px; font-weight:700; font-size:12px; cursor:pointer; transition:all 0.15s;">
@@ -216,6 +227,9 @@
                     <a href="javascript:void(0)" onclick="showTab('tab-settings')" style="display:flex; align-items:center; gap:8px; padding:8px 14px; color:#0f172a; text-decoration:none; font-weight:700;">
                         <span>⚙️</span> Settings
                     </a>
+                    <button type="button" onclick="handlePwaInstallClick(); toggleQuickToolsDropdown();" style="width:100%; display:flex; align-items:center; gap:8px; padding:8px 14px; background:none; border:none; color:#0f172a; text-decoration:none; font-weight:700; font-size:12.5px; text-align:left; cursor:pointer;">
+                        <span>💻</span> Install Desktop App
+                    </button>
                     <div style="border-top:1px solid #f1f5f9; margin:4px 0;"></div>
                     <a href="/login" onclick="localStorage.removeItem('mandi_user')" style="display:flex; align-items:center; gap:8px; padding:8px 14px; color:#b91c1c; text-decoration:none; font-weight:700;">
                         <span>🚪</span> Sign Out / Switch Terminal
@@ -4869,25 +4883,111 @@ div>
                 </button>
             </form>
 
-            <div style="margin-top:16px; padding-top:14px; border-top:1px solid #f1f5f9;">
-                <div style="font-size:11px; font-weight:700; color:#64748b; margin-bottom:8px; text-transform:uppercase;">⚡ Quick Auto-Fill Credentials:</div>
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
-                    <button type="button" onclick="setLoginCreds('chikhali', 'chk123')" style="padding:6px; font-size:11px; border:1px solid #cbd5e1; background:#f8fafc; border-radius:6px; cursor:pointer; font-weight:700; text-align:left;">
-                        🏪 Chikhali Cashier
-                    </button>
-                    <button type="button" onclick="setLoginCreds('varvand', 'vrv123')" style="padding:6px; font-size:11px; border:1px solid #cbd5e1; background:#f8fafc; border-radius:6px; cursor:pointer; font-weight:700; text-align:left;">
-                        🏪 Varvand Cashier
-                    </button>
-                    <button type="button" onclick="setLoginCreds('accountant', 'suraj123')" style="padding:6px; font-size:11px; border:1px solid #a7f3d0; background:#ecfdf5; color:#065f46; border-radius:6px; cursor:pointer; font-weight:700; text-align:left;">
-                        💼 Chief Accountant
-                    </button>
-                    <button type="button" onclick="setLoginCreds('admin', 'admin123')" style="padding:6px; font-size:11px; border:1px solid #bfdbfe; background:#eff6ff; color:#1e40af; border-radius:6px; cursor:pointer; font-weight:700; text-align:left;">
-                        👑 Super Admin
-                    </button>
-                </div>
-            </div>
+            
         </div>
     </div>
 
+
+<!-- Modal for desktop installation guidance -->
+<div id="pwaHelpModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.6); z-index:99999; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">
+    <div style="background:#ffffff; border-radius:16px; max-width:440px; width:100%; padding:24px; box-shadow:0 20px 40px rgba(0,0,0,0.25); position:relative;">
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #e2e8f0; padding-bottom:12px; margin-bottom:16px;">
+            <div style="font-size:16px; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:8px;">
+                <span>💻</span> Install Rajarshi ERP on PC
+            </div>
+            <button type="button" onclick="document.getElementById('pwaHelpModal').style.display='none'" style="background:none; border:none; font-size:18px; cursor:pointer; color:#64748b; padding:4px;">✕</button>
+        </div>
+
+        <p style="font-size:13px; color:#334155; line-height:1.5; margin:0 0 14px 0;">
+            Install Rajarshi ERP directly to your computer desktop & taskbar for instant standalone access with offline caching:
+        </p>
+
+        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px 14px; margin-bottom:12px; font-size:12.5px; color:#1e293b;">
+            <strong style="display:block; margin-bottom:4px; color:#2563eb;">🌐 Google Chrome / Brave:</strong>
+            Click the <strong>Install icon (⊕)</strong> on the right side of your address bar, or click Menu (⋮) → <strong>"Install Rajarshi Shahu Trading..."</strong>
+        </div>
+
+        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px 14px; margin-bottom:14px; font-size:12.5px; color:#1e293b;">
+            <strong style="display:block; margin-bottom:4px; color:#0284c7;">🌐 Microsoft Edge:</strong>
+            Click the <strong>App icon (⊞)</strong> in the address bar, or click Menu (⋯) → <strong>"Apps"</strong> → <strong>"Install this site as an app"</strong>
+        </div>
+
+        <div style="display:flex; gap:10px; justify-content:space-between; align-items:center;">
+            <a href="/Rajarshi_Shahu_Trading_Windows_x64.zip" download style="font-size:12px; color:#2563eb; font-weight:700; text-decoration:none;">
+                📥 Download Native Win x64 zip
+            </a>
+            <button type="button" onclick="document.getElementById('pwaHelpModal').style.display='none'" style="padding:8px 16px; background:#0f172a; color:#ffffff; border:none; border-radius:8px; font-weight:700; font-size:13px; cursor:pointer;">
+                Got it
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+// Progressive Web App (PWA) Desktop Install & Service Worker Logic
+let pwaDeferredPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    pwaDeferredPrompt = e;
+    const btn = document.getElementById('btnInstallPwaPortal');
+    if (btn) {
+        btn.style.display = 'inline-flex';
+        btn.style.background = '#2563eb';
+        btn.style.color = '#ffffff';
+        btn.style.borderColor = '#1d4ed8';
+    }
+});
+
+window.addEventListener('appinstalled', () => {
+    pwaDeferredPrompt = null;
+    const btn = document.getElementById('btnInstallPwaPortal');
+    if (btn) {
+        btn.innerHTML = '<span>✅</span> Installed';
+        btn.style.background = '#ecfdf5';
+        btn.style.color = '#065f46';
+        btn.style.borderColor = '#a7f3d0';
+    }
+});
+
+// Check if already running in standalone desktop mode
+if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
+    window.addEventListener('DOMContentLoaded', () => {
+        const btn = document.getElementById('btnInstallPwaPortal');
+        if (btn) {
+            btn.innerHTML = '<span>✅</span> Desktop App';
+            btn.style.background = '#ecfdf5';
+            btn.style.color = '#065f46';
+            btn.style.borderColor = '#a7f3d0';
+        }
+    });
+}
+
+function handlePwaInstallClick() {
+    if (pwaDeferredPrompt) {
+        pwaDeferredPrompt.prompt();
+        pwaDeferredPrompt.userChoice.then((result) => {
+            if (result.outcome === 'accepted') {
+                console.log('Rajarshi ERP PWA desktop installed');
+            }
+            pwaDeferredPrompt = null;
+        });
+    } else {
+        const modal = document.getElementById('pwaHelpModal');
+        if (modal) modal.style.display = 'flex';
+        else alert('To install Rajarshi ERP on this computer:\n\n• In Chrome/Brave: Click the Install icon in the address bar.\n• In Edge: Click Menu (...) → Apps → Install this site as an app.');
+    }
+}
+
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').then((reg) => {
+            console.log('Rajarshi ERP SW registered:', reg.scope);
+        }).catch((err) => {
+            console.warn('SW register notice:', err);
+        });
+    });
+}
+</script>
 </body>
+
 </html>

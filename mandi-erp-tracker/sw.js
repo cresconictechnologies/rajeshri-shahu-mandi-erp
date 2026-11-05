@@ -1,8 +1,18 @@
-// Service Worker for Rajeshri Shahu Mandi QC App
-const CACHE_NAME = 'mandi-qc-v1';
+// Progressive Web App Service Worker for Rajarshi Shahu Mandi ERP
+const CACHE_NAME = 'mandi-erp-pwa-v2';
 const ASSETS_TO_CACHE = [
-  '/static/theme.css',
+  '/',
+  '/login',
+  '/login.html',
+  '/portal',
+  '/portal.html',
+  '/app',
+  '/app.html',
+  '/manifest.json',
   '/static/manifest.json',
+  '/static/theme.css',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png',
   '/static/icons/icon-192.png',
   '/static/icons/icon-512.png'
 ];
@@ -30,16 +40,37 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Network-first strategy for dynamic routes, cache-first for static assets
-  if (event.request.url.includes('/static/')) {
+  // Never cache dynamic API network calls
+  if (event.request.url.includes('/api/')) {
+    return;
+  }
+
+  // Static assets: cache-first with network fallback
+  if (
+    event.request.url.includes('/static/') ||
+    event.request.url.includes('/icons/') ||
+    event.request.url.includes('manifest.json')
+  ) {
     event.respondWith(
-      caches.match(event.request).then((response) => {
-        return response || fetch(event.request);
+      caches.match(event.request).then((cached) => cached || fetch(event.request))
+    );
+    return;
+  }
+
+  // Navigation / HTML pages: network-first with cache fallback
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request).catch(() => {
+        return caches.match(event.request).then((matching) => {
+          return matching || caches.match('/login') || caches.match('/portal');
+        });
       })
     );
-  } else {
-    event.respondWith(
-      fetch(event.request).catch(() => caches.match(event.request))
-    );
+    return;
   }
+
+  // Default: network with cache fallback
+  event.respondWith(
+    fetch(event.request).catch(() => caches.match(event.request))
+  );
 });

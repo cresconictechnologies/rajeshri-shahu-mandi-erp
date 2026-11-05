@@ -70,6 +70,120 @@ export default async function handler(req, res) {
     }
   }
 
+    // =========================================================================
+  // 2A. TICKETS ACTION (PENDING INSPECTOR QC TICKETS)
+  // =========================================================================
+  if (action === 'tickets') {
+    if (req.method === 'GET') {
+      try {
+        const resp = await fetch(`${supabaseUrl}/rest/v1/quality_inspections?status=eq.PENDING&order=created_at.desc&limit=50`, {
+          headers: { 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}` }
+        });
+        if (!resp.ok) return res.status(200).json({ success: true, tickets: [], count: 0 });
+        const tickets = await resp.json();
+        return res.status(200).json({ success: true, tickets: Array.isArray(tickets) ? tickets : [], count: tickets.length });
+      } catch (err) {
+        return res.status(200).json({ success: true, tickets: [], count: 0, error: err.message });
+      }
+    }
+  }
+
+  // =========================================================================
+  // 2B. FARMERS ACTION (REGISTERED CULTIVATORS)
+  // =========================================================================
+  if (action === 'farmers') {
+    if (req.method === 'GET') {
+      try {
+        const resp = await fetch(`${supabaseUrl}/rest/v1/parties?party_type=eq.FARMER&order=name.asc&limit=200`, {
+          headers: { 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}` }
+        });
+        if (!resp.ok) return res.status(200).json({ success: true, farmers: [] });
+        const parties = await resp.json();
+        return res.status(200).json({ success: true, farmers: Array.isArray(parties) ? parties : [], count: parties.length });
+      } catch (err) {
+        return res.status(200).json({ success: true, farmers: [], error: err.message });
+      }
+    }
+    if (req.method === 'POST') {
+      try {
+        let body = req.body;
+        if (typeof body === 'string') { try { body = JSON.parse(body); } catch (_) {} }
+        const payload = {
+          name: (body.name || body.party_name || '').trim(),
+          phone: (body.phone || body.mobile || '').trim(),
+          party_type: 'FARMER',
+          village: body.village || '',
+          pan_number: body.pan_number || null,
+          aadhaar_number: body.aadhaar_number || null,
+          bank_name: body.bank_name || null,
+          bank_account_no: body.bank_account_no || null,
+          bank_ifsc: body.bank_ifsc || null,
+          updated_at: new Date().toISOString()
+        };
+        const resp = await fetch(`${supabaseUrl}/rest/v1/parties`, {
+          method: 'POST',
+          headers: {
+            'apikey': serviceKey,
+            'Authorization': `Bearer ${serviceKey}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=representation'
+          },
+          body: JSON.stringify(payload)
+        });
+        if (!resp.ok) return res.status(resp.status).json({ success: false, error: await resp.text() });
+        return res.status(200).json({ success: true, message: 'Farmer registered successfully', data: await resp.json() });
+      } catch (err) {
+        return res.status(500).json({ success: false, error: err.message });
+      }
+    }
+  }
+
+  // =========================================================================
+  // 2C. BUYERS ACTION (REGISTERED BUYERS / MILLS / TRADERS)
+  // =========================================================================
+  if (action === 'buyers') {
+    if (req.method === 'GET') {
+      try {
+        const resp = await fetch(`${supabaseUrl}/rest/v1/parties?party_type=neq.FARMER&order=name.asc&limit=100`, {
+          headers: { 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}` }
+        });
+        if (!resp.ok) return res.status(200).json({ success: true, buyers: [] });
+        const parties = await resp.json();
+        return res.status(200).json({ success: true, buyers: Array.isArray(parties) ? parties : [], count: parties.length });
+      } catch (err) {
+        return res.status(200).json({ success: true, buyers: [], error: err.message });
+      }
+    }
+    if (req.method === 'POST') {
+      try {
+        let body = req.body;
+        if (typeof body === 'string') { try { body = JSON.parse(body); } catch (_) {} }
+        const payload = {
+          name: (body.company_name || body.name || '').trim(),
+          phone: (body.phone || body.contact_phone || '').trim(),
+          party_type: 'BUYER',
+          gstin: body.gstin || null,
+          village: body.mill_address || body.location || '',
+          updated_at: new Date().toISOString()
+        };
+        const resp = await fetch(`${supabaseUrl}/rest/v1/parties`, {
+          method: 'POST',
+          headers: {
+            'apikey': serviceKey,
+            'Authorization': `Bearer ${serviceKey}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=representation'
+          },
+          body: JSON.stringify(payload)
+        });
+        if (!resp.ok) return res.status(resp.status).json({ success: false, error: await resp.text() });
+        return res.status(200).json({ success: true, message: 'Buyer company registered successfully', data: await resp.json() });
+      } catch (err) {
+        return res.status(500).json({ success: false, error: err.message });
+      }
+    }
+  }
+
   // =========================================================================
   // 2. RATES ACTION (MANDI CORRIDOR RATES)
   // =========================================================================

@@ -155,6 +155,15 @@
                 <input type="date" name="target_date" value="2026-11-05" onchange="this.form.submit()" style="border:1px solid #94a3b8; border-radius:6px; padding:3px 8px; font-size:12px; font-weight:700; color:#0f172a; outline:none; background:#ffffff; cursor:pointer;">
                 
             </form>
+            <!-- Multi-Branch Terminal Switcher for Admin / Accountant (Hidden for Cashiers) -->
+            <div id="adminPortalBranchSwitcher" style="display:none; margin-left:10px;">
+                <select id="portalBranchSelect" onchange="switchBranchTerminal(this.value)" style="background:#eff6ff; border:1.5px solid #2563eb; padding:5px 12px; border-radius:8px; font-size:12px; font-weight:800; color:#1e40af; cursor:pointer;" title="Switch Branch Terminal View">
+                    <option value="br-chikhali">🌾 Chikhali APMC Main Mandi (BR-CHK)</option>
+                    <option value="br-varvand">🌾 Varvand APMC Yard (BR-VRV)</option>
+                    <option value="br-sarola">🌾 Sarola Maruti Yard (BR-SRL)</option>
+                    <option value="br-dhad">🌾 Dhad APMC Yard (BR-DHD)</option>
+                </select>
+            </div>
         </div>
 
         <!-- Cluster 3: Right Health Status, User Badge & Quick Tools Dropdown -->
@@ -4717,17 +4726,75 @@ div>
 
             const btnAcc = document.getElementById('btnTabCentralAccounts');
             const btnAdm = document.getElementById('btnTabSuperAdmin');
+            const branchSwitcher = document.getElementById('adminPortalBranchSwitcher');
+
             if (currentRole === 'BRANCH_CASHIER') {
                 if (btnAcc) btnAcc.style.display = 'none';
                 if (btnAdm) btnAdm.style.display = 'none';
+                if (branchSwitcher) branchSwitcher.style.display = 'none';
             } else if (currentRole === 'ACCOUNTANT_HQ') {
-                if (btnAcc) btnAcc.style.display = 'inline-block';
+                if (btnAcc) {
+                    btnAcc.style.display = 'inline-block';
+                    btnAcc.onclick = function() { window.location.href = '/accounts'; };
+                    btnAcc.innerHTML = '💼 Central Accounts Desk ↗';
+                }
                 if (btnAdm) btnAdm.style.display = 'none';
+                if (branchSwitcher) {
+                    branchSwitcher.style.display = 'block';
+                    document.getElementById('portalBranchSelect').value = currentBranchId;
+                }
             } else if (currentRole === 'SUPER_ADMIN') {
-                if (btnAcc) btnAcc.style.display = 'inline-block';
-                if (btnAdm) btnAdm.style.display = 'inline-block';
+                if (btnAcc) {
+                    btnAcc.style.display = 'inline-block';
+                    btnAcc.onclick = function() { window.location.href = '/accounts'; };
+                }
+                if (btnAdm) {
+                    btnAdm.style.display = 'inline-block';
+                    btnAdm.onclick = function() { window.location.href = '/admin'; };
+                    btnAdm.innerHTML = '👑 Super Admin Command ↗';
+                }
+                if (branchSwitcher) {
+                    branchSwitcher.style.display = 'block';
+                    document.getElementById('portalBranchSelect').value = currentBranchId;
+                }
                 fetchAdminKpis();
             }
+        }
+
+        
+        function switchBranchTerminal(newBranchId) {
+            const saved = localStorage.getItem('mandi_user');
+            if (saved) {
+                try {
+                    const u = JSON.parse(saved);
+                    if (u.role === 'BRANCH_CASHIER' && newBranchId !== (u.branch_id || 'br-chikhali')) {
+                        alert('Access restricted: Cashier is locked to assigned APMC yard terminal.');
+                        return;
+                    }
+                } catch (_) {}
+            }
+
+            currentBranchId = newBranchId;
+            const bInput = document.getElementById('branch_id');
+            if (bInput) bInput.value = currentBranchId;
+
+            const BRANCH_DETAILS = {
+                'br-chikhali': { name: 'Chikhali Branch', code: 'BR-CHK', license: 'MH/CHK/APMC-101' },
+                'br-varvand': { name: 'Varvand Branch', code: 'BR-VRV', license: 'MH/VRV/APMC-204' },
+                'br-sarola': { name: 'Sarola Branch', code: 'BR-SRL', license: 'MH/SRL/APMC-305' },
+                'br-dhad': { name: 'Dhad Branch', code: 'BR-DHD', license: 'MH/DHD/APMC-401' }
+            };
+
+            const info = BRANCH_DETAILS[newBranchId] || BRANCH_DETAILS['br-chikhali'];
+            const hName = document.getElementById('headerBranchName');
+            if (hName) hName.innerText = info.name;
+            const hCode = document.getElementById('headerBranchCode');
+            if (hCode) hCode.innerText = info.code;
+            const hLic = document.getElementById('headerMandiLicense');
+            if (hLic) hLic.innerText = info.license;
+
+            fetchRecentInvoices();
+            fetchPendingQCTickets();
         }
 
         window.onload = function() {

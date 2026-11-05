@@ -24,11 +24,19 @@
     },
     {
       "source": "/accounts",
-      "destination": "/portal.html"
+      "destination": "/accounts.html"
+    },
+    {
+      "source": "/accounts/dashboard",
+      "destination": "/accounts.html"
     },
     {
       "source": "/admin",
-      "destination": "/portal.html"
+      "destination": "/admin.html"
+    },
+    {
+      "source": "/admin/dashboard",
+      "destination": "/admin.html"
     },
     {
       "source": "/api/invoices/calculate",

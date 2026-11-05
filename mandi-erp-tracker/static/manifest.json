@@ -42,9 +42,33 @@
       ]
     },
     {
-      "name": "Unified Cashier Desk",
+      "name": "Super Admin Command",
+      "short_name": "Admin Command",
+      "description": "Multi-Branch Governance & KPIs",
+      "url": "/admin",
+      "icons": [
+        {
+          "src": "/static/icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Central Accounts HQ",
+      "short_name": "Accounts HQ",
+      "description": "Daily Rate Setting & Bank Disbursal",
+      "url": "/accounts",
+      "icons": [
+        {
+          "src": "/static/icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Branch Cashier Desk",
       "short_name": "Cashier Desk",
-      "description": "Branch Yard Procurement Desk",
+      "description": "APMC Yard Procurement Terminal",
       "url": "/portal",
       "icons": [
         {

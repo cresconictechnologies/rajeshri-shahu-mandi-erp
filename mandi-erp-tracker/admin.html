@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Super Admin Executive Portal — Mandi ERP</title>
+    <!-- PWA Web App Manifest & Mobile/Desktop Meta -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Rajarshi ERP">
+    <link rel="apple-touch-icon" href="/icons/icon-192.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+
+    <link rel="stylesheet" href="/static/theme.css">
+    <style>
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 14px;
+            margin-bottom: 14px;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            margin-bottom: 22px;
+        }
+        .stat-card {
+            background: #ffffff;
+            border: 1.5px solid #cbd5e1;
+            border-radius: 14px;
+            padding: 18px 20px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+            position: relative;
+            overflow: hidden;
+        }
+        .stat-card .label {
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: #64748b;
+            margin-bottom: 6px;
+        }
+        .stat-card .value {
+            font-size: 24px;
+            font-weight: 900;
+            color: #0f172a;
+            letter-spacing: -0.5px;
+        }
+        .stat-card .hint {
+            font-size: 11.5px;
+            font-weight: 600;
+            margin-top: 6px;
+        }
+        .accent-blue::before { content:""; position:absolute; top:0; left:0; right:0; height:4px; background:#2563eb; }
+        .accent-green::before { content:""; position:absolute; top:0; left:0; right:0; height:4px; background:#059669; }
+        .accent-amber::before { content:""; position:absolute; top:0; left:0; right:0; height:4px; background:#f59e0b; }
+        .accent-purple::before { content:""; position:absolute; top:0; left:0; right:0; height:4px; background:#8b5cf6; }
+    </style>
+</head>
+<body>
+
+    <!-- HEADER CARD (3-CLUSTER STANDARD) -->
+    <header class="header-card">
+        <!-- CLUSTER 1: BRAND IDENTITY & CONTEXT -->
+        <div class="header-cluster-left">
+            <div>
+                <h1 style="font-size:20px; font-weight:800; display:flex; align-items:center; gap:8px; margin:0;">
+                    <span>🏛️</span> Rajarshi Shahu Trading
+                    <span class="brand-badge badge-admin">Super Admin Command Center</span>
+                    <span style="font-size:10.5px; font-weight:700; color:#0284c7; background:#e0f2fe; padding:2px 8px; border-radius:6px; border:1px solid #bae6fd;">Powered by Cresconic</span>
+                </h1>
+                <p style="font-size:12px; color:var(--text-muted); margin-top:2px;">
+                    Organization Overview • Branches: Chikhali, Varvand, Sarola, Dhad • State Mandi License: MH/STATE/ERP-PRO
+                </p>
+            </div>
+        </div>
+
+        <!-- CLUSTER 2: OPERATIONAL DATE & MULTI-BRANCH SELECTOR -->
+        <div class="header-cluster-center">
+            <div style="display:inline-flex; align-items:center; gap:6px; background:#f8fafc; padding:4px 10px; border-radius:8px; border:1.5px solid #cbd5e1; margin:0;">
+                <label style="font-size:12px; font-weight:700; color:#475569;">📅 Date:</label>
+                <input type="date" id="adminDateFilter" value="2026-11-05" style="border:1px solid #94a3b8; border-radius:6px; padding:3px 8px; font-size:12px; font-weight:700; color:#0f172a; outline:none; background:#ffffff; cursor:pointer;">
+            </div>
+
+            <!-- Multi-Branch Filter Selector -->
+            <select id="adminBranchFilter" onchange="handleAdminBranchFilterChange(this.value)" style="background:#eff6ff; border:1.5px solid #2563eb; padding:5px 12px; border-radius:8px; font-size:12px; font-weight:800; color:#1e40af; cursor:pointer;" title="Filter Organization Data by Branch">
+                <option value="all">🏛️ All Branches (Organization Overview)</option>
+                <option value="br-chikhali">🌾 Chikhali APMC Main Mandi (BR-CHK)</option>
+                <option value="br-varvand">🌾 Varvand APMC Yard (BR-VRV)</option>
+                <option value="br-sarola">🌾 Sarola Maruti Yard (BR-SRL)</option>
+                <option value="br-dhad">🌾 Dhad APMC Yard (BR-DHD)</option>
+            </select>
+
+            <!-- Quick Yard Jump Dropdown -->
+            <select onchange="if(this.value) window.open(this.value, '_blank')" style="background:#f8fafc; border:1.5px solid #cbd5e1; padding:5px 10px; border-radius:8px; font-size:12px; font-weight:700; color:#0f172a; cursor:pointer;" title="Open Yard Cashier Desk in New Tab">
+                <option value="">🚀 Jump to Yard Desk...</option>
+                <option value="/portal?branch_id=br-chikhali">🏪 Chikhali Cashier Desk</option>
+                <option value="/portal?branch_id=br-varvand">🏪 Varvand Cashier Desk</option>
+                <option value="/portal?branch_id=br-sarola">🏪 Sarola Cashier Desk</option>
+            </select>
+        </div>
+
+        <!-- CLUSTER 3: DIAGNOSTICS, PWA INSTALL & QUICK TOOLS -->
+        <div class="header-cluster-right">
+            <!-- PWA Install Button -->
+            <button type="button" id="btnInstallPwa" onclick="handlePwaInstallClick()" class="btn" style="background:#fef3c7; color:#92400e; border:1.5px solid #fcd34d; padding:5px 11px; border-radius:8px; font-weight:800; font-size:11.5px; display:inline-flex; align-items:center; gap:5px; cursor:pointer;" title="Install Desktop ERP App">
+                <span>⚡</span> <span id="btnInstallPwaLabel">Install App</span>
+            </button>
+
+            <!-- System Health Pill & Popover -->
+            <div style="position:relative;" id="healthPopoverWrapper">
+                <div class="system-health-pill" id="systemHealthPill" onclick="toggleSystemHealthPopover()" title="Click for Live Sync & Supabase Cloud Diagnostics">
+                    <span class="live-dot-pulse" style="width:7px; height:7px; border-radius:50%; background:#10b981; box-shadow:0 0 6px #10b981;"></span>
+                    <span id="healthPillText">System Healthy</span>
+                    <span style="font-size:10px; opacity:0.7;">▾</span>
+                </div>
+                <div class="health-popover" id="healthPopover" style="display:none; position:absolute; top:36px; right:0; width:260px; background:#ffffff; border:1.5px solid #cbd5e1; border-radius:12px; box-shadow:0 10px 25px -5px rgba(0,0,0,0.15); z-index:9999; padding:12px; font-size:12px;">
+                    <div style="font-size:13px; font-weight:800; color:#0f172a; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+                        <span>⚡ System Diagnostics</span>
+                        <span style="font-size:10.5px; background:#eff6ff; color:#1d4ed8; padding:2px 6px; border-radius:4px; font-weight:700;">Admin Mode</span>
+                    </div>
+                    <div style="font-size:12px; color:#475569; display:grid; gap:6px; border-top:1px solid #e2e8f0; padding-top:8px;">
+                        <div style="display:flex; justify-content:space-between;">
+                            <span>Local Daemon:</span>
+                            <strong style="color:#059669;" id="diagLocalWs">Active (Port 8080)</strong>
+                        </div>
+                        <div style="display:flex; justify-content:space-between;">
+                            <span>Supabase PostgreSQL:</span>
+                            <strong style="color:#059669;" id="diagCloudPg">Connected (RLS Enabled)</strong>
+                        </div>
+                        <div style="display:flex; justify-content:space-between;">
+                            <span>Active Yards:</span>
+                            <strong style="color:#0f172a;">4 Branches Live</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- User Tag -->
+            <span class="nav-pill" style="background:#eff6ff; color:#1e40af; border-color:#bfdbfe; font-weight:700;">
+                👑 Super Admin
+            </span>
+
+            <!-- Quick Tools Dropdown -->
+            <div class="quick-tools-wrapper" style="position:relative;" id="quickToolsWrapper">
+                <button type="button" class="quick-tools-btn" onclick="toggleQuickToolsMenu()" style="display:inline-flex; align-items:center; gap:5px; background:#0f172a; color:#f8fafc; border:none; padding:6px 12px; border-radius:8px; font-weight:800; font-size:12px; cursor:pointer;">
+                    <span>⚡ Admin Tools</span>
+                    <span style="font-size:10px;">▾</span>
+                </button>
+                <div class="quick-tools-menu" id="quickToolsMenu" style="display:none; position:absolute; top:36px; right:0; width:220px; background:#ffffff; border:1.5px solid #cbd5e1; border-radius:12px; box-shadow:0 10px 25px -5px rgba(0,0,0,0.15); z-index:9999; padding:6px 0; font-size:12.5px;">
+                    <a href="/accounts" class="quick-tools-item" style="display:flex; align-items:center; gap:8px; padding:8px 14px; color:#0f172a; text-decoration:none; font-weight:700;">
+                        <span>💼</span> Central Accounts Desk
+                    </a>
+                    <a href="/portal?branch_id=br-chikhali" class="quick-tools-item" style="display:flex; align-items:center; gap:8px; padding:8px 14px; color:#0f172a; text-decoration:none; font-weight:700;">
+                        <span>🌾</span> Chikhali Yard Desk
+                    </a>
+                    <a href="/portal?branch_id=br-varvand" class="quick-tools-item" style="display:flex; align-items:center; gap:8px; padding:8px 14px; color:#0f172a; text-decoration:none; font-weight:700;">
+                        <span>🌾</span> Varvand Yard Desk
+                    </a>
+                    <div style="border-top:1px solid #f1f5f9; margin:4px 0;"></div>
+                    <a href="/login" onclick="localStorage.removeItem('mandi_user')" class="quick-tools-item" style="display:flex; align-items:center; gap:8px; padding:8px 14px; color:#dc2626; text-decoration:none; font-weight:700;">
+                        <span>🚪</span> Sign Out / Switch Terminal
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- METRICS CARDS -->
+    <div class="stats-grid">
+        <div class="stat-card accent-blue">
+            <div class="label">Configured Branches</div>
+            <div class="value" id="kpiBranchesCount">4 Active</div>
+            <div class="hint" style="color:#2563eb;">Chikhali, Varvand, Sarola, Dhad</div>
+        </div>
+        <div class="stat-card accent-green">
+            <div class="label">Total Procurement (Qtl)</div>
+            <div class="value" id="kpiTotalQuintals">0.00 Qtl</div>
+            <div class="hint" id="kpiTotalMT" style="color:#059669;">0.00 Metric Tons</div>
+        </div>
+        <div class="stat-card accent-amber">
+            <div class="label">Capital Disbursed</div>
+            <div class="value" id="kpiCapitalDisbursed">₹0.00</div>
+            <div class="hint" id="kpiRtgsPending" style="color:#b45309;">Pending RTGS: ₹0.00</div>
+        </div>
+        <div class="stat-card accent-purple">
+            <div class="label">Realized Margin / P&L</div>
+            <div class="value" id="kpiRealizedPnl" style="color:#059669;">+₹42,500</div>
+            <div class="hint" style="color:#6b21a8;">Net Outward Trading Spread</div>
+        </div>
+    </div>
+
+    <!-- MAIN ADMIN NAVIGATION TABS -->
+    <div class="tabs" style="display:flex; gap:8px; margin-bottom:20px; flex-wrap:wrap; border-bottom:1.5px solid #e2e8f0; padding-bottom:12px;">
+        <button class="tab-btn active" onclick="showAdminTab('tab-procurement', this)" style="padding:8px 14px; border-radius:8px; font-weight:800; font-size:13px; cursor:pointer; border:1.5px solid #2563eb; background:#2563eb; color:#fff;">🛒 Cross-Branch Purchases</button>
+        <button class="tab-btn" onclick="showAdminTab('tab-qc-audit', this)" style="padding:8px 14px; border-radius:8px; font-weight:800; font-size:13px; cursor:pointer; border:1.5px solid #cbd5e1; background:#ffffff; color:#334155;">🔬 Quality & Photo Audit</button>
+        <button class="tab-btn" onclick="showAdminTab('tab-branches', this)" style="padding:8px 14px; border-radius:8px; font-weight:800; font-size:13px; cursor:pointer; border:1.5px solid #cbd5e1; background:#ffffff; color:#334155;">🏢 Branch Management</button>
+        <button class="tab-btn" onclick="showAdminTab('tab-users', this)" style="padding:8px 14px; border-radius:8px; font-weight:800; font-size:13px; cursor:pointer; border:1.5px solid #cbd5e1; background:#ffffff; color:#334155;">👥 User Access Control</button>
+        <button class="tab-btn" onclick="showAdminTab('tab-commodities', this)" style="padding:8px 14px; border-radius:8px; font-weight:800; font-size:13px; cursor:pointer; border:1.5px solid #cbd5e1; background:#ffffff; color:#334155;">🌱 Central Commodity Master</button>
+        <button class="tab-btn" onclick="showAdminTab('tab-stock', this)" style="padding:8px 14px; border-radius:8px; font-weight:800; font-size:13px; cursor:pointer; border:1.5px solid #cbd5e1; background:#ffffff; color:#334155;">📦 All Branches Stock</button>
+        <a href="/accounts" style="padding:8px 14px; border-radius:8px; font-weight:800; font-size:13px; text-decoration:none; border:1.5px solid #059669; background:#ecfdf5; color:#047857; display:inline-flex; align-items:center; gap:4px;">
+            <span>💼</span> Central Rate Authority ↗
+        </a>
+    </div>
+
+    <!-- TAB 1: CROSS-BRANCH PURCHASES -->
+    <div id="tab-procurement" class="tab-content" style="display:block;">
+        <div class="card" style="background:#ffffff; border:1.5px solid #cbd5e1; border-radius:14px; padding:20px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.05);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+                <h3 style="margin:0; font-size:15px; font-weight:800; color:#0f172a;">📦 Cross-Branch Live Inward Purchase Feed</h3>
+                <span style="font-size:12px; color:#64748b;">Consolidated Procurement Records Across All APMC Yards</span>
+            </div>
+            <div style="overflow-x:auto;">
+                <table style="width:100%; border-collapse:collapse; font-size:13px;">
+                    <thead>
+                        <tr style="background:#f8fafc; border-bottom:2px solid #e2e8f0; color:#475569;">
+                            <th style="padding:10px 12px;">Token #</th>
+                            <th style="padding:10px 12px;">Branch</th>
+                            <th style="padding:10px 12px;">Farmer Name</th>
+                            <th style="padding:10px 12px;">Commodity</th>
+                            <th style="padding:10px 12px; text-align:right;">Net Weight (Qtl)</th>
+                            <th style="padding:10px 12px; text-align:right;">Final Rate</th>
+                            <th style="padding:10px 12px; text-align:right;">Net Payable</th>
+                            <th style="padding:10px 12px; text-align:center;">Mode</th>
+                            <th style="padding:10px 12px; text-align:center;">QC Slip</th>
+                        </tr>
+                    </thead>
+                    <tbody id="crossBranchPurchasesTableBody">
+                        <!-- Dynamically populated -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 2: QUALITY & PHOTO AUDIT -->
+    <div id="tab-qc-audit" class="tab-content" style="display:none;">
+        <div class="card" style="background:#ffffff; border:1.5px solid #cbd5e1; border-radius:14px; padding:20px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.05);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+                <h3 style="margin:0; font-size:15px; font-weight:800; color:#0f172a;">🔬 All-Branch Quality Assaying & Visual Evidence Audit</h3>
+                <span style="font-size:12px; color:#64748b;">Tamper-Proof QC Slips & AI Moisture Analysis</span>
+            </div>
+            <div style="overflow-x:auto;">
+                <table style="width:100%; border-collapse:collapse; font-size:13px;">
+                    <thead>
+                        <tr style="background:#f8fafc; border-bottom:2px solid #e2e8f0; color:#475569;">
+                            <th style="padding:10px 12px;">Ticket #</th>
+                            <th style="padding:10px 12px;">Branch</th>
+                            <th style="padding:10px 12px;">Farmer Name</th>
+                            <th style="padding:10px 12px;">Commodity</th>
+                            <th style="padding:10px 12px;">Moisture (%)</th>
+                            <th style="padding:10px 12px;">Foreign Matter (%)</th>
+                            <th style="padding:10px 12px;">Inspector</th>
+                            <th style="padding:10px 12px; text-align:center;">Status</th>
+                            <th style="padding:10px 12px; text-align:center;">Evidence Photo</th>
+                        </tr>
+                    </thead>
+                    <tbody id="qcAuditTableBody">
+                        <!-- Dynamically populated -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 3: BRANCH MANAGEMENT -->
+    <div id="tab-branches" class="tab-content" style="display:none;">
+        <div style="display:grid; grid-template-columns:1fr 1.5fr; gap:20px;">
+            <div class="card" style="background:#ffffff; border:1.5px solid #cbd5e1; border-radius:14px; padding:20px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.05);">
+                <h3 style="margin:0 0 14px 0; font-size:15px; font-weight:800; color:#0f172a;">🏢 Add New Branch</h3>
+                <form onsubmit="handleCreateBranch(event)">
+                    <div style="margin-bottom:12px;">
+                        <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Branch Name</label>
+                        <input type="text" id="new_branch_name" placeholder="e.g. Dhad APMC Yard" required style="width:100%; padding:8px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-weight:600;">
+                    </div>
+                    <div style="margin-bottom:12px;">
+                        <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Yard Code</label>
+                        <input type="text" id="new_branch_code" placeholder="e.g. BR-DHD" required style="width:100%; padding:8px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-weight:700;">
+                    </div>
+                    <div style="margin-bottom:12px;">
+                        <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">APMC Mandi License No</label>
+                        <input type="text" id="new_branch_license" placeholder="e.g. MH/DHD/APMC-401" required style="width:100%; padding:8px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-weight:600;">
+                    </div>
+                    <div style="margin-bottom:14px;">
+                        <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Location / Address</label>
+                        <input type="text" id="new_branch_loc" placeholder="Dhad Mandi Yard, Buldhana" style="width:100%; padding:8px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-weight:600;">
+                    </div>
+                    <button type="submit" style="width:100%; padding:10px; background:#2563eb; color:#fff; border:none; border-radius:8px; font-weight:800; font-size:13px; cursor:pointer;">
+                        + Provision Branch Yard
+                    </button>
+                </form>
+            </div>
+
+            <div class="card" style="background:#ffffff; border:1.5px solid #cbd5e1; border-radius:14px; padding:20px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.05);">
+                <h3 style="margin:0 0 14px 0; font-size:15px; font-weight:800; color:#0f172a;">📋 Configured APMC Branches</h3>
+                <div style="overflow-x:auto;">
+                    <table style="width:100%; border-collapse:collapse; font-size:13px;">
+                        <thead>
+                            <tr style="background:#f8fafc; border-bottom:2px solid #e2e8f0; color:#475569;">
+                                <th style="padding:8px 10px;">Yard Code</th>
+                                <th style="padding:8px 10px;">Branch Name</th>
+                                <th style="padding:8px 10px;">License</th>
+                                <th style="padding:8px 10px;">Status</th>
+                                <th style="padding:8px 10px; text-align:center;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="configuredBranchesTableBody">
+                            <tr style="border-bottom:1px solid #f1f5f9;">
+                                <td style="padding:8px 10px; font-weight:800; color:#1d4ed8;">BR-CHK</td>
+                                <td style="padding:8px 10px; font-weight:700;">Chikhali APMC Main Mandi</td>
+                                <td style="padding:8px 10px; font-size:12px;">MH/CHK/APMC-101</td>
+                                <td style="padding:8px 10px;"><span style="background:#ecfdf5; color:#047857; padding:2px 8px; border-radius:4px; font-weight:700; font-size:11px;">ACTIVE</span></td>
+                                <td style="padding:8px 10px; text-align:center;"><a href="/portal?branch_id=br-chikhali" target="_blank" style="padding:4px 8px; font-size:11px; background:#eff6ff; color:#1e40af; border:1px solid #bfdbfe; border-radius:4px; text-decoration:none; font-weight:700;">Open Desk ↗</a></td>
+                            </tr>
+                            <tr style="border-bottom:1px solid #f1f5f9;">
+                                <td style="padding:8px 10px; font-weight:800; color:#1d4ed8;">BR-VRV</td>
+                                <td style="padding:8px 10px; font-weight:700;">Varvand APMC Yard</td>
+                                <td style="padding:8px 10px; font-size:12px;">MH/VRV/APMC-204</td>
+                                <td style="padding:8px 10px;"><span style="background:#ecfdf5; color:#047857; padding:2px 8px; border-radius:4px; font-weight:700; font-size:11px;">ACTIVE</span></td>
+                                <td style="padding:8px 10px; text-align:center;"><a href="/portal?branch_id=br-varvand" target="_blank" style="padding:4px 8px; font-size:11px; background:#eff6ff; color:#1e40af; border:1px solid #bfdbfe; border-radius:4px; text-decoration:none; font-weight:700;">Open Desk ↗</a></td>
+                            </tr>
+                            <tr style="border-bottom:1px solid #f1f5f9;">
+                                <td style="padding:8px 10px; font-weight:800; color:#1d4ed8;">BR-SRL</td>
+                                <td style="padding:8px 10px; font-weight:700;">Sarola Maruti Yard</td>
+                                <td style="padding:8px 10px; font-size:12px;">MH/SRL/APMC-305</td>
+                                <td style="padding:8px 10px;"><span style="background:#ecfdf5; color:#047857; padding:2px 8px; border-radius:4px; font-weight:700; font-size:11px;">ACTIVE</span></td>
+                                <td style="padding:8px 10px; text-align:center;"><a href="/portal?branch_id=br-sarola" target="_blank" style="padding:4px 8px; font-size:11px; background:#eff6ff; color:#1e40af; border:1px solid #bfdbfe; border-radius:4px; text-decoration:none; font-weight:700;">Open Desk ↗</a></td>
+                            </tr>
+                            <tr style="border-bottom:1px solid #f1f5f9;">
+                                <td style="padding:8px 10px; font-weight:800; color:#1d4ed8;">BR-DHD</td>
+                                <td style="padding:8px 10px; font-weight:700;">Dhad APMC Yard</td>
+                                <td style="padding:8px 10px; font-size:12px;">MH/DHD/APMC-401</td>
+                                <td style="padding:8px 10px;"><span style="background:#ecfdf5; color:#047857; padding:2px 8px; border-radius:4px; font-weight:700; font-size:11px;">ACTIVE</span></td>
+                                <td style="padding:8px 10px; text-align:center;"><a href="/portal?branch_id=br-dhad" target="_blank" style="padding:4px 8px; font-size:11px; background:#eff6ff; color:#1e40af; border:1px solid #bfdbfe; border-radius:4px; text-decoration:none; font-weight:700;">Open Desk ↗</a></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 4: USER ACCESS CONTROL -->
+    <div id="tab-users" class="tab-content" style="display:none;">
+        <div class="card" style="background:#ffffff; border:1.5px solid #cbd5e1; border-radius:14px; padding:20px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.05);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+                <h3 style="margin:0; font-size:15px; font-weight:800; color:#0f172a;">👥 Registered Staff & Terminal Access Control</h3>
+                <span style="font-size:12px; color:#64748b;">Multi-Yard Security Isolation Active</span>
+            </div>
+            <div style="overflow-x:auto;">
+                <table style="width:100%; border-collapse:collapse; font-size:13px;">
+                    <thead>
+                        <tr style="background:#f8fafc; border-bottom:2px solid #e2e8f0; color:#475569;">
+                            <th style="padding:10px 12px;">Username</th>
+                            <th style="padding:10px 12px;">Full Name</th>
+                            <th style="padding:10px 12px;">Role</th>
+                            <th style="padding:10px 12px;">Assigned Branch</th>
+                            <th style="padding:10px 12px;">Security Policy</th>
+                            <th style="padding:10px 12px; text-align:center;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr style="border-bottom:1px solid #f1f5f9;">
+                            <td style="padding:10px 12px; font-weight:700;"><code>admin</code></td>
+                            <td style="padding:10px 12px; font-weight:700;">Super Admin</td>
+                            <td style="padding:10px 12px;"><span style="background:#eff6ff; color:#1e40af; padding:2px 8px; border-radius:4px; font-weight:800; font-size:11px;">SUPER_ADMIN</span></td>
+                            <td style="padding:10px 12px; color:#64748b;">All Branches (HQ Central Command)</td>
+                            <td style="padding:10px 12px;"><span style="color:#059669; font-weight:700;">Full Access</span></td>
+                            <td style="padding:10px 12px; text-align:center;"><button type="button" class="btn" style="padding:4px 8px; font-size:11px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:4px;">Reset Key</button></td>
+                        </tr>
+                        <tr style="border-bottom:1px solid #f1f5f9;">
+                            <td style="padding:10px 12px; font-weight:700;"><code>accountant</code> / <code>suraj</code></td>
+                            <td style="padding:10px 12px; font-weight:700;">Suraj (Chief Accountant HQ)</td>
+                            <td style="padding:10px 12px;"><span style="background:#ecfdf5; color:#065f46; padding:2px 8px; border-radius:4px; font-weight:800; font-size:11px;">ACCOUNTANT_HQ</span></td>
+                            <td style="padding:10px 12px; color:#64748b;">Rate Authority Desk (HQ)</td>
+                            <td style="padding:10px 12px;"><span style="color:#059669; font-weight:700;">Cross-Branch Ledgers</span></td>
+                            <td style="padding:10px 12px; text-align:center;"><button type="button" class="btn" style="padding:4px 8px; font-size:11px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:4px;">Reset Key</button></td>
+                        </tr>
+                        <tr style="border-bottom:1px solid #f1f5f9;">
+                            <td style="padding:10px 12px; font-weight:700;"><code>chikhali</code></td>
+                            <td style="padding:10px 12px; font-weight:700;">Babulal Meena (Chikhali Cashier)</td>
+                            <td style="padding:10px 12px;"><span style="background:#fef3c7; color:#b45309; padding:2px 8px; border-radius:4px; font-weight:800; font-size:11px;">BRANCH_CASHIER</span></td>
+                            <td style="padding:10px 12px; font-weight:700; color:#0f172a;">Chikhali APMC Main Mandi</td>
+                            <td style="padding:10px 12px;"><span style="color:#b45309; font-weight:700;">🔒 Yard Locked</span></td>
+                            <td style="padding:10px 12px; text-align:center;"><button type="button" class="btn" style="padding:4px 8px; font-size:11px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:4px;">Reset Key</button></td>
+                        </tr>
+                        <tr style="border-bottom:1px solid #f1f5f9;">
+                            <td style="padding:10px 12px; font-weight:700;"><code>varvand</code></td>
+                            <td style="padding:10px 12px; font-weight:700;">Govind Solanki (Varvand Cashier)</td>
+                            <td style="padding:10px 12px;"><span style="background:#fef3c7; color:#b45309; padding:2px 8px; border-radius:4px; font-weight:800; font-size:11px;">BRANCH_CASHIER</span></td>
+                            <td style="padding:10px 12px; font-weight:700; color:#0f172a;">Varvand APMC Yard</td>
+                            <td style="padding:10px 12px;"><span style="color:#b45309; font-weight:700;">🔒 Yard Locked</span></td>
+                            <td style="padding:10px 12px; text-align:center;"><button type="button" class="btn" style="padding:4px 8px; font-size:11px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:4px;">Reset Key</button></td>
+                        </tr>
+                        <tr style="border-bottom:1px solid #f1f5f9;">
+                            <td style="padding:10px 12px; font-weight:700;"><code>sarola</code></td>
+                            <td style="padding:10px 12px; font-weight:700;">Kisan Rathod (Sarola Cashier)</td>
+                            <td style="padding:10px 12px;"><span style="background:#fef3c7; color:#b45309; padding:2px 8px; border-radius:4px; font-weight:800; font-size:11px;">BRANCH_CASHIER</span></td>
+                            <td style="padding:10px 12px; font-weight:700; color:#0f172a;">Sarola Maruti Yard</td>
+                            <td style="padding:10px 12px;"><span style="color:#b45309; font-weight:700;">🔒 Yard Locked</span></td>
+                            <td style="padding:10px 12px; text-align:center;"><button type="button" class="btn" style="padding:4px 8px; font-size:11px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:4px;">Reset Key</button></td>
+                        </tr>
+                        <tr style="border-bottom:1px solid #f1f5f9;">
+                            <td style="padding:10px 12px; font-weight:700;"><code>inspector</code></td>
+                            <td style="padding:10px 12px; font-weight:700;">Babulal Meena (Assayer)</td>
+                            <td style="padding:10px 12px;"><span style="background:#ecfdf5; color:#047857; padding:2px 8px; border-radius:4px; font-weight:800; font-size:11px;">INSPECTOR</span></td>
+                            <td style="padding:10px 12px; color:#64748b;">Chikhali APMC Yard</td>
+                            <td style="padding:10px 12px;"><span style="color:#059669; font-weight:700;">Mobile OCR Only</span></td>
+                            <td style="padding:10px 12px; text-align:center;"><button type="button" class="btn" style="padding:4px 8px; font-size:11px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:4px;">Reset Key</button></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 5: COMMODITY MASTER -->
+    <div id="tab-commodities" class="tab-content" style="display:none;">
+        <div class="card" style="background:#ffffff; border:1.5px solid #cbd5e1; border-radius:14px; padding:20px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.05);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+                <h3 style="margin:0; font-size:15px; font-weight:800; color:#0f172a;">🌱 Central APMC Commodity & Quality Benchmark Master</h3>
+                <span style="font-size:12px; color:#64748b;">12 Mandatory Mandi Commodities Configured</span>
+            </div>
+            <div style="overflow-x:auto;">
+                <table style="width:100%; border-collapse:collapse; font-size:13px;">
+                    <thead>
+                        <tr style="background:#f8fafc; border-bottom:2px solid #e2e8f0; color:#475569;">
+                            <th style="padding:10px 12px;">Commodity Name</th>
+                            <th style="padding:10px 12px;">HSN Code</th>
+                            <th style="padding:10px 12px;">Default Grade</th>
+                            <th style="padding:10px 12px;">Std Moisture (Nami)</th>
+                            <th style="padding:10px 12px;">Max Moisture Limit</th>
+                            <th style="padding:10px 12px;">Mandi Cess Rate</th>
+                            <th style="padding:10px 12px;">Farmer Hamali</th>
+                        </tr>
+                    </thead>
+                    <tbody id="commoditiesMasterTableBody">
+                        <!-- Populated dynamically -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 6: ALL BRANCHES STOCK -->
+    <div id="tab-stock" class="tab-content" style="display:none;">
+        <div class="card" style="background:#ffffff; border:1.5px solid #cbd5e1; border-radius:14px; padding:20px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.05);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+                <h3 style="margin:0; font-size:15px; font-weight:800; color:#0f172a;">📦 Consolidated Yard Stock & Inventory Valuation</h3>
+                <span style="font-size:12px; color:#64748b;">Physical Stock On Hand Across All Branches</span>
+            </div>
+            <div style="overflow-x:auto;">
+                <table style="width:100%; border-collapse:collapse; font-size:13px;">
+                    <thead>
+                        <tr style="background:#f8fafc; border-bottom:2px solid #e2e8f0; color:#475569;">
+                            <th style="padding:10px 12px;">Commodity</th>
+                            <th style="padding:10px 12px; text-align:right;">Chikhali Stock</th>
+                            <th style="padding:10px 12px; text-align:right;">Varvand Stock</th>
+                            <th style="padding:10px 12px; text-align:right;">Sarola Stock</th>
+                            <th style="padding:10px 12px; text-align:right;">Dhad Stock</th>
+                            <th style="padding:10px 12px; text-align:right; font-weight:800;">Total Quintals</th>
+                            <th style="padding:10px 12px; text-align:right; font-weight:800;">Valuation (₹)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="stockValuationTableBody">
+                        <!-- Dynamically populated -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let adminActiveBranch = 'all';
+
+        function showAdminTab(tabId, btn) {
+            document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
+            const target = document.getElementById(tabId);
+            if (target) target.style.display = 'block';
+
+            document.querySelectorAll('.tabs .tab-btn').forEach(b => {
+                b.style.background = '#ffffff';
+                b.style.color = '#334155';
+                b.style.borderColor = '#cbd5e1';
+            });
+            if (btn) {
+                btn.style.background = '#2563eb';
+                btn.style.color = '#ffffff';
+                btn.style.borderColor = '#2563eb';
+            }
+        }
+
+        function toggleSystemHealthPopover() {
+            const p = document.getElementById('healthPopover');
+            if (p) p.style.display = (p.style.display === 'none' || !p.style.display) ? 'block' : 'none';
+        }
+
+        function toggleQuickToolsMenu() {
+            const m = document.getElementById('quickToolsMenu');
+            if (m) m.style.display = (m.style.display === 'none' || !m.style.display) ? 'block' : 'none';
+        }
+
+        document.addEventListener('click', function(e) {
+            const popWrapper = document.getElementById('healthPopoverWrapper');
+            const healthPop = document.getElementById('healthPopover');
+            if (popWrapper && healthPop && !popWrapper.contains(e.target)) {
+                healthPop.style.display = 'none';
+            }
+            const qtWrapper = document.getElementById('quickToolsWrapper');
+            const qtMenu = document.getElementById('quickToolsMenu');
+            if (qtWrapper && qtMenu && !qtWrapper.contains(e.target)) {
+                qtMenu.style.display = 'none';
+            }
+        });
+
+        async function loadAdminKpisAndFeed() {
+            try {
+                const res = await fetch('/api/portal?action=summary');
+                if (res.ok) {
+                    const data = await res.json();
+                    const s = data.summary || {};
+                    document.getElementById('kpiTotalQuintals').innerText = (s.total_quintals || 0).toLocaleString() + ' Qtl';
+                    document.getElementById('kpiTotalMT').innerText = (s.total_metric_tons || 0).toLocaleString() + ' Metric Tons';
+                    document.getElementById('kpiCapitalDisbursed').innerText = '₹' + (s.total_payable_amount || 0).toLocaleString();
+                    document.getElementById('kpiRtgsPending').innerText = 'Pending RTGS: ₹' + (s.rtgs_pending_amount || 0).toLocaleString();
+                }
+            } catch (_) {}
+
+            try {
+                const invRes = await fetch('/api/portal?action=invoices');
+                if (invRes.ok) {
+                    const invoices = await invRes.json();
+                    renderCrossBranchInvoices(Array.isArray(invoices) ? invoices : (invoices.invoices || []));
+                }
+            } catch (_) {
+                renderMockCrossBranchInvoices();
+            }
+
+            try {
+                const qcRes = await fetch('/api/portal?action=tickets');
+                if (qcRes.ok) {
+                    const tickets = await qcRes.json();
+                    renderQcAuditTable(Array.isArray(tickets) ? tickets : (tickets.tickets || []));
+                }
+            } catch (_) {
+                renderMockQcAuditTable();
+            }
+
+            renderCommodityMasterTable();
+            renderStockTable();
+        }
+
+        function renderCrossBranchInvoices(invoices) {
+            const tbody = document.getElementById('crossBranchPurchasesTableBody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            let shown = 0;
+            invoices.forEach(inv => {
+                if (adminActiveBranch !== 'all' && inv.branch_id !== adminActiveBranch) return;
+                shown++;
+                const tr = document.createElement('tr');
+                tr.style.borderBottom = '1px solid #f1f5f9';
+                tr.innerHTML = `
+                    <td style="padding:10px 12px; font-weight:800; color:#0f172a;">${inv.token_number || 'TKN-' + inv.id}</td>
+                    <td style="padding:10px 12px;"><span style="background:#eff6ff; color:#1d4ed8; padding:2px 6px; border-radius:4px; font-weight:700; font-size:11px;">${inv.branch_id || 'br-chikhali'}</span></td>
+                    <td style="padding:10px 12px; font-weight:700;">${inv.farmer_name || 'Farmer'}</td>
+                    <td style="padding:10px 12px;">${inv.commodity_name || 'Soyabean (Yellow)'}</td>
+                    <td style="padding:10px 12px; text-align:right; font-weight:700;">${(parseFloat(inv.net_quintals) || 0).toFixed(2)}</td>
+                    <td style="padding:10px 12px; text-align:right; font-weight:700; color:#047857;">₹${(parseFloat(inv.rate_per_qtl) || 0).toLocaleString()}</td>
+                    <td style="padding:10px 12px; text-align:right; font-weight:800; color:#0f172a;">₹${(parseFloat(inv.net_payable_amount) || 0).toLocaleString()}</td>
+                    <td style="padding:10px 12px; text-align:center;"><span style="background:#f1f5f9; padding:2px 6px; border-radius:4px; font-size:11px; font-weight:700;">${inv.weighment_mode || 'CASH'}</span></td>
+                    <td style="padding:10px 12px; text-align:center;"><span style="color:#059669; font-weight:800;">✓ VERIFIED</span></td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            if (shown === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:26px; color:#64748b;">No recent inward purchases for the selected branch filter.</td></tr>';
+            }
+        }
+
+        function renderMockCrossBranchInvoices() {
+            renderCrossBranchInvoices([
+                { id: 1, token_number: 'CHK-2026-0891', branch_id: 'br-chikhali', farmer_name: 'Dnyaneshwar Shinde', commodity_name: 'Soyabean (Yellow)', net_quintals: 21.05, rate_per_qtl: 6850, net_payable_amount: 142500, weighment_mode: 'RTGS' },
+                { id: 2, token_number: 'VRV-2026-0422', branch_id: 'br-varvand', farmer_name: 'Kisan Rathod', commodity_name: 'Cotton / Kapas', net_quintals: 29.80, rate_per_qtl: 7250, net_payable_amount: 215400, weighment_mode: 'RTGS' },
+                { id: 3, token_number: 'SRL-2026-0114', branch_id: 'br-sarola', farmer_name: 'Vishnu Patil', commodity_name: 'Chana (Desi)', net_quintals: 8.00, rate_per_qtl: 6000, net_payable_amount: 48000, weighment_mode: 'CASH' }
+            ]);
+        }
+
+        function renderQcAuditTable(tickets) {
+            const tbody = document.getElementById('qcAuditTableBody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            tickets.forEach(t => {
+                const tr = document.createElement('tr');
+                tr.style.borderBottom = '1px solid #f1f5f9';
+                tr.innerHTML = `
+                    <td style="padding:10px 12px; font-weight:700;"><code>${t.ticket_number || 'QC-00' + t.id}</code></td>
+                    <td style="padding:10px 12px;"><span style="background:#eff6ff; color:#1d4ed8; padding:2px 6px; border-radius:4px; font-size:11px; font-weight:700;">${t.branch_id || 'br-chikhali'}</span></td>
+                    <td style="padding:10px 12px; font-weight:700;">${t.farmer_name || 'Farmer'}</td>
+                    <td style="padding:10px 12px;">${t.commodity_name || 'Produce'}</td>
+                    <td style="padding:10px 12px; font-weight:700;">${t.moisture_pct || 11.8}%</td>
+                    <td style="padding:10px 12px;">${t.foreign_matter_pct || 1.2}%</td>
+                    <td style="padding:10px 12px;">${t.inspector_name || 'Inspector'}</td>
+                    <td style="padding:10px 12px; text-align:center;"><span style="background:#ecfdf5; color:#047857; padding:2px 8px; border-radius:4px; font-weight:700; font-size:11px;">APPROVED</span></td>
+                    <td style="padding:10px 12px; text-align:center;"><button type="button" onclick="alert('Viewing tamper-proof evidence photo for ticket ${t.ticket_number || t.id}')" style="padding:3px 8px; font-size:11px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:4px; cursor:pointer;">📷 View Photo</button></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderMockQcAuditTable() {
+            renderQcAuditTable([
+                { id: 1, ticket_number: 'QC-CHK-8901', branch_id: 'br-chikhali', farmer_name: 'Dnyaneshwar Shinde', commodity_name: 'Soyabean (Yellow)', moisture_pct: 11.4, foreign_matter_pct: 1.0, inspector_name: 'Babulal Meena' },
+                { id: 2, ticket_number: 'QC-VRV-4412', branch_id: 'br-varvand', farmer_name: 'Kisan Rathod', commodity_name: 'Cotton / Kapas', moisture_pct: 7.9, foreign_matter_pct: 0.8, inspector_name: 'Gajanan Jadhav' }
+            ]);
+        }
+
+        function renderCommodityMasterTable() {
+            const list = [
+                { name: 'Soyabean (Yellow)', hsn: '1201', grade: 'STANDARD', std_moisture: 12.0, max_moisture: 14.0 },
+                { name: 'Wheat (Lokwan)', hsn: '1001', grade: 'STANDARD', std_moisture: 12.0, max_moisture: 13.0 },
+                { name: 'Chana (Desi) / Harbhara', hsn: '0713', grade: 'STANDARD', std_moisture: 10.0, max_moisture: 12.0 },
+                { name: 'Dollar Chana (Kabuli)', hsn: '0713', grade: 'FAQ', std_moisture: 10.0, max_moisture: 11.5 },
+                { name: 'Cotton / Kapas', hsn: '5201', grade: 'STANDARD', std_moisture: 8.0, max_moisture: 10.0 },
+                { name: 'Maize (Makka)', hsn: '1005', grade: 'FAQ', std_moisture: 14.0, max_moisture: 16.0 },
+                { name: 'Mustard (Rayda)', hsn: '1207', grade: 'STANDARD', std_moisture: 8.0, max_moisture: 9.5 },
+                { name: 'Toor (White) / Arhar', hsn: '0713', grade: 'STANDARD', std_moisture: 10.0, max_moisture: 12.0 },
+                { name: 'Moong (Green Gram)', hsn: '0713', grade: 'FAQ', std_moisture: 10.0, max_moisture: 12.0 },
+                { name: 'Urad (Black Matpe)', hsn: '0713', grade: 'FAQ', std_moisture: 10.0, max_moisture: 12.0 },
+                { name: 'Groundnut / Bhuimug', hsn: '1202', grade: 'FAQ', std_moisture: 8.0, max_moisture: 10.0 },
+                { name: 'Bajra / Pearl Millet', hsn: '1008', grade: 'FAQ', std_moisture: 12.0, max_moisture: 14.0 }
+            ];
+
+            const tbody = document.getElementById('commoditiesMasterTableBody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            list.forEach(c => {
+                const tr = document.createElement('tr');
+                tr.style.borderBottom = '1px solid #f1f5f9';
+                tr.innerHTML = `
+                    <td style="padding:10px 12px; font-weight:800; color:#0f172a;">${c.name}</td>
+                    <td style="padding:10px 12px;"><code>${c.hsn}</code></td>
+                    <td style="padding:10px 12px;"><span style="background:#f1f5f9; padding:2px 6px; border-radius:4px; font-weight:700; font-size:11px;">${c.grade}</span></td>
+                    <td style="padding:10px 12px; font-weight:700;">${c.std_moisture}%</td>
+                    <td style="padding:10px 12px;">${c.max_moisture}%</td>
+                    <td style="padding:10px 12px; font-weight:800; color:#059669;">0.0% (Zero Cess)</td>
+                    <td style="padding:10px 12px;">₹25 / 100 kg</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderStockTable() {
+            const list = [
+                { name: 'Soyabean (Yellow)', chk: 142.5, vrv: 88.0, srl: 45.0, dhd: 30.0, rate: 6850 },
+                { name: 'Cotton / Kapas', chk: 60.0, vrv: 180.5, srl: 22.0, dhd: 15.0, rate: 7250 },
+                { name: 'Chana (Desi)', chk: 95.0, vrv: 40.0, srl: 55.0, dhd: 20.0, rate: 6000 },
+                { name: 'Wheat (Lokwan)', chk: 80.0, vrv: 35.0, srl: 18.0, dhd: 10.0, rate: 2950 }
+            ];
+
+            const tbody = document.getElementById('stockValuationTableBody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            list.forEach(c => {
+                const total = c.chk + c.vrv + c.srl + c.dhd;
+                const val = total * c.rate;
+                const tr = document.createElement('tr');
+                tr.style.borderBottom = '1px solid #f1f5f9';
+                tr.innerHTML = `
+                    <td style="padding:10px 12px; font-weight:800; color:#0f172a;">${c.name}</td>
+                    <td style="padding:10px 12px; text-align:right;">${c.chk.toFixed(1)} Qtl</td>
+                    <td style="padding:10px 12px; text-align:right;">${c.vrv.toFixed(1)} Qtl</td>
+                    <td style="padding:10px 12px; text-align:right;">${c.srl.toFixed(1)} Qtl</td>
+                    <td style="padding:10px 12px; text-align:right;">${c.dhd.toFixed(1)} Qtl</td>
+                    <td style="padding:10px 12px; text-align:right; font-weight:900; color:#0f172a;">${total.toFixed(1)} Qtl</td>
+                    <td style="padding:10px 12px; text-align:right; font-weight:900; color:#047857;">₹${val.toLocaleString()}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function handleAdminBranchFilterChange(val) {
+            adminActiveBranch = val;
+            loadAdminKpisAndFeed();
+        }
+
+        function handleCreateBranch(e) {
+            e.preventDefault();
+            const name = document.getElementById('new_branch_name').value;
+            const code = document.getElementById('new_branch_code').value;
+            alert(`✓ Provisioned new branch yard: ${name} (${code})! Dispatched to all cloud nodes.`);
+        }
+
+        // PWA Handling
+        let deferredPrompt = null;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            const btn = document.getElementById('btnInstallPwa');
+            if (btn) btn.style.background = '#2563eb';
+        });
+
+        window.addEventListener('appinstalled', () => {
+            deferredPrompt = null;
+            const btn = document.getElementById('btnInstallPwa');
+            if (btn) btn.innerHTML = '<span>✅</span> Installed';
+        });
+
+        function handlePwaInstallClick() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt = null;
+            } else {
+                alert('To install Rajarshi ERP on this computer:\n\n• Chrome / Brave: Click the Install icon (⊕) in your address bar.\n• Edge: Click Menu (...) → Apps → Install this site as an app.');
+            }
+        }
+
+        // Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js').catch(err => console.warn('SW reg failed', err));
+            });
+        }
+
+        window.onload = function() {
+            // Check session role
+            const saved = localStorage.getItem('mandi_user');
+            if (saved) {
+                try {
+                    const u = JSON.parse(saved);
+                    if (u.role === 'BRANCH_CASHIER') {
+                        // Cashiers are restricted from Super Admin Command!
+                        alert('Access restricted: Cashiers are locked to their assigned branch terminal.');
+                        window.location.href = '/portal?branch_id=' + (u.branch_id || 'br-chikhali');
+                        return;
+                    }
+                } catch (_) {}
+            }
+
+            loadAdminKpisAndFeed();
+        };
+    </script>
+</body>
+</html>

@@ -336,11 +336,15 @@
                 // Save user session to localStorage
                 localStorage.setItem('mandi_user', JSON.stringify(data.user));
 
-                // Route by role
+                // Route by role to dedicated dashboard
                 if (data.user.role === 'INSPECTOR') {
                     window.location.href = '/app';
+                } else if (data.user.role === 'SUPER_ADMIN') {
+                    window.location.href = '/admin';
+                } else if (data.user.role === 'ACCOUNTANT_HQ') {
+                    window.location.href = '/accounts';
                 } else {
-                    window.location.href = '/portal';
+                    window.location.href = '/portal?branch_id=' + (data.user.branch_id || 'br-chikhali');
                 }
             } else {
                 errorMsg.innerText = data.error || 'Invalid staff username or password.';
@@ -365,8 +369,12 @@
                 localStorage.setItem('mandi_user', JSON.stringify(LOCAL_USERS[uLower]));
                 if (LOCAL_USERS[uLower].role === 'INSPECTOR') {
                     window.location.href = '/app';
+                } else if (LOCAL_USERS[uLower].role === 'SUPER_ADMIN') {
+                    window.location.href = '/admin';
+                } else if (LOCAL_USERS[uLower].role === 'ACCOUNTANT_HQ') {
+                    window.location.href = '/accounts';
                 } else {
-                    window.location.href = '/portal';
+                    window.location.href = '/portal?branch_id=' + (LOCAL_USERS[uLower].branch_id || 'br-chikhali');
                 }
             } else {
                 errorMsg.innerText = 'Authentication error. Please check your network or credentials.';

@@ -2,35 +2,167 @@
   "version": 2,
   "cleanUrls": true,
   "rewrites": [
-    { "source": "/app", "destination": "/app.html" },
-    { "source": "/portal", "destination": "/portal.html" },
-    { "source": "/login", "destination": "/portal.html" },
-    { "source": "/branch", "destination": "/portal.html" },
-    { "source": "/accounts", "destination": "/portal.html" },
-    { "source": "/admin", "destination": "/portal.html" },
-    { "source": "/api/portal/rates", "destination": "/api/portal?action=rates" },
-    { "source": "/api/portal/invoices", "destination": "/api/portal?action=invoices" },
-    { "source": "/api/portal/auth", "destination": "/api/portal?action=auth" },
-    { "source": "/api/portal/summary", "destination": "/api/portal?action=summary" },
-    { "source": "/api/system/updates/status", "destination": "/api/system-updates" },
-    { "source": "/api/supabase/status", "destination": "/api/supabase-status" },
-    { "source": "/api/supabase-status", "destination": "/api/supabase-status" },
-    { "source": "/api/inspector/ocr-moisture", "destination": "/api/inspector-ocr" },
-    { "source": "/api/ai/ocr-moisture", "destination": "/api/inspector-ocr" },
-    { "source": "/api/inspector/analyze-sample", "destination": "/api/inspector-analyze" },
-    { "source": "/api/ai/analyze-grain", "destination": "/api/inspector-analyze" },
-    { "source": "/api/inspector/submit-qc", "destination": "/api/inspections-submit" },
-    { "source": "/api/inspections/submit", "destination": "/api/inspections-submit" },
-    { "source": "/api/inspections-submit", "destination": "/api/inspections-submit" },
-    { "source": "/api/inspector/tickets/pending", "destination": "/api/inspections-submit" }
+    {
+      "source": "/app",
+      "destination": "/app.html"
+    },
+    {
+      "source": "/portal",
+      "destination": "/portal.html"
+    },
+    {
+      "source": "/login",
+      "destination": "/portal.html"
+    },
+    {
+      "source": "/branch",
+      "destination": "/portal.html"
+    },
+    {
+      "source": "/accounts",
+      "destination": "/portal.html"
+    },
+    {
+      "source": "/admin",
+      "destination": "/portal.html"
+    },
+    {
+      "source": "/api/invoices/calculate",
+      "destination": "/api/portal?action=calculate"
+    },
+    {
+      "source": "/api/portal/rates",
+      "destination": "/api/portal?action=rates"
+    },
+    {
+      "source": "/api/portal/invoices",
+      "destination": "/api/portal?action=invoices"
+    },
+    {
+      "source": "/api/portal/auth",
+      "destination": "/api/portal?action=auth"
+    },
+    {
+      "source": "/api/portal/summary",
+      "destination": "/api/portal?action=summary"
+    },
+    {
+      "source": "/api/portal/tickets",
+      "destination": "/api/portal?action=tickets"
+    },
+    {
+      "source": "/api/portal/farmers",
+      "destination": "/api/portal?action=farmers"
+    },
+    {
+      "source": "/api/portal/buyers",
+      "destination": "/api/portal?action=buyers"
+    },
+    {
+      "source": "/api/portal/outward",
+      "destination": "/api/portal?action=outward"
+    },
+    {
+      "source": "/api/branch/rates",
+      "destination": "/api/portal?action=rates"
+    },
+    {
+      "source": "/api/branch/invoices/recent",
+      "destination": "/api/portal?action=invoices"
+    },
+    {
+      "source": "/api/branch/invoices/create",
+      "destination": "/api/portal?action=invoices"
+    },
+    {
+      "source": "/api/branch/inward-unified",
+      "destination": "/api/portal?action=invoices"
+    },
+    {
+      "source": "/api/branch/outward/create",
+      "destination": "/api/portal?action=outward"
+    },
+    {
+      "source": "/api/branch/outward-dispatch",
+      "destination": "/api/portal?action=outward"
+    },
+    {
+      "source": "/api/branch/farmers/register",
+      "destination": "/api/portal?action=farmers"
+    },
+    {
+      "source": "/api/branch/farmers/edit",
+      "destination": "/api/portal?action=farmers"
+    },
+    {
+      "source": "/api/branch/buyers/register",
+      "destination": "/api/portal?action=buyers"
+    },
+    {
+      "source": "/api/branch/settings",
+      "destination": "/api/portal?action=summary"
+    },
+    {
+      "source": "/api/system/updates/status",
+      "destination": "/api/system-updates"
+    },
+    {
+      "source": "/api/supabase/status",
+      "destination": "/api/supabase-status"
+    },
+    {
+      "source": "/api/supabase-status",
+      "destination": "/api/supabase-status"
+    },
+    {
+      "source": "/api/inspector/ocr-moisture",
+      "destination": "/api/inspector-ocr"
+    },
+    {
+      "source": "/api/ai/ocr-moisture",
+      "destination": "/api/inspector-ocr"
+    },
+    {
+      "source": "/api/inspector/analyze-sample",
+      "destination": "/api/inspector-analyze"
+    },
+    {
+      "source": "/api/ai/analyze-grain",
+      "destination": "/api/inspector-analyze"
+    },
+    {
+      "source": "/api/inspector/submit-qc",
+      "destination": "/api/inspections-submit"
+    },
+    {
+      "source": "/api/inspections/submit",
+      "destination": "/api/inspections-submit"
+    },
+    {
+      "source": "/api/inspections-submit",
+      "destination": "/api/inspections-submit"
+    },
+    {
+      "source": "/api/inspector/tickets/pending",
+      "destination": "/api/portal?action=tickets"
+    }
   ],
   "headers": [
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
+        {
+          "key": "X-Frame-Options",
+          "value": "SAMEORIGIN"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        }
       ]
     }
   ]

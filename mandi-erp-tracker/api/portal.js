@@ -70,7 +70,40 @@ export default async function handler(req, res) {
     }
   }
 
-    // =========================================================================
+    
+  // =========================================================================
+  // 1B. CALCULATE ACTION (INSTANT SERVERLESS WEIGHMENT MATH)
+  // =========================================================================
+  if (action === 'calculate') {
+    const gross = parseFloat(req.query.gross_weight_kg || 0);
+    const tare = parseFloat(req.query.vehicle_tare_kg || 0);
+    const moisture = parseFloat(req.query.moisture_percentage || 0);
+    const rate = parseFloat(req.query.rate_per_quintal || 0);
+    const mode = req.query.weighment_mode || 'WEIGHBRIDGE';
+
+    const vehicle_net_kg = Math.max(0, gross - tare);
+    const moisture_cut_kg = (moisture > 12.0) ? (vehicle_net_kg * (moisture - 12.0) / 100.0) : 0;
+    const weighbridge_cut_kg = (mode === 'WEIGHBRIDGE') ? (vehicle_net_kg * 0.005) : 0;
+    const net_weight_kg = Math.max(0, vehicle_net_kg - moisture_cut_kg - weighbridge_cut_kg);
+    const net_quintals = parseFloat((net_weight_kg / 100.0).toFixed(2));
+    const gross_amount = parseFloat((net_quintals * rate).toFixed(2));
+    const hamali_charge = parseFloat((net_quintals * 25.0).toFixed(2)); // ₹25 per quintal
+    const net_payable_amount = Math.max(0, parseFloat((gross_amount - hamali_charge).toFixed(2)));
+
+    return res.status(200).json({
+      success: true,
+      vehicle_net_kg,
+      moisture_cut_kg,
+      weighbridge_cut_kg,
+      net_weight_kg,
+      net_quintals,
+      gross_amount,
+      hamali_charge,
+      net_payable_amount
+    });
+  }
+
+  // =========================================================================
   // 2A. TICKETS ACTION (PENDING INSPECTOR QC TICKETS)
   // =========================================================================
   if (action === 'tickets') {

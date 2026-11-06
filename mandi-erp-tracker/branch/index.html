@@ -5048,46 +5048,50 @@ window.addEventListener('appinstalled', () => {
     }
 });
 
+// Top-Level Real-Time Dynamic Date Setter (Always runs on every browser / device)
+function applyRealtimeTodayDates() {
+    const todayStr = new Date().toLocaleDateString('en-CA');
+    document.querySelectorAll('input[type="date"]').forEach(inp => {
+        if (!inp.value || inp.value === '2026-11-05' || inp.value === '2026-11-06' || inp.value.length < 10) {
+            inp.value = todayStr;
+        }
+    });
+    const ribbon = document.querySelector('.rates-ribbon .title');
+    if (ribbon) ribbon.innerText = `⚡ Today's HQ Buying Corridor (${todayStr}):`;
+}
+if (document.readyState === 'loading') {
+    window.addEventListener('DOMContentLoaded', applyRealtimeTodayDates);
+} else {
+    applyRealtimeTodayDates();
+}
+
+async function deleteQcTicket(ticketNo) {
+    if (!ticketNo) return;
+    if (!confirm(`Are you sure you want to permanently delete unverified QC Ticket #${ticketNo}?\n\nThis cannot be undone.`)) {
+        return;
+    }
+    try {
+        const res = await fetch('/api/inspector/tickets/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ticket_no: ticketNo, action: 'delete' })
+        });
+        const data = await res.json();
+        if (data.success) {
+            alert(`✓ QC Ticket #${ticketNo} deleted successfully.`);
+            if (typeof fetchPendingQCTickets === 'function') fetchPendingQCTickets(true);
+        } else {
+            alert(`❌ Cannot delete ticket: ${data.error || 'Server rejected request'}`);
+        }
+    } catch (err) {
+        alert(`Error deleting ticket: ${err.message}`);
+    }
+}
+window.deleteQcTicket = deleteQcTicket;
+
 // Check if already running in standalone desktop mode
 if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
-    
-        // Real-Time Dynamic Date Setter
-        function applyRealtimeTodayDates() {
-            const todayStr = new Date().toLocaleDateString('en-CA');
-            document.querySelectorAll('input[type="date"]').forEach(inp => {
-                if (!inp.value || inp.value === '2026-11-05' || inp.value === '2026-11-06') {
-                    inp.value = todayStr;
-                }
-            });
-            const ribbon = document.querySelector('.rates-ribbon .title');
-            if (ribbon) ribbon.innerText = `⚡ Today's HQ Buying Corridor (${todayStr}):`;
-        }
-
-        async function deleteQcTicket(ticketNo) {
-            if (!ticketNo) return;
-            if (!confirm(`Are you sure you want to permanently delete unverified QC Ticket #${ticketNo}?\n\nThis cannot be undone.`)) {
-                return;
-            }
-            try {
-                const res = await fetch('/api/inspector/tickets/delete', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ticket_no: ticketNo, action: 'delete' })
-                });
-                const data = await res.json();
-                if (data.success) {
-                    alert(`✓ QC Ticket #${ticketNo} deleted successfully.`);
-                    if (typeof fetchPendingQCTickets === 'function') fetchPendingQCTickets(true);
-                } else {
-                    alert(`❌ Cannot delete ticket: ${data.error || 'Server rejected request'}`);
-                }
-            } catch (err) {
-                alert(`Error deleting ticket: ${err.message}`);
-            }
-        }
-
-        window.addEventListener('DOMContentLoaded', () => {
-            applyRealtimeTodayDates();
+    window.addEventListener('DOMContentLoaded', () => {
         const btn = document.getElementById('btnInstallPwaPortal');
         if (btn) {
             btn.innerHTML = '<span>✅</span> Desktop App';

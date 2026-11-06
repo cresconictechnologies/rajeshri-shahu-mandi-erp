@@ -317,7 +317,7 @@ export default async function handler(req, res) {
     if (req.method === 'POST') {
       try {
         if (body.action === 'delete' || body.delete_branch || req.method === 'DELETE') {
-          const bId = body.branch_id || req.query.branch_id;
+          const bId = body.branch_id || req.query.branch_id || body.id || req.query.id;
           const chk = await fetch(`${supabaseUrl}/rest/v1/purchase_invoices?branch_id=eq.${encodeURIComponent(bId)}&select=id`, { headers });
           if (chk.ok) {
             const rows = await chk.json();
@@ -389,7 +389,7 @@ export default async function handler(req, res) {
     if (req.method === 'POST') {
       try {
         if (body.action === 'delete' || body.delete_user || req.method === 'DELETE') {
-          const uId = body.user_id || req.query.user_id;
+          const uId = body.user_id || req.query.user_id || body.id || req.query.id;
           if (uId === 'usr-admin' || uId === 'admin') {
             return res.status(400).json({ success: false, error: 'Cannot delete primary SUPER_ADMIN user.' });
           }
@@ -498,7 +498,7 @@ export default async function handler(req, res) {
     if (req.method === 'POST') {
       try {
         if (body.action === 'delete' || body.delete_inspector || req.method === 'DELETE') {
-          const insId = body.inspector_id || req.query.inspector_id;
+          const insId = body.inspector_id || req.query.inspector_id || body.id || req.query.id;
           const delResp = await fetch(`${supabaseUrl}/rest/v1/inspectors?id=eq.${encodeURIComponent(insId)}`, { method: 'DELETE', headers });
           if (!delResp.ok) return res.status(delResp.status).json({ success: false, error: await delResp.text() });
           return res.status(200).json({ success: true, message: `Inspector ${insId} deleted successfully.` });

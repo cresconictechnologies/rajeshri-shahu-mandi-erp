@@ -1217,6 +1217,113 @@
         }
 
         // Initialize on load
+        
+        // ==========================================
+        // ENTITY DELETION & DYNAMIC DATE ENGINES
+        // ==========================================
+        async function deleteBranch(branchId, branchName) {
+            if (!branchId) return;
+            if (!confirm(`Are you sure you want to permanently delete Branch "${branchName || branchId}"?\n\nThis will remove the branch record.`)) {
+                return;
+            }
+            try {
+                const res = await fetch('/api/admin/branches', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'delete', branch_id: branchId, id: branchId })
+                });
+                const d = await res.json();
+                if (d.success) {
+                    alert(`✓ Branch "${branchName || branchId}" deleted.`);
+                    if (ADMIN_CACHE && ADMIN_CACHE.branches) {
+                        ADMIN_CACHE.branches = ADMIN_CACHE.branches.filter(b => b.id !== branchId);
+                        renderBranchesTable(ADMIN_CACHE.branches);
+                    }
+                } else {
+                    alert(`Cannot delete branch: ${d.error || 'Server rejected request'}`);
+                }
+            } catch (err) {
+                alert(`Error deleting branch: ${err.message}`);
+            }
+        }
+        window.deleteBranch = deleteBranch;
+
+        async function deleteUser(userId, username) {
+            if (!userId) return;
+            if (username === 'admin' || userId === 'usr-admin') {
+                alert('Cannot delete primary SUPER_ADMIN user.');
+                return;
+            }
+            if (!confirm(`Are you sure you want to permanently delete User "${username || userId}"?\n\nThis will remove access for this user.`)) {
+                return;
+            }
+            try {
+                const res = await fetch('/api/admin/users', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'delete', user_id: userId, id: userId })
+                });
+                const d = await res.json();
+                if (d.success) {
+                    alert(`✓ User "${username || userId}" deleted.`);
+                    if (ADMIN_CACHE && ADMIN_CACHE.users) {
+                        ADMIN_CACHE.users = ADMIN_CACHE.users.filter(u => u.id !== userId);
+                        renderUsersTable(ADMIN_CACHE.users);
+                    }
+                } else {
+                    alert(`Cannot delete user: ${d.error || 'Server rejected request'}`);
+                }
+            } catch (err) {
+                alert(`Error deleting user: ${err.message}`);
+            }
+        }
+        window.deleteUser = deleteUser;
+
+        async function deleteQcTicket(ticketNo) {
+            if (!ticketNo) return;
+            if (!confirm(`Are you sure you want to permanently delete unverified QC Ticket #${ticketNo}?\n\nThis cannot be undone.`)) {
+                return;
+            }
+            try {
+                const res = await fetch('/api/portal?action=delete_ticket', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ticket_no: ticketNo, action: 'delete' })
+                });
+                const d = await res.json();
+                if (d.success) {
+                    alert(`✓ QC Ticket #${ticketNo} deleted permanently.`);
+                    if (ADMIN_CACHE && ADMIN_CACHE.inspections) {
+                        ADMIN_CACHE.inspections = ADMIN_CACHE.inspections.filter(t => t.ticket_no !== ticketNo);
+                        renderInspectionsTable(ADMIN_CACHE.inspections);
+                    }
+                } else {
+                    alert(`Cannot delete ticket: ${d.error || 'Server rejected request'}`);
+                }
+            } catch (err) {
+                alert(`Error deleting ticket: ${err.message}`);
+            }
+        }
+        window.deleteQcTicket = deleteQcTicket;
+
+        function applyRealtimeTodayDates() {
+            const todayStr = new Date().toLocaleDateString('en-CA');
+            document.querySelectorAll('input[type="date"]').forEach(inp => {
+                if (!inp.value || inp.value === '2026-11-05' || inp.value === '2026-11-06' || inp.value.length < 10) {
+                    inp.value = todayStr;
+                }
+            });
+            const ribbon = document.querySelector('.rates-ribbon .title');
+            if (ribbon) ribbon.innerText = `⚡ Today's HQ Buying Corridor (${todayStr}):`;
+            const hqDate = document.getElementById('hqRateDateLabel');
+            if (hqDate) hqDate.innerText = `Today (${todayStr})`;
+        }
+        if (document.readyState === 'loading') {
+            window.addEventListener('DOMContentLoaded', applyRealtimeTodayDates);
+        } else {
+            applyRealtimeTodayDates();
+        }
+
         window.addEventListener('DOMContentLoaded', loadAdminData);
     </script>
 </body>

@@ -1541,6 +1541,53 @@
             closeReceivePaymentModal();
         }
 
+        
+        // ==========================================
+        // INSPECTOR DELETION & DYNAMIC DATE ENGINES
+        // ==========================================
+        async function deleteInspector(inspId, inspName) {
+            if (!inspId) return;
+            if (!confirm(`Are you sure you want to permanently delete Quality Inspector "${inspName || inspId}"?\n\nThis will remove their profile and credentials.`)) {
+                return;
+            }
+            try {
+                const res = await fetch('/api/portal?action=inspectors', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'delete', inspector_id: inspId, id: inspId })
+                });
+                const d = await res.json();
+                if (d.success) {
+                    alert(`✓ Quality Inspector "${inspName || inspId}" deleted.`);
+                    if (ACCOUNTS_CACHE && ACCOUNTS_CACHE.inspectors) {
+                        ACCOUNTS_CACHE.inspectors = ACCOUNTS_CACHE.inspectors.filter(i => i.id !== inspId);
+                        renderInspectorsTable(ACCOUNTS_CACHE.inspectors);
+                    }
+                } else {
+                    alert(`Cannot delete inspector: ${d.error || 'Server rejected request'}`);
+                }
+            } catch (err) {
+                alert(`Error deleting inspector: ${err.message}`);
+            }
+        }
+        window.deleteInspector = deleteInspector;
+
+        function applyRealtimeTodayDates() {
+            const todayStr = new Date().toLocaleDateString('en-CA');
+            document.querySelectorAll('input[type="date"]').forEach(inp => {
+                if (!inp.value || inp.value === '2026-11-05' || inp.value === '2026-11-06' || inp.value.length < 10) {
+                    inp.value = todayStr;
+                }
+            });
+            const ribbon = document.querySelector('.rates-ribbon .title');
+            if (ribbon) ribbon.innerText = `⚡ Today's HQ Buying Corridor (${todayStr}):`;
+        }
+        if (document.readyState === 'loading') {
+            window.addEventListener('DOMContentLoaded', applyRealtimeTodayDates);
+        } else {
+            applyRealtimeTodayDates();
+        }
+
         window.addEventListener('DOMContentLoaded', loadAccountsData);
     </script>
 </body>

@@ -235,7 +235,7 @@
                         <strong style="color:#166534; font-size:13.5px; display:block; margin-bottom:10px;">
                             ➕ Add / Configure New Branch Yard
                         </strong>
-                        <form method="POST" action="/api/admin/branches/create">
+                        <form method="POST" id="createBranchForm" onsubmit="handleCreateBranch(event)">
                             <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px;">
                                 <div>
                                     <label style="font-size:11.5px; font-weight:700; color:#166534; display:block; margin-bottom:3px;">Branch Code *</label>
@@ -425,7 +425,7 @@
                                     <th>Action</th>
                                 </tr>
                             </thead>
-                            <tbody>
+                            <tbody id="settingsStaffTableBody">
                                 
                                 <tr>
                                     <td>
@@ -983,5 +983,233 @@
         }
         window.addEventListener('DOMContentLoaded', applyRealtimeTodayDates);
     </script>
+
+    <script>
+        // Real-Time Branch and Staff Management for Settings Panel
+        let SETTINGS_BRANCHES = [];
+        let SETTINGS_STAFF = [];
+
+        async function loadSettingsBranches() {
+            const tbody = document.getElementById('settingsBranchesTable');
+            if (!tbody) return;
+            try {
+                const res = await fetch('/api/portal?action=branches');
+                const data = await res.json();
+                if (data.branches && data.branches.length > 0) {
+                    SETTINGS_BRANCHES = data.branches;
+                }
+            } catch (err) {
+                console.warn('Could not load branches dynamically:', err);
+            }
+
+            if (!SETTINGS_BRANCHES || SETTINGS_BRANCHES.length === 0) return;
+            tbody.innerHTML = '';
+            SETTINGS_BRANCHES.forEach(b => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><code>${b.branch_code || b.id}</code></td>
+                    <td><strong>${b.name}</strong></td>
+                    <td>${b.address || 'APMC Yard'} ${b.phone ? '• ' + b.phone : ''}</td>
+                    <td style="text-align:center;">
+                        <span class="badge-pill ${b.is_active ? 'badge-green' : 'badge-red'}">
+                            ${b.is_active ? 'Active' : 'Deactivated'}
+                        </span>
+                    </td>
+                    <td style="text-align:right;">
+                        <div style="display:flex; gap:6px; align-items:center; justify-content:flex-end;">
+                            <button type="button" class="btn btn-sm ${b.is_active ? 'btn-danger' : 'btn-secondary'}" onclick="toggleBranchStatus('${b.id}')">
+                                ${b.is_active ? 'Deactivate' : 'Activate'}
+                            </button>
+                            <button type="button" class="btn btn-sm" style="background:#dc2626; color:#fff; border:none; padding:4px 8px; border-radius:4px; font-weight:700; cursor:pointer;" onclick="deleteBranch('${b.id}', '${b.name}')" title="Delete Branch">
+                                🗑️ Delete
+                            </button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        async function toggleBranchStatus(branchId) {
+            try {
+                const res = await fetch('/api/admin/branches', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ branch_id: branchId })
+                });
+                const d = await res.json();
+                if (d.success) {
+                    const b = SETTINGS_BRANCHES.find(x => x.id === branchId);
+                    if (b) b.is_active = !b.is_active;
+                    loadSettingsBranches();
+                } else {
+                    alert('Error: ' + d.error);
+                }
+            } catch (e) {
+                alert('Network error toggling branch: ' + e.message);
+            }
+        }
+
+        async function deleteBranch(branchId, branchName) {
+            if (!branchId) return;
+            if (!confirm(`Are you sure you want to permanently delete Branch "${branchName || branchId}"?\n\nThis will remove the branch station.`)) {
+                return;
+            }
+            try {
+                const res = await fetch('/api/admin/branches', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'delete', branch_id: branchId, id: branchId })
+                });
+                const d = await res.json();
+                if (d.success) {
+                    alert(`✓ Branch "${branchName || branchId}" deleted.`);
+                    SETTINGS_BRANCHES = SETTINGS_BRANCHES.filter(b => b.id !== branchId);
+                    loadSettingsBranches();
+                } else {
+                    alert(`Cannot delete branch: ${d.error || 'Server error'}`);
+                }
+            } catch (e) {
+                alert('Network error deleting branch: ' + e.message);
+            }
+        }
+
+        async function handleCreateBranch(e) {
+            e.preventDefault();
+            const form = e.target;
+            const branch_code = (form.branch_code.value || '').trim();
+            const name = (form.name.value || '').trim();
+            const address = (form.address.value || '').trim();
+            const phone = (form.phone.value || '').trim();
+
+            try {
+                const res = await fetch('/api/admin/branches', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ branch_code, name, address, phone })
+                });
+                const d = await res.json();
+                if (d.success) {
+                    alert(`✓ Branch "${name}" created successfully!`);
+                    form.reset();
+                    SETTINGS_BRANCHES.push({
+                        id: `br-${branch_code.toLowerCase()}`,
+                        branch_code,
+                        name,
+                        address,
+                        phone,
+                        is_active: true
+                    });
+                    loadSettingsBranches();
+                } else {
+                    alert('Error creating branch: ' + d.error);
+                }
+            } catch (err) {
+                alert('Network error creating branch: ' + err.message);
+            }
+        }
+
+        async function loadSettingsStaff() {
+            const tbody = document.getElementById('settingsStaffTableBody');
+            if (!tbody) return;
+            try {
+                const res = await fetch('/api/portal?action=users');
+                const data = await res.json();
+                if (data.users && data.users.length > 0) {
+                    SETTINGS_STAFF = data.users;
+                }
+            } catch (err) {
+                console.warn('Could not load users dynamically:', err);
+            }
+
+            if (!SETTINGS_STAFF || SETTINGS_STAFF.length === 0) return;
+            tbody.innerHTML = '';
+            SETTINGS_STAFF.forEach(u => {
+                const tr = document.createElement('tr');
+                let roleBadge = `<span class="badge-pill badge-green">${u.role}</span>`;
+                if (u.role === 'SUPER_ADMIN') roleBadge = `<span class="badge-pill badge-purple">SUPER_ADMIN</span>`;
+                else if (u.role === 'ACCOUNTANT_HQ') roleBadge = `<span class="badge-pill badge-blue">ACCOUNTANT_HQ</span>`;
+                else if (u.role === 'QUALITY_INSPECTOR') roleBadge = `<span class="badge-pill" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a; font-weight:800;">QUALITY_INSPECTOR</span>`;
+
+                tr.innerHTML = `
+                    <td><strong>${u.branch_name || 'HQ / Central'}</strong></td>
+                    <td>${roleBadge}</td>
+                    <td><strong>${u.full_name || u.username}</strong></td>
+                    <td><code style="font-weight:700; color:#0284c7;">${u.username}</code></td>
+                    <td>${u.phone || '-'}</td>
+                    <td>
+                        <div style="display:flex; gap:6px; align-items:center;">
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="openEditUserModal('${u.id}', '${u.full_name}', '${u.username}', '${u.phone || ''}', '${u.branch_name || ''}', '${u.role}')" style="font-weight:700; white-space:nowrap;">
+                                ✏️ Edit
+                            </button>
+                            ${u.role !== 'SUPER_ADMIN' ? `
+                                <button type="button" class="btn btn-sm ${u.is_active ? 'btn-danger' : 'btn-secondary'}" onclick="toggleUserStatus('${u.id}')">
+                                    ${u.is_active ? 'Deactivate' : 'Activate'}
+                                </button>
+                                <button type="button" class="btn btn-sm" style="background:#dc2626; color:#fff; border:none; padding:4px 8px; border-radius:4px; font-weight:700; cursor:pointer;" onclick="deleteUser('${u.id}', '${u.username}')" title="Delete User">
+                                    🗑️ Delete
+                                </button>
+                            ` : `<span style="font-size:12px; color:var(--text-muted); font-weight:600;">Permanent</span>`}
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        async function toggleUserStatus(userId) {
+            try {
+                const res = await fetch('/api/admin/users', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: userId })
+                });
+                const d = await res.json();
+                if (d.success) {
+                    const u = SETTINGS_STAFF.find(x => x.id === userId);
+                    if (u) u.is_active = !u.is_active;
+                    loadSettingsStaff();
+                } else {
+                    alert('Error: ' + d.error);
+                }
+            } catch (e) {
+                alert('Network error toggling user: ' + e.message);
+            }
+        }
+
+        async function deleteUser(userId, username) {
+            if (!userId) return;
+            if (username === 'admin' || userId === 'usr-admin') {
+                alert('Cannot delete primary SUPER_ADMIN user.');
+                return;
+            }
+            if (!confirm(`Are you sure you want to permanently delete User "${username || userId}"?\n\nThis will remove login credentials for this staff member.`)) {
+                return;
+            }
+            try {
+                const res = await fetch('/api/admin/users', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'delete', user_id: userId, id: userId })
+                });
+                const d = await res.json();
+                if (d.success) {
+                    alert(`✓ User "${username || userId}" deleted.`);
+                    SETTINGS_STAFF = SETTINGS_STAFF.filter(u => u.id !== userId);
+                    loadSettingsStaff();
+                } else {
+                    alert(`Cannot delete user: ${d.error || 'Server error'}`);
+                }
+            } catch (e) {
+                alert('Network error deleting user: ' + e.message);
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            loadSettingsBranches();
+            loadSettingsStaff();
+        });
+    </script>
+
 </body>
 </html>

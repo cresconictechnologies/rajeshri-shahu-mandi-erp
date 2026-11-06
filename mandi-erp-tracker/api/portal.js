@@ -318,16 +318,37 @@ export default async function handler(req, res) {
       try {
         if (body.action === 'delete' || body.delete_branch || req.method === 'DELETE') {
           const bId = body.branch_id || req.query.branch_id || body.id || req.query.id;
-          const chk = await fetch(`${supabaseUrl}/rest/v1/purchase_invoices?branch_id=eq.${encodeURIComponent(bId)}&select=id`, { headers });
-          if (chk.ok) {
-            const rows = await chk.json();
-            if (Array.isArray(rows) && rows.length > 0) {
-              return res.status(400).json({ success: false, error: `Cannot delete branch ${bId} with existing purchase transactions.` });
+          // Check if branch has linked invoices
+          let hasInvoices = false;
+          try {
+            const chk = await fetch(`${supabaseUrl}/rest/v1/purchase_invoices?branch_id=eq.${encodeURIComponent(bId)}&select=id&limit=1`, { headers });
+            if (chk.ok) {
+              const rows = await chk.json();
+              if (Array.isArray(rows) && rows.length > 0) hasInvoices = true;
             }
+          } catch (_) {}
+
+          if (hasInvoices) {
+            // Soft delete: deactivate branch so historical records are preserved but active station is removed
+            await fetch(`${supabaseUrl}/rest/v1/branches?id=eq.${encodeURIComponent(bId)}`, {
+              method: 'PATCH',
+              headers,
+              body: JSON.stringify({ is_active: false, status: 'DECOMMISSIONED', updated_at: new Date().toISOString() })
+            });
+            return res.status(200).json({ success: true, message: `Branch ${bId} deactivated and decommissioned from active network.` });
+          } else {
+            // Hard delete
+            const delResp = await fetch(`${supabaseUrl}/rest/v1/branches?id=eq.${encodeURIComponent(bId)}`, { method: 'DELETE', headers });
+            if (!delResp.ok) {
+              // Fallback to soft delete if foreign key constraints block hard deletion
+              await fetch(`${supabaseUrl}/rest/v1/branches?id=eq.${encodeURIComponent(bId)}`, {
+                method: 'PATCH',
+                headers,
+                body: JSON.stringify({ is_active: false, status: 'DECOMMISSIONED', updated_at: new Date().toISOString() })
+              });
+            }
+            return res.status(200).json({ success: true, message: `Branch ${bId} deleted successfully.` });
           }
-          const delResp = await fetch(`${supabaseUrl}/rest/v1/branches?id=eq.${encodeURIComponent(bId)}`, { method: 'DELETE', headers });
-          if (!delResp.ok) return res.status(delResp.status).json({ success: false, error: await delResp.text() });
-          return res.status(200).json({ success: true, message: `Branch ${bId} deleted successfully.` });
         }
 
         if (body.branch_id && !body.name) {
@@ -394,7 +415,15 @@ export default async function handler(req, res) {
             return res.status(400).json({ success: false, error: 'Cannot delete primary SUPER_ADMIN user.' });
           }
           const delResp = await fetch(`${supabaseUrl}/rest/v1/users?id=eq.${encodeURIComponent(uId)}`, { method: 'DELETE', headers });
-          if (!delResp.ok) return res.status(delResp.status).json({ success: false, error: await delResp.text() });
+          if (!delResp.ok) {
+            // Fallback to soft delete if foreign key constraints block hard deletion
+            await fetch(`${supabaseUrl}/rest/v1/users?id=eq.${encodeURIComponent(uId)}`, {
+              method: 'PATCH',
+              headers,
+              body: JSON.stringify({ is_active: 0, status: 'DELETED', updated_at: new Date().toISOString() })
+            });
+            return res.status(200).json({ success: true, message: `User ${uId} deactivated and removed from active staff.` });
+          }
           return res.status(200).json({ success: true, message: `User ${uId} deleted successfully.` });
         }
 

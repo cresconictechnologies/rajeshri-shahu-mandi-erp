@@ -462,7 +462,7 @@ export default async function handler(req, res) {
           name: name,
           hsn_code: body.hsn_code || '1201',
           standard_moisture_pct: parseFloat(body.standard_moisture_pct) || 10.0,
-          is_active: true,
+          is_active: 1,
           created_at: new Date().toISOString()
         };
 

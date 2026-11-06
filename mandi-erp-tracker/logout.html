@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Signing Out — Mandi ERP</title>
+    <link rel="stylesheet" href="/static/theme.css">
+    <script>
+        try {
+            localStorage.removeItem('mandi_user');
+            localStorage.removeItem('mandi_auth');
+            sessionStorage.clear();
+        } catch(e) {}
+        window.location.replace('/login');
+    </script>
+</head>
+<body style="display:flex; align-items:center; justify-content:center; min-height:100vh; background:#0f172a; color:#f8fafc; font-family:sans-serif; text-align:center;">
+    <div style="background:rgba(255,255,255,0.05); padding:30px; border-radius:12px; border:1px solid rgba(255,255,255,0.1);">
+        <div style="font-size:36px; margin-bottom:12px;">🚪</div>
+        <h2 style="margin:0 0 8px 0; font-size:18px;">Signing Out...</h2>
+        <p style="color:#94a3b8; font-size:13px; margin:0 0 15px 0;">Clearing session credentials and redirecting to login terminal.</p>
+        <a href="/login" style="color:#38bdf8; font-weight:700; text-decoration:none; font-size:13px;">Click here if not redirected automatically →</a>
+    </div>
+</body>
+</html>

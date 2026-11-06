@@ -1129,6 +1129,89 @@
             });
         }
 
+                // Render Live Commodity Stock Cards (Zero Stock Hidden)
+        function renderCommodityStockGrid(invoices) {
+            const grid = document.getElementById('commodityStockGrid');
+            const badge = document.getElementById('badgeCommInStock');
+            if (!grid) return;
+
+            if (!invoices || invoices.length === 0) {
+                grid.innerHTML = `
+                    <div style="grid-column:1/-1; text-align:center; padding:30px; color:var(--text-muted); font-size:14px; font-weight:600;">
+                        📦 Zero stock available across all commodities. Commodity cards will appear here automatically when inward purchases are registered.
+                    </div>
+                `;
+                if (badge) badge.innerText = '0 Commodities In Stock';
+                return;
+            }
+
+            const commMap = {};
+            invoices.forEach(inv => {
+                const cName = inv.commodity_name || 'Standard Commodity';
+                const qtl = parseFloat(inv.net_quintals) || 0;
+                const amt = parseFloat(inv.net_payable_amount) || 0;
+                if (!commMap[cName]) {
+                    commMap[cName] = { qtl: 0, amt: 0, count: 0, branches: new Set() };
+                }
+                commMap[cName].qtl += qtl;
+                commMap[cName].amt += amt;
+                commMap[cName].count += 1;
+                if (inv.branch_name) commMap[cName].branches.add(inv.branch_name);
+            });
+
+            const activeComms = Object.keys(commMap).filter(k => commMap[k].qtl > 0);
+            if (badge) badge.innerText = `${activeComms.length} Commodities In Stock`;
+
+            if (activeComms.length === 0) {
+                grid.innerHTML = `
+                    <div style="grid-column:1/-1; text-align:center; padding:30px; color:var(--text-muted); font-size:14px; font-weight:600;">
+                        📦 Zero stock available across all commodities.
+                    </div>
+                `;
+                return;
+            }
+
+            grid.innerHTML = '';
+            activeComms.sort((a, b) => commMap[b].qtl - commMap[a].qtl).forEach(cName => {
+                const item = commMap[cName];
+                const avg = item.qtl > 0 ? (item.amt / item.qtl) : 0;
+                const card = document.createElement('div');
+                card.className = 'card clickable-card';
+                card.style.cssText = 'padding:16px; border-radius:12px; background:#ffffff; border:1.5px solid var(--card-border); transition:transform 0.15s ease, box-shadow 0.15s ease; box-shadow:0 1px 3px rgba(0,0,0,0.06);';
+                card.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px;">
+                        <div>
+                            <span style="font-size:11px; text-transform:uppercase; font-weight:800; color:#0284c7; letter-spacing:0.5px;">Physical Holding</span>
+                            <h3 style="font-size:15px; font-weight:800; color:#0f172a; margin:2px 0 0 0;">🌾 ${cName}</h3>
+                        </div>
+                        <span class="badge-pill badge-green" style="font-size:11px;">Active</span>
+                    </div>
+                    <div style="margin:12px 0; padding:10px 12px; background:#f8fafc; border-radius:8px; border:1px solid #e2e8f0;">
+                        <span style="font-size:11px; color:var(--text-muted); font-weight:600;">Total Procured Volume</span>
+                        <div style="font-size:22px; font-weight:900; color:#0f172a; margin-top:2px;">
+                            ${item.qtl.toFixed(2)} <span style="font-size:14px; font-weight:700; color:#64748b;">Qtl</span>
+                            <span style="font-size:12px; font-weight:700; color:#059669; margin-left:6px;">(${(item.qtl/10).toFixed(2)} MT)</span>
+                        </div>
+                    </div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:12px;">
+                        <div>
+                            <span style="color:var(--text-muted); font-size:11px;">Avg Buying Rate:</span>
+                            <div style="font-weight:800; color:#0f172a; font-size:13px;">₹${Math.round(avg).toLocaleString()}/Qtl</div>
+                        </div>
+                        <div>
+                            <span style="color:var(--text-muted); font-size:11px;">Total Outlay:</span>
+                            <div style="font-weight:800; color:#059669; font-size:13px;">₹${item.amt.toLocaleString(undefined, {minimumFractionDigits:2})}</div>
+                        </div>
+                    </div>
+                    <div style="margin-top:10px; padding-top:8px; border-top:1px dashed #e2e8f0; font-size:11.5px; color:var(--text-muted); display:flex; justify-content:space-between;">
+                        <span>Batches Weighed: <strong>${item.count}</strong></span>
+                        <span>Location: <strong>${Array.from(item.branches).join(', ') || 'Chikhali Yard'}</strong></span>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
         // Live Admin Data Loader
         async function loadAdminData() {
             try {
@@ -1150,6 +1233,7 @@
             renderCommoditiesTable(ADMIN_CACHE.commodities);
             renderInvoicesTable(ADMIN_CACHE.invoices);
             renderInspectionsTable(ADMIN_CACHE.inspections);
+            renderCommodityStockGrid(ADMIN_CACHE.invoices);
         }
 
         // Action Handlers

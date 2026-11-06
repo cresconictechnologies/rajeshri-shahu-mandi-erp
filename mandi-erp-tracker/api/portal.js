@@ -196,7 +196,27 @@ export default async function handler(req, res) {
         const resp = await fetch(`${supabaseUrl}/rest/v1/purchase_invoices?select=*${branchFilter}${targetDate}&order=created_at.desc&limit=150`, { headers });
         if (!resp.ok) return res.status(200).json({ success: true, invoices: [] });
         const rows = await resp.json();
-        return res.status(200).json({ success: true, invoices: Array.isArray(rows) ? rows : [] });
+        const invoices = Array.isArray(rows) ? rows : [];
+        try {
+          const [partiesResp, branchesResp] = await Promise.all([
+            fetch(`${supabaseUrl}/rest/v1/parties?select=id,name,party_type`, { headers }),
+            fetch(`${supabaseUrl}/rest/v1/branches?select=id,name`, { headers })
+          ]);
+          const parties = partiesResp.ok ? await partiesResp.json() : [];
+          const branches = branchesResp.ok ? await branchesResp.json() : [];
+          const partyMap = {};
+          parties.forEach(p => { partyMap[p.id] = p; });
+          const branchMap = {};
+          branches.forEach(b => { branchMap[b.id] = b.name; });
+
+          invoices.forEach(inv => {
+            const p = partyMap[inv.party_id];
+            inv.party_name = p ? p.name : (inv.party_id ? inv.party_id.replace('party-', '').replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : 'Farmer');
+            inv.party_type = p ? p.party_type : (inv.party_type || 'FARMER');
+            inv.branch_name = branchMap[inv.branch_id] || (inv.branch_id === 'br-chikhali' ? 'Chikhali APMC Main Yard' : (inv.branch_id === 'br-varvand' ? 'Varvand Yard' : (inv.branch_id === 'br-sarola' ? 'Sarola Maruti Yard' : 'APMC Yard')));
+          });
+        } catch (_) {}
+        return res.status(200).json({ success: true, invoices });
       } catch (err) {
         return res.status(200).json({ success: true, invoices: [], error: err.message });
       }
@@ -903,12 +923,13 @@ export default async function handler(req, res) {
 
   if (action === 'admin_data') {
     try {
-      const [invoicesResp, inspectionsResp, branchesResp, usersResp, commoditiesResp] = await Promise.all([
+      const [invoicesResp, inspectionsResp, branchesResp, usersResp, commoditiesResp, partiesResp] = await Promise.all([
         fetch(`${supabaseUrl}/rest/v1/purchase_invoices?select=*&order=created_at.desc&limit=150`, { headers }),
         fetch(`${supabaseUrl}/rest/v1/quality_inspections?select=*&order=created_at.desc&limit=100`, { headers }),
         fetch(`${supabaseUrl}/rest/v1/branches?select=*&order=created_at.asc`, { headers }),
         fetch(`${supabaseUrl}/rest/v1/users?select=*&order=created_at.asc`, { headers }),
-        fetch(`${supabaseUrl}/rest/v1/commodities?select=*&order=name.asc`, { headers })
+        fetch(`${supabaseUrl}/rest/v1/commodities?select=*&order=name.asc`, { headers }),
+        fetch(`${supabaseUrl}/rest/v1/parties?select=id,name,party_type`, { headers })
       ]);
 
       const invoices = invoicesResp.ok ? await invoicesResp.json() : [];
@@ -921,11 +942,22 @@ export default async function handler(req, res) {
       let totalDisbursed = 0.0;
       let totalPnl = 0.0;
 
+      const parties = partiesResp && partiesResp.ok ? await partiesResp.json() : [];
+      const partyMap = {};
+      parties.forEach(p => { partyMap[p.id] = p; });
+      const branchMap = {};
+      branches.forEach(b => { branchMap[b.id] = b.name; });
+
       for (const inv of invoices) {
         const qtl = parseFloat(inv.net_quintals) || 0.0;
         const amt = parseFloat(inv.net_payable_amount) || 0.0;
         totalQuintals += qtl;
         totalDisbursed += amt;
+
+        const p = partyMap[inv.party_id];
+        inv.party_name = p ? p.name : (inv.party_id ? inv.party_id.replace('party-', '').replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : 'Farmer');
+        inv.party_type = p ? p.party_type : (inv.party_type || 'FARMER');
+        inv.branch_name = branchMap[inv.branch_id] || (inv.branch_id === 'br-chikhali' ? 'Chikhali APMC Main Yard' : (inv.branch_id === 'br-varvand' ? 'Varvand Yard' : (inv.branch_id === 'br-sarola' ? 'Sarola Maruti Yard' : 'APMC Yard')));
       }
 
       return res.status(200).json({
@@ -954,13 +986,15 @@ export default async function handler(req, res) {
   // =========================================================================
   if (action === 'accounts_data') {
     try {
-      const [ratesResp, invoicesResp, outwardResp, inspectorsResp, commoditiesResp, ledgersResp] = await Promise.all([
+      const [ratesResp, invoicesResp, outwardResp, inspectorsResp, commoditiesResp, ledgersResp, partiesResp, branchesResp] = await Promise.all([
         fetch(`${supabaseUrl}/rest/v1/daily_commodity_rates?select=*&order=updated_at.desc&limit=100`, { headers }),
         fetch(`${supabaseUrl}/rest/v1/purchase_invoices?select=*&order=created_at.desc&limit=200`, { headers }),
         fetch(`${supabaseUrl}/rest/v1/outward_orders?select=*&order=created_at.desc&limit=100`, { headers }),
         fetch(`${supabaseUrl}/rest/v1/inspectors?select=*&order=name.asc`, { headers }),
         fetch(`${supabaseUrl}/rest/v1/commodities?select=*&order=name.asc`, { headers }),
-        fetch(`${supabaseUrl}/rest/v1/ledger_entries?select=*&order=created_at.desc&limit=100`, { headers })
+        fetch(`${supabaseUrl}/rest/v1/ledger_entries?select=*&order=created_at.desc&limit=100`, { headers }),
+        fetch(`${supabaseUrl}/rest/v1/parties?select=id,name,party_type`, { headers }),
+        fetch(`${supabaseUrl}/rest/v1/branches?select=id,name`, { headers })
       ]);
 
       const rawRates = ratesResp.ok ? await ratesResp.json() : [];

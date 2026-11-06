@@ -333,7 +333,7 @@ export default async function handler(req, res) {
             await fetch(`${supabaseUrl}/rest/v1/branches?id=eq.${encodeURIComponent(bId)}`, {
               method: 'PATCH',
               headers,
-              body: JSON.stringify({ is_active: false, status: 'DECOMMISSIONED', updated_at: new Date().toISOString() })
+              body: JSON.stringify({ is_active: 0, status: 'DECOMMISSIONED', updated_at: new Date().toISOString() })
             });
             return res.status(200).json({ success: true, message: `Branch ${bId} deactivated and decommissioned from active network.` });
           } else {
@@ -344,7 +344,7 @@ export default async function handler(req, res) {
               await fetch(`${supabaseUrl}/rest/v1/branches?id=eq.${encodeURIComponent(bId)}`, {
                 method: 'PATCH',
                 headers,
-                body: JSON.stringify({ is_active: false, status: 'DECOMMISSIONED', updated_at: new Date().toISOString() })
+                body: JSON.stringify({ is_active: 0, status: 'DECOMMISSIONED', updated_at: new Date().toISOString() })
               });
             }
             return res.status(200).json({ success: true, message: `Branch ${bId} deleted successfully.` });
@@ -356,7 +356,7 @@ export default async function handler(req, res) {
           const resp = await fetch(`${supabaseUrl}/rest/v1/branches?id=eq.${encodeURIComponent(body.branch_id)}`, { headers });
           if (resp.ok) {
             const current = (await resp.json())[0];
-            const newStatus = current ? !current.is_active : true;
+            const newStatus = (current && (current.is_active === 1 || current.is_active === true)) ? 0 : 1;
             await fetch(`${supabaseUrl}/rest/v1/branches?id=eq.${encodeURIComponent(body.branch_id)}`, {
               method: 'PATCH',
               headers,
@@ -374,7 +374,7 @@ export default async function handler(req, res) {
           mandi_license_no: body.mandi_license_no || 'MH/APMC-GEN',
           address: body.address || '',
           phone: body.phone || '',
-          is_active: true,
+          is_active: 1,
           created_at: new Date().toISOString()
         };
 
@@ -432,7 +432,7 @@ export default async function handler(req, res) {
           const resp = await fetch(`${supabaseUrl}/rest/v1/users?id=eq.${encodeURIComponent(body.user_id)}`, { headers });
           if (resp.ok) {
             const current = (await resp.json())[0];
-            const newStatus = current ? !current.is_active : true;
+            const newStatus = (current && (current.is_active === 1 || current.is_active === true)) ? 0 : 1;
             await fetch(`${supabaseUrl}/rest/v1/users?id=eq.${encodeURIComponent(body.user_id)}`, {
               method: 'PATCH',
               headers,
@@ -450,7 +450,7 @@ export default async function handler(req, res) {
           role: body.role,
           phone: body.phone || '',
           branch_id: body.branch_id || null,
-          is_active: true,
+          is_active: 1,
           created_at: new Date().toISOString()
         };
 
@@ -564,7 +564,14 @@ export default async function handler(req, res) {
         if (body.action === 'delete' || body.delete_inspector || req.method === 'DELETE') {
           const insId = body.inspector_id || req.query.inspector_id || body.id || req.query.id;
           const delResp = await fetch(`${supabaseUrl}/rest/v1/inspectors?id=eq.${encodeURIComponent(insId)}`, { method: 'DELETE', headers });
-          if (!delResp.ok) return res.status(delResp.status).json({ success: false, error: await delResp.text() });
+          if (!delResp.ok) {
+            await fetch(`${supabaseUrl}/rest/v1/inspectors?id=eq.${encodeURIComponent(insId)}`, {
+              method: 'PATCH',
+              headers,
+              body: JSON.stringify({ is_active: 0, updated_at: new Date().toISOString() })
+            });
+            return res.status(200).json({ success: true, message: `Inspector ${insId} deactivated and removed.` });
+          }
           return res.status(200).json({ success: true, message: `Inspector ${insId} deleted successfully.` });
         }
 
@@ -576,7 +583,7 @@ export default async function handler(req, res) {
           phone: body.phone || '',
           branch_id: body.branch_id || 'br-chikhali',
           username: body.username || id,
-          is_active: true,
+          is_active: 1,
           updated_at: new Date().toISOString()
         };
 

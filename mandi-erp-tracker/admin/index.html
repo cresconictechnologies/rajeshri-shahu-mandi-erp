@@ -1,6 +1,32 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <!-- Mandi ERP Authentication Guard: Enforce Super Admin Login -->
+    <script>
+        (function() {
+            try {
+                var userStr = localStorage.getItem('mandi_user');
+                if (!userStr) {
+                    window.location.replace('/login?redirect=' + encodeURIComponent(window.location.pathname + window.location.search));
+                    return;
+                }
+                var user = JSON.parse(userStr);
+                if (!user || !user.role) {
+                    localStorage.removeItem('mandi_user');
+                    window.location.replace('/login?redirect=' + encodeURIComponent(window.location.pathname + window.location.search));
+                    return;
+                }
+                if (user.role !== 'SUPER_ADMIN') {
+                    if (user.role === 'ACCOUNTANT_HQ') window.location.replace('/accounts');
+                    else if (user.role === 'INSPECTOR' || user.role === 'QUALITY_INSPECTOR') window.location.replace('/app');
+                    else window.location.replace('/portal');
+                }
+            } catch (e) {
+                localStorage.removeItem('mandi_user');
+                window.location.replace('/login?redirect=' + encodeURIComponent(window.location.pathname + window.location.search));
+            }
+        })();
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Super Admin Executive Portal — Mandi ERP</title>

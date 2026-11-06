@@ -1,6 +1,26 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <!-- Mandi ERP Authentication Guard: Enforce Staff Login -->
+    <script>
+        (function() {
+            try {
+                var userStr = localStorage.getItem('mandi_user');
+                if (!userStr) {
+                    window.location.replace('/login?redirect=' + encodeURIComponent(window.location.pathname + window.location.search));
+                    return;
+                }
+                var user = JSON.parse(userStr);
+                if (!user || !user.role) {
+                    localStorage.removeItem('mandi_user');
+                    window.location.replace('/login?redirect=' + encodeURIComponent(window.location.pathname + window.location.search));
+                }
+            } catch (e) {
+                localStorage.removeItem('mandi_user');
+                window.location.replace('/login?redirect=' + encodeURIComponent(window.location.pathname + window.location.search));
+            }
+        })();
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Branch Yard Terminal — Rajarshi Shahu Trading (Powered by Cresconic)</title>

@@ -311,6 +311,33 @@
         });
     }
 
+        function completeLogin(user) {
+        localStorage.setItem('mandi_user', JSON.stringify(user));
+        const urlParams = new URLSearchParams(window.location.search);
+        const redirectUrl = urlParams.get('redirect');
+
+        if (redirectUrl && !redirectUrl.startsWith('//') && !redirectUrl.startsWith('http')) {
+            if (redirectUrl === '/portal' || redirectUrl.startsWith('/portal?')) {
+                if (user.branch_id && user.branch_id !== 'all' && !redirectUrl.includes('branch_id=')) {
+                    window.location.href = '/portal?branch_id=' + encodeURIComponent(user.branch_id);
+                    return;
+                }
+            }
+            window.location.href = redirectUrl;
+            return;
+        }
+
+        if (user.role === 'INSPECTOR' || user.role === 'QUALITY_INSPECTOR') {
+            window.location.href = '/app';
+        } else if (user.role === 'SUPER_ADMIN') {
+            window.location.href = '/admin';
+        } else if (user.role === 'ACCOUNTANT_HQ') {
+            window.location.href = '/accounts';
+        } else {
+            window.location.href = '/portal?branch_id=' + (user.branch_id || 'br-chikhali');
+        }
+    }
+
     async function handleLoginSubmit(event) {
         event.preventDefault();
         const username = document.getElementById('username').value.trim();
@@ -333,19 +360,7 @@
             const data = await res.json();
 
             if (data.success && data.user) {
-                // Save user session to localStorage
-                localStorage.setItem('mandi_user', JSON.stringify(data.user));
-
-                // Route by role to dedicated dashboard
-                if (data.user.role === 'INSPECTOR') {
-                    window.location.href = '/app';
-                } else if (data.user.role === 'SUPER_ADMIN') {
-                    window.location.href = '/admin';
-                } else if (data.user.role === 'ACCOUNTANT_HQ') {
-                    window.location.href = '/accounts';
-                } else {
-                    window.location.href = '/portal?branch_id=' + (data.user.branch_id || 'br-chikhali');
-                }
+                completeLogin(data.user);
             } else {
                 errorMsg.innerText = data.error || 'Invalid staff username or password.';
                 errorBox.style.display = 'flex';
@@ -366,16 +381,7 @@
             };
 
             if (LOCAL_USERS[uLower]) {
-                localStorage.setItem('mandi_user', JSON.stringify(LOCAL_USERS[uLower]));
-                if (LOCAL_USERS[uLower].role === 'INSPECTOR') {
-                    window.location.href = '/app';
-                } else if (LOCAL_USERS[uLower].role === 'SUPER_ADMIN') {
-                    window.location.href = '/admin';
-                } else if (LOCAL_USERS[uLower].role === 'ACCOUNTANT_HQ') {
-                    window.location.href = '/accounts';
-                } else {
-                    window.location.href = '/portal?branch_id=' + (LOCAL_USERS[uLower].branch_id || 'br-chikhali');
-                }
+                completeLogin(LOCAL_USERS[uLower]);
             } else {
                 errorMsg.innerText = 'Authentication error. Please check your network or credentials.';
                 errorBox.style.display = 'flex';

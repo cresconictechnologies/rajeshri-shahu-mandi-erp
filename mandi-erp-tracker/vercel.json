@@ -257,6 +257,10 @@
     {
       "source": "/api/health",
       "destination": "/api/portal?action=summary"
+    },
+    {
+      "source": "/api/rates",
+      "destination": "/api/portal?action=rates"
     }
   ],
   "headers": [

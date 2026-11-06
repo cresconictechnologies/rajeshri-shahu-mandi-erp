@@ -6,6 +6,50 @@
     <title>Super Admin Executive Portal — Mandi ERP</title>
     <link rel="stylesheet" href="/static/theme.css">
     <style>
+        html, body {
+            max-width: 100vw;
+            overflow-x: hidden;
+        }
+        .header-card {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px 16px;
+            padding: 12px 20px;
+            margin-bottom: 20px;
+            box-sizing: border-box;
+            width: 100%;
+        }
+        .header-cluster-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex: 1 1 280px;
+            min-width: 0;
+        }
+        .header-cluster-center {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 0 1 auto;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .header-cluster-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 0 1 auto;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+        .table-responsive {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            margin-bottom: 12px;
+        }
         .form-row {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -29,10 +73,10 @@
         <!-- CLUSTER 1: BRAND IDENTITY & CONTEXT -->
         <div class="header-cluster-left">
             <div>
-                <h1 style="font-size:20px; font-weight:800; display:flex; align-items:center; gap:8px; margin:0;">
+                <h1 style="font-size:18px; font-weight:800; display:flex; align-items:center; gap:8px; margin:0; flex-wrap:wrap;">
                     <span>🏛️</span> Rajarshi Shahu Trading
-                    <span class="brand-badge badge-admin">Super Admin Command Center</span>
-                    <span style="font-size:10.5px; font-weight:700; color:#0284c7; background:#e0f2fe; padding:2px 8px; border-radius:6px; border:1px solid #bae6fd;">Powered by Cresconic</span>
+                    <span class="brand-badge badge-admin" style="font-size:11px; padding:2px 8px;">Super Admin</span>
+                    <span style="font-size:10px; font-weight:700; color:#0284c7; background:#e0f2fe; padding:2px 7px; border-radius:6px; border:1px solid #bae6fd;">Powered by Cresconic</span>
                 </h1>
                 <p style="font-size:12px; color:var(--text-muted); margin-top:2px;">
                     Organization Overview • Branches: Chikhali, Varvand, Dhad • Port 8080 Active
@@ -50,7 +94,7 @@
                 {% endif %}
             </form>
             <!-- Quick Yard Jump Dropdown -->
-            <select onchange="if(this.value) window.open(this.value, '_blank')" style="background:#f8fafc; border:1.5px solid #cbd5e1; padding:5px 10px; border-radius:8px; font-size:12px; font-weight:700; color:#0f172a; cursor:pointer;" title="Open Branch Yard Desk in New Tab">
+            <select onchange="if(this.value) window.open(this.value, '_blank')" style="background:#f8fafc; border:1.5px solid #cbd5e1; padding:4px 8px; border-radius:8px; font-size:11.5px; font-weight:700; color:#0f172a; cursor:pointer;" title="Open Branch Yard Desk in New Tab">
                 <option value="">🚀 Jump to Yard Desk...</option>
                 <option value="/branch/dashboard?branch_id=BR-CHK">🌾 Chikhali APMC Yard</option>
                 <option value="/branch/dashboard?branch_id=BR-VRV">🌾 Varvand Yard</option>
@@ -62,7 +106,7 @@
         <div class="header-cluster-right">
             <!-- System Health Pill & Diagnostic Popover -->
             <div style="position:relative;" id="healthPopoverWrapper">
-                <div class="system-health-pill" id="systemHealthPill" onclick="toggleSystemHealthPopover()" title="Click for Live Sync & Supabase Cloud Diagnostics">
+                <div class="system-health-pill" id="systemHealthPill" onclick="toggleSystemHealthPopover()" title="Click for Live Sync & Supabase Cloud Diagnostics" style="padding:4px 10px; font-size:11.5px;">
                     <span class="live-dot-pulse" style="width:7px; height:7px; border-radius:50%; background:#10b981; box-shadow:0 0 6px #10b981;"></span>
                     <span id="healthPillText">System Healthy</span>
                     <span style="font-size:10px; opacity:0.7;">▾</span>
@@ -99,7 +143,7 @@
 
             <!-- Quick Tools Dropdown (Replaces 4 Cluttered Buttons) -->
             <div class="quick-tools-wrapper" id="quickToolsWrapper">
-                <button type="button" class="quick-tools-btn" onclick="toggleQuickToolsMenu()" title="Admin Tools & Configuration">
+                <button type="button" class="quick-tools-btn" onclick="toggleQuickToolsMenu()" title="Admin Tools & Configuration" style="padding:4px 10px; font-size:11.5px;">
                     <span>⚡ Admin Tools</span>
                     <span style="font-size:10px;">▾</span>
                 </button>
@@ -172,7 +216,7 @@
         </div>
 
         {% if active_commodity_stock_cards %}
-        <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 18px;">
+        <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 18px;">
             {% for cs in active_commodity_stock_cards %}
             <div class="card clickable-card" onclick="openBranchStockModal('{{ cs.name }}', '{{ cs.icon }}', '{{ cs.hsn_code }}', {{ cs.total_stock_qtl }}, {{ cs.avg_buying_price }}, {{ cs.total_stock_mt }}, {{ loop.index0 }})" style="border:1.5px solid var(--card-border); margin-bottom:0; background:#ffffff; box-shadow:var(--shadow-sm); padding:18px;">
                 <script type="application/json" id="branch-data-{{ loop.index0 }}">{{ cs.branch_json|safe }}</script>
@@ -263,6 +307,7 @@
                     <span class="badge-pill badge-green">Live Database Feed</span>
                 </div>
             </div>
+            <div class="table-responsive">
             <table>
                 <thead>
                     <tr>
@@ -329,6 +374,7 @@
                     {% endfor %}
                 </tbody>
             </table>
+            </div>
         </div>
     </div>
 
@@ -371,6 +417,7 @@
             <div class="card-header">
                 <h2><span>📋</span> Configured Branches</h2>
             </div>
+            <div class="table-responsive">
             <table>
                 <thead>
                     <tr>
@@ -465,6 +512,7 @@
             <div class="card-header">
                 <h2><span>👥</span> Registered System Users</h2>
             </div>
+            <div class="table-responsive">
             <table>
                 <thead>
                     <tr>
@@ -552,6 +600,7 @@
             <div class="card-header">
                 <h2><span>📑</span> Active Commodities</h2>
             </div>
+            <div class="table-responsive">
             <table>
                 <thead>
                     <tr>

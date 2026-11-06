@@ -75,6 +75,62 @@
       "destination": "/api/portal?action=outward"
     },
     {
+      "source": "/api/admin/data",
+      "destination": "/api/portal?action=admin_data"
+    },
+    {
+      "source": "/api/admin/branches",
+      "destination": "/api/portal?action=branches"
+    },
+    {
+      "source": "/api/admin/branches/toggle",
+      "destination": "/api/portal?action=branches"
+    },
+    {
+      "source": "/api/admin/users",
+      "destination": "/api/portal?action=users"
+    },
+    {
+      "source": "/api/admin/users/toggle",
+      "destination": "/api/portal?action=users"
+    },
+    {
+      "source": "/api/admin/commodities",
+      "destination": "/api/portal?action=commodities"
+    },
+    {
+      "source": "/api/accounts/data",
+      "destination": "/api/portal?action=accounts_data"
+    },
+    {
+      "source": "/api/accounts/rates",
+      "destination": "/api/portal?action=rates"
+    },
+    {
+      "source": "/api/accounts/rate-overrides/action",
+      "destination": "/api/portal?action=overrides"
+    },
+    {
+      "source": "/api/accounts/rtgs/process",
+      "destination": "/api/portal?action=invoices"
+    },
+    {
+      "source": "/api/accounts/inspectors",
+      "destination": "/api/portal?action=inspectors"
+    },
+    {
+      "source": "/api/accounts/inspectors/update",
+      "destination": "/api/portal?action=inspectors"
+    },
+    {
+      "source": "/api/accounts/inspectors/toggle",
+      "destination": "/api/portal?action=inspectors"
+    },
+    {
+      "source": "/api/accounts/outward/receive-payment",
+      "destination": "/api/portal?action=outward"
+    },
+    {
       "source": "/api/branch/rates",
       "destination": "/api/portal?action=rates"
     },

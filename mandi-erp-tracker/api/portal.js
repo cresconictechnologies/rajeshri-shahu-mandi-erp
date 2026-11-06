@@ -15,7 +15,34 @@ export default async function handler(req, res) {
   const supabaseUrl = process.env.SUPABASE_URL || `https://${projectRef}.supabase.co`;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY || process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRiaGNwZWJjaG95anlmZnFqZ2loIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MzIwODA1NywiZXhwIjoyMTA4Nzg0MDU3fQ.X3zOVSoIDOsp6ppSJ4SvgQFfQTVJnBmPeKclXnzRaS0';
 
-  const action = req.query.action || (req.url.includes('/auth') ? 'auth' : (req.url.includes('/rates') ? 'rates' : (req.url.includes('/invoices') ? 'invoices' : 'summary')));
+  let action = req.query.action;
+  if (!action) {
+    if (req.url.includes('/auth')) action = 'auth';
+    else if (req.url.includes('/rates')) action = 'rates';
+    else if (req.url.includes('/invoices')) action = 'invoices';
+    else if (req.url.includes('/branches')) action = 'branches';
+    else if (req.url.includes('/users')) action = 'users';
+    else if (req.url.includes('/commodities')) action = 'commodities';
+    else if (req.url.includes('/inspectors')) action = 'inspectors';
+    else if (req.url.includes('/overrides')) action = 'overrides';
+    else if (req.url.includes('/outward')) action = 'outward';
+    else if (req.url.includes('/admin/data')) action = 'admin_data';
+    else if (req.url.includes('/accounts/data')) action = 'accounts_data';
+    else action = 'summary';
+  }
+
+  const headers = {
+    'apikey': serviceKey,
+    'Authorization': `Bearer ${serviceKey}`,
+    'Content-Type': 'application/json'
+  };
+
+  // Helper to parse body
+  let body = req.body;
+  if (typeof body === 'string') {
+    try { body = JSON.parse(body); } catch (_) {}
+  }
+  body = body || {};
 
   // =========================================================================
   // 1. AUTH ACTION
@@ -23,8 +50,6 @@ export default async function handler(req, res) {
   if (action === 'auth') {
     if (req.method !== 'POST') return res.status(405).json({ success: false, error: 'Method Not Allowed' });
     try {
-      let body = req.body;
-      if (typeof body === 'string') { try { body = JSON.parse(body); } catch (_) {} }
       const username = (body.username || '').trim().toLowerCase();
       const password = (body.password || '').trim();
 
@@ -40,185 +65,59 @@ export default async function handler(req, res) {
         'inspector': { name: 'Universal Quality Inspector', role: 'QUALITY_INSPECTOR', panel: 'inspector', branch_id: 'br-chikhali', yard_code: 'CHK', branch_name: 'Chikhali APMC Yard', passwords: ['insp123', 'qc123', 'insp@123', '123456'] }
       };
 
-      const staff = STAFF_DIRECTORY[username];
-      if (!staff) {
-        return res.status(401).json({ success: false, error: 'Invalid username. Please select one of the pre-configured accounts (e.g. admin, accountant, chikhali, varvand, sarola, dhad).' });
-      }
-
-      const isValidPassword = staff.passwords.includes(password) || password === 'admin123' || password === 'insp123' || password === '123456';
-      if (!isValidPassword) {
-        return res.status(401).json({ success: false, error: 'Incorrect password for this staff role.' });
-      }
-
-      const token = Buffer.from(`${username}:${staff.role}:${Date.now()}`).toString('base64');
-      return res.status(200).json({
-        success: true,
-        message: `Welcome, ${staff.name}!`,
-        token: token,
-        user: {
-          username: username,
-          name: staff.name,
-          role: staff.role,
-          panel: staff.panel,
-          branch_id: staff.branch_id,
-          branch_name: staff.branch_name,
-          yard_code: staff.yard_code || 'CHK'
+      if (STAFF_DIRECTORY[username]) {
+        const staff = STAFF_DIRECTORY[username];
+        if (staff.passwords.includes(password)) {
+          return res.status(200).json({
+            success: true,
+            user: {
+              username,
+              name: staff.name,
+              role: staff.role,
+              panel: staff.panel,
+              branch_id: staff.branch_id,
+              branch_name: staff.branch_name,
+              yard_code: staff.yard_code || 'HQ',
+              mandi_license: 'MH/STATE/ERP-PRO',
+              token: 'jwt-session-' + Date.now()
+            }
+          });
         }
-      });
+      }
+
+      // Check Supabase users table
+      try {
+        const resp = await fetch(`${supabaseUrl}/rest/v1/users?username=ilike.${encodeURIComponent(username)}&limit=1`, { headers });
+        if (resp.ok) {
+          const rows = await resp.json();
+          if (Array.isArray(rows) && rows.length > 0) {
+            const u = rows[0];
+            return res.status(200).json({
+              success: true,
+              user: {
+                username: u.username,
+                name: u.full_name,
+                role: u.role,
+                panel: u.role === 'SUPER_ADMIN' ? 'admin' : (u.role === 'ACCOUNTANT_HQ' ? 'accountant' : (u.role === 'QUALITY_INSPECTOR' ? 'inspector' : 'branch')),
+                branch_id: u.branch_id || 'br-chikhali',
+                branch_name: u.branch_name || 'Assigned Yard',
+                yard_code: u.branch_id ? u.branch_id.replace('br-', '').toUpperCase() : 'HQ',
+                mandi_license: 'MH/STATE/ERP-PRO',
+                token: 'jwt-session-' + Date.now()
+              }
+            });
+          }
+        }
+      } catch (_) {}
+
+      return res.status(401).json({ success: false, error: 'Invalid terminal credentials.' });
     } catch (err) {
       return res.status(500).json({ success: false, error: err.message });
     }
   }
 
-    
   // =========================================================================
-  // 1B. CALCULATE ACTION (INSTANT SERVERLESS WEIGHMENT MATH)
-  // =========================================================================
-  if (action === 'calculate') {
-    const gross = parseFloat(req.query.gross_weight_kg || 0);
-    const tare = parseFloat(req.query.vehicle_tare_kg || 0);
-    const moisture = parseFloat(req.query.moisture_percentage || 0);
-    const rate = parseFloat(req.query.rate_per_quintal || 0);
-    const mode = req.query.weighment_mode || 'WEIGHBRIDGE';
-
-    const vehicle_net_kg = Math.max(0, gross - tare);
-    const moisture_cut_kg = (moisture > 12.0) ? (vehicle_net_kg * (moisture - 12.0) / 100.0) : 0;
-    const weighbridge_cut_kg = (mode === 'WEIGHBRIDGE') ? (vehicle_net_kg * 0.003) : 0;
-    const net_weight_kg = Math.max(0, vehicle_net_kg - moisture_cut_kg - weighbridge_cut_kg);
-    const net_quintals = parseFloat((net_weight_kg / 100.0).toFixed(2));
-    const gross_amount = parseFloat((net_quintals * rate).toFixed(2));
-    const hamali_charge = parseFloat((net_quintals * 25.0).toFixed(2)); // ₹25 per quintal
-    const net_payable_amount = Math.max(0, parseFloat((gross_amount - hamali_charge).toFixed(2)));
-
-    return res.status(200).json({
-      success: true,
-      vehicle_net_kg,
-      moisture_cut_kg,
-      weighbridge_cut_kg,
-      net_weight_kg,
-      net_quintals,
-      gross_amount,
-      hamali_charge,
-      net_payable_amount
-    });
-  }
-
-  // =========================================================================
-  // 2A. TICKETS ACTION (PENDING INSPECTOR QC TICKETS)
-  // =========================================================================
-  if (action === 'tickets') {
-    if (req.method === 'GET') {
-      try {
-        const resp = await fetch(`${supabaseUrl}/rest/v1/quality_inspections?status=eq.PENDING&order=created_at.desc&limit=50`, {
-          headers: { 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}` }
-        });
-        if (!resp.ok) return res.status(200).json({ success: true, tickets: [], count: 0 });
-        const tickets = await resp.json();
-        return res.status(200).json({ success: true, tickets: Array.isArray(tickets) ? tickets : [], count: tickets.length });
-      } catch (err) {
-        return res.status(200).json({ success: true, tickets: [], count: 0, error: err.message });
-      }
-    }
-  }
-
-  // =========================================================================
-  // 2B. FARMERS ACTION (REGISTERED CULTIVATORS)
-  // =========================================================================
-  if (action === 'farmers') {
-    if (req.method === 'GET') {
-      try {
-        const resp = await fetch(`${supabaseUrl}/rest/v1/parties?party_type=eq.FARMER&order=name.asc&limit=200`, {
-          headers: { 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}` }
-        });
-        if (!resp.ok) return res.status(200).json({ success: true, farmers: [] });
-        const parties = await resp.json();
-        return res.status(200).json({ success: true, farmers: Array.isArray(parties) ? parties : [], count: parties.length });
-      } catch (err) {
-        return res.status(200).json({ success: true, farmers: [], error: err.message });
-      }
-    }
-    if (req.method === 'POST') {
-      try {
-        let body = req.body;
-        if (typeof body === 'string') { try { body = JSON.parse(body); } catch (_) {} }
-        const payload = {
-          name: (body.name || body.party_name || '').trim(),
-          phone: (body.phone || body.mobile || '').trim(),
-          party_type: 'FARMER',
-          village: body.village || '',
-          pan_number: body.pan_number || null,
-          aadhaar_number: body.aadhaar_number || null,
-          bank_name: body.bank_name || null,
-          bank_account_no: body.bank_account_no || null,
-          bank_ifsc: body.bank_ifsc || null,
-          updated_at: new Date().toISOString()
-        };
-        const resp = await fetch(`${supabaseUrl}/rest/v1/parties`, {
-          method: 'POST',
-          headers: {
-            'apikey': serviceKey,
-            'Authorization': `Bearer ${serviceKey}`,
-            'Content-Type': 'application/json',
-            'Prefer': 'return=representation'
-          },
-          body: JSON.stringify(payload)
-        });
-        if (!resp.ok) return res.status(resp.status).json({ success: false, error: await resp.text() });
-        return res.status(200).json({ success: true, message: 'Farmer registered successfully', data: await resp.json() });
-      } catch (err) {
-        return res.status(500).json({ success: false, error: err.message });
-      }
-    }
-  }
-
-  // =========================================================================
-  // 2C. BUYERS ACTION (REGISTERED BUYERS / MILLS / TRADERS)
-  // =========================================================================
-  if (action === 'buyers') {
-    if (req.method === 'GET') {
-      try {
-        const resp = await fetch(`${supabaseUrl}/rest/v1/parties?party_type=neq.FARMER&order=name.asc&limit=100`, {
-          headers: { 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}` }
-        });
-        if (!resp.ok) return res.status(200).json({ success: true, buyers: [] });
-        const parties = await resp.json();
-        return res.status(200).json({ success: true, buyers: Array.isArray(parties) ? parties : [], count: parties.length });
-      } catch (err) {
-        return res.status(200).json({ success: true, buyers: [], error: err.message });
-      }
-    }
-    if (req.method === 'POST') {
-      try {
-        let body = req.body;
-        if (typeof body === 'string') { try { body = JSON.parse(body); } catch (_) {} }
-        const payload = {
-          name: (body.company_name || body.name || '').trim(),
-          phone: (body.phone || body.contact_phone || '').trim(),
-          party_type: 'BUYER',
-          gstin: body.gstin || null,
-          village: body.mill_address || body.location || '',
-          updated_at: new Date().toISOString()
-        };
-        const resp = await fetch(`${supabaseUrl}/rest/v1/parties`, {
-          method: 'POST',
-          headers: {
-            'apikey': serviceKey,
-            'Authorization': `Bearer ${serviceKey}`,
-            'Content-Type': 'application/json',
-            'Prefer': 'return=representation'
-          },
-          body: JSON.stringify(payload)
-        });
-        if (!resp.ok) return res.status(resp.status).json({ success: false, error: await resp.text() });
-        return res.status(200).json({ success: true, message: 'Buyer company registered successfully', data: await resp.json() });
-      } catch (err) {
-        return res.status(500).json({ success: false, error: err.message });
-      }
-    }
-  }
-
-  // =========================================================================
-  // 2. RATES ACTION (MANDI CORRIDOR RATES)
+  // 2. RATES ACTION (PRICE CORRIDORS)
   // =========================================================================
   if (action === 'rates') {
     const defaultRates = [
@@ -231,12 +130,10 @@ export default async function handler(req, res) {
 
     if (req.method === 'GET') {
       try {
-        const resp = await fetch(`${supabaseUrl}/rest/v1/daily_commodity_rates?select=*&order=updated_at.desc&limit=100`, {
-          headers: { 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}` }
-        });
-        if (!resp.ok) return res.status(200).json({ success: true, rates: defaultRates, is_fallback: true });
+        const resp = await fetch(`${supabaseUrl}/rest/v1/daily_commodity_rates?select=*&order=updated_at.desc&limit=100`, { headers });
+        if (!resp.ok) return res.status(200).json({ success: true, rates: defaultRates });
         const rows = await resp.json();
-        if (!Array.isArray(rows) || rows.length === 0) return res.status(200).json({ success: true, rates: defaultRates, is_fallback: true });
+        if (!Array.isArray(rows) || rows.length === 0) return res.status(200).json({ success: true, rates: defaultRates });
 
         const ratesMap = {};
         for (const r of rows) {
@@ -244,21 +141,18 @@ export default async function handler(req, res) {
         }
         return res.status(200).json({ success: true, rates: Object.values(ratesMap), count: Object.keys(ratesMap).length });
       } catch (err) {
-        return res.status(200).json({ success: true, rates: defaultRates, error: err.message, is_fallback: true });
+        return res.status(200).json({ success: true, rates: defaultRates, error: err.message });
       }
     }
 
     if (req.method === 'POST') {
       try {
-        let body = req.body;
-        if (typeof body === 'string') { try { body = JSON.parse(body); } catch (_) {} }
-        if (!body || !body.commodity_name) return res.status(400).json({ success: false, error: 'commodity_name is required' });
-
+        if (!body.commodity_name) return res.status(400).json({ success: false, error: 'commodity_name is required' });
         const todayStr = new Date().toISOString().slice(0, 10);
         const rateDate = body.rate_date || todayStr;
-        const minRate = parseFloat(body.min_rate_per_qtl) || 0.0;
-        const targetRate = parseFloat(body.target_rate_per_qtl) || minRate;
-        const maxRate = parseFloat(body.max_rate_per_qtl) || targetRate;
+        const minRate = parseFloat(body.min_rate || body.min_rate_per_qtl) || 0.0;
+        const targetRate = parseFloat(body.target_rate || body.target_rate_per_qtl) || minRate;
+        const maxRate = parseFloat(body.max_rate || body.max_rate_per_qtl) || targetRate;
         const branchId = body.branch_id || null;
 
         const payload = {
@@ -269,23 +163,18 @@ export default async function handler(req, res) {
           min_rate_per_qtl: minRate,
           target_rate_per_qtl: targetRate,
           max_rate_per_qtl: maxRate,
-          quality_grade: body.quality_grade || 'FAQ_GRADE_1',
+          quality_grade: body.quality_grade || 'STANDARD',
           updated_at: new Date().toISOString()
         };
 
         const resp = await fetch(`${supabaseUrl}/rest/v1/daily_commodity_rates`, {
           method: 'POST',
-          headers: {
-            'apikey': serviceKey,
-            'Authorization': `Bearer ${serviceKey}`,
-            'Content-Type': 'application/json',
-            'Prefer': 'resolution=merge-duplicates,return=representation'
-          },
+          headers: { ...headers, 'Prefer': 'resolution=merge-duplicates,return=representation' },
           body: JSON.stringify(payload)
         });
 
         if (!resp.ok) return res.status(resp.status).json({ success: false, error: await resp.text() });
-        return res.status(200).json({ success: true, message: `Published rate for ${body.commodity_name} (₹${targetRate}/Qtl) to Supabase Cloud!`, data: await resp.json() });
+        return res.status(200).json({ success: true, message: `Price Corridor for ${body.commodity_name} published successfully!`, rate: payload });
       } catch (err) {
         return res.status(500).json({ success: false, error: err.message });
       }
@@ -293,199 +182,90 @@ export default async function handler(req, res) {
   }
 
   // =========================================================================
-  // 3b. OUTWARD ACTION (COMMODITY SALES & DISPATCH)
-  // =========================================================================
-  if (action === 'outward') {
-    if (req.method === 'GET') {
-      try {
-        const branchId = req.query.branch_id;
-        let queryParams = `select=*&order=created_at.desc&limit=50`;
-        if (branchId && branchId !== 'all') queryParams += `&branch_id=eq.${encodeURIComponent(branchId)}`;
-        const resp = await fetch(`${supabaseUrl}/rest/v1/outward_orders?${queryParams}`, {
-          headers: { 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}` }
-        });
-        const orders = resp.ok ? await resp.json() : [];
-        return res.status(200).json({ success: true, orders: orders });
-      } catch (err) {
-        return res.status(500).json({ success: false, error: err.message, orders: [] });
-      }
-    }
-    if (req.method === 'POST') {
-      try {
-        let body = req.body;
-        if (typeof body === 'string') { try { body = JSON.parse(body); } catch (_) {} }
-        const now = new Date();
-        const challanNo = `OUT-${now.getFullYear().toString().slice(-2)}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}-${Math.random().toString(36).substring(2,6).toUpperCase()}`;
-        const gross = parseFloat(body.gross_weight_kg) || 0;
-        const tare = parseFloat(body.tare_weight_kg) || 0;
-        const netKg = Math.max(0, gross - tare);
-        const netQtl = parseFloat(body.net_quintals) || parseFloat((netKg / 100).toFixed(4));
-        const rate = parseFloat(body.rate_per_quintal) || 0;
-        const total = parseFloat((netQtl * rate).toFixed(2));
-
-        const orderPayload = {
-          id: `ord-${Date.now()}-${Math.random().toString(36).substring(2,5)}`,
-          challan_number: challanNo,
-          branch_id: body.branch_id || 'br-chikhali',
-          buyer_name: (body.buyer_name || 'Agro Industries').trim(),
-          buyer_phone: body.buyer_phone || '',
-          commodity_name: body.commodity_name || 'Soyabean (Yellow)',
-          vehicle_number: (body.vehicle_number || body.vehicle_no || 'MH28-OUTWARD').toUpperCase().trim(),
-          bags_count: parseInt(body.bags_count || body.bags || 0, 10),
-          gross_weight_kg: gross,
-          tare_weight_kg: tare,
-          net_weight_kg: netKg,
-          net_quintals: netQtl,
-          rate_per_quintal: rate,
-          total_amount: total,
-          mandi_cess_amount: 0.0,
-          payment_status: body.payment_status || 'PENDING',
-          updated_at: now.toISOString()
-        };
-
-        const resp = await fetch(`${supabaseUrl}/rest/v1/outward_orders`, {
-          method: 'POST',
-          headers: {
-            'apikey': serviceKey,
-            'Authorization': `Bearer ${serviceKey}`,
-            'Content-Type': 'application/json',
-            'Prefer': 'resolution=merge-duplicates,return=representation'
-          },
-          body: JSON.stringify(orderPayload)
-        });
-
-        if (!resp.ok) return res.status(resp.status).json({ success: false, error: await resp.text() });
-        const inserted = await resp.json();
-        return res.status(200).json({ success: true, message: `Outward Dispatch #${challanNo} recorded!`, challan_number: challanNo, data: inserted });
-      } catch (err) {
-        return res.status(500).json({ success: false, error: err.message });
-      }
-    }
-  }
-
-  // =========================================================================
-  // 3. INVOICES ACTION (WEIGHMENT PURCHASES & RTGS)
+  // 3. INVOICES ACTION (CROSS-BRANCH INWARD PURCHASES)
   // =========================================================================
   if (action === 'invoices') {
     if (req.method === 'GET') {
       try {
-        const branchId = req.query.branch_id;
-        const status = req.query.status;
-        const limit = parseInt(req.query.limit, 10) || 50;
-
-        let queryParams = `select=*&order=created_at.desc&limit=${limit}`;
-        if (branchId && branchId !== 'all') queryParams += `&branch_id=eq.${encodeURIComponent(branchId)}`;
-        if (status) queryParams += `&payout_status=eq.${encodeURIComponent(status)}`;
-
-        const resp = await fetch(`${supabaseUrl}/rest/v1/purchase_invoices?${queryParams}`, {
-          headers: { 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}` }
-        });
-
-        if (!resp.ok) return res.status(200).json({ success: true, count: 0, invoices: [] });
-        const invoices = await resp.json();
-        return res.status(200).json({ success: true, count: Array.isArray(invoices) ? invoices.length : 0, invoices: Array.isArray(invoices) ? invoices : [] });
+        const branchFilter = req.query.branch_id && req.query.branch_id !== 'all' ? `&branch_id=eq.${encodeURIComponent(req.query.branch_id)}` : '';
+        const targetDate = req.query.target_date ? `&invoice_date=eq.${encodeURIComponent(req.query.target_date)}` : '';
+        const resp = await fetch(`${supabaseUrl}/rest/v1/purchase_invoices?select=*${branchFilter}${targetDate}&order=created_at.desc&limit=150`, { headers });
+        if (!resp.ok) return res.status(200).json({ success: true, invoices: [] });
+        const rows = await resp.json();
+        return res.status(200).json({ success: true, invoices: Array.isArray(rows) ? rows : [] });
       } catch (err) {
-        return res.status(500).json({ success: false, error: err.message });
+        return res.status(200).json({ success: true, invoices: [], error: err.message });
       }
     }
 
     if (req.method === 'POST') {
       try {
-        let body = req.body;
-        if (typeof body === 'string') { try { body = JSON.parse(body); } catch (_) {} }
-        if (!body) return res.status(400).json({ success: false, error: 'Request body required' });
-
         const branchId = body.branch_id || 'br-chikhali';
         const now = new Date();
-        const dateStr = now.toISOString().slice(2, 10).replace(/-/g, '');
-        const yardCode = (body.yard_code || branchId.replace('br-', '')).toUpperCase().slice(0, 3);
-        const randHex = Math.random().toString(16).substring(2, 6).toUpperCase();
-        const tokenNumber = body.token_number || `INV-${yardCode}-${dateStr}-${randHex}`;
-        const invoiceId = `inv-${tokenNumber.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+        const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
+        const randomNum = Math.floor(1000 + Math.random() * 9000);
+        const prefix = branchId.replace('br-', '').toUpperCase();
+        const tokenNumber = body.token_number || `${prefix}-${dateStr}-${randomNum}`;
+        const invoiceId = body.id || `inv-${Date.now()}-${randomNum}`;
 
-        const grossWeight = parseFloat(body.gross_weight_kg) || 0.0;
-        const tareWeight = parseFloat(body.tare_weight_kg) || 0.0;
-        const netWeightKg = Math.max(0.0, grossWeight - tareWeight);
-        const kardaDeductionKg = parseFloat(body.karda_deduction_kg) || 0.0;
-        const netQuintals = Math.max(0.0, parseFloat(((netWeightKg - kardaDeductionKg) / 100.0).toFixed(2)));
-
+        const grossKg = parseFloat(body.gross_weight_kg) || 0.0;
+        const tareKg = parseFloat(body.tare_weight_kg) || 0.0;
+        const grossWeight = parseFloat(body.gross_weight) || (grossKg > 0 ? grossKg : 0.0);
+        const netWeight = grossWeight - tareKg;
+        const netQuintals = parseFloat(body.net_quintals) || (netWeight / 100.0);
         const ratePerQtl = parseFloat(body.rate_per_quintal) || 0.0;
-        const grossAmount = parseFloat((netQuintals * ratePerQtl).toFixed(2));
-        const hamaliAmount = parseFloat((netQuintals * 12.0).toFixed(2));
-        const tolaiAmount = parseFloat((netQuintals * 5.0).toFixed(2));
-        const netPayable = Math.max(0.0, parseFloat((grossAmount - hamaliAmount - tolaiAmount).toFixed(2)));
-
-        let weighmentMode = (body.weighment_mode || 'CASH').toUpperCase();
-        let payoutStatus = 'PAID';
-        if (weighmentMode === 'RTGS' || netPayable >= 200000.0) {
-          weighmentMode = 'RTGS';
-          payoutStatus = 'RTGS_PENDING';
-        }
+        const grossPayable = netQuintals * ratePerQtl;
+        const hamali = parseFloat(body.hamali_deduction) || 0.0;
+        const weighbridge = parseFloat(body.weighbridge_deduction) || 0.0;
+        const totalDeductions = hamali + weighbridge;
+        const netPayable = parseFloat(body.net_payable_amount) || (grossPayable - totalDeductions);
+        const weighmentMode = (body.weighment_mode || 'CASH').toUpperCase();
+        const payoutStatus = weighmentMode === 'CASH' ? 'PAID' : (body.payout_status || 'PENDING');
 
         const invoicePayload = {
           id: invoiceId,
-          token_number: tokenNumber,
           branch_id: branchId,
-          invoice_date: body.invoice_date || now.toISOString().slice(0, 10),
-          party_name: (body.farmer_name || 'Walk-in Farmer').trim(),
-          farmer_phone: body.farmer_phone || '',
-          farmer_village: body.farmer_village || body.village || '',
+          branch_name: body.branch_name || (branchId === 'br-chikhali' ? 'Chikhali APMC Main Mandi' : (branchId === 'br-varvand' ? 'Varvand APMC Yard' : (branchId === 'br-sarola' ? 'Sarola Maruti APMC Yard' : 'Dhad APMC Yard'))),
+          token_number: tokenNumber,
+          party_id: body.party_id || `farmer-${Date.now()}`,
+          party_name: body.party_name || 'Farmer',
+          party_type: (body.party_type || 'FARMER').toUpperCase(),
+          party_phone: body.party_phone || null,
+          commodity_id: body.commodity_id || 'comm-soya',
           commodity_name: body.commodity_name || 'Soyabean (Yellow)',
-          vehicle_number: (body.vehicle_number || body.vehicle_no || 'MH28-DIRECT').toUpperCase().trim(),
           gross_weight_kg: grossWeight,
-          tare_weight_kg: tareWeight,
-          net_weight_kg: netWeightKg,
+          tare_weight_kg: tareKg,
+          net_weight_kg: netWeight,
           net_quintals: netQuintals,
           rate_per_quintal: ratePerQtl,
-          gross_amount: grossAmount,
-          mandi_cess_amount: 0.0, // 0% Mandi Cess
-          hamali_amount: hamaliAmount,
-          tolai_amount: tolaiAmount,
+          gross_amount: grossPayable,
+          hamali_deduction: hamali,
+          weighbridge_deduction: weighbridge,
+          total_deductions: totalDeductions,
           net_payable_amount: netPayable,
           weighment_mode: weighmentMode,
           payout_status: payoutStatus,
+          cashier_user_id: body.cashier_user_id || 'cashier-1',
+          cashier_name: body.cashier_name || 'Branch Cashier',
           qc_ticket_no: body.qc_ticket_no || null,
+          invoice_date: body.invoice_date || now.toISOString().slice(0, 10),
+          created_at: now.toISOString(),
           rtgs_bank_name: body.rtgs_bank_name || null,
           rtgs_account_no: body.rtgs_account_no || null,
           rtgs_ifsc_code: body.rtgs_ifsc_code || null,
-          rtgs_utr_no: body.rtgs_utr_no || null,
+          rtgs_beneficiary_name: body.rtgs_beneficiary_name || body.party_name || null,
+          rtgs_utr_no: body.rtgs_utr_no || body.bank_utr_no || null,
           updated_at: now.toISOString()
         };
 
         const resp = await fetch(`${supabaseUrl}/rest/v1/purchase_invoices`, {
           method: 'POST',
-          headers: {
-            'apikey': serviceKey,
-            'Authorization': `Bearer ${serviceKey}`,
-            'Content-Type': 'application/json',
-            'Prefer': 'resolution=merge-duplicates,return=representation'
-          },
+          headers: { ...headers, 'Prefer': 'resolution=merge-duplicates,return=representation' },
           body: JSON.stringify(invoicePayload)
         });
 
         if (!resp.ok) return res.status(resp.status).json({ success: false, error: await resp.text() });
-        const inserted = await resp.json();
-
-        // Complete linked QC ticket
-        if (body.qc_ticket_no) {
-          try {
-            await fetch(`${supabaseUrl}/rest/v1/quality_inspections?ticket_no=eq.${encodeURIComponent(body.qc_ticket_no)}`, {
-              method: 'PATCH',
-              headers: { 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
-              body: JSON.stringify({ status: 'COMPLETED', invoice_id: invoiceId, updated_at: now.toISOString() })
-            });
-          } catch (_) {}
-        }
-
-        return res.status(200).json({
-          success: true,
-          message: `Invoice #${tokenNumber} generated and synced to Supabase Cloud!`,
-          token_number: tokenNumber,
-          net_payable_amount: netPayable,
-          weighment_mode: weighmentMode,
-          payout_status: payoutStatus,
-          data: inserted
-        });
+        return res.status(200).json({ success: true, message: `Invoice #${tokenNumber} registered!`, data: await resp.json() });
       } catch (err) {
         return res.status(500).json({ success: false, error: err.message });
       }
@@ -493,20 +273,25 @@ export default async function handler(req, res) {
 
     if (req.method === 'PATCH') {
       try {
-        const { id, token_number, rtgs_utr_no, payout_status } = req.body;
-        const filterCol = id ? `id=eq.${encodeURIComponent(id)}` : `token_number=eq.${encodeURIComponent(token_number)}`;
+        const { id, invoice_id, token_number, rtgs_utr_no, bank_utr_no, payout_status } = body;
+        const utr = rtgs_utr_no || bank_utr_no;
+        const invId = id || invoice_id;
+        const filterCol = invId ? `id=eq.${encodeURIComponent(invId)}` : `token_number=eq.${encodeURIComponent(token_number)}`;
         const updateData = { updated_at: new Date().toISOString() };
-        if (rtgs_utr_no) updateData.rtgs_utr_no = rtgs_utr_no;
+        if (utr) {
+          updateData.rtgs_utr_no = utr;
+          updateData.payout_status = 'PAID';
+        }
         if (payout_status) updateData.payout_status = payout_status;
 
         const resp = await fetch(`${supabaseUrl}/rest/v1/purchase_invoices?${filterCol}`, {
           method: 'PATCH',
-          headers: { 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+          headers: { ...headers, 'Prefer': 'return=representation' },
           body: JSON.stringify(updateData)
         });
 
         if (!resp.ok) return res.status(resp.status).json({ success: false, error: await resp.text() });
-        return res.status(200).json({ success: true, message: `RTGS payment updated successfully!`, data: await resp.json() });
+        return res.status(200).json({ success: true, message: `RTGS settlement processed successfully!`, data: await resp.json() });
       } catch (err) {
         return res.status(500).json({ success: false, error: err.message });
       }
@@ -514,67 +299,427 @@ export default async function handler(req, res) {
   }
 
   // =========================================================================
-  // 4. SUMMARY ACTION (EXECUTIVE KPI & TELEMETRY)
+  // 4. BRANCHES ACTION
   // =========================================================================
-  try {
-    const headers = { 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}` };
-    const [invoicesResp, inspectionsResp] = await Promise.all([
-      fetch(`${supabaseUrl}/rest/v1/purchase_invoices?select=id,branch_id,net_quintals,net_payable_amount,weighment_mode,payout_status&order=created_at.desc&limit=200`, { headers }),
-      fetch(`${supabaseUrl}/rest/v1/quality_inspections?select=id,status&order=created_at.desc&limit=100`, { headers })
-    ]);
+  if (action === 'branches') {
+    if (req.method === 'GET') {
+      try {
+        const resp = await fetch(`${supabaseUrl}/rest/v1/branches?select=*&order=created_at.asc`, { headers });
+        if (!resp.ok) return res.status(200).json({ success: true, branches: [] });
+        const rows = await resp.json();
+        return res.status(200).json({ success: true, branches: Array.isArray(rows) ? rows : [] });
+      } catch (err) {
+        return res.status(200).json({ success: true, branches: [], error: err.message });
+      }
+    }
 
-    const invoices = invoicesResp.ok ? await invoicesResp.json() : [];
-    const inspections = inspectionsResp.ok ? await inspectionsResp.json() : [];
+    if (req.method === 'POST') {
+      try {
+        if (body.branch_id && !body.name) {
+          // Toggle action
+          const resp = await fetch(`${supabaseUrl}/rest/v1/branches?id=eq.${encodeURIComponent(body.branch_id)}`, { headers });
+          if (resp.ok) {
+            const current = (await resp.json())[0];
+            const newStatus = current ? !current.is_active : true;
+            await fetch(`${supabaseUrl}/rest/v1/branches?id=eq.${encodeURIComponent(body.branch_id)}`, {
+              method: 'PATCH',
+              headers,
+              body: JSON.stringify({ is_active: newStatus, updated_at: new Date().toISOString() })
+            });
+            return res.status(200).json({ success: true, message: 'Branch status toggled!' });
+          }
+        }
 
-    let totalQuintals = 0.0;
-    let totalPayable = 0.0;
-    let cashPaid = 0.0;
-    let rtgsPending = 0.0;
-    let rtgsPaid = 0.0;
+        const bCode = (body.branch_code || '').trim().toUpperCase();
+        const payload = {
+          id: `br-${bCode.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
+          branch_code: bCode,
+          name: body.name,
+          mandi_license_no: body.mandi_license_no || 'MH/APMC-GEN',
+          address: body.address || '',
+          phone: body.phone || '',
+          is_active: true,
+          created_at: new Date().toISOString()
+        };
 
-    const branchTotals = {
-      'br-chikhali': { name: 'Chikhali APMC Main Mandi', quintals: 0, amount: 0, invoices: 0 },
-      'br-varvand': { name: 'Varvand APMC Yard', quintals: 0, amount: 0, invoices: 0 },
-      'br-sarola': { name: 'Sarola Maruti APMC Yard', quintals: 0, amount: 0, invoices: 0 },
-      'br-dhad': { name: 'Dhad APMC Yard', quintals: 0, amount: 0, invoices: 0 }
-    };
+        const resp = await fetch(`${supabaseUrl}/rest/v1/branches`, {
+          method: 'POST',
+          headers: { ...headers, 'Prefer': 'resolution=merge-duplicates,return=representation' },
+          body: JSON.stringify(payload)
+        });
 
-    if (Array.isArray(invoices)) {
+        if (!resp.ok) return res.status(resp.status).json({ success: false, error: await resp.text() });
+        return res.status(200).json({ success: true, message: `Branch ${body.name} provisioned!`, branch: payload });
+      } catch (err) {
+        return res.status(500).json({ success: false, error: err.message });
+      }
+    }
+  }
+
+  // =========================================================================
+  // 5. USERS ACTION
+  // =========================================================================
+  if (action === 'users') {
+    if (req.method === 'GET') {
+      try {
+        const resp = await fetch(`${supabaseUrl}/rest/v1/users?select=*&order=created_at.asc`, { headers });
+        if (!resp.ok) return res.status(200).json({ success: true, users: [] });
+        const rows = await resp.json();
+        return res.status(200).json({ success: true, users: Array.isArray(rows) ? rows : [] });
+      } catch (err) {
+        return res.status(200).json({ success: true, users: [], error: err.message });
+      }
+    }
+
+    if (req.method === 'POST') {
+      try {
+        if (body.user_id && !body.username) {
+          // Toggle user status
+          const resp = await fetch(`${supabaseUrl}/rest/v1/users?id=eq.${encodeURIComponent(body.user_id)}`, { headers });
+          if (resp.ok) {
+            const current = (await resp.json())[0];
+            const newStatus = current ? !current.is_active : true;
+            await fetch(`${supabaseUrl}/rest/v1/users?id=eq.${encodeURIComponent(body.user_id)}`, {
+              method: 'PATCH',
+              headers,
+              body: JSON.stringify({ is_active: newStatus, updated_at: new Date().toISOString() })
+            });
+            return res.status(200).json({ success: true, message: 'User status toggled!' });
+          }
+        }
+
+        const username = (body.username || '').trim().toLowerCase();
+        const payload = {
+          id: `usr-${username}`,
+          username: username,
+          full_name: body.full_name,
+          role: body.role,
+          phone: body.phone || '',
+          branch_id: body.branch_id || null,
+          is_active: true,
+          created_at: new Date().toISOString()
+        };
+
+        const resp = await fetch(`${supabaseUrl}/rest/v1/users`, {
+          method: 'POST',
+          headers: { ...headers, 'Prefer': 'resolution=merge-duplicates,return=representation' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!resp.ok) return res.status(resp.status).json({ success: false, error: await resp.text() });
+        return res.status(200).json({ success: true, message: `User ${body.username} created!`, user: payload });
+      } catch (err) {
+        return res.status(500).json({ success: false, error: err.message });
+      }
+    }
+  }
+
+  // =========================================================================
+  // 6. COMMODITIES ACTION
+  // =========================================================================
+  if (action === 'commodities') {
+    if (req.method === 'GET') {
+      try {
+        const resp = await fetch(`${supabaseUrl}/rest/v1/commodities?select=*&order=name.asc`, { headers });
+        if (!resp.ok) return res.status(200).json({ success: true, commodities: [] });
+        const rows = await resp.json();
+        return res.status(200).json({ success: true, commodities: Array.isArray(rows) ? rows : [] });
+      } catch (err) {
+        return res.status(200).json({ success: true, commodities: [], error: err.message });
+      }
+    }
+
+    if (req.method === 'POST') {
+      try {
+        const name = (body.name || '').trim();
+        const payload = {
+          id: `comm-${name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
+          name: name,
+          hsn_code: body.hsn_code || '1201',
+          standard_moisture_pct: parseFloat(body.standard_moisture_pct) || 10.0,
+          is_active: true,
+          created_at: new Date().toISOString()
+        };
+
+        const resp = await fetch(`${supabaseUrl}/rest/v1/commodities`, {
+          method: 'POST',
+          headers: { ...headers, 'Prefer': 'resolution=merge-duplicates,return=representation' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!resp.ok) return res.status(resp.status).json({ success: false, error: await resp.text() });
+        return res.status(200).json({ success: true, message: `Commodity ${name} created!`, commodity: payload });
+      } catch (err) {
+        return res.status(500).json({ success: false, error: err.message });
+      }
+    }
+  }
+
+  // =========================================================================
+  // 7. INSPECTORS ACTION
+  // =========================================================================
+  if (action === 'inspectors') {
+    if (req.method === 'GET') {
+      try {
+        const resp = await fetch(`${supabaseUrl}/rest/v1/inspectors?select=*&order=name.asc`, { headers });
+        if (!resp.ok) return res.status(200).json({ success: true, inspectors: [] });
+        const rows = await resp.json();
+        return res.status(200).json({ success: true, inspectors: Array.isArray(rows) ? rows : [] });
+      } catch (err) {
+        return res.status(200).json({ success: true, inspectors: [], error: err.message });
+      }
+    }
+
+    if (req.method === 'POST') {
+      try {
+        const id = body.inspector_id || `ins-${Date.now()}`;
+        const payload = {
+          id: id,
+          name: body.name,
+          designation: body.designation || 'Yard Assayer',
+          phone: body.phone || '',
+          branch_id: body.branch_id || 'br-chikhali',
+          username: body.username || id,
+          is_active: true,
+          updated_at: new Date().toISOString()
+        };
+
+        const resp = await fetch(`${supabaseUrl}/rest/v1/inspectors`, {
+          method: 'POST',
+          headers: { ...headers, 'Prefer': 'resolution=merge-duplicates,return=representation' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!resp.ok) return res.status(resp.status).json({ success: false, error: await resp.text() });
+        return res.status(200).json({ success: true, message: `Inspector ${body.name} saved!`, inspector: payload });
+      } catch (err) {
+        return res.status(500).json({ success: false, error: err.message });
+      }
+    }
+  }
+
+  // =========================================================================
+  // 8. OUTWARD ACTION (DISPATCH RECEIVABLES)
+  // =========================================================================
+  if (action === 'outward') {
+    if (req.method === 'GET') {
+      try {
+        const resp = await fetch(`${supabaseUrl}/rest/v1/outward_orders?select=*&order=created_at.desc&limit=100`, { headers });
+        if (!resp.ok) return res.status(200).json({ success: true, orders: [] });
+        const rows = await resp.json();
+        return res.status(200).json({ success: true, orders: Array.isArray(rows) ? rows : [] });
+      } catch (err) {
+        return res.status(200).json({ success: true, orders: [], error: err.message });
+      }
+    }
+
+    if (req.method === 'POST') {
+      try {
+        // Record payment settlement
+        if (body.challan_id || body.order_id) {
+          const id = body.challan_id || body.order_id;
+          const updateData = {
+            payment_status: 'PAID',
+            payment_mode: body.payment_mode || 'RTGS',
+            receipt_date: body.receipt_date || new Date().toISOString().slice(0, 10),
+            bank_utr_no: body.bank_utr_no || null,
+            receiving_branch_id: body.receiving_branch_id || null,
+            payment_notes: body.payment_notes || null,
+            updated_at: new Date().toISOString()
+          };
+
+          const resp = await fetch(`${supabaseUrl}/rest/v1/outward_orders?id=eq.${encodeURIComponent(id)}`, {
+            method: 'PATCH',
+            headers: { ...headers, 'Prefer': 'return=representation' },
+            body: JSON.stringify(updateData)
+          });
+
+          if (!resp.ok) return res.status(resp.status).json({ success: false, error: await resp.text() });
+          return res.status(200).json({ success: true, message: 'Outward payment recorded successfully!' });
+        }
+
+        // Create new dispatch challan
+        const now = new Date();
+        const challanNo = body.challan_number || `CH-${now.toISOString().slice(0,10).replace(/-/g,'')}-${Math.floor(100+Math.random()*900)}`;
+        const netQtl = parseFloat(body.net_quintals) || 0.0;
+        const rate = parseFloat(body.rate_per_quintal) || 0.0;
+        const billAmt = parseFloat(body.total_bill_amount) || (netQtl * rate);
+
+        const payload = {
+          id: `out-${Date.now()}`,
+          challan_number: challanNo,
+          branch_id: body.branch_id || 'br-chikhali',
+          buyer_id: body.buyer_id || `buyer-${Date.now()}`,
+          buyer_name: body.buyer_name || 'Buyer Mill',
+          commodity_name: body.commodity_name || 'Soyabean',
+          vehicle_number: body.vehicle_number || '',
+          driver_name: body.driver_name || '',
+          net_quintals: netQtl,
+          rate_per_quintal: rate,
+          total_bill_amount: billAmt,
+          payment_mode: body.payment_mode || 'RTGS',
+          payment_status: 'PENDING',
+          order_date: now.toISOString().slice(0, 10),
+          created_at: now.toISOString()
+        };
+
+        const resp = await fetch(`${supabaseUrl}/rest/v1/outward_orders`, {
+          method: 'POST',
+          headers: { ...headers, 'Prefer': 'resolution=merge-duplicates,return=representation' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!resp.ok) return res.status(resp.status).json({ success: false, error: await resp.text() });
+        return res.status(200).json({ success: true, message: `Challan #${challanNo} generated!`, challan: payload });
+      } catch (err) {
+        return res.status(500).json({ success: false, error: err.message });
+      }
+    }
+  }
+
+  // =========================================================================
+  // 9. AGGREGATED ADMIN DATA ACTION
+  // =========================================================================
+  if (action === 'admin_data') {
+    try {
+      const [invoicesResp, inspectionsResp, branchesResp, usersResp, commoditiesResp] = await Promise.all([
+        fetch(`${supabaseUrl}/rest/v1/purchase_invoices?select=*&order=created_at.desc&limit=150`, { headers }),
+        fetch(`${supabaseUrl}/rest/v1/quality_inspections?select=*&order=created_at.desc&limit=100`, { headers }),
+        fetch(`${supabaseUrl}/rest/v1/branches?select=*&order=created_at.asc`, { headers }),
+        fetch(`${supabaseUrl}/rest/v1/users?select=*&order=created_at.asc`, { headers }),
+        fetch(`${supabaseUrl}/rest/v1/commodities?select=*&order=name.asc`, { headers })
+      ]);
+
+      const invoices = invoicesResp.ok ? await invoicesResp.json() : [];
+      const inspections = inspectionsResp.ok ? await inspectionsResp.json() : [];
+      const branches = branchesResp.ok ? await branchesResp.json() : [];
+      const users = usersResp.ok ? await usersResp.json() : [];
+      const commodities = commoditiesResp.ok ? await commoditiesResp.json() : [];
+
+      let totalQuintals = 0.0;
+      let totalDisbursed = 0.0;
+      let totalPnl = 0.0;
+
       for (const inv of invoices) {
         const qtl = parseFloat(inv.net_quintals) || 0.0;
         const amt = parseFloat(inv.net_payable_amount) || 0.0;
         totalQuintals += qtl;
-        totalPayable += amt;
+        totalDisbursed += amt;
+      }
 
-        if (inv.weighment_mode === 'CASH') cashPaid += amt;
-        else if (inv.payout_status === 'PAID') rtgsPaid += amt;
-        else rtgsPending += amt;
+      return res.status(200).json({
+        success: true,
+        stats: {
+          branches_active: branches.filter(b => b.is_active).length,
+          total_quintals: totalQuintals,
+          total_disbursed: totalDisbursed,
+          total_pnl: totalPnl,
+          total_pnl_pct: '0.0',
+          users_active: users.filter(u => u.is_active).length
+        },
+        invoices: invoices,
+        inspections: inspections,
+        branches: branches,
+        users: users,
+        commodities: commodities
+      });
+    } catch (err) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  }
 
-        const bId = inv.branch_id || 'br-chikhali';
-        if (branchTotals[bId]) {
-          branchTotals[bId].quintals += qtl;
-          branchTotals[bId].amount += amt;
-          branchTotals[bId].invoices += 1;
+  // =========================================================================
+  // 10. AGGREGATED ACCOUNTS DATA ACTION
+  // =========================================================================
+  if (action === 'accounts_data') {
+    try {
+      const [ratesResp, invoicesResp, outwardResp, inspectorsResp, commoditiesResp, ledgersResp] = await Promise.all([
+        fetch(`${supabaseUrl}/rest/v1/daily_commodity_rates?select=*&order=updated_at.desc&limit=100`, { headers }),
+        fetch(`${supabaseUrl}/rest/v1/purchase_invoices?select=*&order=created_at.desc&limit=200`, { headers }),
+        fetch(`${supabaseUrl}/rest/v1/outward_orders?select=*&order=created_at.desc&limit=100`, { headers }),
+        fetch(`${supabaseUrl}/rest/v1/inspectors?select=*&order=name.asc`, { headers }),
+        fetch(`${supabaseUrl}/rest/v1/commodities?select=*&order=name.asc`, { headers }),
+        fetch(`${supabaseUrl}/rest/v1/ledger_entries?select=*&order=created_at.desc&limit=100`, { headers })
+      ]);
+
+      const rates = ratesResp.ok ? await ratesResp.json() : [];
+      const invoices = invoicesResp.ok ? await invoicesResp.json() : [];
+      const outwardOrders = outwardResp.ok ? await outwardResp.json() : [];
+      const inspectors = inspectorsResp.ok ? await inspectorsResp.json() : [];
+      const commodities = commoditiesResp.ok ? await commoditiesResp.json() : [];
+      const ledgers = ledgersResp.ok ? await ledgersResp.json() : [];
+
+      // Pending overrides
+      const pendingOverrides = invoices.filter(inv => inv.rate_override_status === 'PENDING' || inv.is_backdated);
+
+      // Pending RTGS
+      const pendingRtgs = invoices.filter(inv => inv.weighment_mode === 'RTGS' && inv.payout_status !== 'PAID');
+
+      // Outward metrics
+      let totalOutwardBilled = 0.0;
+      let totalOutwardReceived = 0.0;
+      let totalOutwardPending = 0.0;
+      let pendingOutwardCount = 0;
+
+      for (const o of outwardOrders) {
+        const amt = parseFloat(o.total_bill_amount) || 0.0;
+        totalOutwardBilled += amt;
+        if (o.payment_status === 'PAID') {
+          totalOutwardReceived += amt;
+        } else {
+          totalOutwardPending += amt;
+          pendingOutwardCount++;
         }
       }
-    }
 
-    const pendingQC = Array.isArray(inspections) ? inspections.filter(i => i.status === 'PENDING').length : 0;
+      return res.status(200).json({
+        success: true,
+        rates: rates,
+        pending_overrides: pendingOverrides,
+        pending_rtgs: pendingRtgs,
+        outward_orders: outwardOrders,
+        inspectors: inspectors,
+        commodities: commodities,
+        ledgers: ledgers,
+        metrics: {
+          total_outward_billed: totalOutwardBilled,
+          total_outward_received: totalOutwardReceived,
+          total_outward_pending: totalOutwardPending,
+          pending_outward_count: pendingOutwardCount
+        }
+      });
+    } catch (err) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
+  // =========================================================================
+  // DEFAULT: SUMMARY ACTION
+  // =========================================================================
+  try {
+    const [invoicesResp, branchesResp] = await Promise.all([
+      fetch(`${supabaseUrl}/rest/v1/purchase_invoices?select=id,branch_id,net_quintals,net_payable_amount,weighment_mode,payout_status&limit=200`, { headers }),
+      fetch(`${supabaseUrl}/rest/v1/branches?select=id,name,branch_code,is_active`, { headers })
+    ]);
+
+    const invoices = invoicesResp.ok ? await invoicesResp.json() : [];
+    const branches = branchesResp.ok ? await branchesResp.json() : [];
+
+    let totalQuintals = 0.0;
+    let totalPayable = 0.0;
+    for (const inv of invoices) {
+      totalQuintals += parseFloat(inv.net_quintals) || 0.0;
+      totalPayable += parseFloat(inv.net_payable_amount) || 0.0;
+    }
 
     return res.status(200).json({
       success: true,
       timestamp: new Date().toISOString(),
       summary: {
-        total_invoices: Array.isArray(invoices) ? invoices.length : 0,
-        total_quintals: parseFloat(totalQuintals.toFixed(2)),
-        total_metric_tons: parseFloat((totalQuintals / 10.0).toFixed(2)),
-        total_payable_amount: parseFloat(totalPayable.toFixed(2)),
-        cash_disbursed: parseFloat(cashPaid.toFixed(2)),
-        rtgs_pending_amount: parseFloat(rtgsPending.toFixed(2)),
-        rtgs_paid_amount: parseFloat(rtgsPaid.toFixed(2)),
-        total_inspections: Array.isArray(inspections) ? inspections.length : 0,
-        pending_qc_count: pendingQC,
-        branch_breakdown: branchTotals
+        total_procurement_quintals: totalQuintals,
+        total_payout_disbursed: totalPayable,
+        active_branches_count: branches.filter(b => b.is_active).length,
+        invoices_count: invoices.length
       }
     });
   } catch (err) {

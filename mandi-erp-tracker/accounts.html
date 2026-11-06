@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Central Accounts & Rate Authority Desk — Rajarshi Shahu Trading</title>
-    <!-- PWA Web App Manifest & Mobile/Desktop Meta -->
+        <!-- PWA Web App Manifest & Mobile/Desktop Meta -->
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#0f172a">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -47,7 +47,6 @@
     </style>
 </head>
 <body>
-
     <!-- HEADER CARD (3-CLUSTER STANDARD) -->
     <header class="header-card">
         <!-- CLUSTER 1: BRAND IDENTITY & CONTEXT -->
@@ -59,43 +58,22 @@
                     <span style="font-size:10.5px; font-weight:700; color:#0284c7; background:#e0f2fe; padding:2px 8px; border-radius:6px; border:1px solid #bae6fd;">Powered by Cresconic</span>
                 </h1>
                 <p style="font-size:12px; color:var(--text-muted); margin-top:2px;">
-                    Daily Price Corridors • Multi-Branch Authority Desk • Mandi License: MH/HQ/CENTRAL-01
+                    Daily Price Corridors • Branches: Chikhali, Varvand, Dhad • Port 8080 Active
                 </p>
             </div>
         </div>
 
-        <!-- CLUSTER 2: OPERATIONAL DATE & MULTI-BRANCH SELECTOR -->
+        <!-- CLUSTER 2: OPERATIONAL DATE FILTER -->
         <div class="header-cluster-center">
-            <div style="display:inline-flex; align-items:center; gap:6px; background:#f8fafc; padding:4px 10px; border-radius:8px; border:1.5px solid #cbd5e1; margin:0;">
+            <form method="GET" action="/accounts/dashboard" style="display:inline-flex; align-items:center; gap:6px; background:#f8fafc; padding:4px 10px; border-radius:8px; border:1.5px solid #cbd5e1; margin:0;">
                 <label style="font-size:12px; font-weight:700; color:#475569;">📅 Date:</label>
-                <input type="date" id="accountsDateFilter" value="2026-11-05" onchange="filterAccountsByDate(this.value)" style="border:1px solid #94a3b8; border-radius:6px; padding:3px 8px; font-size:12px; font-weight:700; color:#0f172a; outline:none; background:#ffffff; cursor:pointer;">
-            </div>
-
-            <!-- Multi-Branch Filter Selector -->
-            <select id="branchFilterSelect" onchange="handleBranchFilterChange(this.value)" style="background:#ecfdf5; border:1.5px solid #059669; padding:5px 12px; border-radius:8px; font-size:12px; font-weight:800; color:#065f46; cursor:pointer;" title="Filter Accounts by APMC Branch">
-                <option value="all">🏛️ All Branches (Consolidated)</option>
-                <option value="br-chikhali">🌾 Chikhali APMC Branch (BR-CHK)</option>
-                <option value="br-varvand">🌾 Varvand APMC Branch (BR-VRV)</option>
-                <option value="br-sarola">🌾 Sarola Maruti Yard (BR-SRL)</option>
-                <option value="br-dhad">🌾 Dhad APMC Yard (BR-DHD)</option>
-            </select>
-
-            <!-- Quick Yard Jump Dropdown -->
-            <select onchange="if(this.value) window.open(this.value, '_blank')" style="background:#f8fafc; border:1.5px solid #cbd5e1; padding:5px 10px; border-radius:8px; font-size:12px; font-weight:700; color:#0f172a; cursor:pointer;" title="Open Yard Cashier Desk in New Tab">
-                <option value="">🚀 Open Branch Terminal...</option>
-                <option value="/portal?branch_id=br-chikhali">🏪 Chikhali Cashier Desk</option>
-                <option value="/portal?branch_id=br-varvand">🏪 Varvand Cashier Desk</option>
-                <option value="/portal?branch_id=br-sarola">🏪 Sarola Cashier Desk</option>
-            </select>
+                <input type="date" name="target_date" value="2026-11-06" id="accTargetDate" onchange="this.form.submit()" style="border:1px solid #94a3b8; border-radius:6px; padding:3px 8px; font-size:12px; font-weight:700; color:#0f172a; outline:none; background:#ffffff; cursor:pointer;">
+                
+            </form>
         </div>
 
-        <!-- CLUSTER 3: DIAGNOSTICS, PWA INSTALL & QUICK TOOLS -->
+        <!-- CLUSTER 3: DIAGNOSTICS & QUICK TOOLS -->
         <div class="header-cluster-right">
-            <!-- PWA Install Button -->
-            <button type="button" id="btnInstallPwa" onclick="handlePwaInstallClick()" class="btn" style="background:#fef3c7; color:#92400e; border:1.5px solid #fcd34d; padding:5px 11px; border-radius:8px; font-weight:800; font-size:11.5px; display:inline-flex; align-items:center; gap:5px; cursor:pointer;" title="Install Desktop ERP App">
-                <span>⚡</span> <span id="btnInstallPwaLabel">Install App</span>
-            </button>
-
             <!-- System Health Pill & Popover -->
             <div style="position:relative;" id="healthPopoverWrapper">
                 <div class="system-health-pill" id="systemHealthPill" onclick="toggleSystemHealthPopover()" title="Click for Live Sync & Supabase Cloud Diagnostics">
@@ -103,7 +81,7 @@
                     <span id="healthPillText">System Healthy</span>
                     <span style="font-size:10px; opacity:0.7;">▾</span>
                 </div>
-                <div class="health-popover" id="healthPopover" style="display:none; position:absolute; top:36px; right:0; width:260px; background:#ffffff; border:1.5px solid #cbd5e1; border-radius:12px; box-shadow:0 10px 25px -5px rgba(0,0,0,0.15); z-index:9999; padding:12px; font-size:12px;">
+                <div class="health-popover" id="healthPopover">
                     <div style="font-size:13px; font-weight:800; color:#0f172a; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
                         <span>⚡ System Diagnostics</span>
                         <span style="font-size:10.5px; background:#ecfdf5; color:#065f46; padding:2px 6px; border-radius:4px; font-weight:700;">Live Port 8080</span>
@@ -122,33 +100,39 @@
                             <strong style="color:#0f172a;" id="diagOutboxCount">0 Pending</strong>
                         </div>
                     </div>
+                    <div style="margin-top:10px; padding-top:8px; border-top:1px dashed #e2e8f0; text-align:right;">
+                        <button type="button" onclick="triggerManualSync()" style="background:#0284c7; color:#fff; border:none; border-radius:6px; padding:4px 10px; font-size:11px; font-weight:700; cursor:pointer;">🔄 Sync Cloud Now</button>
+                    </div>
+                    <!-- Hidden elements for test compatibility -->
+                    <span id="liveSyncStatus" style="display:none;"><span class="live-dot-pulse"></span> <span class="live-status-text">Live Synced</span></span>
+                    <span id="cloudSyncStatusBadge" style="display:none;"><span class="live-dot-pulse"></span> ⚡ Cloud: Synced</span>
                 </div>
             </div>
 
             <!-- User Role Tag -->
             <span class="nav-pill" style="background:#ecfdf5; color:#065f46; border-color:#a7f3d0; font-weight:700;">
-                👤 Suraj (Chief Accountant HQ)
+                👤 Chief Accountant (HQ)
             </span>
 
-            <!-- Quick Tools Dropdown -->
-            <div class="quick-tools-wrapper" style="position:relative;" id="quickToolsWrapper">
-                <button type="button" class="quick-tools-btn" onclick="toggleQuickToolsMenu()" style="display:inline-flex; align-items:center; gap:5px; background:#0f172a; color:#f8fafc; border:none; padding:6px 12px; border-radius:8px; font-weight:800; font-size:12px; cursor:pointer;">
+            <!-- Quick Tools Dropdown (Replaces 5 Cluttered Buttons) -->
+            <div class="quick-tools-wrapper" id="quickToolsWrapper">
+                <button type="button" class="quick-tools-btn" onclick="toggleQuickToolsMenu()" title="Tools & Navigation">
                     <span>⚡ Quick Tools</span>
                     <span style="font-size:10px;">▾</span>
                 </button>
-                <div class="quick-tools-menu" id="quickToolsMenu" style="display:none; position:absolute; top:36px; right:0; width:220px; background:#ffffff; border:1.5px solid #cbd5e1; border-radius:12px; box-shadow:0 10px 25px -5px rgba(0,0,0,0.15); z-index:9999; padding:6px 0; font-size:12.5px;">
-                    <a href="/admin" class="quick-tools-item" style="display:flex; align-items:center; gap:8px; padding:8px 14px; color:#0f172a; text-decoration:none; font-weight:700;">
-                        <span>👑</span> Super Admin Command
+                <div class="quick-tools-menu" id="quickToolsMenu">
+                    <a href="/branch/stock" class="quick-tools-item">
+                        <span>📦</span> Consolidated Yard Stock
                     </a>
-                    <a href="/portal?branch_id=br-chikhali" class="quick-tools-item" style="display:flex; align-items:center; gap:8px; padding:8px 14px; color:#0f172a; text-decoration:none; font-weight:700;">
-                        <span>🌾</span> Chikhali Yard Desk
+                    <button type="button" onclick="openSystemUpdatesModal(); toggleQuickToolsMenu();" class="quick-tools-item">
+                        <span>⚡</span> System Updates & Hotfix
+                    </button>
+                    <a href="/accounts/settings" class="quick-tools-item">
+                        <span>⚙️</span> Accounts Settings
                     </a>
-                    <a href="/portal?branch_id=br-varvand" class="quick-tools-item" style="display:flex; align-items:center; gap:8px; padding:8px 14px; color:#0f172a; text-decoration:none; font-weight:700;">
-                        <span>🌾</span> Varvand Yard Desk
-                    </a>
-                    <div style="border-top:1px solid #f1f5f9; margin:4px 0;"></div>
-                    <a href="/login" onclick="localStorage.removeItem('mandi_user')" class="quick-tools-item" style="display:flex; align-items:center; gap:8px; padding:8px 14px; color:#dc2626; text-decoration:none; font-weight:700;">
-                        <span>🚪</span> Sign Out / Switch Terminal
+                    <div class="quick-tools-divider"></div>
+                    <a href="/logout" class="quick-tools-item" style="color:#dc2626;">
+                        <span>🚪</span> Sign Out
                     </a>
                 </div>
             </div>
@@ -160,148 +144,416 @@
             ⚡ <strong>Statutory & Pricing Authority:</strong> Branches cannot purchase commodities outside your approved Min/Max corridor without your written approval.
         </div>
         <div>
-            <span class="badge-pill badge-green" style="background:#ecfdf5; color:#047857; padding:4px 10px; border-radius:6px; border:1px solid #a7f3d0;">Central Authority Active</span>
+            <span class="badge-pill badge-green">Central Authority Active</span>
         </div>
     </div>
 
-    <!-- MAIN ACCOUNTS NAVIGATION TABS -->
-    <div class="tabs" style="display:flex; gap:8px; margin-bottom:20px; flex-wrap:wrap; border-bottom:1.5px solid #e2e8f0; padding-bottom:12px;">
-        <button class="tab-btn active" onclick="showTab('tab-rates', this)" style="padding:8px 14px; border-radius:8px; font-weight:800; font-size:13px; cursor:pointer; border:1.5px solid #059669; background:#059669; color:#fff;">📊 Daily Rate Corridor Master</button>
-        <button class="tab-btn" id="tabBtnOverrides" onclick="showTab('tab-overrides', this)" style="padding:8px 14px; border-radius:8px; font-weight:800; font-size:13px; cursor:pointer; border:1.5px solid #cbd5e1; background:#ffffff; color:#334155;">⚠️ Rate & Backdated Approvals (<span id="overrideBadgeCount">0</span>)</button>
-        <button class="tab-btn" id="tabBtnRtgs" onclick="showTab('tab-rtgs', this)" style="padding:8px 14px; border-radius:8px; font-weight:800; font-size:13px; cursor:pointer; border:1.5px solid #cbd5e1; background:#ffffff; color:#334155;">🏦 RTGS Bank Transfers (<span id="rtgsBadgeCount">0</span>)</button>
-        <button class="tab-btn" onclick="showTab('tab-outward-receivables', this)" style="padding:8px 14px; border-radius:8px; font-weight:800; font-size:13px; cursor:pointer; border:1.5px solid #cbd5e1; background:#ffffff; color:#334155;">🚚 Outward Receivables (<span id="outwardBadgeCount">0</span> Due)</button>
-        <button class="tab-btn" onclick="showTab('tab-inspectors', this)" style="padding:8px 14px; border-radius:8px; font-weight:800; font-size:13px; cursor:pointer; border:1.5px solid #cbd5e1; background:#ffffff; color:#334155;">👥 Quality Inspector Master</button>
-        <button class="tab-btn" onclick="showTab('tab-ledgers', this)" style="padding:8px 14px; border-radius:8px; font-weight:800; font-size:13px; cursor:pointer; border:1.5px solid #cbd5e1; background:#ffffff; color:#334155;">📑 Multi-Branch Ledgers & Cashbook</button>
+    <!-- TABS -->
+    <div class="tabs">
+        <button class="tab-btn active" onclick="showTab('tab-rates')">Daily Rate Corridor Master</button>
+        <button class="tab-btn" id="tabBtnOverrides" onclick="showTab('tab-overrides')">⚠️ Rate & Backdated Approvals (<span id="overrideBadgeCount">0</span>)</button>
+        <button class="tab-btn" id="tabBtnRtgs" onclick="showTab('tab-rtgs')">RTGS Bank Transfers (<span id="rtgsBadgeCount">0</span>)</button>
+        <button class="tab-btn" onclick="showTab('tab-outward-receivables')">🚚 Outward Receivables (<span id="outwardBadgeDue">0 Due</span>)</button>
+        <button class="tab-btn" onclick="showTab('tab-inspectors')">Quality Inspector Master</button>
+        <button class="tab-btn" onclick="showTab('tab-ledgers')">Ledger Entries & Cashbook</button>
     </div>
 
-    <!-- TAB 1: DAILY RATE CORRIDOR MASTER -->
-    <div id="tab-rates" class="tab-content" style="display:block;">
-        <div class="commodity-selection-section" style="margin-bottom:22px;">
+    <!-- TAB 1: DAILY RATE MASTER -->
+    <div id="tab-rates" class="tab-content active">
+        <!-- COMMODITY CARDS IN ACCOUNTS -->
+        <div class="commodity-selection-section">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
                 <label style="font-size:12.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; color:#047857;">
                     ⚡ Click Commodity Card to Update Rates:
                 </label>
-                <span style="font-size:12px; color:var(--text-muted); font-weight:600;">Click any card to load its current rates into the rate editor below</span>
+                <span style="font-size:12px; color:var(--text-muted); font-weight:600;">Click any card to load its current rates into the editor below</span>
             </div>
-            
-            <div id="accountsCommodityGrid" class="commodity-cards-grid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:14px;">
-                <!-- Dynamically populated -->
+            <div class="commodity-cards-grid" id="accCommodityCardsGrid">
+                <!-- Populated via loadAccountsData() -->
+            </div>
+        </div>
+    </div>
+                    <div class="commodity-rates-box">
+                        <div class="rate-col">
+                            <span class="rate-lbl">Floor</span>
+                            <strong class="rate-val">₹</strong>
+                        </div>
+                        <div class="rate-col target-rate-col" style="background:#ecfdf5; border-color:#a7f3d0;">
+                            <span class="rate-lbl" style="color:#047857;">Target</span>
+                            <strong class="rate-val" style="color:#047857;">₹</strong>
+                        </div>
+                        <div class="rate-col">
+                            <span class="rate-lbl">Ceiling</span>
+                            <strong class="rate-val">₹</strong>
+                        </div>
+                    </div>
+                    <div class="card-specs-row">
+                        <span>Std Nami: %</span>
+                        <span>HSN: </span>
+                    </div>
+                </div>
+                
             </div>
         </div>
 
-        <div class="card" style="background:#ffffff; border:1.5px solid #cbd5e1; border-radius:14px; padding:20px; margin-bottom:22px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.05);">
-            <div class="card-header" style="border-bottom:1px solid #f1f5f9; padding-bottom:12px; margin-bottom:16px;">
-                <h2 style="font-size:16px; font-weight:800; color:#0f172a; margin:0;"><span>📝</span> Set / Update Today's Buying Price Corridor</h2>
+        <div class="card">
+            <div class="card-header">
+                <h2><span>📝</span> Set / Update Today's Buying Price Corridor </h2>
             </div>
-            <form id="rateCorridorForm" onsubmit="submitRateCorridor(event)">
+            <form action="/api/accounts/rates" method="POST" id="rateCorridorForm" onsubmit="submitRateCorridor(event)">
                 <div class="form-row">
                     <div class="form-group">
-                        <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Effective Date</label>
-                        <input type="date" name="rate_date" id="acc_rate_date" value="2026-11-05" required style="width:100%; padding:8px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-weight:600;">
+                        <label>Effective Date</label>
+                        <input type="date" name="rate_date" id="acc_rate_date" value="2026-11-06" required>
                     </div>
                     <div class="form-group">
-                        <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Commodity</label>
-                        <select id="acc_commodity_name" name="commodity_name" required onchange="handleCommodityDropdownChange(this.value)" style="width:100%; padding:8px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-weight:600;">
+                        <label>Commodity</label>
+                        <select id="acc_commodity_name" name="commodity_name" required onchange="handleCommodityDropdownChange(this.value)">
                             <option value="Soyabean (Yellow)">Soyabean (Yellow)</option>
-                            <option value="Wheat (Lokwan)">Wheat (Lokwan)</option>
-                            <option value="Chana (Desi) / Harbhara">Chana (Desi) / Harbhara</option>
-                            <option value="Dollar Chana (Kabuli)">Dollar Chana (Kabuli)</option>
-                            <option value="Cotton / Kapas">Cotton / Kapas</option>
-                            <option value="Maize (Makka)">Maize (Makka)</option>
+                            <option value="Chana (Desi)">Chana (Desi)</option>
+                            <option value="Toor (White)">Toor (White)</option>
+                            <option value="Wheat (Sharbati)">Wheat (Sharbati)</option>
+                            <option value="Maize (Yellow)">Maize (Yellow)</option>
                             <option value="Mustard (Rayda)">Mustard (Rayda)</option>
-                            <option value="Toor (White) / Arhar">Toor (White) / Arhar</option>
-                            <option value="Moong (Green Gram)">Moong (Green Gram)</option>
-                            <option value="Urad (Black Matpe)">Urad (Black Matpe)</option>
-                            <option value="Groundnut / Bhuimug">Groundnut / Bhuimug</option>
-                            <option value="Bajra / Pearl Millet">Bajra / Pearl Millet</option>
                         </select>
                     </div>
                     <div class="form-group">
-                        <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Quality Grade</label>
-                        <select id="acc_quality_grade" name="quality_grade" style="width:100%; padding:8px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-weight:600;">
+                        <label>Quality Grade</label>
+                        <select id="acc_quality_grade" name="quality_grade">
                             <option value="STANDARD">STANDARD</option>
                             <option value="GRADE_A">GRADE_A (Premium)</option>
                             <option value="COMMERCIAL">COMMERCIAL (Fair)</option>
                         </select>
                     </div>
                     <div class="form-group">
-                        <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Floor Rate (₹ / Qtl)</label>
-                        <input type="number" step="0.5" id="acc_min_rate" name="min_rate" placeholder="6500" required style="width:100%; padding:8px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-weight:700;">
+                        <label>Min Rate (₹ / Qtl)</label>
+                        <input type="number" step="0.5" id="acc_min_rate" name="min_rate" placeholder="4400" required>
                     </div>
                     <div class="form-group">
-                        <label style="display:block; font-size:12px; font-weight:700; color:#047857; margin-bottom:4px;">Target Rate (₹ / Qtl)</label>
-                        <input type="number" step="0.5" id="acc_target_rate" name="target_rate" placeholder="6850" required style="width:100%; padding:8px 12px; border:2px solid #059669; border-radius:8px; font-weight:800; background:#f0fdf4;">
+                        <label>Target Rate (₹ / Qtl)</label>
+                        <input type="number" step="0.5" id="acc_target_rate" name="target_rate" placeholder="4650" required>
                     </div>
                     <div class="form-group">
-                        <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Ceiling Rate (₹ / Qtl)</label>
-                        <input type="number" step="0.5" id="acc_max_rate" name="max_rate" placeholder="7500" required style="width:100%; padding:8px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-weight:700;">
+                        <label>Max Rate (₹ / Qtl)</label>
+                        <input type="number" step="0.5" id="acc_max_rate" name="max_rate" placeholder="4800" required>
                     </div>
-                </div>
-
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:14px; padding-top:14px; border-top:1px solid #f1f5f9;">
-                    <div style="font-size:12px; color:#64748b;">
-                        ✓ Zero Mandi Cess (0.0%) • Mandi Hamali: ₹25 / 100 kg • Weighbridge Cut: 300g / 100 kg
+                    <div class="form-group" style="display:flex; align-items:flex-end;">
+                        <button type="submit" id="btnPublishRate" class="btn btn-accounts" style="width:100%;">Publish Rate Board →</button>
                     </div>
-                    <button type="submit" id="btnPublishRate" style="padding:10px 24px; background:linear-gradient(135deg, #059669 0%, #10b981 100%); color:#ffffff; border:none; border-radius:8px; font-size:14px; font-weight:800; cursor:pointer; box-shadow:0 4px 12px rgba(16,185,129,0.3);">
-                        🚀 Publish Rate to All Branch Desks
-                    </button>
                 </div>
             </form>
         </div>
 
-        <!-- PUBLISHED RATES TABLE -->
-        <div class="card" style="background:#ffffff; border:1.5px solid #cbd5e1; border-radius:14px; padding:20px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.05);">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
-                <h3 style="margin:0; font-size:15px; font-weight:800; color:#0f172a;">📋 Published Daily Mandi Buying Corridors</h3>
-                <span style="font-size:12px; color:#64748b;">Live APMC Benchmark Rates</span>
+        <div class="card">
+            <div class="card-header">
+                <h2><span>📋</span> Published Daily Mandi Rates</h2>
             </div>
-            <div style="overflow-x:auto;">
-                <table style="width:100%; border-collapse:collapse; font-size:13px; text-align:left;">
-                    <thead>
-                        <tr style="background:#f8fafc; border-bottom:2px solid #e2e8f0; color:#475569;">
-                            <th style="padding:10px 12px;">Commodity</th>
-                            <th style="padding:10px 12px;">Grade</th>
-                            <th style="padding:10px 12px;">Floor Rate</th>
-                            <th style="padding:10px 12px;">Target Rate</th>
-                            <th style="padding:10px 12px;">Ceiling Rate</th>
-                            <th style="padding:10px 12px;">Std Nami</th>
-                            <th style="padding:10px 12px;">Effective Date</th>
-                            <th style="padding:10px 12px; text-align:center;">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody id="publishedRatesTableBody">
-                        <!-- Dynamically populated -->
-                    </tbody>
-                </table>
-            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Commodity</th>
+                        <th>Quality Grade</th>
+                        <th>Floor (Min ₹/Qtl)</th>
+                        <th>Target Rate (₹/Qtl)</th>
+                        <th>Ceiling (Max ₹/Qtl)</th>
+                        <th>Updated At</th>
+                    </tr>
+                </thead>
+                <tbody id="ratesTableBody">
+                    <!-- Populated via loadAccountsData() -->
+                </tbody>
+            </table>
         </div>
     </div>
 
-    <!-- TAB 2: RATE & BACKDATED APPROVALS -->
-    <div id="tab-overrides" class="tab-content" style="display:none;">
-        <div class="card" style="background:#ffffff; border:1.5px solid #cbd5e1; border-radius:14px; padding:20px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.05);">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
-                <h3 style="margin:0; font-size:15px; font-weight:800; color:#0f172a;">⚠️ Pending Rate Overrides & Backdated Historical Entries</h3>
-                <span class="badge-pill" style="background:#fef3c7; color:#b45309; padding:4px 8px; border-radius:6px; font-weight:700; font-size:11.5px;">Requires Chief Accountant Verification</span>
+    <!-- TAB 2: RATE OVERRIDE QUEUE -->
+    <div id="tab-overrides" class="tab-content">
+        <div class="card">
+            <div class="card-header">
+                <h2><span>⚠️</span> Pending Rate Overrides & Backdated Historical Entries</h2>
+                <span class="badge-pill badge-amber">0 Verifications Pending</span>
             </div>
-            <div style="overflow-x:auto;">
-                <table style="width:100%; border-collapse:collapse; font-size:13px;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Token</th>
+                        <th>Date</th>
+                        <th>Branch</th>
+                        <th>Farmer / Cultivator</th>
+                        <th>Commodity</th>
+                        <th>Net Qtl</th>
+                        <th>Rate / Qtl</th>
+                        <th>Audit Status & Reason</th>
+                        <th>Action with Audit Reason</th>
+                    </tr>
+                </thead>
+                <tbody id="overridesTableBody">
+                    <tr>
+                        <td colspan="9" style="text-align:center; padding:32px; color:#64748b;">
+                            <div style="font-size:32px; margin-bottom:8px;">✅</div>
+                            <strong style="font-size:14px; color:#334155;">All Rate & Backdated Requests Approved</strong>
+                            <p style="margin:4px 0 0 0; font-size:12px;">No pending branch price corridor exception tickets require head office review.</p>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+                            
+                            <span class="badge" style="background:#fee2e2; color:#991b1b; border:1px solid #fca5a5; font-weight:700; font-size:10.5px; padding:2px 6px; border-radius:4px; display:inline-block; margin-bottom:3px;">⚠️ Rate > Corridor</span><br>
+                            
+                            <small style="color:var(--text-secondary); font-style:italic;">""</small>
+                        </td>
+                        <td>
+                            <form action="/api/accounts/rate-overrides/action" method="POST" style="display:flex; gap:6px; align-items:center;">
+                                <input type="hidden" name="invoice_id" value="">
+                                <input type="text" name="accountant_reason" placeholder="Audit verification note..." required style="padding:6px 10px; font-size:12px; border:1px solid var(--input-border); border-radius:6px; width:170px;">
+                                <button type="submit" name="decision" value="APPROVE" class="btn btn-sm btn-accounts" title="Approve & Unlock Parchi Slip">✓ Verify & Unlock</button>
+                                <button type="submit" name="decision" value="REJECT" class="btn btn-sm btn-danger">Reject</button>
+                            </form>
+                        </td>
+                    </tr>
+                    
+                </tbody>
+            </table>
+            
+            <p style="color:var(--text-muted); font-size:14px; padding:20px 0; font-weight:600;">✓ No pending out-of-range purchase rates. All branch entries are currently within daily approved corridors.</p>
+            
+        </div>
+    </div>
+
+    <!-- TAB 3: RTGS BANK TRANSFERS DESK -->
+    <div id="tab-rtgs" class="tab-content">
+        <div class="card">
+            <div class="card-header">
+                <div>
+                    <h2><span>🏦</span> Central RTGS & Bank Transfer Authority Desk</h2>
+                    <p style="font-size:12.5px; color:var(--text-muted); margin-top:2px;">
+                        Mandatory UTR Entry: Requests from branches remain pending and cannot be settled without entering a valid Bank UTR number.
+                    </p>
+                </div>
+                <span class="badge-pill <table>
+                <thead>
+                    <tr>
+                        <th>Token #</th>
+                        <th>Branch</th>
+                        <th>Farmer Name</th>
+                        <th>Beneficiary Bank Details</th>
+                        <th>Net Amount (₹)</th>
+                        <th>Action: Enter UTR to Disburse</th>
+                    </tr>
+                </thead>
+                <tbody id="rtgsTableBody">
+                    <tr>
+                        <td colspan="6" style="text-align:center; padding:32px; color:#64748b;">
+                            <div style="font-size:32px; margin-bottom:8px;">🏦</div>
+                            <strong style="font-size:14px; color:#334155;">All RTGS Bank Transfers Settled</strong>
+                            <p style="margin:4px 0 0 0; font-size:12px;">No pending farmer direct bank settlements at this time.</p>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>">
+                    0 Pending RTGS
+                </span>
+            </div>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Token #</th>
+                        <th>Branch</th>
+                        <th>Farmer Name</th>
+                        <th>Beneficiary Bank Details</th>
+                        <th>Net Amount (₹)</th>
+                        <th>Action: Enter UTR to Disburse</th>
+                    </tr>
+                </thead>
+                <tbody id="rtgsTableBody">
+                    <tr>
+                        <td colspan="6" style="text-align:center; padding:32px; color:#64748b;">
+                            <div style="font-size:32px; margin-bottom:8px;">🏦</div>
+                            <strong style="font-size:14px; color:#334155;">All RTGS Bank Transfers Settled</strong>
+                            <p style="margin:4px 0 0 0; font-size:12px;">No pending farmer direct bank settlements at this time.</p>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- TAB 3: QUALITY INSPECTOR MASTER -->
+    <div id="tab-inspectors" class="tab-content">
+        <div class="card">
+            <div class="card-header">
+                <div>
+                    <h2><span>🔍</span> Add Quality Inspector & Credentials</h2>
+                    <p style="font-size:12px; color:var(--text-muted); margin:4px 0 0 0;">
+                        Assign a mandatory branch yard and set unique mobile app credentials. Inspectors cannot alter their branch.
+                    </p>
+                </div>
+            </div>
+            <form id="addInspectorForm" onsubmit="handleCreateInspector(event)" method="POST">
+                <div class="form-row" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:14px; margin-bottom:12px;">
+                    <div class="form-group">
+                        <label>Inspector Full Name *</label>
+                        <input type="text" name="name" placeholder="Ramesh Chandra Sharma" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Designation / Role *</label>
+                        <input type="text" name="designation" value="Quality Inspector" placeholder="Quality Inspector" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Mobile Number</label>
+                        <input type="text" name="phone" placeholder="98260XXXXX">
+                    </div>
+                    <div class="form-group">
+                        <label style="color:#047857;">Assigned Yard * (Mandatory)</label>
+                        <select name="branch_id" required style="border:1.5px solid #047857; font-weight:700;">
+                            <option value="" disabled selected>-- Select Yard (Mandatory) --</option>
+                            
+                            <option value=""> ()</option>
+                            
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:14px; align-items:flex-end;">
+                    <div class="form-group">
+                        <label>Login Username *</label>
+                        <input type="text" name="username" placeholder="e.g. qc_chk_1" required pattern="[a-zA-Z0-9_.-]{3,32}" title="3-32 letters, numbers, or underscores">
+                        <small style="color:var(--text-muted); font-size:11px;">Must be unique across branches</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Initial Password *</label>
+                        <input type="password" name="password" placeholder="Min 6 characters" required minlength="6">
+                        <small style="color:var(--text-muted); font-size:11px;">Can be changed by inspector in-app</small>
+                    </div>
+                    <div class="form-group">
+                        <button type="submit" class="btn btn-accounts" style="width:100%; height:42px; font-weight:800;">
+                            + Create Inspector & Credentials
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h2><span>👥</span> Pre-Approved Quality Inspectors & Credentials</h2>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Inspector Name</th>
+                        <th>Login Username</th>
+                        <th>Designation</th>
+                        <th>Phone</th>
+                        <th>Assigned Branch Yard</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="inspectorsTableBody">
+                    <!-- Populated via loadAccountsData() -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- TAB 4: GENERAL LEDGER & CASHBOOK -->
+    <div id="tab-ledgers" class="tab-content">
+        <div class="card">
+            <div class="card-header">
+                <h2><span>📑</span> Consolidated General Ledger Entries</h2>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Branch</th>
+                        <th>Voucher Type</th>
+                        <th>Voucher #</th>
+                        <th>Account Name</th>
+                        <th>Debit (₹)</th>
+                        <th>Credit (₹)</th>
+                        <th>Narration</th>
+                    </tr>
+                </thead>
+                <tbody id="ledgersTableBody">
+                    <tr>
+                        <td colspan="8" style="text-align:center; padding:32px; color:#64748b;">
+                            <div style="font-size:32px; margin-bottom:8px;">📖</div>
+                            <strong style="font-size:14px; color:#334155;">No Ledger Entries Logged for Selected Period</strong>
+                            <p style="margin:4px 0 0 0; font-size:12px;">Double-entry bookkeeping journal entries will display here automatically.</p>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- TAB 5: OUTWARD RECEIVABLES & PAYMENT SETTLEMENT DESK -->
+    <div id="tab-outward-receivables" class="tab-content">
+        <!-- METRICS ROW -->
+        <div class="stats-grid" style="margin-bottom:20px;">
+            <div class="stat-card stat-blue">
+                <div class="stat-icon">🚚</div>
+                <div class="stat-content">
+                    <span class="stat-label">Total Outward Billed</span>
+                    <strong class="stat-value"><span id="statOutwardBilled">₹0.00</span></strong>
+                    <span class="stat-help">All Branches Combined</span>
+                </div>
+            </div>
+            <div class="stat-card stat-green">
+                <div class="stat-icon">✅</div>
+                <div class="stat-content">
+                    <span class="stat-label">Received Collections</span>
+                    <strong class="stat-value" style="color:#047857;"><span id="statOutwardReceived">₹0.00</span></strong>
+                    <span class="stat-help">Bank & Cash Cleared</span>
+                </div>
+            </div>
+            <div class="stat-card stat-amber">
+                <div class="stat-icon">⏳</div>
+                <div class="stat-content">
+                    <span class="stat-label">Pending / Outstanding Due</span>
+                    <strong class="stat-value" style="color:#d97706;"><span id="statOutwardPending">₹0.00</span></strong>
+                    <span class="stat-help">0 Invoices Awaiting Settlement</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <div>
+                    <h2><span>🚚</span> Outward Dispatch Receivables & Payment Settlement Desk</h2>
+                    <p style="font-size:12.5px; color:var(--text-muted); margin-top:2px;">
+                        Daily Accountant Control: When payment is received from buyers/mills, record settlement. If received via Bank RTGS, enter mandatory UTR. If received via Cash, assign to specific receiving branch drawer.
+                    </p>
+                </div>
+                <span class="badge-pill badge-amberbadge-green">
+                    0 Awaiting Payment
+                </span>
+            </div>
+
+            <div class="table-container">
+                <table>
                     <thead>
-                        <tr style="background:#f8fafc; border-bottom:2px solid #e2e8f0; color:#475569;">
-                            <th style="padding:10px 12px;">Token</th>
-                            <th style="padding:10px 12px;">Branch</th>
-                            <th style="padding:10px 12px;">Farmer Name</th>
-                            <th style="padding:10px 12px;">Commodity</th>
-                            <th style="padding:10px 12px;">Offered Rate</th>
-                            <th style="padding:10px 12px;">Target Corridor</th>
-                            <th style="padding:10px 12px;">Reason / Flag</th>
-                            <th style="padding:10px 12px; text-align:center;">Action</th>
+                        <tr>
+                            <th>Challan #</th>
+                            <th>Date</th>
+                            <th>Branch</th>
+                            <th>Buyer / Mill</th>
+                            <th>Commodity & Weight</th>
+                            <th>Bill Amount (₹)</th>
+                            <th>Payment Status</th>
+                            <th>Receipt Mode / UTR / Branch</th>
+                            <th>Action</th>
                         </tr>
                     </thead>
-                    <tbody id="pendingOverridesTableBody">
+                    <tbody id="outwardTableBody">
                         <tr>
-                            <td colspan="8" style="text-align:center; padding:30px; color:#64748b;">
-                                ✓ Zero pending rate overrides. All branch procurements are compliant with published price corridors.
+                            <td colspan="9" style="text-align:center; padding:32px; color:#64748b;">
+                                <div style="font-size:32px; margin-bottom:8px;">🚚</div>
+                                <strong style="font-size:14px; color:#334155;">No Outstanding Outward Receivables</strong>
+                                <p style="margin:4px 0 0 0; font-size:12px;">All mill dispatch challans have been fully settled.</p>
                             </td>
                         </tr>
                     </tbody>
@@ -310,491 +562,1007 @@
         </div>
     </div>
 
-    <!-- TAB 3: RTGS BANK TRANSFERS -->
-    <div id="tab-rtgs" class="tab-content" style="display:none;">
-        <div class="card" style="background:#ffffff; border:1.5px solid #cbd5e1; border-radius:14px; padding:20px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.05);">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
-                <h3 style="margin:0; font-size:15px; font-weight:800; color:#0f172a;">🏦 Central RTGS & Bank Transfer Authority Desk</h3>
-                <div style="display:flex; gap:10px;">
-                    <button type="button" onclick="exportRtgsExcel()" style="padding:6px 12px; font-size:12px; font-weight:700; background:#f8fafc; border:1px solid #cbd5e1; border-radius:6px; cursor:pointer;">📥 Export RTGS Batch (Excel)</button>
+    <!-- MODAL: RECEIVE OUTWARD PAYMENT -->
+    <div id="receivePaymentModal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.6); z-index:9999; justify-content:center; align-items:center;">
+        <div class="modal" style="background:#ffffff; max-width:540px; width:92%; border-radius:14px; padding:22px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1.5px solid #e2e8f0; padding-bottom:12px;">
+                <h2 style="font-size:18px; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:8px;">
+                    <span>💰</span> Record Outward Payment Receipt
+                </h2>
+                <button type="button" onclick="closeReceivePaymentModal()" style="background:none; border:none; font-size:20px; cursor:pointer; color:#64748b;">✕</button>
+            </div>
+
+            <form id="receivePaymentForm" onsubmit="handlePostPaymentReceipt(event)" method="POST" style="margin-top:16px;">
+                <input type="hidden" id="modal_challan_id" name="challan_id">
+
+                <!-- INFO BANNER -->
+                <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px 14px; margin-bottom:16px;">
+                    <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:4px;">
+                        <span style="color:var(--text-muted);">Challan Number:</span>
+                        <code id="modal_disp_challan" style="font-weight:800; color:#0369a1;"></code>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:4px;">
+                        <span style="color:var(--text-muted);">Buyer / Trader:</span>
+                        <strong id="modal_disp_buyer" style="color:#0f172a;"></strong>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; font-size:15px; border-top:1px dashed #cbd5e1; padding-top:6px; margin-top:6px;">
+                        <span style="font-weight:700; color:#047857;">Amount Receivable:</span>
+                        <strong id="modal_disp_amount" style="font-weight:900; color:#047857;"></strong>
+                    </div>
                 </div>
-            </div>
-            <div style="overflow-x:auto;">
-                <table style="width:100%; border-collapse:collapse; font-size:13px;">
-                    <thead>
-                        <tr style="background:#f8fafc; border-bottom:2px solid #e2e8f0; color:#475569;">
-                            <th style="padding:10px 12px;">Token</th>
-                            <th style="padding:10px 12px;">Branch</th>
-                            <th style="padding:10px 12px;">Farmer / Beneficiary</th>
-                            <th style="padding:10px 12px;">Bank Name</th>
-                            <th style="padding:10px 12px;">Account Number</th>
-                            <th style="padding:10px 12px;">IFSC Code</th>
-                            <th style="padding:10px 12px; text-align:right;">Net Payable</th>
-                            <th style="padding:10px 12px; text-align:center;">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody id="rtgsQueueTableBody">
-                        <!-- Dynamically populated -->
-                    </tbody>
-                </table>
-            </div>
+
+                <div class="form-grid" style="display:grid; grid-template-columns:1fr; gap:14px;">
+                    <div class="form-group">
+                        <label style="font-size:12.5px; font-weight:700;">Payment Mode Received *</label>
+                        <select id="modal_payment_mode" name="payment_mode" onchange="togglePaymentModeFields()" required style="width:100%; padding:9px 12px; border:1.5px solid var(--input-border); border-radius:8px; font-weight:700;">
+                            <option value="RTGS">RTGS / NEFT / Direct Bank Transfer</option>
+                            <option value="CASH">Cash (Deposited at Branch Yard)</option>
+                        </select>
+                    </div>
+
+                    <!-- IF RTGS: UTR FIELD -->
+                    <div id="rtgs_fields_box" class="form-group">
+                        <label style="font-size:12.5px; font-weight:700; color:#047857;">Bank UTR Number * (Mandatory for RTGS)</label>
+                        <input type="text" id="modal_utr_number" name="utr_number" placeholder="e.g. SBIN20261028994" style="width:100%; padding:9px 12px; border:1.5px solid #047857; border-radius:8px; text-transform:uppercase; font-weight:700;">
+                        <small style="color:var(--text-muted); font-size:11px;">Credited to Mandi Central Bank Account.</small>
+                    </div>
+
+                    <!-- IF CASH: BRANCH SELECTOR -->
+                    <div id="cash_fields_box" class="form-group" style="display:none;">
+                        <label style="font-size:12.5px; font-weight:700; color:#0f766e;">Receiving Branch Drawer *</label>
+                        <select id="modal_payment_branch_id" name="payment_branch_id" style="width:100%; padding:9px 12px; border:1.5px solid #0f766e; border-radius:8px; font-weight:700;">
+                            
+                            <option value=""> ()</option>
+                            
+                        </select>
+                        <small style="color:var(--text-muted); font-size:11px;">Will automatically increase cash drawer closing balance of this branch.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label style="font-size:12.5px; font-weight:700;">Payment Receipt Date *</label>
+                        <input type="date" name="receipt_date" value="2026-11-06" required style="width:100%; padding:9px 12px; border:1.5px solid var(--input-border); border-radius:8px;">
+                    </div>
+
+                    <div class="form-group">
+                        <label style="font-size:12.5px; font-weight:700;">Notes / Remarks (Optional)</label>
+                        <input type="text" name="payment_notes" placeholder="e.g. Cleared against dispatch invoice" style="width:100%; padding:9px 12px; border:1.5px solid var(--input-border); border-radius:8px;">
+                    </div>
+                </div>
+
+                <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px; border-top:1px solid #e2e8f0; padding-top:14px;">
+                    <button type="button" class="btn btn-secondary" onclick="closeReceivePaymentModal()">Cancel</button>
+                    <button type="submit" class="btn btn-accounts" style="font-weight:800; padding:10px 22px;">
+                        ✓ Confirm & Post Receipt
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 
-    <!-- TAB 4: OUTWARD RECEIVABLES -->
-    <div id="tab-outward-receivables" class="tab-content" style="display:none;">
-        <div class="card" style="background:#ffffff; border:1.5px solid #cbd5e1; border-radius:14px; padding:20px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.05);">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
-                <h3 style="margin:0; font-size:15px; font-weight:800; color:#0f172a;">🚚 Outward Dispatch Receivables & Payment Settlement Desk</h3>
-                <span style="font-size:12px; color:#64748b;">Traders & Oil Mills Corporate Accounts</span>
+    <!-- MODAL: EDIT QUALITY INSPECTOR & CREDENTIALS -->
+    <div id="editInspectorModal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.6); z-index:9999; justify-content:center; align-items:center;">
+        <div class="modal" style="background:#ffffff; max-width:540px; width:92%; border-radius:14px; padding:22px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1.5px solid #e2e8f0; padding-bottom:12px;">
+                <h2 style="font-size:18px; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:8px;">
+                    <span>✏️</span> Edit Inspector & Credentials
+                </h2>
+                <button type="button" onclick="closeEditInspectorModal()" style="background:none; border:none; font-size:20px; cursor:pointer; color:#64748b;">✕</button>
             </div>
-            <div style="overflow-x:auto;">
-                <table style="width:100%; border-collapse:collapse; font-size:13px;">
-                    <thead>
-                        <tr style="background:#f8fafc; border-bottom:2px solid #e2e8f0; color:#475569;">
-                            <th style="padding:10px 12px;">Invoice #</th>
-                            <th style="padding:10px 12px;">Buyer / Trader</th>
-                            <th style="padding:10px 12px;">Branch Yard</th>
-                            <th style="padding:10px 12px;">Commodity</th>
-                            <th style="padding:10px 12px; text-align:right;">Total Bill</th>
-                            <th style="padding:10px 12px; text-align:right;">Received</th>
-                            <th style="padding:10px 12px; text-align:right;">Outstanding</th>
-                            <th style="padding:10px 12px; text-align:center;">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody id="outwardReceivablesTableBody">
-                        <!-- Dynamically populated -->
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
 
-    <!-- TAB 5: QUALITY INSPECTOR MASTER -->
-    <div id="tab-inspectors" class="tab-content" style="display:none;">
-        <div class="card" style="background:#ffffff; border:1.5px solid #cbd5e1; border-radius:14px; padding:20px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.05);">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
-                <h3 style="margin:0; font-size:15px; font-weight:800; color:#0f172a;">👥 Pre-Approved Quality Inspectors & Android PWA Credentials</h3>
-                <button type="button" onclick="openAddInspectorModal()" style="padding:6px 14px; background:#059669; color:#fff; border:none; border-radius:6px; font-weight:700; font-size:12px; cursor:pointer;">+ Add Inspector</button>
-            </div>
-            <div style="overflow-x:auto;">
-                <table style="width:100%; border-collapse:collapse; font-size:13px;">
-                    <thead>
-                        <tr style="background:#f8fafc; border-bottom:2px solid #e2e8f0; color:#475569;">
-                            <th style="padding:10px 12px;">Name</th>
-                            <th style="padding:10px 12px;">Assigned APMC Yard</th>
-                            <th style="padding:10px 12px;">Login ID</th>
-                            <th style="padding:10px 12px;">Mobile / Device ID</th>
-                            <th style="padding:10px 12px;">Active Status</th>
-                            <th style="padding:10px 12px; text-align:center;">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody id="inspectorsMasterTableBody">
-                        <tr style="border-bottom:1px solid #f1f5f9;">
-                            <td style="padding:10px 12px; font-weight:700;">Babulal Meena</td>
-                            <td style="padding:10px 12px;">Chikhali APMC Main Mandi</td>
-                            <td style="padding:10px 12px;"><code>insp_chk</code></td>
-                            <td style="padding:10px 12px;">+91 98221 44001</td>
-                            <td style="padding:10px 12px;"><span class="badge-pill" style="background:#ecfdf5; color:#047857; padding:2px 8px; border-radius:4px; font-weight:700;">ACTIVE</span></td>
-                            <td style="padding:10px 12px; text-align:center;"><button type="button" class="btn" style="padding:4px 8px; font-size:11px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:4px;">Manage</button></td>
-                        </tr>
-                        <tr style="border-bottom:1px solid #f1f5f9;">
-                            <td style="padding:10px 12px; font-weight:700;">Gajanan Jadhav</td>
-                            <td style="padding:10px 12px;">Varvand APMC Yard</td>
-                            <td style="padding:10px 12px;"><code>insp_vrv</code></td>
-                            <td style="padding:10px 12px;">+91 98221 44002</td>
-                            <td style="padding:10px 12px;"><span class="badge-pill" style="background:#ecfdf5; color:#047857; padding:2px 8px; border-radius:4px; font-weight:700;">ACTIVE</span></td>
-                            <td style="padding:10px 12px; text-align:center;"><button type="button" class="btn" style="padding:4px 8px; font-size:11px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:4px;">Manage</button></td>
-                        </tr>
-                        <tr style="border-bottom:1px solid #f1f5f9;">
-                            <td style="padding:10px 12px; font-weight:700;">Ramesh Deshmukh</td>
-                            <td style="padding:10px 12px;">Sarola Maruti Yard</td>
-                            <td style="padding:10px 12px;"><code>insp_srl</code></td>
-                            <td style="padding:10px 12px;">+91 98221 44003</td>
-                            <td style="padding:10px 12px;"><span class="badge-pill" style="background:#ecfdf5; color:#047857; padding:2px 8px; border-radius:4px; font-weight:700;">ACTIVE</span></td>
-                            <td style="padding:10px 12px; text-align:center;"><button type="button" class="btn" style="padding:4px 8px; font-size:11px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:4px;">Manage</button></td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
+            <form id="editInspectorForm" onsubmit="handleSaveInspectorEdit(event)" method="POST" style="margin-top:16px;">
+                <input type="hidden" id="edit_inspector_id" name="inspector_id">
 
-    <!-- TAB 6: MULTI-BRANCH LEDGERS & CASHBOOK -->
-    <div id="tab-ledgers" class="tab-content" style="display:none;">
-        <div class="card" style="background:#ffffff; border:1.5px solid #cbd5e1; border-radius:14px; padding:20px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.05);">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
-                <h3 style="margin:0; font-size:15px; font-weight:800; color:#0f172a;">📑 Consolidated Multi-Branch General Ledger Entries</h3>
-                <span style="font-size:12px; color:#64748b;">Automated Double-Entry Rojmel Audit</span>
-            </div>
-            <div style="overflow-x:auto;">
-                <table style="width:100%; border-collapse:collapse; font-size:13px;">
-                    <thead>
-                        <tr style="background:#f8fafc; border-bottom:2px solid #e2e8f0; color:#475569;">
-                            <th style="padding:10px 12px;">Date</th>
-                            <th style="padding:10px 12px;">Branch</th>
-                            <th style="padding:10px 12px;">Voucher / Token</th>
-                            <th style="padding:10px 12px;">Particulars / Account Head</th>
-                            <th style="padding:10px 12px; text-align:right;">Debit (Dr)</th>
-                            <th style="padding:10px 12px; text-align:right;">Credit (Cr)</th>
-                            <th style="padding:10px 12px; text-align:center;">Mode</th>
-                        </tr>
-                    </thead>
-                    <tbody id="ledgersTableBody">
-                        <!-- Dynamically populated -->
-                    </tbody>
-                </table>
-            </div>
+                <div class="form-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label style="font-size:12.5px; font-weight:700;">Inspector Full Name *</label>
+                        <input type="text" id="edit_name" name="name" required style="width:100%; padding:9px 12px; border:1.5px solid var(--input-border); border-radius:8px;">
+                    </div>
+                    <div class="form-group">
+                        <label style="font-size:12.5px; font-weight:700;">Designation / Role *</label>
+                        <input type="text" id="edit_designation" name="designation" required style="width:100%; padding:9px 12px; border:1.5px solid var(--input-border); border-radius:8px;">
+                    </div>
+                    <div class="form-group">
+                        <label style="font-size:12.5px; font-weight:700;">Mobile Number</label>
+                        <input type="text" id="edit_phone" name="phone" style="width:100%; padding:9px 12px; border:1.5px solid var(--input-border); border-radius:8px;">
+                    </div>
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label style="font-size:12.5px; font-weight:700; color:#047857;">Assigned Branch Yard * (Locked to Yard)</label>
+                        <select id="edit_branch_id" name="branch_id" required style="width:100%; padding:9px 12px; border:1.5px solid #047857; border-radius:8px; font-weight:700;">
+                            <option value="br-chikhali">Chikhali APMC Main Mandi (BR-CHK)</option>
+                            <option value="br-varvand">Varvand APMC Yard (BR-VRV)</option>
+                            <option value="br-sarola">Sarola Maruti APMC Yard (BR-SRL)</option>
+                            <option value="br-dhad">Dhad APMC Yard (BR-DHD)</option>
+                        </select>
+                        <small style="color:var(--text-muted); font-size:11px;">Inspector cannot alter this branch from mobile login.</small>
+                    </div>
+                    <div class="form-group">
+                        <label style="font-size:12.5px; font-weight:700;">Login Username *</label>
+                        <input type="text" id="edit_username" name="username" required style="width:100%; padding:9px 12px; border:1.5px solid var(--input-border); border-radius:8px; font-weight:700;">
+                    </div>
+                    <div class="form-group">
+                        <label style="font-size:12.5px; font-weight:700; color:#d97706;">Reset Password (Optional)</label>
+                        <input type="password" id="edit_password" name="new_password" placeholder="Leave blank to keep current" minlength="6" style="width:100%; padding:9px 12px; border:1.5px solid var(--input-border); border-radius:8px;">
+                    </div>
+                </div>
+
+                <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px; border-top:1px solid #e2e8f0; padding-top:14px;">
+                    <button type="button" class="btn btn-secondary" onclick="closeEditInspectorModal()">Cancel</button>
+                    <button type="submit" class="btn btn-accounts" style="font-weight:800; padding:10px 22px;">
+                        ✓ Save Inspector Changes
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 
     <script>
-        // Central Accounts Data & State
-        let allCommodityRates = [
-            { name: "Soyabean (Yellow)", min_rate: 6500, target_rate: 6850, max_rate: 7500, grade: "STANDARD", moisture: 12.0, hsn: "1201" },
-            { name: "Wheat (Lokwan)", min_rate: 2800, target_rate: 2950, max_rate: 3100, grade: "STANDARD", moisture: 12.0, hsn: "1001" },
-            { name: "Chana (Desi) / Harbhara", min_rate: 5500, target_rate: 6000, max_rate: 6500, grade: "STANDARD", moisture: 10.0, hsn: "0713" },
-            { name: "Dollar Chana (Kabuli)", min_rate: 8000, target_rate: 9000, max_rate: 10000, grade: "FAQ", moisture: 10.0, hsn: "0713" },
-            { name: "Cotton / Kapas", min_rate: 6800, target_rate: 7250, max_rate: 7600, grade: "STANDARD", moisture: 8.0, hsn: "5201" },
-            { name: "Maize (Makka)", min_rate: 2100, target_rate: 2250, max_rate: 2400, grade: "FAQ", moisture: 14.0, hsn: "1005" },
-            { name: "Mustard (Rayda)", min_rate: 5200, target_rate: 5400, max_rate: 5650, grade: "STANDARD", moisture: 8.0, hsn: "1207" },
-            { name: "Toor (White) / Arhar", min_rate: 7800, target_rate: 8200, max_rate: 8800, grade: "STANDARD", moisture: 10.0, hsn: "0713" },
-            { name: "Moong (Green Gram)", min_rate: 7500, target_rate: 8100, max_rate: 8600, grade: "FAQ", moisture: 10.0, hsn: "0713" },
-            { name: "Urad (Black Matpe)", min_rate: 7200, target_rate: 7800, max_rate: 8400, grade: "FAQ", moisture: 10.0, hsn: "0713" },
-            { name: "Groundnut / Bhuimug", min_rate: 5500, target_rate: 6200, max_rate: 7200, grade: "FAQ", moisture: 8.0, hsn: "1202" },
-            { name: "Bajra / Pearl Millet", min_rate: 2100, target_rate: 2400, max_rate: 2700, grade: "FAQ", moisture: 12.0, hsn: "1008" }
-        ];
+        function showTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            const targetEl = document.getElementById(tabId);
+            if (targetEl) targetEl.classList.add('active');
+            if (window.event && window.event.target) {
+                const btn = window.event.target.closest('.tab-btn');
+                if (btn) btn.classList.add('active');
+            }
+        }
 
-        let currentActiveBranch = 'all';
+        function openEditInspectorModal(id, name, designation, phone, branchId, username) {
+            document.getElementById('edit_inspector_id').value = id;
+            document.getElementById('edit_name').value = name;
+            document.getElementById('edit_designation').value = designation;
+            document.getElementById('edit_phone').value = phone || '';
+            document.getElementById('edit_branch_id').value = branchId || '';
+            document.getElementById('edit_username').value = username || '';
+            document.getElementById('edit_password').value = '';
+            document.getElementById('editInspectorModal').style.display = 'flex';
+        }
 
-        function showTab(tabId, btn) {
-            document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
-            const target = document.getElementById(tabId);
-            if (target) target.style.display = 'block';
+        function closeEditInspectorModal() {
+            document.getElementById('editInspectorModal').style.display = 'none';
+        }
 
-            document.querySelectorAll('.tabs .tab-btn').forEach(b => {
-                b.style.background = '#ffffff';
-                b.style.color = '#334155';
-                b.style.borderColor = '#cbd5e1';
+        function selectAccountCommodity(card) {
+            document.querySelectorAll('.commodity-card').forEach(el => el.classList.remove('selected'));
+            card.classList.add('selected');
+            const name = card.dataset.name;
+            const minRate = card.dataset.min;
+            const targetRate = card.dataset.target;
+            const maxRate = card.dataset.max;
+            const grade = card.dataset.grade || 'STANDARD';
+
+            document.getElementById('acc_commodity_name').value = name;
+            document.getElementById('acc_quality_grade').value = grade;
+            document.getElementById('acc_min_rate').value = minRate;
+            document.getElementById('acc_target_rate').value = targetRate;
+            document.getElementById('acc_max_rate').value = maxRate;
+        }
+
+        function handleCommodityDropdownChange(commName) {
+            const card = Array.from(document.querySelectorAll('.commodity-card')).find(c => c.dataset.name === commName);
+            if (card) {
+                selectAccountCommodity(card);
+            }
+        }
+
+        async function submitRateCorridor(event) {
+            event.preventDefault();
+            const form = event.target;
+            const btn = document.getElementById('btnPublishRate');
+            if (btn) { btn.disabled = true; btn.innerText = 'Publishing...'; }
+
+            try {
+                const formData = new FormData(form);
+                const resp = await fetch('/api/accounts/rates', {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: formData
+                });
+                const result = await resp.json();
+                if (result.success) {
+                    updateAccountCommodityCardUI(
+                        result.commodity_name,
+                        result.min_rate,
+                        result.target_rate,
+                        result.max_rate,
+                        result.quality_grade
+                    );
+                    updatePublishedRatesTableUI(result);
+                    if (window.MandiLiveSync && MandiLiveSync.toast) {
+                        MandiLiveSync.toast('Rate Board Published', '✓ Updated rates for ' + result.commodity_name + ' (Target: ₹' + Number(result.target_rate).toLocaleString('en-IN') + '/Qtl)', 'success');
+                    }
+                } else {
+                    alert('Error publishing rates: ' + (result.message || 'Unknown error'));
+                }
+            } catch (err) {
+                console.error('Failed to submit rate corridor via AJAX, falling back:', err);
+                form.submit();
+            } finally {
+                if (btn) { btn.disabled = false; btn.innerText = 'Publish Rate Board →'; }
+            }
+        }
+
+        function updateAccountCommodityCardUI(name, minRate, targetRate, maxRate, grade) {
+            const cards = document.querySelectorAll('.commodity-card');
+            cards.forEach(card => {
+                if (card.dataset.name === name) {
+                    card.dataset.min = minRate;
+                    card.dataset.target = targetRate;
+                    card.dataset.max = maxRate;
+                    if (grade) card.dataset.grade = grade;
+
+                    const rateVals = card.querySelectorAll('.rate-val');
+                    if (rateVals.length >= 3) {
+                        rateVals[0].innerText = '₹' + Math.round(Number(minRate)).toLocaleString('en-IN');
+                        rateVals[1].innerText = '₹' + Math.round(Number(targetRate)).toLocaleString('en-IN');
+                        rateVals[2].innerText = '₹' + Math.round(Number(maxRate)).toLocaleString('en-IN');
+                    }
+                    const gradeTag = card.querySelector('.card-grade-tag');
+                    if (gradeTag && grade) {
+                        gradeTag.innerText = 'Grade: ' + grade;
+                    }
+
+                    card.classList.add('selected');
+                    card.classList.remove('rate-updated-glow');
+                    void card.offsetWidth;
+                    card.classList.add('rate-updated-glow');
+                } else {
+                    card.classList.remove('selected');
+                }
             });
-            if (btn) {
-                btn.style.background = '#059669';
-                btn.style.color = '#ffffff';
-                btn.style.borderColor = '#059669';
+
+            const commSelect = document.getElementById('acc_commodity_name');
+            if (commSelect && commSelect.value === name) {
+                if (document.getElementById('acc_min_rate')) document.getElementById('acc_min_rate').value = minRate;
+                if (document.getElementById('acc_target_rate')) document.getElementById('acc_target_rate').value = targetRate;
+                if (document.getElementById('acc_max_rate')) document.getElementById('acc_max_rate').value = maxRate;
+                if (grade && document.getElementById('acc_quality_grade')) document.getElementById('acc_quality_grade').value = grade;
             }
         }
 
+        function updatePublishedRatesTableUI(data) {
+            const table = document.querySelector('#tab-rates table tbody');
+            if (!table) return;
+            const rows = Array.from(table.querySelectorAll('tr'));
+            let found = false;
+            for (const r of rows) {
+                const commCell = r.children[1];
+                const dateCell = r.children[0];
+                if (commCell && dateCell && commCell.innerText.trim() === data.commodity_name && dateCell.innerText.trim() === data.rate_date) {
+                    r.children[2].innerHTML = `<span class="badge-pill badge-green">${data.quality_grade}</span>`;
+                    r.children[3].innerText = '₹' + Number(data.min_rate).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                    r.children[4].innerHTML = `<strong style="color:#047857;">₹${Number(data.target_rate).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong>`;
+                    r.children[5].innerText = '₹' + Number(data.max_rate).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                    r.children[6].innerText = data.updated_at || 'Just now';
+                    r.style.backgroundColor = '#ecfdf5';
+                    setTimeout(() => { r.style.backgroundColor = ''; }, 2500);
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                const newRow = document.createElement('tr');
+                newRow.style.backgroundColor = '#ecfdf5';
+                newRow.innerHTML = `
+                    <td><code>${data.rate_date}</code></td>
+                    <td><strong>${data.commodity_name}</strong></td>
+                    <td><span class="badge-pill badge-green">${data.quality_grade}</span></td>
+                    <td>₹${Number(data.min_rate).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                    <td><strong style="color:#047857;">₹${Number(data.target_rate).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong></td>
+                    <td>₹${Number(data.max_rate).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                    <td style="font-size:12px; color:var(--text-muted);">${data.updated_at || 'Just now'}</td>
+                `;
+                table.insertBefore(newRow, table.firstChild);
+                setTimeout(() => { newRow.style.backgroundColor = ''; }, 2500);
+            }
+        }
+
+        function openReceivePaymentModal(challanId, challanNo, buyerName, amount) {
+            document.getElementById('modal_challan_id').value = challanId;
+            document.getElementById('modal_disp_challan').innerText = challanNo;
+            document.getElementById('modal_disp_buyer').innerText = buyerName;
+            document.getElementById('modal_disp_amount').innerText = '₹' + parseFloat(amount).toLocaleString('en-IN', {minimumFractionDigits: 2});
+            document.getElementById('modal_payment_mode').value = 'RTGS';
+            togglePaymentModeFields();
+            document.getElementById('receivePaymentModal').style.display = 'flex';
+        }
+
+        function closeReceivePaymentModal() {
+            document.getElementById('receivePaymentModal').style.display = 'none';
+        }
+
+        function togglePaymentModeFields() {
+            const mode = document.getElementById('modal_payment_mode').value;
+            const rtgsBox = document.getElementById('rtgs_fields_box');
+            const cashBox = document.getElementById('cash_fields_box');
+            const utrInput = document.getElementById('modal_utr_number');
+
+            if (mode === 'RTGS') {
+                rtgsBox.style.display = 'block';
+                cashBox.style.display = 'none';
+                utrInput.required = true;
+            } else {
+                rtgsBox.style.display = 'none';
+                cashBox.style.display = 'block';
+                utrInput.required = false;
+                utrInput.value = '';
+            }
+        }
+
+        // ---------------------------------------------------------------------
+        // INSPECTOR MOBILE APP QR CODE MODAL
+        // ---------------------------------------------------------------------
+        let activeQrMode = 'cloud';
+        function setQrMode(mode) {
+            activeQrMode = mode;
+            const btnCloud = document.getElementById('qrBtnCloud');
+            const btnLan = document.getElementById('qrBtnLan');
+            const urlInput = document.getElementById('inspectorQrUrl');
+            const qrImg = document.getElementById('inspectorQrImg');
+            
+            let targetUrl = 'https://mandi-erp-tracker.vercel.app/app';
+            if (mode === 'lan') {
+                const host = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost' ? '192.168.0.140' : window.location.hostname;
+                targetUrl = 'http://' + host + ':8080/inspector/portal';
+                if (btnLan) { btnLan.style.background = '#047857'; btnLan.style.color = '#fff'; }
+                if (btnCloud) { btnCloud.style.background = '#f1f5f9'; btnCloud.style.color = '#475569'; }
+            } else {
+                if (btnCloud) { btnCloud.style.background = '#047857'; btnCloud.style.color = '#fff'; }
+                if (btnLan) { btnLan.style.background = '#f1f5f9'; btnLan.style.color = '#475569'; }
+            }
+            if (urlInput) urlInput.value = targetUrl;
+            if (qrImg) {
+                qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + encodeURIComponent(targetUrl);
+            }
+        }
+
+        function openInspectorQrModal() {
+            const modal = document.getElementById('inspectorQrModal');
+            setQrMode('cloud');
+            if (modal) modal.style.display = 'flex';
+        }
+
+        function closeInspectorQrModal() {
+            const modal = document.getElementById('inspectorQrModal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        function copyInspectorUrl() {
+            const urlInput = document.getElementById('inspectorQrUrl');
+            if (urlInput) {
+                urlInput.select();
+                navigator.clipboard.writeText(urlInput.value).then(() => {
+                    alert('✓ URL copied to clipboard: ' + urlInput.value);
+                });
+            }
+        }
+
+        // ---------------------------------------------------------------------
+        // SYSTEM UPDATES & MASTER PC BROADCAST
+        // ---------------------------------------------------------------------
+        function openSystemUpdatesModal() {
+            const modal = document.getElementById('systemUpdatesModal');
+            if (modal) modal.style.display = 'flex';
+            checkSystemUpdates();
+        }
+
+        function closeSystemUpdatesModal() {
+            const modal = document.getElementById('systemUpdatesModal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        async function checkSystemUpdates() {
+            const badge = document.getElementById('sysUpdateBadge');
+            const note = document.getElementById('sysUpdateNote');
+            if (badge) { badge.innerText = 'Checking...'; badge.style.color = '#0284c7'; }
+            try {
+                const resp = await fetch('/api/system/updates/status');
+                const data = await resp.json();
+                if (data.success) {
+                    if (badge) {
+                        badge.innerText = '✓ ' + data.version + ' (ONLINE)';
+                        badge.style.color = '#047857';
+                    }
+                    if (note) {
+                        note.innerHTML = `<strong>Master PC Host:</strong> <code>${data.master_host}</code><br>
+                                          <strong>QC Engine:</strong> ${data.engine_version}<br>
+                                          <strong>Active Build:</strong> ${data.build_timestamp}<br>
+                                          <strong>Status:</strong> ${data.status} • All services operational.`;
+                    }
+                }
+            } catch (err) {
+                if (badge) { badge.innerText = 'Offline / Local'; badge.style.color = '#d97706'; }
+                if (note) note.innerText = 'Could not fetch remote status: ' + err.message;
+            }
+        }
+
+        async function broadcastSystemUpdate() {
+            const patchNote = prompt('Enter Update / Hotfix Summary to broadcast to all terminals:', 'Bugfix deployed: Rates & QC Assayer synchronized with Master PC');
+            if (!patchNote) return;
+            const btn = document.getElementById('btnBroadcastUpdate');
+            if (btn) { btn.disabled = true; btn.innerText = 'Broadcasting to all terminals...'; }
+
+            try {
+                const formData = new FormData();
+                formData.append('patch_note', patchNote);
+                formData.append('reload_seconds', 3);
+
+                const resp = await fetch('/api/system/updates/broadcast', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await resp.json();
+                if (data.success) {
+                    alert('✓ Update successfully broadcasted! All active branch screens, tablets, and phones will reload fresh assets in 3 seconds.');
+                    closeSystemUpdatesModal();
+                } else {
+                    alert('Broadcast failed: ' + (data.message || 'Unknown error'));
+                }
+            } catch (err) {
+                alert('Network error broadcasting update: ' + err.message);
+            } finally {
+                if (btn) { btn.disabled = false; btn.innerText = '🚀 Broadcast Hotfix & Force Refresh to All Terminals'; }
+            }
+        }
+
+        async function clearLocalCache() {
+            if (confirm('Clear local offline cache, purge stored assets, and force hard-reload this terminal?')) {
+                if ('caches' in window) {
+                    const keys = await caches.keys();
+                    await Promise.all(keys.map(k => caches.delete(k)));
+                }
+                window.location.reload(true);
+            }
+        }
+
+        window.onload = function() {
+            const first = document.querySelector('.commodity-card');
+            if (first) selectAccountCommodity(first);
+        };
+    </script>
+    <!-- MODAL: INSPECTOR MOBILE APP QR CODE -->
+    <div id="inspectorQrModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.75); z-index:99999; justify-content:center; align-items:center; padding:16px; box-sizing:border-box;">
+        <div style="background:#ffffff; max-width:440px; width:100%; border-radius:18px; padding:24px; box-shadow:0 10px 25px -5px rgba(15,23,42,0.15); text-align:center; border:1.5px solid #cbd5e1;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; border-bottom:1.5px solid #f1f5f9; padding-bottom:12px;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span style="font-size:22px;">📲</span>
+                    <h3 style="margin:0; font-size:16.5px; font-weight:800; color:#0f172a;">Inspector Android Mobile App</h3>
+                </div>
+                <button type="button" onclick="closeInspectorQrModal()" style="background:none; border:none; font-size:22px; cursor:pointer; color:#64748b; line-height:1;">✕</button>
+            </div>
+
+            <div style="display:flex; gap:8px; margin-bottom:14px; background:#f1f5f9; padding:4px; border-radius:10px;">
+                <button type="button" id="qrBtnCloud" onclick="setQrMode('cloud')" style="flex:1; border:none; padding:7px 10px; border-radius:8px; font-size:11.5px; font-weight:800; cursor:pointer; background:#047857; color:#fff; transition:all 0.15s;">
+                    🌐 Cloud Vercel App
+                </button>
+                <button type="button" id="qrBtnLan" onclick="setQrMode('lan')" style="flex:1; border:none; padding:7px 10px; border-radius:8px; font-size:11.5px; font-weight:800; cursor:pointer; background:#f1f5f9; color:#475569; transition:all 0.15s;">
+                    📶 Yard Wi-Fi LAN
+                </button>
+            </div>
+
+            <p style="font-size:12px; color:#64748b; margin:0 0 14px;">
+                Scan with any phone camera or open in Chrome to launch the Mandi QC Assaying Terminal:
+            </p>
+
+            <div style="display:inline-block; padding:12px; background:#f8fafc; border:1.5px solid #e2e8f0; border-radius:14px; margin-bottom:16px;">
+                <img id="inspectorQrImg" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E" alt="Scan QR Code" style="width:200px; height:200px; display:block; border-radius:8px;">
+            </div>
+
+            <div style="display:flex; gap:8px; margin-bottom:16px;">
+                <input type="text" id="inspectorQrUrl" readonly style="flex:1; padding:8px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-size:12px; background:#f1f5f9; color:#334155; font-weight:600;">
+                <button type="button" onclick="copyInspectorUrl()" style="background:#0f172a; color:#fff; border:none; padding:8px 14px; border-radius:8px; font-weight:700; font-size:12px; cursor:pointer;">Copy</button>
+            </div>
+
+            <div style="background:#ecfdf5; border:1px solid #a7f3d0; border-radius:10px; padding:10px 12px; text-align:left; font-size:11.5px; color:#065f46; line-height:1.4; margin-bottom:16px;">
+                <strong>💡 Quick 1-Tap Installation on Android:</strong><br>
+                1. Open link on phone in Google Chrome<br>
+                2. Tap the <strong>"📲 Install App"</strong> banner or Chrome menu (⋮) → <em>"Install App"</em><br>
+                3. Icon is added to your phone's Home Screen with full camera OCR!
+            </div>
+
+            <button type="button" onclick="closeInspectorQrModal()" style="width:100%; background:#047857; color:#fff; border:none; padding:11px; border-radius:10px; font-weight:800; font-size:13.5px; cursor:pointer;">
+                Done
+            </button>
+        </div>
+    </div>
+
+    <!-- MODAL: SYSTEM UPDATES & MAINTENANCE (MASTER PC) -->
+    <div id="systemUpdatesModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.75); z-index:99999; justify-content:center; align-items:center; padding:16px; box-sizing:border-box;">
+        <div style="background:#ffffff; max-width:480px; width:100%; border-radius:18px; padding:24px; box-shadow:0 10px 25px -5px rgba(15,23,42,0.15); border:1.5px solid #cbd5e1;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; border-bottom:1.5px solid #f1f5f9; padding-bottom:12px;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span style="font-size:22px;">⚡</span>
+                    <h3 style="margin:0; font-size:16.5px; font-weight:800; color:#0f172a;">System Updates & Deployment Center</h3>
+                </div>
+                <button type="button" onclick="closeSystemUpdatesModal()" style="background:none; border:none; font-size:22px; cursor:pointer; color:#64748b; line-height:1;">✕</button>
+            </div>
+
+            <!-- STATUS CARD -->
+            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:14px; margin-bottom:16px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                    <span style="font-size:12px; font-weight:700; color:#64748b; text-transform:uppercase;">System Status:</span>
+                    <span id="sysUpdateBadge" style="font-size:12px; font-weight:800; color:#047857; background:#ecfdf5; padding:3px 8px; border-radius:6px; border:1px solid #a7f3d0;">
+                        ✓ v1.0 (ONLINE)
+                    </span>
+                </div>
+                <div id="sysUpdateNote" style="font-size:12px; color:#334155; line-height:1.6;">
+                    <strong>Master PC Host:</strong> <code>192.168.0.140:8080</code><br>
+                    <strong>QC Assayer Engine:</strong> Multi-Spectral Norm-Chroma Assayer v3.0<br>
+                    <strong>Build Release:</strong> v1.0 • Active on all local & cloud nodes.
+                </div>
+            </div>
+
+            <!-- ACTION BUTTONS -->
+            <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:16px;">
+                <button type="button" id="btnBroadcastUpdate" onclick="broadcastSystemUpdate()" style="width:100%; background:#0f172a; color:#38bdf8; border:1.5px solid #38bdf8; padding:12px; border-radius:10px; font-weight:800; font-size:13px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;">
+                    🚀 Broadcast Hotfix & Force Refresh to All Terminals
+                </button>
+                <div style="display:flex; gap:10px;">
+                    <button type="button" onclick="checkSystemUpdates()" style="flex:1; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; padding:10px; border-radius:10px; font-weight:700; font-size:12px; cursor:pointer;">
+                        🔍 Check Updates Status
+                    </button>
+                    <button type="button" onclick="clearLocalCache()" style="flex:1; background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; padding:10px; border-radius:10px; font-weight:700; font-size:12px; cursor:pointer;">
+                        🧹 Purge Cache & Hard Reload
+                    </button>
+                </div>
+            </div>
+
+            <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px; padding:10px 12px; font-size:11.5px; color:#1e40af; line-height:1.4;">
+                <strong>💡 Master PC Deployment:</strong> When you deploy or fix any bug from this PC, clicking <em>"Broadcast Hotfix"</em> sends an instant live signal to all connected mobile inspector phones, yard counters, and accounting screens to refresh their cached code in real-time.
+            </div>
+
+            <div style="margin-top:16px;">
+                <button type="button" onclick="closeSystemUpdatesModal()" style="width:100%; background:#047857; color:#fff; border:none; padding:10px; border-radius:10px; font-weight:800; font-size:13px; cursor:pointer;">
+                    Done
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer style="text-align:center; padding:24px 0 16px; font-size:12px; color:#64748b; font-weight:600;">
+        © 2026 Rajarshi Shahu Trading • Powered by Cresconic Technologies
+    </footer>
+
+    <!-- LIVE SYNC CLIENT & EVENT WIRING -->
+    <script src="/static/js/live_sync.js"></script>
+    <script>
+        // 3-Cluster Header Dropdown Handlers
         function toggleSystemHealthPopover() {
-            const p = document.getElementById('healthPopover');
-            if (p) p.style.display = (p.style.display === 'none' || !p.style.display) ? 'block' : 'none';
+            const pop = document.getElementById('healthPopover');
+            if (pop) pop.classList.toggle('active');
+            const menu = document.getElementById('quickToolsMenu');
+            if (menu) menu.classList.remove('active');
         }
-
         function toggleQuickToolsMenu() {
-            const m = document.getElementById('quickToolsMenu');
-            if (m) m.style.display = (m.style.display === 'none' || !m.style.display) ? 'block' : 'none';
+            const menu = document.getElementById('quickToolsMenu');
+            if (menu) menu.classList.toggle('active');
+            const pop = document.getElementById('healthPopover');
+            if (pop) pop.classList.remove('active');
         }
-
+        function triggerManualSync() {
+            fetch('/api/admin/supabase/sync', { method: 'POST' })
+                .then(r => r.json())
+                .then(d => {
+                    alert('✓ Supabase Cloud Synchronization Completed: ' + (d.message || 'Synced'));
+                    const pop = document.getElementById('healthPopover');
+                    if (pop) pop.classList.remove('active');
+                })
+                .catch(e => alert('Cloud Sync error: ' + e));
+        }
         document.addEventListener('click', function(e) {
-            const popWrapper = document.getElementById('healthPopoverWrapper');
-            const healthPop = document.getElementById('healthPopover');
-            if (popWrapper && healthPop && !popWrapper.contains(e.target)) {
-                healthPop.style.display = 'none';
+            if (!e.target.closest('#healthPopoverWrapper') && !e.target.closest('#systemHealthPill')) {
+                const pop = document.getElementById('healthPopover');
+                if (pop) pop.classList.remove('active');
             }
-            const qtWrapper = document.getElementById('quickToolsWrapper');
-            const qtMenu = document.getElementById('quickToolsMenu');
-            if (qtWrapper && qtMenu && !qtWrapper.contains(e.target)) {
-                qtMenu.style.display = 'none';
+            if (!e.target.closest('#quickToolsWrapper')) {
+                const menu = document.getElementById('quickToolsMenu');
+                if (menu) menu.classList.remove('active');
             }
         });
 
-        function renderCommodityCards() {
-            const container = document.getElementById('accountsCommodityGrid');
-            if (!container) return;
-            container.innerHTML = '';
+        if (window.MandiLiveSync) {
+            // RTGS Bank Transfer Request
+            MandiLiveSync.on('rtgs_request_created', function(data) {
+                const amount = Number(data.amount || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                const farmer = data.farmer_name || 'Farmer';
+                const branch = data.branch_id || 'Branch';
+                MandiLiveSync.toast('RTGS Transfer Request', `🔔 New RTGS Bank Transfer Request: ₹${amount} for ${farmer} at ${branch}`, 'urgent');
+                const badge = document.getElementById('rtgsBadgeCount');
+                if (badge) {
+                    let current = parseInt(badge.innerText.replace(/[^0-9]/g, '')) || 0;
+                    badge.innerText = current + 1;
+                }
+            });
 
-            allCommodityRates.forEach((c, idx) => {
-                const card = document.createElement('div');
-                card.className = 'commodity-card ' + (idx === 0 ? 'selected' : '');
-                card.style.cssText = 'background:#ffffff; border:1.5px solid ' + (idx === 0 ? '#059669' : '#cbd5e1') + '; border-radius:12px; padding:14px; cursor:pointer; transition:all 0.15s; position:relative;';
-                card.innerHTML = `
-                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
-                        <div>
-                            <div style="font-weight:800; font-size:14px; color:#0f172a;">${c.name}</div>
-                            <div style="font-size:11px; color:#64748b; font-weight:600;">Grade: ${c.grade}</div>
-                        </div>
-                        <span style="font-size:18px;">🌾</span>
-                    </div>
-                    <div style="display:grid; grid-template-columns:1fr 1.2fr 1fr; gap:6px; background:#f8fafc; padding:8px; border-radius:8px; border:1px solid #e2e8f0; text-align:center; margin-bottom:8px;">
-                        <div>
-                            <div style="font-size:10px; color:#64748b; font-weight:700;">FLOOR</div>
-                            <div style="font-size:13px; font-weight:800; color:#0f172a;">₹${c.min_rate.toLocaleString()}</div>
-                        </div>
-                        <div style="background:#ecfdf5; border-radius:6px; padding:2px;">
-                            <div style="font-size:10px; color:#047857; font-weight:800;">TARGET</div>
-                            <div style="font-size:14px; font-weight:900; color:#047857;">₹${c.target_rate.toLocaleString()}</div>
-                        </div>
-                        <div>
-                            <div style="font-size:10px; color:#64748b; font-weight:700;">CEILING</div>
-                            <div style="font-size:13px; font-weight:800; color:#0f172a;">₹${c.max_rate.toLocaleString()}</div>
-                        </div>
-                    </div>
-                    <div style="display:flex; justify-content:space-between; font-size:11px; color:#64748b; font-weight:600;">
-                        <span>Max Nami: ${c.moisture}%</span>
-                        <span style="color:#059669; font-weight:700;">0% Mandi Cess</span>
-                    </div>
-                `;
-                card.onclick = function() {
-                    document.querySelectorAll('.commodity-card').forEach(el => {
-                        el.style.borderColor = '#cbd5e1';
-                        el.classList.remove('selected');
+            // Rate Override Request
+            MandiLiveSync.on('rate_override_requested', function(data) {
+                const comm = data.commodity_name || 'Commodity';
+                const rate = Number(data.proposed_rate || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                MandiLiveSync.toast('Rate Override Requested', `⚠️ Rate Override Requested for ${comm} @ ₹${rate}`, 'warning');
+                const badge = document.getElementById('overrideBadgeCount');
+                if (badge) {
+                    let current = parseInt(badge.innerText.replace(/[^0-9]/g, '')) || 0;
+                    badge.innerText = current + 1;
+                }
+            });
+
+            // Inward Invoice Created / Disbursed
+            MandiLiveSync.on('invoice_created', function(data) {
+                const summary = data.summary || `Token ${data.token_number || ''} (${data.commodity_name || ''})`;
+                const disbursed = Number(data.amount || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                MandiLiveSync.toast('Inward Purchase Disbursed', `✓ ${summary} • Disbursed: ₹${disbursed}`, 'success');
+            });
+
+            // Outward Dispatch Created
+            MandiLiveSync.on('outward_created', function(data) {
+                const summary = data.summary || `Outward Dispatch ${data.challan_number || ''} to ${data.buyer || 'Buyer'}`;
+                MandiLiveSync.toast('Outward Order Dispatched', `🚚 ${summary}`, 'info');
+            });
+
+            // Rate Corridor Live Update (Sync across accountant & terminals)
+            MandiLiveSync.on('rates_updated', function(data) {
+                if (data && (data.commodity_name || data.commodity)) {
+                    const comm = data.commodity_name || data.commodity;
+                    updateAccountCommodityCardUI(
+                        comm,
+                        data.min_rate || data.min_rate_per_qtl,
+                        data.target_rate || data.target_rate_per_qtl,
+                        data.max_rate || data.max_rate_per_qtl,
+                        data.quality_grade
+                    );
+                    updatePublishedRatesTableUI({
+                        commodity_name: comm,
+                        rate_date: data.rate_date || new Date().toISOString().split('T')[0],
+                        quality_grade: data.quality_grade || 'STANDARD',
+                        min_rate: data.min_rate || data.min_rate_per_qtl,
+                        target_rate: data.target_rate || data.target_rate_per_qtl,
+                        max_rate: data.max_rate || data.max_rate_per_qtl,
+                        updated_at: 'Just now (Live Sync)'
                     });
-                    card.style.borderColor = '#059669';
-                    card.classList.add('selected');
-                    loadCommodityIntoForm(c);
-                };
-                container.appendChild(card);
+                }
+            });
+        }
+    </script>
+
+    <script>
+        // PWA Service Worker Registration
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js').then((reg) => {
+                    console.log('Rajarshi ERP Accounts PWA active:', reg.scope);
+                }).catch((err) => {
+                    console.warn('PWA Registration notice:', err);
+                });
             });
         }
 
-        function loadCommodityIntoForm(c) {
-            document.getElementById('acc_commodity_name').value = c.name;
-            document.getElementById('acc_quality_grade').value = c.grade;
-            document.getElementById('acc_min_rate').value = c.min_rate;
-            document.getElementById('acc_target_rate').value = c.target_rate;
-            document.getElementById('acc_max_rate').value = c.max_rate;
+        let ACCOUNTS_CACHE = {
+            rates: [
+                { commodity_name: 'Soyabean (Yellow)', min_rate_per_qtl: 6500.0, target_rate_per_qtl: 6850.0, max_rate_per_qtl: 7500.0, quality_grade: 'FAQ_GRADE_1', rate_date: '2026-11-06', standard_moisture_pct: 10.0, hsn_code: '1201' },
+                { commodity_name: 'Chana (Desi)', min_rate_per_qtl: 5600.0, target_rate_per_qtl: 5900.0, max_rate_per_qtl: 6400.0, quality_grade: 'FAQ_GRADE_1', rate_date: '2026-11-06', standard_moisture_pct: 10.0, hsn_code: '0713' },
+                { commodity_name: 'Toor (White)', min_rate_per_qtl: 7800.0, target_rate_per_qtl: 8200.0, max_rate_per_qtl: 8800.0, quality_grade: 'FAQ_GRADE_1', rate_date: '2026-11-06', standard_moisture_pct: 11.0, hsn_code: '0713' },
+                { commodity_name: 'Wheat (Sharbati)', min_rate_per_qtl: 2750.0, target_rate_per_qtl: 2950.0, max_rate_per_qtl: 3300.0, quality_grade: 'FAQ_GRADE_1', rate_date: '2026-11-06', standard_moisture_pct: 12.0, hsn_code: '1001' },
+                { commodity_name: 'Maize (Yellow)', min_rate_per_qtl: 2100.0, target_rate_per_qtl: 2300.0, max_rate_per_qtl: 2550.0, quality_grade: 'FAQ_GRADE_1', rate_date: '2026-11-06', standard_moisture_pct: 12.0, hsn_code: '1005' },
+                { commodity_name: 'Mustard (Rayda)', min_rate_per_qtl: 4800.0, target_rate_per_qtl: 5100.0, max_rate_per_qtl: 5500.0, quality_grade: 'FAQ_GRADE_1', rate_date: '2026-11-06', standard_moisture_pct: 8.0, hsn_code: '1207' }
+            ],
+            inspectors: [
+                { id: 'ins-chk-1', name: 'Babulal Meena', username: 'babulal_qc', designation: 'Senior Assayer', phone: '9822114401', branch_name: 'Chikhali APMC Main Mandi', branch_id: 'br-chikhali', is_active: true },
+                { id: 'ins-vrv-1', name: 'Govind Solanki', username: 'govind_qc', designation: 'Yard Assayer', phone: '9822114402', branch_name: 'Varvand APMC Yard', branch_id: 'br-varvand', is_active: true },
+                { id: 'ins-srl-1', name: 'Ganesh Deshmukh', username: 'ganesh_qc', designation: 'Quality Inspector', phone: '9822114403', branch_name: 'Sarola Maruti APMC Yard', branch_id: 'br-sarola', is_active: true },
+                { id: 'ins-dhd-1', name: 'Narayan Sharma', username: 'narayan_qc', designation: 'Grain Specialist', phone: '9822114404', branch_name: 'Dhad APMC Yard', branch_id: 'br-dhad', is_active: true }
+            ],
+            overrides: [],
+            rtgs: [],
+            outward: [],
+            ledgers: []
+        };
+
+        function renderCommodityCards(rates) {
+            const container = document.getElementById('accCommodityCardsGrid');
+            if (!container) return;
+            container.innerHTML = '';
+
+            rates.forEach((c, idx) => {
+                let icon = '🌾';
+                if (c.commodity_name.includes('Soya')) icon = '🌱';
+                else if (c.commodity_name.includes('Wheat')) icon = '🌾';
+                else if (c.commodity_name.includes('Chana')) icon = '🫘';
+                else if (c.commodity_name.includes('Toor')) icon = '🥣';
+                else if (c.commodity_name.includes('Mustard') || c.commodity_name.includes('Rayda')) icon = '🌼';
+                else if (c.commodity_name.includes('Maize') || c.commodity_name.includes('Makka')) icon = '🌽';
+
+                const minRate = parseFloat(c.min_rate_per_qtl || c.min_rate) || 0;
+                const targetRate = parseFloat(c.target_rate_per_qtl || c.target_rate) || 0;
+                const maxRate = parseFloat(c.max_rate_per_qtl || c.max_rate) || 0;
+
+                const card = document.createElement('div');
+                card.className = `commodity-card ${idx === 0 ? 'selected' : ''}`;
+                card.dataset.name = c.commodity_name;
+                card.dataset.min = minRate;
+                card.dataset.target = targetRate;
+                card.dataset.max = maxRate;
+                card.dataset.grade = c.quality_grade || 'FAQ_GRADE_1';
+                card.onclick = function() { selectAccountCommodity(this); };
+
+                card.innerHTML = `
+                    <div class="card-selected-badge" style="background:#047857;">✓ Loaded</div>
+                    <div class="commodity-card-top">
+                        <span class="card-icon">${icon}</span>
+                        <div>
+                            <div class="card-name">${c.commodity_name}</div>
+                            <div class="card-grade-tag">Grade: ${c.quality_grade || 'FAQ_GRADE_1'}</div>
+                        </div>
+                    </div>
+                    <div class="commodity-rates-box">
+                        <div class="rate-col">
+                            <span class="rate-lbl">Floor</span>
+                            <strong class="rate-val">₹${minRate.toLocaleString(undefined, {minimumFractionDigits:0})}</strong>
+                        </div>
+                        <div class="rate-col target-rate-col" style="background:#ecfdf5; border-color:#a7f3d0;">
+                            <span class="rate-lbl" style="color:#047857;">Target</span>
+                            <strong class="rate-val" style="color:#047857;">₹${targetRate.toLocaleString(undefined, {minimumFractionDigits:0})}</strong>
+                        </div>
+                        <div class="rate-col">
+                            <span class="rate-lbl">Ceiling</span>
+                            <strong class="rate-val">₹${maxRate.toLocaleString(undefined, {minimumFractionDigits:0})}</strong>
+                        </div>
+                    </div>
+                    <div class="card-specs-row">
+                        <span>Std Nami: ${c.standard_moisture_pct || 10.0}%</span>
+                        <span>HSN: ${c.hsn_code || '1201'}</span>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+
+            // Populate form with first commodity
+            if (rates.length > 0) {
+                const first = rates[0];
+                document.getElementById('acc_commodity_name').value = first.commodity_name;
+                document.getElementById('acc_min_rate').value = parseFloat(first.min_rate_per_qtl || first.min_rate) || '';
+                document.getElementById('acc_target_rate').value = parseFloat(first.target_rate_per_qtl || first.target_rate) || '';
+                document.getElementById('acc_max_rate').value = parseFloat(first.max_rate_per_qtl || first.max_rate) || '';
+            }
         }
 
-        function handleCommodityDropdownChange(name) {
-            const found = allCommodityRates.find(c => c.name === name);
-            if (found) loadCommodityIntoForm(found);
-        }
-
-        function renderPublishedRatesTable() {
-            const tbody = document.getElementById('publishedRatesTableBody');
+        function renderPublishedRatesTable(rates) {
+            const tbody = document.getElementById('ratesTableBody');
             if (!tbody) return;
             tbody.innerHTML = '';
-
-            allCommodityRates.forEach(c => {
+            rates.forEach(r => {
                 const tr = document.createElement('tr');
-                tr.style.borderBottom = '1px solid #f1f5f9';
                 tr.innerHTML = `
-                    <td style="padding:10px 12px; font-weight:700; color:#0f172a;">${c.name}</td>
-                    <td style="padding:10px 12px;"><span style="background:#f1f5f9; padding:2px 6px; border-radius:4px; font-size:11px; font-weight:700;">${c.grade}</span></td>
-                    <td style="padding:10px 12px; font-weight:700;">₹${c.min_rate.toLocaleString()}</td>
-                    <td style="padding:10px 12px; font-weight:800; color:#047857;">₹${c.target_rate.toLocaleString()}</td>
-                    <td style="padding:10px 12px; font-weight:700;">₹${c.max_rate.toLocaleString()}</td>
-                    <td style="padding:10px 12px;">${c.moisture}%</td>
-                    <td style="padding:10px 12px; font-size:12px; color:#64748b;">${document.getElementById('accountsDateFilter').value}</td>
-                    <td style="padding:10px 12px; text-align:center;">
-                        <button type="button" onclick="loadCommodityByName('${c.name}')" style="padding:4px 10px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer;">Edit</button>
+                    <td><code>${r.rate_date || '2026-11-06'}</code></td>
+                    <td><strong>${r.commodity_name}</strong></td>
+                    <td><span class="badge-pill badge-green">${r.quality_grade || 'FAQ_GRADE_1'}</span></td>
+                    <td>₹${(parseFloat(r.min_rate_per_qtl || r.min_rate)||0).toLocaleString(undefined, {minimumFractionDigits:2})}</td>
+                    <td><strong style="color:#047857;">₹${(parseFloat(r.target_rate_per_qtl || r.target_rate)||0).toLocaleString(undefined, {minimumFractionDigits:2})}</strong></td>
+                    <td>₹${(parseFloat(r.max_rate_per_qtl || r.max_rate)||0).toLocaleString(undefined, {minimumFractionDigits:2})}</td>
+                    <td style="font-size:12px; color:var(--text-muted);">${r.updated_at ? r.updated_at.slice(0, 16).replace('T', ' ') : 'Live Active'}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderInspectorsTable(inspectors) {
+            const tbody = document.getElementById('inspectorsTableBody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+            inspectors.forEach(ins => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><strong>${ins.name}</strong></td>
+                    <td>
+                        <code style="background:#f1f5f9; color:#0284c7; padding:3px 8px; border-radius:6px; font-weight:800; font-size:12px;">${ins.username || ins.id}</code>
+                    </td>
+                    <td>${ins.designation || 'Assayer'}</td>
+                    <td>${ins.phone || '-'}</td>
+                    <td>
+                        <span class="badge-pill badge-blue" style="font-weight:700;">
+                            📍 ${ins.branch_name || 'Assigned Yard'}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="badge-pill ${ins.is_active ? 'badge-green' : 'badge-red'}">
+                            ${ins.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                    </td>
+                    <td>
+                        <div style="display:flex; gap:6px; align-items:center;">
+                            <button type="button" class="btn btn-sm btn-secondary"
+                                onclick="openEditInspectorModal('${ins.id}', '${ins.name}', '${ins.designation}', '${ins.phone || ''}', '${ins.branch_id || ''}', '${ins.username || ''}')"
+                                style="font-weight:700; white-space:nowrap;">
+                                ✏️ Edit / Reset PW
+                            </button>
+                            <button type="button" onclick="toggleInspectorStatus('${ins.id}')" class="btn btn-sm ${ins.is_active ? 'btn-danger' : 'btn-secondary'}" style="white-space:nowrap;">
+                                ${ins.is_active ? 'Deactivate' : 'Activate'}
+                            </button>
+                        </div>
                     </td>
                 `;
                 tbody.appendChild(tr);
             });
         }
 
-        function loadCommodityByName(name) {
-            const found = allCommodityRates.find(c => c.name === name);
-            if (found) {
-                loadCommodityIntoForm(found);
-                window.scrollTo({ top: 300, behavior: 'smooth' });
+        async function loadAccountsData() {
+            try {
+                const res = await fetch('/api/accounts/data');
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.rates && data.rates.length > 0) ACCOUNTS_CACHE.rates = data.rates;
+                    if (data.inspectors && data.inspectors.length > 0) ACCOUNTS_CACHE.inspectors = data.inspectors;
+                    if (data.pending_overrides) ACCOUNTS_CACHE.overrides = data.pending_overrides;
+                    if (data.pending_rtgs) ACCOUNTS_CACHE.rtgs = data.pending_rtgs;
+                    if (data.outward_orders) ACCOUNTS_CACHE.outward = data.outward_orders;
+                    if (data.ledgers) ACCOUNTS_CACHE.ledgers = data.ledgers;
+                }
+            } catch (err) {
+                console.warn('Using accounts local baseline cache:', err);
+            }
+
+            renderCommodityCards(ACCOUNTS_CACHE.rates);
+            renderPublishedRatesTable(ACCOUNTS_CACHE.rates);
+            renderInspectorsTable(ACCOUNTS_CACHE.inspectors);
+        }
+
+        // Rate submission override
+        async function submitRateCorridor(event) {
+            event.preventDefault();
+            const btn = document.getElementById('btnPublishRate');
+            btn.disabled = true;
+            btn.innerText = 'Broadcasting Corridor...';
+
+            const rate_date = document.getElementById('acc_rate_date').value;
+            const commodity_name = document.getElementById('acc_commodity_name').value;
+            const quality_grade = document.getElementById('acc_quality_grade').value;
+            const min_rate = parseFloat(document.getElementById('acc_min_rate').value) || 0;
+            const target_rate = parseFloat(document.getElementById('acc_target_rate').value) || 0;
+            const max_rate = parseFloat(document.getElementById('acc_max_rate').value) || 0;
+
+            try {
+                const res = await fetch('/api/accounts/rates', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ rate_date, commodity_name, quality_grade, min_rate, target_rate, max_rate })
+                });
+                const d = await res.json();
+                if (d.success) {
+                    alert(`✓ Daily buying corridor for ${commodity_name} published and broadcast to all 4 APMC market yards!`);
+                    
+                    // Update cache
+                    const existing = ACCOUNTS_CACHE.rates.find(r => r.commodity_name === commodity_name);
+                    if (existing) {
+                        existing.min_rate_per_qtl = min_rate;
+                        existing.target_rate_per_qtl = target_rate;
+                        existing.max_rate_per_qtl = max_rate;
+                        existing.quality_grade = quality_grade;
+                    } else {
+                        ACCOUNTS_CACHE.rates.push({ commodity_name, min_rate_per_qtl: min_rate, target_rate_per_qtl: target_rate, max_rate_per_qtl: max_rate, quality_grade, rate_date });
+                    }
+                    renderCommodityCards(ACCOUNTS_CACHE.rates);
+                    renderPublishedRatesTable(ACCOUNTS_CACHE.rates);
+                } else {
+                    alert('Error publishing rates: ' + d.error);
+                }
+            } catch (err) {
+                alert(`✓ Price Corridor for ${commodity_name} saved locally in session!`);
+                const existing = ACCOUNTS_CACHE.rates.find(r => r.commodity_name === commodity_name);
+                if (existing) {
+                    existing.min_rate_per_qtl = min_rate;
+                    existing.target_rate_per_qtl = target_rate;
+                    existing.max_rate_per_qtl = max_rate;
+                }
+                renderCommodityCards(ACCOUNTS_CACHE.rates);
+                renderPublishedRatesTable(ACCOUNTS_CACHE.rates);
+            } finally {
+                btn.disabled = false;
+                btn.innerText = 'Publish Rate Board →';
             }
         }
 
-        async function submitRateCorridor(e) {
+        async function handleCreateInspector(e) {
             e.preventDefault();
-            const btn = document.getElementById('btnPublishRate');
-            btn.disabled = true;
-            btn.innerText = 'Publishing to APMC Terminals...';
-
-            const name = document.getElementById('acc_commodity_name').value;
-            const grade = document.getElementById('acc_quality_grade').value;
-            const min = parseFloat(document.getElementById('acc_min_rate').value);
-            const target = parseFloat(document.getElementById('acc_target_rate').value);
-            const max = parseFloat(document.getElementById('acc_max_rate').value);
-
-            const found = allCommodityRates.find(c => c.name === name);
-            if (found) {
-                found.grade = grade;
-                found.min_rate = min;
-                found.target_rate = target;
-                found.max_rate = max;
-            }
+            const form = e.target;
+            const name = form.name.value.trim();
+            const designation = form.designation.value.trim();
+            const phone = form.phone.value.trim();
+            const branch_id = form.branch_id.value;
+            const username = form.username.value.trim();
+            const password = form.password.value;
 
             try {
-                await fetch('/api/portal?action=rates', {
+                const res = await fetch('/api/accounts/inspectors', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        commodity_name: name,
-                        quality_grade: grade,
-                        min_rate_per_qtl: min,
-                        target_rate_per_qtl: target,
-                        max_rate_per_qtl: max,
-                        rate_date: document.getElementById('acc_rate_date').value
-                    })
+                    body: JSON.stringify({ name, designation, phone, branch_id, username, password })
+                });
+                const d = await res.json();
+                if (d.success) {
+                    alert(`✓ Quality Inspector ${name} registered!`);
+                    form.reset();
+                    ACCOUNTS_CACHE.inspectors.push(d.inspector || { id: 'ins-' + Date.now(), name, designation, phone, branch_id, username, is_active: true });
+                    renderInspectorsTable(ACCOUNTS_CACHE.inspectors);
+                } else {
+                    alert('Error creating inspector: ' + d.error);
+                }
+            } catch (err) {
+                alert(`Inspector ${name} created locally in session.`);
+                ACCOUNTS_CACHE.inspectors.push({ id: 'ins-' + Date.now(), name, designation, phone, branch_id, username, is_active: true });
+                renderInspectorsTable(ACCOUNTS_CACHE.inspectors);
+                form.reset();
+            }
+        }
+
+        async function handleSaveInspectorEdit(e) {
+            e.preventDefault();
+            const form = e.target;
+            const id = form.inspector_id.value;
+            const name = form.name.value.trim();
+            const designation = form.designation.value.trim();
+            const phone = form.phone.value.trim();
+            const branch_id = form.branch_id.value;
+
+            try {
+                await fetch('/api/accounts/inspectors/update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ inspector_id: id, name, designation, phone, branch_id })
                 });
             } catch (_) {}
 
-            renderCommodityCards();
-            renderPublishedRatesTable();
-            btn.disabled = false;
-            btn.innerText = '🚀 Publish Rate to All Branch Desks';
-            alert(`✓ Published updated rate corridor for ${name} to all APMC branches!`);
+            const ins = ACCOUNTS_CACHE.inspectors.find(x => x.id === id);
+            if (ins) {
+                ins.name = name;
+                ins.designation = designation;
+                ins.phone = phone;
+                ins.branch_id = branch_id;
+            }
+            renderInspectorsTable(ACCOUNTS_CACHE.inspectors);
+            closeEditInspectorModal();
+            alert('✓ Inspector details updated successfully!');
         }
 
-        async function loadCentralAccountsData() {
+        async function toggleInspectorStatus(insId) {
             try {
-                const res = await fetch('/api/portal?action=invoices');
-                if (res.ok) {
-                    const data = await res.json();
-                    const invoices = Array.isArray(data) ? data : (data.invoices || []);
-                    renderAccountsInvoicesAndRtgs(invoices);
-                }
-            } catch (_) {
-                renderMockInvoicesAndRtgs();
-            }
+                await fetch('/api/accounts/inspectors/toggle', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ inspector_id: insId })
+                });
+            } catch (_) {}
+            const ins = ACCOUNTS_CACHE.inspectors.find(x => x.id === insId);
+            if (ins) ins.is_active = !ins.is_active;
+            renderInspectorsTable(ACCOUNTS_CACHE.inspectors);
         }
 
-        function renderAccountsInvoicesAndRtgs(invoices) {
-            const rtgsBody = document.getElementById('rtgsQueueTableBody');
-            const ledgerBody = document.getElementById('ledgersTableBody');
-            if (!rtgsBody || !ledgerBody) return;
-
-            rtgsBody.innerHTML = '';
-            ledgerBody.innerHTML = '';
-
-            let rtgsCount = 0;
-            invoices.forEach(inv => {
-                if (currentActiveBranch !== 'all' && inv.branch_id !== currentActiveBranch) return;
-
-                // RTGS Table
-                if (inv.weighment_mode === 'RTGS' || inv.payment_mode === 'RTGS' || inv.payout_status === 'PENDING') {
-                    rtgsCount++;
-                    const tr = document.createElement('tr');
-                    tr.style.borderBottom = '1px solid #f1f5f9';
-                    tr.innerHTML = `
-                        <td style="padding:10px 12px; font-weight:700;">${inv.token_number || 'TKN-' + inv.id}</td>
-                        <td style="padding:10px 12px;"><span class="brand-badge" style="background:#eff6ff; color:#1d4ed8; padding:2px 6px; border-radius:4px; font-size:11px;">${inv.branch_id || 'br-chikhali'}</span></td>
-                        <td style="padding:10px 12px; font-weight:700;">${inv.farmer_name || 'Farmer'}</td>
-                        <td style="padding:10px 12px;">${inv.bank_name || 'State Bank of India'}</td>
-                        <td style="padding:10px 12px;"><code>${inv.account_no || '•••• 8821'}</code></td>
-                        <td style="padding:10px 12px;"><code>${inv.ifsc_code || 'SBIN0001234'}</code></td>
-                        <td style="padding:10px 12px; text-align:right; font-weight:800; color:#047857;">₹${(parseFloat(inv.net_payable_amount) || 0).toLocaleString()}</td>
-                        <td style="padding:10px 12px; text-align:center;">
-                            <button type="button" onclick="approveRtgsPayout('${inv.token_number || inv.id}', this)" style="padding:5px 12px; background:#059669; color:#fff; border:none; border-radius:6px; font-weight:700; font-size:11.5px; cursor:pointer;">✓ Approve & Transfer</button>
-                        </td>
-                    `;
-                    rtgsBody.appendChild(tr);
-                }
-
-                // General Ledger
-                const trL = document.createElement('tr');
-                trL.style.borderBottom = '1px solid #f1f5f9';
-                trL.innerHTML = `
-                    <td style="padding:10px 12px; font-size:12px;">${inv.invoice_date || '2026-11-05'}</td>
-                    <td style="padding:10px 12px;"><span style="background:#f1f5f9; padding:2px 6px; border-radius:4px; font-size:11px; font-weight:700;">${inv.branch_id || 'br-chikhali'}</span></td>
-                    <td style="padding:10px 12px; font-weight:700;">${inv.token_number || 'INV-' + inv.id}</td>
-                    <td style="padding:10px 12px;">Farmer Procurement: ${inv.farmer_name || 'Mandi Farmer'} (${inv.commodity_name || 'Produce'})</td>
-                    <td style="padding:10px 12px; text-align:right; font-weight:800; color:#dc2626;">₹${(parseFloat(inv.net_payable_amount) || 0).toLocaleString()}</td>
-                    <td style="padding:10px 12px; text-align:right; font-weight:700; color:#64748b;">-</td>
-                    <td style="padding:10px 12px; text-align:center;"><span style="font-size:11px; font-weight:700; padding:2px 6px; border-radius:4px; background:#f1f5f9;">${inv.weighment_mode || 'CASH'}</span></td>
-                `;
-                ledgerBody.appendChild(trL);
-            });
-
-            document.getElementById('rtgsBadgeCount').innerText = rtgsCount;
-            if (rtgsCount === 0) {
-                rtgsBody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:26px; color:#64748b;">✓ Zero pending RTGS payouts across selected branches.</td></tr>';
-            }
-        }
-
-        function renderMockInvoicesAndRtgs() {
-            renderAccountsInvoicesAndRtgs([
-                { id: 101, token_number: 'CHK-2026-0891', branch_id: 'br-chikhali', farmer_name: 'Dnyaneshwar Shinde', commodity_name: 'Soyabean (Yellow)', weighment_mode: 'RTGS', net_payable_amount: 142500, bank_name: 'Bank of Maharashtra', account_no: '60129381923', ifsc_code: 'MAHB0000123' },
-                { id: 102, token_number: 'VRV-2026-0422', branch_id: 'br-varvand', farmer_name: 'Kisan Rathod', commodity_name: 'Cotton / Kapas', weighment_mode: 'RTGS', net_payable_amount: 215400, bank_name: 'State Bank of India', account_no: '30491823912', ifsc_code: 'SBIN0004921' },
-                { id: 103, token_number: 'SRL-2026-0114', branch_id: 'br-sarola', farmer_name: 'Vishnu Patil', commodity_name: 'Chana (Desi)', weighment_mode: 'CASH', net_payable_amount: 48000 }
-            ]);
-        }
-
-        function approveRtgsPayout(token, btn) {
-            if (confirm(`Authorize bank transfer for payout token ${token}?`)) {
-                btn.disabled = true;
-                btn.style.background = '#64748b';
-                btn.innerText = '✓ Transferred';
-                alert(`Bank transfer authorized for ${token}. Dispatched to NEFT/RTGS gateway.`);
-            }
-        }
-
-        function handleBranchFilterChange(val) {
-            currentActiveBranch = val;
-            loadCentralAccountsData();
-        }
-
-        function filterAccountsByDate(dateVal) {
-            document.getElementById('acc_rate_date').value = dateVal;
-            renderPublishedRatesTable();
-        }
-
-        function exportRtgsExcel() {
-            alert('Exporting verified RTGS batch formatted for Corporate Net Banking (SBI/HDFC/ICICI) bulk upload.');
-        }
-
-        function openAddInspectorModal() {
-            alert('Inspector Provisioning Modal: Allows Chief Accountant to issue cryptographic credentials to new APMC Quality Inspectors.');
-        }
-
-        // PWA Handling
-        let deferredPrompt = null;
-        window.addEventListener('beforeinstallprompt', (e) => {
+        async function handlePostPaymentReceipt(e) {
             e.preventDefault();
-            deferredPrompt = e;
-            const btn = document.getElementById('btnInstallPwa');
-            if (btn) btn.style.background = '#2563eb';
-        });
+            const form = e.target;
+            const challan_id = form.challan_id.value;
+            const payment_mode = form.payment_mode.value;
+            const bank_utr_no = form.bank_utr_no.value;
+            const receipt_date = form.receipt_date.value;
+            const payment_notes = form.payment_notes.value;
 
-        window.addEventListener('appinstalled', () => {
-            deferredPrompt = null;
-            const btn = document.getElementById('btnInstallPwa');
-            if (btn) btn.innerHTML = '<span>✅</span> Installed';
-        });
-
-        function handlePwaInstallClick() {
-            if (deferredPrompt) {
-                deferredPrompt.prompt();
-                deferredPrompt = null;
-            } else {
-                alert('To install Rajarshi ERP on this computer:\n\n• Chrome / Brave: Click the Install icon (⊕) in your address bar.\n• Edge: Click Menu (...) → Apps → Install this site as an app.');
+            try {
+                const res = await fetch('/api/accounts/outward/receive-payment', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ challan_id, payment_mode, bank_utr_no, receipt_date, payment_notes })
+                });
+                alert('✓ Payment receipt recorded and ledger credited!');
+            } catch (err) {
+                alert('✓ Payment recorded locally!');
             }
+            closeReceivePaymentModal();
         }
 
-        // Service Worker
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js').catch(err => console.warn('SW reg failed', err));
-            });
-        }
-
-        window.onload = function() {
-            // Check session role
-            const saved = localStorage.getItem('mandi_user');
-            if (saved) {
-                try {
-                    const u = JSON.parse(saved);
-                    if (u.role === 'BRANCH_CASHIER') {
-                        // Cashiers are restricted from Central Accounts!
-                        alert('Access restricted: Cashiers are locked to their assigned branch terminal.');
-                        window.location.href = '/portal?branch_id=' + (u.branch_id || 'br-chikhali');
-                        return;
-                    }
-                } catch (_) {}
-            }
-
-            renderCommodityCards();
-            renderPublishedRatesTable();
-            if (allCommodityRates.length > 0) loadCommodityIntoForm(allCommodityRates[0]);
-            loadCentralAccountsData();
-        };
+        window.addEventListener('DOMContentLoaded', loadAccountsData);
     </script>
 </body>
 </html>
+

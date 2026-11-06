@@ -499,6 +499,20 @@ export default async function handler(req, res) {
         return res.status(500).json({ success: false, error: err.message });
       }
     }
+
+    if (req.method === 'DELETE' || (req.method === 'POST' && (body.action === 'delete' || req.query.action === 'delete'))) {
+      try {
+        const commId = body.id || body.commodity_id || req.query.id;
+        if (!commId) return res.status(400).json({ success: false, error: 'commodity id required' });
+        const resp = await fetch(`${supabaseUrl}/rest/v1/commodities?id=eq.${encodeURIComponent(commId)}`, {
+          method: 'DELETE',
+          headers
+        });
+        return res.status(200).json({ success: true, message: `Commodity ${commId} removed` });
+      } catch (err) {
+        return res.status(500).json({ success: false, error: err.message });
+      }
+    }
   }
 
   // =========================================================================

@@ -865,9 +865,14 @@
                         </span>
                     </td>
                     <td>
-                        <button type="button" onclick="toggleBranchStatus('${b.id}')" class="btn btn-sm ${b.is_active ? 'btn-danger' : 'btn-secondary'}">
-                            ${b.is_active ? 'Deactivate' : 'Activate'}
-                        </button>
+                        <div style="display:flex; gap:6px; align-items:center;">
+                            <button type="button" onclick="toggleBranchStatus('${b.id}')" class="btn btn-sm ${b.is_active ? 'btn-danger' : 'btn-secondary'}">
+                                ${b.is_active ? 'Deactivate' : 'Activate'}
+                            </button>
+                            <button type="button" onclick="deleteBranch('${b.id}', '${b.name}')" class="btn btn-sm" style="background:#dc2626; color:#fff; border:none; padding:4px 8px; border-radius:4px; font-weight:700; cursor:pointer;" title="Delete Branch">
+                                🗑️ Delete
+                            </button>
+                        </div>
                     </td>
                 `;
                 tbody.appendChild(tr);
@@ -899,9 +904,14 @@
                     </td>
                     <td>
                         ${u.role !== 'SUPER_ADMIN' ? `
+                        <div style="display:flex; gap:6px; align-items:center;">
                             <button type="button" onclick="toggleUserStatus('${u.id}')" class="btn btn-sm ${u.is_active ? 'btn-danger' : 'btn-secondary'}">
                                 ${u.is_active ? 'Deactivate' : 'Activate'}
                             </button>
+                            <button type="button" onclick="deleteUser('${u.id}', '${u.username}')" class="btn btn-sm" style="background:#dc2626; color:#fff; border:none; padding:4px 8px; border-radius:4px; font-weight:700; cursor:pointer;" title="Delete User">
+                                🗑️ Delete
+                            </button>
+                        </div>
                         ` : `<span style="font-size:12px; color:var(--text-muted); font-weight:600;">Permanent</span>`}
                     </td>
                 `;
@@ -1046,10 +1056,15 @@
                             ${q.status || 'PENDING'}
                         </span>
                     </td>
-                    <td style="text-align:center; padding:10px 8px;">
+                    <td style="text-align:center; padding:10px 8px; white-space:nowrap;">
                         <button type="button" class="btn btn-sm btn-secondary" onclick="alert('Inspection Ticket: ' + '${q.ticket_no}')">
                             📜 View
                         </button>
+                        ${q.status !== 'SETTLED' && q.status !== 'INVOICED' ? `
+                        <button type="button" onclick="deleteQcTicket('${q.ticket_no}')" class="btn btn-sm" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; margin-left:6px; padding:4px 8px; border-radius:4px; font-weight:700; cursor:pointer;" title="Delete Unverified QC Ticket">
+                            🗑️ Delete
+                        </button>
+                        ` : ''}
                     </td>
                 `;
                 tbody.appendChild(tr);

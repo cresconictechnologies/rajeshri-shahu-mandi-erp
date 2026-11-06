@@ -1358,6 +1358,9 @@
                             <button type="button" onclick="toggleInspectorStatus('${ins.id}')" class="btn btn-sm ${ins.is_active ? 'btn-danger' : 'btn-secondary'}" style="white-space:nowrap;">
                                 ${ins.is_active ? 'Deactivate' : 'Activate'}
                             </button>
+                            <button type="button" onclick="deleteInspector('${ins.id}', '${ins.name}')" class="btn btn-sm" style="background:#dc2626; color:#fff; border:none; padding:4px 8px; border-radius:4px; font-weight:700; cursor:pointer;" title="Delete Inspector">
+                                🗑️ Delete
+                            </button>
                         </div>
                     </td>
                 `;

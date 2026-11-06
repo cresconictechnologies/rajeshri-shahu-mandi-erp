@@ -5,7 +5,7 @@
 export default async function handler(req, res) {
   res.setHeader('Content-Type', 'application/json');
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') {
@@ -33,6 +33,45 @@ export default async function handler(req, res) {
       });
       const data = await resp.json();
       return res.status(200).json({ success: true, count: Array.isArray(data) ? data.length : 0, tickets: data });
+    } catch (err) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
+  // DELETE or void unverified QC ticket
+  if (req.method === 'DELETE' || (req.method === 'POST' && (req.body?.action === 'delete' || req.query?.action === 'delete'))) {
+    try {
+      let body = req.body || {};
+      if (typeof body === 'string') {
+        try { body = JSON.parse(body); } catch(e) {}
+      }
+      const ticketNo = body.ticket_no || req.query.ticket_no || body.id || req.query.id;
+      if (!ticketNo) {
+        return res.status(400).json({ success: false, error: 'Ticket number or ID is required.' });
+      }
+
+      // Check if attached to purchase_invoices
+      const chkResp = await fetch(`${supabaseUrl}/rest/v1/purchase_invoices?qc_ticket_no=eq.${encodeURIComponent(ticketNo)}&select=id`, {
+        headers: { 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}` }
+      });
+      if (chkResp.ok) {
+        const rows = await chkResp.json();
+        if (Array.isArray(rows) && rows.length > 0) {
+          return res.status(400).json({ success: false, error: `Cannot delete QC Ticket #${ticketNo} because it has already been invoiced and settled.` });
+        }
+      }
+
+      // Delete from quality_inspections
+      const delResp = await fetch(`${supabaseUrl}/rest/v1/quality_inspections?ticket_no=eq.${encodeURIComponent(ticketNo)}`, {
+        method: 'DELETE',
+        headers: { 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}` }
+      });
+
+      if (!delResp.ok) {
+        return res.status(delResp.status).json({ success: false, error: await delResp.text() });
+      }
+
+      return res.status(200).json({ success: true, message: `QC Ticket #${ticketNo} deleted permanently.` });
     } catch (err) {
       return res.status(500).json({ success: false, error: err.message });
     }

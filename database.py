@@ -1060,3 +1060,71 @@ if __name__ == "__main__":
         seed_demo_data()
         print("Demo data seeded successfully.")
     print("Database initialized successfully at:", get_db_path())
+
+
+# ============================================================================
+# ENTITY DELETION HELPERS
+# ============================================================================
+
+def delete_user(user_id: str) -> bool:
+    """Permanently delete a user from SQLite, protecting primary super admin."""
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT role, username FROM users WHERE id=?", (user_id,))
+        row = cur.fetchone()
+        if not row:
+            return False
+        if row["role"] == "SUPER_ADMIN" or row["username"] == "admin":
+            raise ValueError("Cannot delete primary SUPER_ADMIN user.")
+        cur.execute("DELETE FROM users WHERE id=?", (user_id,))
+        conn.commit()
+        return True
+    finally:
+        conn.close()
+
+
+def delete_branch(branch_id: str) -> bool:
+    """Permanently delete a branch if no invoices exist."""
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) as count FROM purchase_invoices WHERE branch_id=?", (branch_id,))
+        row = cur.fetchone()
+        if row and row["count"] > 0:
+            raise ValueError(f"Cannot delete branch {branch_id} because it has {row['count']} linked purchase invoices.")
+        cur.execute("DELETE FROM branches WHERE id=?", (branch_id,))
+        conn.commit()
+        return True
+    finally:
+        conn.close()
+
+
+def delete_inspector(inspector_id: str) -> bool:
+    """Permanently delete a quality inspector."""
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM inspectors WHERE id=?", (inspector_id,))
+        conn.commit()
+        return True
+    finally:
+        conn.close()
+
+
+def delete_quality_inspection(ticket_no_or_id: str) -> bool:
+    """Delete an unverified/pending QC ticket. Refuses deletion if already settled in invoices."""
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        # Check if already linked to a purchase invoice
+        cur.execute("SELECT COUNT(*) as count FROM purchase_invoices WHERE qc_ticket_no=?", (ticket_no_or_id,))
+        row = cur.fetchone()
+        if row and row["count"] > 0:
+            raise ValueError(f"Cannot delete ticket {ticket_no_or_id} because it is already attached to a settled purchase invoice.")
+        
+        cur.execute("DELETE FROM quality_inspections WHERE ticket_no=? OR id=?", (ticket_no_or_id, ticket_no_or_id))
+        conn.commit()
+        return cur.rowcount > 0
+    finally:
+        conn.close()

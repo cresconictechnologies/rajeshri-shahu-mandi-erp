@@ -5705,13 +5705,12 @@ def api_get_pending_qc_tickets(request: Request, branch_id: Optional[str] = None
     user = get_current_user(request)
     target_branch = branch_id or (user.get("branch_id") if user else None) or "br-chikhali"
 
-    # Synchronous cloud pull only on explicit manual refresh request, never during automated background polling
-    if refresh:
-        try:
-            import supabase_sync
-            supabase_sync.pull_supabase_to_local(["quality_inspections"])
-        except Exception as ex:
-            logger.debug(f"QC tickets cloud pull notice: {ex}")
+    # Real-Time Cloud Pull: always pull quality_inspections from Supabase Cloud to guarantee instant sync with Inspector App
+    try:
+        import supabase_sync
+        supabase_sync.pull_supabase_to_local(["quality_inspections"])
+    except Exception as ex:
+        logger.debug(f"QC tickets cloud pull notice: {ex}")
 
     tickets = get_pending_quality_inspections(target_branch)
     return {
@@ -5858,3 +5857,106 @@ if __name__ == "__main__":
     uvicorn.run("server:app", host="0.0.0.0", port=port, reload=False)
 
 api_inspector_get_ticket = api_get_qc_ticket_details
+
+
+# ============================================================================
+# ENTITY DELETION ENDPOINTS
+# ============================================================================
+
+@app.post("/api/admin/users/delete")
+async def api_admin_delete_user(request: Request, user_id: str = Form(...)):
+    """Permanently delete a staff user."""
+    require_role(request, ["SUPER_ADMIN"])
+    try:
+        success = delete_user(user_id)
+        if success:
+            # Sync deletion to Supabase
+            try:
+                import supabase_sync
+                client = supabase_sync.get_supabase_client()
+                if client:
+                    client.table("users").delete().eq("id", user_id).execute()
+            except Exception as e:
+                logger.warning(f"Cloud delete user sync note: {e}")
+            return {"success": True, "message": "User deleted successfully."}
+        return {"success": False, "error": "User not found."}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@app.post("/api/admin/branches/delete")
+async def api_admin_delete_branch(request: Request, branch_id: str = Form(...)):
+    """Permanently delete a branch."""
+    require_role(request, ["SUPER_ADMIN"])
+    try:
+        success = delete_branch(branch_id)
+        if success:
+            # Sync deletion to Supabase
+            try:
+                import supabase_sync
+                client = supabase_sync.get_supabase_client()
+                if client:
+                    client.table("branches").delete().eq("id", branch_id).execute()
+            except Exception as e:
+                logger.warning(f"Cloud delete branch sync note: {e}")
+            return {"success": True, "message": "Branch deleted successfully."}
+        return {"success": False, "error": "Branch not found."}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@app.post("/api/accounts/inspectors/delete")
+async def api_accounts_delete_inspector(request: Request, inspector_id: str = Form(...)):
+    """Permanently delete an inspector."""
+    require_role(request, ["SUPER_ADMIN", "ACCOUNTANT_HQ"])
+    try:
+        success = delete_inspector(inspector_id)
+        if success:
+            try:
+                import supabase_sync
+                client = supabase_sync.get_supabase_client()
+                if client:
+                    client.table("inspectors").delete().eq("id", inspector_id).execute()
+            except Exception as e:
+                logger.warning(f"Cloud delete inspector sync note: {e}")
+            return {"success": True, "message": "Inspector deleted successfully."}
+        return {"success": False, "error": "Inspector not found."}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@app.post("/api/inspector/tickets/delete")
+@app.delete("/api/inspector/tickets/{ticket_no}")
+async def api_delete_qc_ticket(request: Request, ticket_no: Optional[str] = None):
+    """Delete an unverified/pending QC ticket."""
+    user = require_role(request, ["SUPER_ADMIN", "ACCOUNTANT_HQ", "BRANCH_CASHIER", "BRANCH_MUNIM", "QUALITY_INSPECTOR"])
+    
+    # Extract ticket_no from path, form, or JSON body
+    target_ticket = ticket_no
+    if not target_ticket:
+        try:
+            body = await request.json()
+            target_ticket = body.get("ticket_no") or body.get("id")
+        except Exception:
+            pass
+    if not target_ticket:
+        form = await request.form()
+        target_ticket = form.get("ticket_no") or form.get("id")
+
+    if not target_ticket:
+        return {"success": False, "error": "Ticket number is required."}
+
+    try:
+        success = delete_quality_inspection(target_ticket)
+        # Delete from Supabase
+        try:
+            import supabase_sync
+            client = supabase_sync.get_supabase_client()
+            if client:
+                client.table("quality_inspections").delete().or_(f"ticket_no.eq.{target_ticket},id.eq.{target_ticket}").execute()
+        except Exception as e:
+            logger.warning(f"Cloud delete ticket sync note: {e}")
+        
+        return {"success": True, "message": f"QC Ticket #{target_ticket} deleted successfully."}
+    except Exception as e:
+        return {"success": False, "error": str(e)}

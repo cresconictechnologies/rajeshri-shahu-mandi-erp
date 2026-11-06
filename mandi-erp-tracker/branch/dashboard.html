@@ -4368,6 +4368,35 @@
                 return;
             }
 
+            const rowsHtml = tickets.map((t, idx) => `
+                <tr style="border-bottom:1px solid #e2e8f0;">
+                    <td style="padding:10px 8px;">
+                        <code style="font-weight:800; color:#0369a1;">${t.ticket_no}</code><br>
+                        <span style="font-size:11px; color:#64748b;">${(t.created_at || '').slice(0, 10)}</span>
+                    </td>
+                    <td style="padding:10px 8px;">
+                        <strong>${t.farmer_name}</strong><br>
+                        <span style="font-size:11px; color:#64748b;">📞 ${t.farmer_phone || '-'}</span>
+                    </td>
+                    <td style="padding:10px 8px;"><code>${t.vehicle_no || t.vehicle_number || '-'}</code></td>
+                    <td style="padding:10px 8px;"><strong>${t.commodity_name}</strong></td>
+                    <td style="padding:10px 8px;"><span class="badge-pill badge-blue">${t.moisture_pct || t.moisture || 0}%</span></td>
+                    <td style="padding:10px 8px;"><span class="badge-pill badge-green">${t.faq_grade || t.grade_label || 'FAQ-1'}</span></td>
+                    <td style="padding:10px 8px; text-align:right;"><strong style="color:#047857;">₹${(parseFloat(t.suggested_buying_rate_per_qtl || t.suggested_rate) || 0).toLocaleString()}</strong></td>
+                    <td style="padding:10px 8px; text-align:center; white-space:nowrap;">
+                        <button type="button" class="btn btn-sm btn-primary" onclick="applySelectedQCToForm('${t.ticket_no}')" style="background:#059669; color:#fff; border:none; padding:5px 10px; border-radius:6px; font-weight:700; cursor:pointer;" title="Attach this QC assay to weighment form">
+                            ✓ Attach
+                        </button>
+                        <button type="button" class="btn btn-sm btn-secondary" onclick="showTicketDetail(${idx})" style="padding:5px 9px; margin-left:4px; font-weight:700;" title="View Details">
+                            🔍 View
+                        </button>
+                        <button type="button" class="btn btn-sm btn-danger" onclick="deleteQcTicket('${t.ticket_no}')" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; margin-left:4px; padding:5px 9px; border-radius:6px; font-weight:700; cursor:pointer;" title="Delete / Void Unverified Ticket">
+                            🗑️ Delete
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+
             let html = `
                 <table style="width:100%; border-collapse:collapse; font-size:12.5px; text-align:left;">
                     <thead>
@@ -4382,19 +4411,10 @@
                             <th style="padding:10px 8px; text-align:center;">Action</th>
                         </tr>
                     </thead>
-                    <tbody id="rtgsTableBody">
-                    <tr style="border-bottom:1px solid #f1f5f9;">
-                        <td><a href="javascript:void(0)" onclick="viewParchiSlip('INV-CHK-20261105-001')" style="font-weight:700; color:#0284c7; text-decoration:none;"><code>INV-CHK-20261105-001</code></a></td>
-                        <td style="font-size:12px; color:var(--text-muted);">2026-11-05</td>
-                        <td><strong>Bhanudas Billare</strong><br><span style="font-size:11px; color:var(--text-muted);">📞 1122334455</span></td>
-                        <td>Soyabean (Yellow)<br><span style="font-size:11.5px; color:#059669; font-weight:700;">50.00 Qtl</span></td>
-                        <td><strong style="font-size:14.5px; color:#0f172a;">₹3,41,650.00</strong></td>
-                        <td><div><strong>State Bank of India</strong></div><div>A/C: <code>30123456789</code></div><div>IFSC: <code>SBIN0001234</code></div></td>
-                        <td><span class="badge-pill badge-amber">PENDING HQ UTR</span></td>
-                        <td><input type="text" id="rtgs_utr_direct" placeholder="Enter Bank UTR..." style="padding:3px 6px; font-size:11px; width:120px; border:1px solid #cbd5e1; border-radius:4px;"></td>
-                        <td>In Verification Queue</td>
-                    </tr>
-                </tbody></table>`;
+                    <tbody>
+                        ${rowsHtml}
+                    </tbody>
+                </table>`;
             wrapper.innerHTML = html;
         }
 
@@ -4484,12 +4504,13 @@
             let t = selectedQCTicketData;
             if (typeof ticketIndexOrObj === 'object' && ticketIndexOrObj !== null) {
                 t = ticketIndexOrObj;
-                selectedQCTicketData = t;
+            } else if (typeof ticketIndexOrObj === 'string') {
+                t = pendingQCTicketsList.find(x => x.ticket_no === ticketIndexOrObj) || selectedQCTicketData;
             } else if (typeof ticketIndexOrObj === 'number' && pendingQCTicketsList[ticketIndexOrObj]) {
                 t = pendingQCTicketsList[ticketIndexOrObj];
-                selectedQCTicketData = t;
             }
             if (!t) return;
+            selectedQCTicketData = t;
 
             // 1. QC Ticket dedicated field
             const qcTicketInput = document.getElementById('inward_qc_ticket_no');
@@ -5029,7 +5050,44 @@ window.addEventListener('appinstalled', () => {
 
 // Check if already running in standalone desktop mode
 if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
-    window.addEventListener('DOMContentLoaded', () => {
+    
+        // Real-Time Dynamic Date Setter
+        function applyRealtimeTodayDates() {
+            const todayStr = new Date().toLocaleDateString('en-CA');
+            document.querySelectorAll('input[type="date"]').forEach(inp => {
+                if (!inp.value || inp.value === '2026-11-05' || inp.value === '2026-11-06') {
+                    inp.value = todayStr;
+                }
+            });
+            const ribbon = document.querySelector('.rates-ribbon .title');
+            if (ribbon) ribbon.innerText = `⚡ Today's HQ Buying Corridor (${todayStr}):`;
+        }
+
+        async function deleteQcTicket(ticketNo) {
+            if (!ticketNo) return;
+            if (!confirm(`Are you sure you want to permanently delete unverified QC Ticket #${ticketNo}?\n\nThis cannot be undone.`)) {
+                return;
+            }
+            try {
+                const res = await fetch('/api/inspector/tickets/delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ticket_no: ticketNo, action: 'delete' })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert(`✓ QC Ticket #${ticketNo} deleted successfully.`);
+                    if (typeof fetchPendingQCTickets === 'function') fetchPendingQCTickets(true);
+                } else {
+                    alert(`❌ Cannot delete ticket: ${data.error || 'Server rejected request'}`);
+                }
+            } catch (err) {
+                alert(`Error deleting ticket: ${err.message}`);
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            applyRealtimeTodayDates();
         const btn = document.getElementById('btnInstallPwaPortal');
         if (btn) {
             btn.innerHTML = '<span>✅</span> Desktop App';

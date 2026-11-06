@@ -162,6 +162,18 @@
 
         init: function() {
             const self = this;
+
+            // When hosted on Vercel cloud, bypass local WebSocket scale daemon and use Supabase Realtime & HTTP polling
+            const isVercelCloud = window.location.hostname.includes('vercel.app') || window.location.hostname.includes('vercel.dev') || window.location.port === '' && window.location.protocol === 'https:';
+            if (isVercelCloud) {
+                self.notifyStatus(true);
+                self.checkCloudSyncStatus();
+                if (!self._cloudSyncTimer) {
+                    self._cloudSyncTimer = setInterval(() => self.checkCloudSyncStatus(), 20000);
+                }
+                return;
+            }
+
             if (self.ws && (self.ws.readyState === WebSocket.OPEN || self.ws.readyState === WebSocket.CONNECTING)) {
                 return;
             }

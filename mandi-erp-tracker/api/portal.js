@@ -315,6 +315,20 @@ export default async function handler(req, res) {
 
     if (req.method === 'POST') {
       try {
+        if (body.action === 'delete' || body.delete_branch || req.method === 'DELETE') {
+          const bId = body.branch_id || req.query.branch_id;
+          const chk = await fetch(`${supabaseUrl}/rest/v1/purchase_invoices?branch_id=eq.${encodeURIComponent(bId)}&select=id`, { headers });
+          if (chk.ok) {
+            const rows = await chk.json();
+            if (Array.isArray(rows) && rows.length > 0) {
+              return res.status(400).json({ success: false, error: `Cannot delete branch ${bId} with existing purchase transactions.` });
+            }
+          }
+          const delResp = await fetch(`${supabaseUrl}/rest/v1/branches?id=eq.${encodeURIComponent(bId)}`, { method: 'DELETE', headers });
+          if (!delResp.ok) return res.status(delResp.status).json({ success: false, error: await delResp.text() });
+          return res.status(200).json({ success: true, message: `Branch ${bId} deleted successfully.` });
+        }
+
         if (body.branch_id && !body.name) {
           // Toggle action
           const resp = await fetch(`${supabaseUrl}/rest/v1/branches?id=eq.${encodeURIComponent(body.branch_id)}`, { headers });
@@ -373,6 +387,16 @@ export default async function handler(req, res) {
 
     if (req.method === 'POST') {
       try {
+        if (body.action === 'delete' || body.delete_user || req.method === 'DELETE') {
+          const uId = body.user_id || req.query.user_id;
+          if (uId === 'usr-admin' || uId === 'admin') {
+            return res.status(400).json({ success: false, error: 'Cannot delete primary SUPER_ADMIN user.' });
+          }
+          const delResp = await fetch(`${supabaseUrl}/rest/v1/users?id=eq.${encodeURIComponent(uId)}`, { method: 'DELETE', headers });
+          if (!delResp.ok) return res.status(delResp.status).json({ success: false, error: await delResp.text() });
+          return res.status(200).json({ success: true, message: `User ${uId} deleted successfully.` });
+        }
+
         if (body.user_id && !body.username) {
           // Toggle user status
           const resp = await fetch(`${supabaseUrl}/rest/v1/users?id=eq.${encodeURIComponent(body.user_id)}`, { headers });
@@ -472,6 +496,13 @@ export default async function handler(req, res) {
 
     if (req.method === 'POST') {
       try {
+        if (body.action === 'delete' || body.delete_inspector || req.method === 'DELETE') {
+          const insId = body.inspector_id || req.query.inspector_id;
+          const delResp = await fetch(`${supabaseUrl}/rest/v1/inspectors?id=eq.${encodeURIComponent(insId)}`, { method: 'DELETE', headers });
+          if (!delResp.ok) return res.status(delResp.status).json({ success: false, error: await delResp.text() });
+          return res.status(200).json({ success: true, message: `Inspector ${insId} deleted successfully.` });
+        }
+
         const id = body.inspector_id || `ins-${Date.now()}`;
         const payload = {
           id: id,

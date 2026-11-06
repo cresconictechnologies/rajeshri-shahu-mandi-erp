@@ -177,7 +177,12 @@
                         <td>Khamgaon Road, Chikhali</td>
                         <td>07264-242101</td>
                         <td><span class="badge-pill badge-green">Active</span></td>
-                        <td><button type="button" class="btn btn-sm btn-secondary" onclick="alert('Branch is active')">Active</button></td>
+                        <td>
+    <div style="display:flex; gap:6px; align-items:center;">
+        <button type="button" class="btn btn-sm btn-secondary" onclick="alert('Branch is active')">Active</button>
+        <button type="button" class="btn btn-sm" style="background:#dc2626; color:#fff; border:none; padding:4px 8px; border-radius:4px; font-weight:700; cursor:pointer;" onclick="if(confirm('Delete this branch?')) alert('Branch deletion request submitted.')">🗑️ Delete</button>
+    </div>
+</td>
                     </tr>
                     <tr>
                         <td><code>BR-VRV</code></td>
@@ -186,7 +191,12 @@
                         <td>Varvand Phata, Buldhana</td>
                         <td>07264-242204</td>
                         <td><span class="badge-pill badge-green">Active</span></td>
-                        <td><button type="button" class="btn btn-sm btn-secondary" onclick="alert('Branch is active')">Active</button></td>
+                        <td>
+    <div style="display:flex; gap:6px; align-items:center;">
+        <button type="button" class="btn btn-sm btn-secondary" onclick="alert('Branch is active')">Active</button>
+        <button type="button" class="btn btn-sm" style="background:#dc2626; color:#fff; border:none; padding:4px 8px; border-radius:4px; font-weight:700; cursor:pointer;" onclick="if(confirm('Delete this branch?')) alert('Branch deletion request submitted.')">🗑️ Delete</button>
+    </div>
+</td>
                     </tr>
                     <tr>
                         <td><code>BR-SRL</code></td>
@@ -195,7 +205,12 @@
                         <td>Sarola Maruti Mandi Yard</td>
                         <td>07264-242305</td>
                         <td><span class="badge-pill badge-green">Active</span></td>
-                        <td><button type="button" class="btn btn-sm btn-secondary" onclick="alert('Branch is active')">Active</button></td>
+                        <td>
+    <div style="display:flex; gap:6px; align-items:center;">
+        <button type="button" class="btn btn-sm btn-secondary" onclick="alert('Branch is active')">Active</button>
+        <button type="button" class="btn btn-sm" style="background:#dc2626; color:#fff; border:none; padding:4px 8px; border-radius:4px; font-weight:700; cursor:pointer;" onclick="if(confirm('Delete this branch?')) alert('Branch deletion request submitted.')">🗑️ Delete</button>
+    </div>
+</td>
                     </tr>
                     <tr>
                         <td><code>BR-DHD</code></td>
@@ -204,7 +219,12 @@
                         <td>Dhad Road, Buldhana</td>
                         <td>07264-242406</td>
                         <td><span class="badge-pill badge-green">Active</span></td>
-                        <td><button type="button" class="btn btn-sm btn-secondary" onclick="alert('Branch is active')">Active</button></td>
+                        <td>
+    <div style="display:flex; gap:6px; align-items:center;">
+        <button type="button" class="btn btn-sm btn-secondary" onclick="alert('Branch is active')">Active</button>
+        <button type="button" class="btn btn-sm" style="background:#dc2626; color:#fff; border:none; padding:4px 8px; border-radius:4px; font-weight:700; cursor:pointer;" onclick="if(confirm('Delete this branch?')) alert('Branch deletion request submitted.')">🗑️ Delete</button>
+    </div>
+</td>
                     </tr>
                 </tbody>
                         </table>
@@ -950,6 +970,18 @@
                 navigator.serviceWorker.register('/sw.js').catch(() => {});
             });
         }
+    </script>
+
+    <script>
+        function applyRealtimeTodayDates() {
+            const todayStr = new Date().toLocaleDateString('en-CA');
+            document.querySelectorAll('input[type="date"]').forEach(inp => {
+                if (!inp.value || inp.value === '2026-11-05' || inp.value === '2026-11-06') {
+                    inp.value = todayStr;
+                }
+            });
+        }
+        window.addEventListener('DOMContentLoaded', applyRealtimeTodayDates);
     </script>
 </body>
 </html>

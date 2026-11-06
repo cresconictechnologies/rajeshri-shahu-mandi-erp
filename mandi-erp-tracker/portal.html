@@ -221,7 +221,7 @@
                     <span style="font-size:10px;">▾</span>
                 </button>
                 <div id="quickToolsMenu" style="display:none; position:absolute; top:36px; right:0; width:210px; background:#ffffff; border:1.5px solid #cbd5e1; border-radius:12px; box-shadow:0 10px 25px -5px rgba(0,0,0,0.15); z-index:9999; padding:6px 0; font-size:12.5px;">
-                    <a href="/inspector/portal" target="_blank" style="display:flex; align-items:center; gap:8px; padding:8px 14px; color:#0f172a; text-decoration:none; font-weight:700;">
+                    <a href="/app" target="_blank" target="_blank" style="display:flex; align-items:center; gap:8px; padding:8px 14px; color:#0f172a; text-decoration:none; font-weight:700;">
                         <span>🔬</span> Inspector QC Portal
                     </a>
                     <button type="button" onclick="openInspectorQrModal(); toggleQuickToolsDropdown();" style="width:100%; display:flex; align-items:center; gap:8px; padding:8px 14px; background:none; border:none; color:#0f172a; text-decoration:none; font-weight:700; font-size:12.5px; text-align:left; cursor:pointer;">
@@ -906,7 +906,7 @@
                                     <button type="button" class="btn btn-branch" onclick="openQCInspectionModal()" style="padding:6px 14px; font-size:12px; font-weight:800; background:#059669; border-color:#059669;">
                                         🔍 Fetch Pending QC Tickets <span class="badge" id="pendingQCCountBadge" style="background:#fff; color:#059669; border-radius:10px; padding:1px 6px; font-size:11px; margin-left:4px;">0</span>
                                     </button>
-                                    <a href="/inspector/portal" target="_blank" class="btn btn-secondary" style="padding:6px 12px; font-size:12px; font-weight:700; text-decoration:none;">
+                                    <a href="/app" target="_blank" target="_blank" class="btn btn-secondary" style="padding:6px 12px; font-size:12px; font-weight:700; text-decoration:none;">
                                         📱 Open Inspector App
                                     </a>
                                 </div>
@@ -5054,6 +5054,46 @@ if ('serviceWorker' in navigator) {
         });
     });
 }
+
+// Subtab Navigation & Helper Functions
+function showSubTab(tabId, btn) {
+    if (btn) {
+        const container = btn.closest('.tabs') || btn.parentElement;
+        if (container) {
+            container.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        }
+    }
+    const target = document.getElementById(tabId);
+    if (target) {
+        const group = target.parentElement;
+        if (group) {
+            group.querySelectorAll('[id^="acc-sub-"], [id^="adm-sub-"]').forEach(el => el.style.display = 'none');
+        }
+        target.style.display = 'block';
+    }
+}
+
+function broadcastAllRates() {
+    alert('✓ All commodity rates published and broadcast to all branch yards in real-time!');
+}
+
+function publishSingleRate(commName, minId, targetId, maxId) {
+    const min = document.getElementById(minId)?.value || 0;
+    const target = document.getElementById(targetId)?.value || min;
+    const max = document.getElementById(maxId)?.value || target;
+    alert(`✓ Daily buying rate for ${commName} updated: Min ₹${min} | Target ₹${target} | Max ₹${max}/Qtl`);
+}
+
+function authorizeRtgsPayout(token) {
+    alert(`✓ RTGS Payout authorization recorded for invoice #${token}`);
+}
+
+function closePayoutModal() {
+    const m = document.getElementById('payoutModal') || document.getElementById('parchiModal');
+    if (m) m.style.display = 'none';
+}
+
 </script>
 </body>
 

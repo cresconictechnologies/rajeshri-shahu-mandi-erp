@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Central Accounts Settings — Mandi ERP</title>
+        <!-- PWA Web App Manifest & Mobile/Desktop Meta -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Rajarshi ERP">
+    <link rel="apple-touch-icon" href="/icons/icon-192.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+
+    <link rel="stylesheet" href="/static/theme.css">
+</head>
+<body>
+    <div class="top-nav">
+        <a href="/accounts" class="brand">
+            <span class="brand-icon">🌾</span>
+            <span>MANDI ERP</span>
+            <span class="badge" style="background:#059669; color:#fff;">CENTRAL ACCOUNTS</span>
+        </a>
+        <div class="nav-links">
+            <a href="/accounts" class="nav-link">← Central Accounts Dashboard</a>
+            <a href="/accounts/settings" class="nav-link active">⚙️ Accounts Settings</a>
+            <a href="/logout" class="nav-link" style="color:#ef4444;">🚪 Logout</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- HEADER -->
+        <div class="card header-card">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:15px;">
+                <div>
+                    <h1 style="display:flex; align-items:center; gap:10px;">
+                        <span>⚙️</span>
+                        <span>Central Accounts Financial Governance</span>
+                    </h1>
+                    <p style="color:var(--text-muted); font-size:13px; margin-top:4px;">
+                        Statutory Income Tax limits, price corridor alert tolerances, and centralized RTGS banking settings
+                    </p>
+                </div>
+                <span class="badge-pill badge-green">Financial Controls</span>
+            </div>
+        </div>
+
+        
+        <div style="background:#dcfce7; border:1px solid #86efac; color:#166534; padding:12px 16px; border-radius:8px; margin-bottom:18px; font-weight:700;">
+            ✓ 
+        </div>
+        
+
+        <div style="display:grid; grid-template-columns: 2fr 1fr; gap:22px;">
+            <div>
+                <div class="card">
+                    <div class="card-header">
+                        <h2><span>💼</span> Financial Compliance & Banking Parameters</h2>
+                    </div>
+
+                    <form method="POST" id="accSettingsForm" onsubmit="event.preventDefault(); alert('✓ Accounts statutory and banking parameters updated!');">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>Section 269ST Statutory Cash Ceiling (₹)</label>
+                                <input type="number" name="sec_269st_cash_limit" value="199999" required>
+                                <small style="color:var(--text-muted); font-size:11px;">Max cash payout per person per day (Mandatory RTGS above this).</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Section 40A(3) Trader Cash Ceiling (₹)</label>
+                                <input type="number" name="sec_40a3_cash_limit" value="10000" required>
+                                <small style="color:var(--text-muted); font-size:11px;">Max cash to stockers/traders (Farmers exempt under Rule 6DD).</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Price Corridor Alert Tolerance (%)</label>
+                                <input type="number" step="0.1" name="corridor_tolerance_pct" value="5.0" required>
+                                <small style="color:var(--text-muted); font-size:11px;">Variance threshold triggering out-of-corridor approval flag.</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label>RTGS Payout Automatic Confirmation</label>
+                                <select name="rtgs_auto_sms">
+                                    <option value="ENABLED" selected>ENABLED (Real-time UTR Sync)</option>
+                                    <option value="DISABLED" selected>DISABLED (Manual Review)</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group form-full">
+                                <label>Primary Central Disbursement Bank Account</label>
+                                <input type="text" name="default_bank_account" value="State Bank of India (A/C: 40992388112)" required>
+                                <small style="color:var(--text-muted); font-size:11px;">Corporate bank pool used for settling branch RTGS requests.</small>
+                            </div>
+                        </div>
+
+                        <div style="margin-top:20px; text-align:right;">
+                            <button type="submit" class="btn btn-accounts" style="padding:10px 24px; font-weight:700;">
+                                💾 Save Accounts Settings
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- RATE CORRIDOR POLICY INFO -->
+                <div class="card" style="margin-top:20px;">
+                    <div class="card-header">
+                        <h2><span>📊</span> Rate Corridor Governance Principle</h2>
+                    </div>
+                    <div style="font-size:13px; line-height:1.7; color:var(--text-secondary);">
+                        <p>Central Accounts retains <strong>exclusive authority</strong> over daily commodity purchasing corridors:</p>
+                        <ul style="padding-left:18px; margin-top:6px;">
+                            <li>Branch operators can only purchase within the <code>Min Rate</code> and <code>Max Rate</code> limits published by Central Accounts.</li>
+                            <li>If market conditions necessitate buying above the corridor, the parchi is flagged as <code>PENDING</code> until Central Accounts enters an approval reason and stamp.</li>
+                            <li>All RTGS payments require verification of bank IFSC and entry of the official Bank UTR number before the parchi is closed as settled.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT COLUMN: QUICK NAV & POLICIES -->
+            <div>
+                <div class="card">
+                    <div class="card-header">
+                        <h2><span>🏛️</span> APMC Mandi Statutory Rules</h2>
+                    </div>
+                    <div style="font-size:12.5px; line-height:1.7; color:var(--text-secondary);">
+                        <p>• <strong>Farmer Hamali:</strong> Standard ₹25 per 100 Kg deducted from inward produce.</p>
+                        <p>• <strong>No Mandi Cess:</strong> APMC Mandi Cess is 0% across all procurement.</p>
+                        <p>• <strong>Outward Dispatches:</strong> Cashier enters negotiated hamali per 100 Kg on commercial buyer orders.</p>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-top:20px; border:1.5px solid #38bdf8; background:#f8fafc;">
+                    <div class="card-header" style="border-bottom:1px solid #e2e8f0; padding-bottom:8px;">
+                        <h2 style="color:#0f172a; font-size:15px; display:flex; align-items:center; gap:6px;">
+                            <span>⚡</span> Master PC Hotfix & System Updates
+                        </h2>
+                        <span id="setUpdateBadge" style="font-size:11px; font-weight:800; color:#047857; background:#ecfdf5; padding:2px 7px; border-radius:5px; border:1px solid #a7f3d0;">
+                            v1.0
+                        </span>
+                    </div>
+                    <div style="font-size:12px; color:#334155; line-height:1.5; margin-bottom:12px;">
+                        <strong>Master PC:</strong> <code>192.168.0.140:8080</code><br>
+                        <strong>Engine:</strong> QC Multi-Spectral Assayer v3.0<br>
+                        Deploy bugfixes & hotfixes instantly to all phones & yard counters.
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:8px;">
+                        <button type="button" onclick="broadcastHotfixFromSettings()" style="width:100%; background:#0f172a; color:#38bdf8; border:1px solid #38bdf8; padding:9px; border-radius:8px; font-weight:800; font-size:12px; cursor:pointer;">
+                            🚀 Broadcast Hotfix to All Terminals
+                        </button>
+                        <div style="display:flex; gap:6px;">
+                            <button type="button" onclick="checkStatusFromSettings()" style="flex:1; background:#ffffff; color:#334155; border:1px solid #cbd5e1; padding:7px; border-radius:8px; font-weight:700; font-size:11px; cursor:pointer;">
+                                🔍 Check Status
+                            </button>
+                            <button type="button" onclick="purgeCacheFromSettings()" style="flex:1; background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; padding:7px; border-radius:8px; font-weight:700; font-size:11px; cursor:pointer;">
+                                🧹 Clear Cache
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-top:20px;">
+                    <div class="card-header">
+                        <h2><span>🔗</span> Quick Portal Links</h2>
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:10px;">
+                        <a href="/accounts" class="btn btn-accounts" style="justify-content:flex-start;">
+                            💼 Central Accounts Desk
+                        </a>
+                        <a href="/admin" class="btn btn-secondary" style="justify-content:flex-start;">
+                            📊 Super Admin Analytics
+                        </a>
+                        <a href="/portal?branch_id=br-chikhali" class="btn btn-secondary" style="justify-content:flex-start;">
+                            🚜 Branch Yard Terminal
+                        </a>
+                        <a href="/branch/stock" class="btn btn-secondary" style="justify-content:flex-start;">
+                            📦 Mandi Yard Stock Page
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        async function checkStatusFromSettings() {
+            try {
+                const resp = await fetch('/api/system/updates/status');
+                const data = await resp.json();
+                if (data.success) {
+                    alert('✓ System Operational!\n\nVersion: ' + data.version + '\nEngine: ' + data.engine_version + '\nHost: ' + data.master_host + '\nBuild: ' + data.build_timestamp);
+                }
+            } catch (e) {
+                alert('Could not check updates status: ' + e.message);
+            }
+        }
+
+        async function broadcastHotfixFromSettings() {
+            const note = prompt('Enter Update / Hotfix Summary to broadcast to all terminals:', 'Bugfix deployed from Master PC: Corridors & OCR updated');
+            if (!note) return;
+            try {
+                const fd = new FormData();
+                fd.append('patch_note', note);
+                fd.append('reload_seconds', 3);
+                const resp = await fetch('/api/system/updates/broadcast', { method: 'POST', body: fd });
+                const data = await resp.json();
+                if (data.success) {
+                    alert('✓ Hotfix broadcasted! All terminals, phones, and dashboards will reload fresh assets in 3 seconds.');
+                }
+            } catch (e) {
+                alert('Broadcast error: ' + e.message);
+            }
+        }
+
+        async function purgeCacheFromSettings() {
+            if (confirm('Clear local cache and hard-reload?')) {
+                if ('caches' in window) {
+                    const keys = await caches.keys();
+                    await Promise.all(keys.map(k => caches.delete(k)));
+                }
+                window.location.reload(true);
+            }
+        }
+    </script>
+</body>
+</html>

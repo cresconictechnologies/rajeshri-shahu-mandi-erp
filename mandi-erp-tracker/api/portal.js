@@ -24,6 +24,7 @@ export default async function handler(req, res) {
     else if (req.url.includes('/users')) action = 'users';
     else if (req.url.includes('/commodities')) action = 'commodities';
     else if (req.url.includes('/inspectors')) action = 'inspectors';
+    else if (req.url.includes('/tickets') || req.url.includes('/inspections')) action = 'tickets';
     else if (req.url.includes('/overrides')) action = 'overrides';
     else if (req.url.includes('/outward')) action = 'outward';
     else if (req.url.includes('/admin/data')) action = 'admin_data';
@@ -525,6 +526,71 @@ export default async function handler(req, res) {
         return res.status(200).json({ success: true, message: `Inspector ${body.name} saved!`, inspector: payload });
       } catch (err) {
         return res.status(500).json({ success: false, error: err.message });
+      }
+    }
+  }
+
+  // =========================================================================
+  // 7B. QC TICKETS ACTION (INSPECTIONS & DELETION)
+  // =========================================================================
+  if (action === 'tickets' || action === 'pending_tickets' || action === 'delete_ticket') {
+    // Handle ticket deletion
+    if (req.method === 'DELETE' || action === 'delete_ticket' || (req.method === 'POST' && (body.action === 'delete' || req.query.action === 'delete'))) {
+      try {
+        const ticketNo = body.ticket_no || req.query.ticket_no || body.id || req.query.id;
+        if (!ticketNo) {
+          return res.status(400).json({ success: false, error: 'Ticket number or ID is required.' });
+        }
+
+        // Verify ticket is not linked to a settled purchase invoice
+        try {
+          const chkResp = await fetch(`${supabaseUrl}/rest/v1/purchase_invoices?qc_ticket_no=eq.${encodeURIComponent(ticketNo)}&limit=1`, { headers });
+          if (chkResp.ok) {
+            const rows = await chkResp.json();
+            if (Array.isArray(rows) && rows.length > 0) {
+              return res.status(400).json({ success: false, error: `Cannot delete QC Ticket #${ticketNo} because it has already been invoiced and settled.` });
+            }
+          }
+        } catch (_) {}
+
+        // Delete from quality_inspections
+        const delResp = await fetch(`${supabaseUrl}/rest/v1/quality_inspections?ticket_no=eq.${encodeURIComponent(ticketNo)}`, {
+          method: 'DELETE',
+          headers
+        });
+
+        if (!delResp.ok) {
+          return res.status(delResp.status).json({ success: false, error: await delResp.text() });
+        }
+
+        return res.status(200).json({ success: true, message: `QC Ticket #${ticketNo} deleted permanently.` });
+      } catch (err) {
+        return res.status(500).json({ success: false, error: err.message });
+      }
+    }
+
+    // Handle ticket fetching
+    if (req.method === 'GET') {
+      try {
+        const branchId = req.query.branch_id;
+        const status = req.query.status || 'PENDING';
+        let url = `${supabaseUrl}/rest/v1/quality_inspections?order=created_at.desc&limit=100`;
+        if (status && status !== 'all') {
+          url += `&status=eq.${encodeURIComponent(status)}`;
+        }
+        if (branchId && branchId !== 'all') {
+          url += `&branch_id=eq.${encodeURIComponent(branchId)}`;
+        }
+
+        const resp = await fetch(url, { headers });
+        if (!resp.ok) {
+          return res.status(200).json({ success: true, count: 0, tickets: [] });
+        }
+        const rows = await resp.json();
+        const tickets = Array.isArray(rows) ? rows : [];
+        return res.status(200).json({ success: true, count: tickets.length, tickets: tickets });
+      } catch (err) {
+        return res.status(500).json({ success: false, error: err.message, tickets: [] });
       }
     }
   }

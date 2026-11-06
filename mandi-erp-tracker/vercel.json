@@ -241,6 +241,10 @@
     {
       "source": "/api/inspector/tickets/pending",
       "destination": "/api/portal?action=tickets"
+    },
+    {
+      "source": "/api/inspector/tickets/delete",
+      "destination": "/api/portal?action=delete_ticket"
     }
   ],
   "headers": [

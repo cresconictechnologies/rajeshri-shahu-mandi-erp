@@ -127,6 +127,14 @@
       "destination": "/api/portal?action=commodities"
     },
     {
+      "source": "/api/accounts/commodities",
+      "destination": "/api/portal?action=commodities"
+    },
+    {
+      "source": "/api/commodities",
+      "destination": "/api/portal?action=commodities"
+    },
+    {
       "source": "/api/accounts/data",
       "destination": "/api/portal?action=accounts_data"
     },
@@ -245,6 +253,10 @@
     {
       "source": "/api/inspector/tickets/delete",
       "destination": "/api/portal?action=delete_ticket"
+    },
+    {
+      "source": "/api/health",
+      "destination": "/api/portal?action=summary"
     }
   ],
   "headers": [

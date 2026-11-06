@@ -473,7 +473,28 @@ export default async function handler(req, res) {
         });
 
         if (!resp.ok) return res.status(resp.status).json({ success: false, error: await resp.text() });
-        return res.status(200).json({ success: true, message: `Commodity ${name} created!`, commodity: payload });
+
+        // Auto-publish initial price corridor if provided
+        if (body.target_rate || body.min_rate) {
+          const ratePayload = {
+            commodity_name: name,
+            quality_grade: body.quality_grade || 'STANDARD',
+            min_rate_per_qtl: parseFloat(body.min_rate) || 0,
+            target_rate_per_qtl: parseFloat(body.target_rate) || 0,
+            max_rate_per_qtl: parseFloat(body.max_rate) || 0,
+            rate_date: body.rate_date || new Date().toISOString().slice(0, 10),
+            updated_at: new Date().toISOString()
+          };
+          try {
+            await fetch(`${supabaseUrl}/rest/v1/daily_commodity_rates`, {
+              method: 'POST',
+              headers: { ...headers, 'Prefer': 'resolution=merge-duplicates,return=representation' },
+              body: JSON.stringify(ratePayload)
+            });
+          } catch (_) {}
+        }
+
+        return res.status(200).json({ success: true, message: `Commodity ${name} created successfully!`, commodity: payload });
       } catch (err) {
         return res.status(500).json({ success: false, error: err.message });
       }
@@ -739,12 +760,65 @@ export default async function handler(req, res) {
         fetch(`${supabaseUrl}/rest/v1/ledger_entries?select=*&order=created_at.desc&limit=100`, { headers })
       ]);
 
-      const rates = ratesResp.ok ? await ratesResp.json() : [];
+      const rawRates = ratesResp.ok ? await ratesResp.json() : [];
       const invoices = invoicesResp.ok ? await invoicesResp.json() : [];
       const outwardOrders = outwardResp.ok ? await outwardResp.json() : [];
       const inspectors = inspectorsResp.ok ? await inspectorsResp.json() : [];
       const commodities = commoditiesResp.ok ? await commoditiesResp.json() : [];
       const ledgers = ledgersResp.ok ? await ledgersResp.json() : [];
+
+      // Deduplicate rates: keep only latest row per commodity
+      const latestRatesMap = {};
+      for (const r of (Array.isArray(rawRates) ? rawRates : [])) {
+        if (!r.commodity_name) continue;
+        const normKey = r.commodity_name.trim().toLowerCase();
+        if (!latestRatesMap[normKey]) {
+          latestRatesMap[normKey] = r;
+        }
+      }
+
+      // Benchmark rate defaults for commodities not yet published
+      const baselineDefaults = {
+        'soya': { min: 6500, target: 6850, max: 7500 },
+        'chana': { min: 5600, target: 5900, max: 6400 },
+        'toor': { min: 7800, target: 8200, max: 8800 },
+        'tur': { min: 7800, target: 8200, max: 8800 },
+        'wheat': { min: 2750, target: 2950, max: 3300 },
+        'maize': { min: 2100, target: 2300, max: 2550 },
+        'mustard': { min: 4800, target: 5100, max: 5500 },
+        'cotton': { min: 6800, target: 7100, max: 7500 },
+        'groundnut': { min: 5800, target: 6100, max: 6600 },
+        'moong': { min: 7400, target: 7800, max: 8400 },
+        'urad': { min: 7200, target: 7600, max: 8200 },
+        'masoor': { min: 5700, target: 6000, max: 6500 },
+        'rajma': { min: 8200, target: 8700, max: 9400 },
+        'jowar': { min: 2800, target: 3050, max: 3350 },
+        'bajra': { min: 2150, target: 2350, max: 2600 }
+      };
+
+      for (const c of (Array.isArray(commodities) ? commodities : [])) {
+        if (!c.name) continue;
+        const normKey = c.name.trim().toLowerCase();
+        if (!latestRatesMap[normKey]) {
+          let b = { min: 3500, target: 4000, max: 4500 };
+          for (const [k, v] of Object.entries(baselineDefaults)) {
+            if (normKey.includes(k)) { b = v; break; }
+          }
+          latestRatesMap[normKey] = {
+            id: `rate-${c.id || normKey}`,
+            commodity_name: c.name,
+            min_rate_per_qtl: b.min,
+            target_rate_per_qtl: b.target,
+            max_rate_per_qtl: b.max,
+            quality_grade: 'STANDARD',
+            rate_date: new Date().toISOString().slice(0, 10),
+            standard_moisture_pct: c.standard_moisture_pct || 10.0,
+            hsn_code: c.hsn_code || '1201'
+          };
+        }
+      }
+
+      const rates = Object.values(latestRatesMap);
 
       // Pending overrides
       const pendingOverrides = invoices.filter(inv => inv.rate_override_status === 'PENDING' || inv.is_backdated);

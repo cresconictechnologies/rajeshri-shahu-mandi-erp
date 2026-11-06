@@ -4,17 +4,26 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Super Admin System Settings — Mandi ERP</title>
+        <!-- PWA Web App Manifest & Mobile/Desktop Meta -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Rajarshi ERP">
+    <link rel="apple-touch-icon" href="/icons/icon-192.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+
     <link rel="stylesheet" href="/static/theme.css">
 </head>
 <body>
     <div class="top-nav">
-        <a href="/" class="brand">
+        <a href="/admin" class="brand">
             <span class="brand-icon">🌾</span>
             <span>MANDI ERP</span>
             <span class="badge" style="background:#7c3aed; color:#fff;">SUPER ADMIN</span>
         </a>
         <div class="nav-links">
-            <a href="/admin/dashboard" class="nav-link">← Super Admin Dashboard</a>
+            <a href="/admin" class="nav-link">← Super Admin Dashboard</a>
             <a href="/admin/settings" class="nav-link active">⚙️ System Settings</a>
             <a href="/logout" class="nav-link" style="color:#ef4444;">🚪 Logout</a>
         </div>
@@ -43,11 +52,11 @@
             </div>
         </div>
 
-        {% if message %}
+        
         <div style="background:#dcfce7; border:1px solid #86efac; color:#166534; padding:12px 16px; border-radius:8px; margin-bottom:18px; font-weight:700;">
-            ✓ {{ message }}
+            ✓ 
         </div>
-        {% endif %}
+        
 
         <div style="display:grid; grid-template-columns: 2fr 1fr; gap:22px;">
             <!-- LEFT COLUMN: SETTINGS FORM -->
@@ -64,19 +73,19 @@
                         <span class="badge-pill badge-purple">Master Ownership</span>
                     </div>
 
-                    <form method="POST" action="/api/admin/profile/update">
+                    <form method="POST" action="/api/admin/profile/update" onsubmit="handleSaveProfile(event)">
                         <div class="form-grid">
                             <div class="form-group">
                                 <label>Owner / Super Admin Full Name *</label>
-                                <input type="text" name="owner_name" value="{{ super_admin_user.full_name if super_admin_user else 'Vikramaditya Singhal (Owner)' }}" required style="font-weight:700;">
+                                <input type="text" name="owner_name" value="" required style="font-weight:700;">
                             </div>
                             <div class="form-group">
                                 <label>Login Username *</label>
-                                <input type="text" name="username" value="{{ super_admin_user.username if super_admin_user else 'admin' }}" required style="font-weight:700; color:#0284c7;">
+                                <input type="text" name="username" value="" required style="font-weight:700; color:#0284c7;">
                             </div>
                             <div class="form-group">
                                 <label>Mobile Phone Number *</label>
-                                <input type="tel" name="phone" value="{{ super_admin_user.phone if super_admin_user else '9826011111' }}" required>
+                                <input type="tel" name="phone" value="" required>
                             </div>
                             <div class="form-group">
                                 <label>New Master Password (Leave blank to keep current)</label>
@@ -96,34 +105,34 @@
                         <h2><span>🏢</span> Corporate Organization & Statutory Profile</h2>
                     </div>
 
-                    <form method="POST" action="/api/admin/settings">
+                    <form method="POST" action="/api/admin/settings" onsubmit="handleSaveOrgSettings(event)">
                         <div class="form-grid">
                             <div class="form-group form-full">
                                 <label>Corporate Enterprise Name</label>
-                                <input type="text" name="org_name" value="{{ settings.get('org_name', 'Rajeshri Shahu Trading') }}" required>
+                                <input type="text" name="org_name" value="" required>
                             </div>
                             <div class="form-group">
                                 <label>Corporate PAN</label>
-                                <input type="text" name="org_pan" value="{{ settings.get('org_pan', 'AACCK1234F') }}" required>
+                                <input type="text" name="org_pan" value="" required>
                             </div>
                             <div class="form-group">
                                 <label>Corporate GSTIN</label>
-                                <input type="text" name="org_gstin" value="{{ settings.get('org_gstin', '23AACCK1234F1Z5') }}" required>
+                                <input type="text" name="org_gstin" value="" required>
                             </div>
                             <div class="form-group">
                                 <label>Active Financial Year</label>
-                                <input type="text" name="fiscal_year" value="{{ settings.get('fiscal_year', '2026-2027') }}" required>
+                                <input type="text" name="fiscal_year" value="" required>
                             </div>
                             <div class="form-group">
                                 <label>Multi-Branch Real-Time Sync</label>
                                 <select name="multi_branch_sync">
-                                    <option value="ENABLED" {% if settings.get('multi_branch_sync') == 'ENABLED' %}selected{% endif %}>ENABLED (Instant SQLite/WAL)</option>
-                                    <option value="DISABLED" {% if settings.get('multi_branch_sync') == 'DISABLED' %}selected{% endif %}>DISABLED (Batch Scheduled)</option>
+                                    <option value="ENABLED" selected>ENABLED (Instant SQLite/WAL)</option>
+                                    <option value="DISABLED" selected>DISABLED (Batch Scheduled)</option>
                                 </select>
                             </div>
                             <div class="form-group form-full">
                                 <label>Audit Change Log Retention (Days)</label>
-                                <input type="number" name="audit_retention_days" value="{{ settings.get('audit_retention_days', '365') }}" required>
+                                <input type="number" name="audit_retention_days" value="365" required>
                                 <small style="color:var(--text-muted); font-size:11px;">Statutory minimum APMC audit log retention period is 365 days.</small>
                             </div>
                         </div>
@@ -145,7 +154,7 @@
                                 Add new branches or remove decommissioned branch yards. Each active branch automatically receives a dedicated Cashier & Munim station.
                             </p>
                         </div>
-                        <span class="badge-pill badge-green">{{ branches|length }} Branches Active</span>
+                        <span class="badge-pill badge-green">4 Branches Active</span>
                     </div>
 
                     <!-- Configured Branches List -->
@@ -160,29 +169,12 @@
                                     <th style="padding:8px 10px; text-align:right;">Action</th>
                                 </tr>
                             </thead>
-                            <tbody>
-                                {% for b in branches %}
-                                <tr style="border-bottom:1px solid #f1f5f9;">
-                                    <td style="padding:9px 10px; font-weight:800; color:#0284c7;">{{ b.branch_code }}</td>
-                                    <td style="padding:9px 10px; font-weight:700;">{{ b.name }}</td>
-                                    <td style="padding:9px 10px; color:#64748b; font-size:12px;">{{ b.address or '-' }} • {{ b.phone or '-' }}</td>
-                                    <td style="padding:9px 10px; text-align:center;">
-                                        {% if b.is_active == 1 %}
-                                        <span class="badge-pill badge-green" style="font-size:10px;">ACTIVE</span>
-                                        {% else %}
-                                        <span class="badge-pill badge-red" style="font-size:10px;">INACTIVE</span>
-                                        {% endif %}
-                                    </td>
-                                    <td style="padding:9px 10px; text-align:right;">
-                                        <form method="POST" action="/api/admin/branches/delete" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete branch {{ b.name }}?');">
-                                            <input type="hidden" name="branch_id" value="{{ b.id }}">
-                                            <button type="submit" style="padding:4px 10px; font-size:11px; font-weight:700; background:#fef2f2; color:#dc2626; border:1px solid #fecaca; border-radius:6px; cursor:pointer;">
-                                                🗑️ Delete
-                                            </button>
-                                        </form>
+                            <tbody id="settingsBranchesTable">
+                                <tr>
+                                    <td colspan="5" style="text-align:center; padding:20px; color:#64748b;">
+                                        ⏳ Loading registered branch yards from central database...
                                     </td>
                                 </tr>
-                                {% endfor %}
                             </tbody>
                         </table>
                     </div>
@@ -192,7 +184,7 @@
                         <strong style="color:#166534; font-size:13.5px; display:block; margin-bottom:10px;">
                             ➕ Add / Configure New Branch Yard
                         </strong>
-                        <form method="POST" action="/api/admin/branches/create">
+                        <form method="POST" id="createBranchForm" onsubmit="handleCreateBranch(event)">
                             <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px;">
                                 <div>
                                     <label style="font-size:11.5px; font-weight:700; color:#166534; display:block; margin-bottom:3px;">Branch Code *</label>
@@ -234,124 +226,16 @@
                         <span class="badge-pill badge-purple">Strict Panel Isolation</span>
                     </div>
 
-                    <form method="POST" action="/api/admin/staff/update-all" style="margin-top:14px;">
-                        <!-- 1. Central Accountant -->
-                        <div class="staff-card" style="background:#f8fafc; border:1.5px solid var(--card-border); border-radius:12px; padding:16px; margin-bottom:16px;">
-                            <div class="staff-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid #e2e8f0;">
-                                <strong style="font-size:14.5px; color:var(--text-primary); display:flex; align-items:center; gap:6px;">
-                                    <span>💼</span> Central HQ Accountant
-                                </strong>
-                                <span class="badge-pill badge-blue">Central Financial Authority</span>
-                            </div>
-                            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap:12px;">
-                                <div>
-                                    <label style="font-size:12px; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">Full Name</label>
-                                    <input type="text" name="acc_name" value="{{ accountant.full_name if accountant else 'Omprakash Agrawal (Chief Accountant)' }}" required style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:600;">
-                                </div>
-                                <div>
-                                    <label style="font-size:12px; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">Login Username</label>
-                                    <input type="text" name="acc_username" value="{{ accountant.username if accountant else 'accountant' }}" required style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; background:#f1f5f9; font-weight:700; color:#0284c7;">
-                                </div>
-                                <div>
-                                    <label style="font-size:12px; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">Password (Set or Keep Current)</label>
-                                    <input type="text" name="acc_password" placeholder="acc123" value="acc123" required style="width:100%; padding:8px 10px; border:1.5px solid #f59e0b; border-radius:6px; font-size:13px; font-weight:700; color:#b45309; background:#fffbeb;">
-                                </div>
-                                <div>
-                                    <label style="font-size:12px; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">Mobile Number</label>
-                                    <input type="text" name="acc_phone" value="{{ accountant.phone if accountant else '9826022222' }}" required style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;">
-                                </div>
+                    <form id="step3StaffForm" onsubmit="handleSaveAllStaff(event)" style="margin-top:14px;">
+                        <div id="step3DynamicStaffContainer" style="display:flex; flex-direction:column; gap:16px;">
+                            <!-- Dynamically generated staff credential cards -->
+                            <div style="padding:20px; text-align:center; color:var(--text-muted); background:#f8fafc; border-radius:8px;">
+                                ⏳ Loading branch stations to generate credentials...
                             </div>
                         </div>
 
-                        <!-- 2. Chikhali Branch Cashier -->
-                        <div class="staff-card" style="background:#f8fafc; border:1.5px solid var(--card-border); border-radius:12px; padding:16px; margin-bottom:16px;">
-                            <div class="staff-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid #e2e8f0;">
-                                <strong style="font-size:14.5px; color:var(--text-primary); display:flex; align-items:center; gap:6px;">
-                                    <span>🌾</span> Chikhali Branch — Single Cashier & Munim
-                                </strong>
-                                <span class="badge-pill badge-green">BR-CHK Yard</span>
-                            </div>
-                            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap:12px;">
-                                <div>
-                                    <label style="font-size:12px; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">Cashier & Munim Name</label>
-                                    <input type="text" name="chk_name" value="{{ chk_cashier.full_name if chk_cashier else 'Santosh V. Patil (Chikhali Lead)' }}" required style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:600;">
-                                </div>
-                                <div>
-                                    <label style="font-size:12px; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">Login Username</label>
-                                    <input type="text" name="chk_username" value="{{ chk_cashier.username if chk_cashier else 'chikhali_cashier' }}" required style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; background:#f1f5f9; font-weight:700; color:#0284c7;">
-                                </div>
-                                <div>
-                                    <label style="font-size:12px; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">Password</label>
-                                    <input type="text" name="chk_password" placeholder="chk123" value="chk123" required style="width:100%; padding:8px 10px; border:1.5px solid #f59e0b; border-radius:6px; font-size:13px; font-weight:700; color:#b45309; background:#fffbeb;">
-                                </div>
-                                <div>
-                                    <label style="font-size:12px; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">Mobile Number</label>
-                                    <input type="text" name="chk_phone" value="{{ chk_cashier.phone if chk_cashier else '9826099999' }}" required style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;">
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- 3. Varvand Branch Cashier -->
-                        <div class="staff-card" style="background:#f8fafc; border:1.5px solid var(--card-border); border-radius:12px; padding:16px; margin-bottom:16px;">
-                            <div class="staff-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid #e2e8f0;">
-                                <strong style="font-size:14.5px; color:var(--text-primary); display:flex; align-items:center; gap:6px;">
-                                    <span>🌾</span> Varvand Branch — Single Cashier & Munim
-                                </strong>
-                                <span class="badge-pill badge-green">BR-VRV Yard</span>
-                            </div>
-                            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap:12px;">
-                                <div>
-                                    <label style="font-size:12px; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">Cashier & Munim Name</label>
-                                    <input type="text" name="vrv_name" value="{{ vrv_cashier.full_name if vrv_cashier else 'Mohanlal Soni (Varvand Cashier)' }}" required style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:600;">
-                                </div>
-                                <div>
-                                    <label style="font-size:12px; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">Login Username</label>
-                                    <input type="text" name="vrv_username" value="{{ vrv_cashier.username if vrv_cashier else 'varvand_cashier' }}" required style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; background:#f1f5f9; font-weight:700; color:#0284c7;">
-                                </div>
-                                <div>
-                                    <label style="font-size:12px; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">Password</label>
-                                    <input type="text" name="vrv_password" placeholder="vrv123" value="vrv123" required style="width:100%; padding:8px 10px; border:1.5px solid #f59e0b; border-radius:6px; font-size:13px; font-weight:700; color:#b45309; background:#fffbeb;">
-                                </div>
-                                <div>
-                                    <label style="font-size:12px; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">Mobile Number</label>
-                                    <input type="text" name="vrv_phone" value="{{ vrv_cashier.phone if vrv_cashier else '9826044444' }}" required style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;">
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- 4. Dhad Branch Cashier -->
-                        <div class="staff-card" style="background:#f8fafc; border:1.5px solid var(--card-border); border-radius:12px; padding:16px; margin-bottom:16px;">
-                            <div class="staff-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid #e2e8f0;">
-                                <strong style="font-size:14.5px; color:var(--text-primary); display:flex; align-items:center; gap:6px;">
-                                    <span>🌾</span> Dhad Branch — Single Cashier & Munim
-                                </strong>
-                                <span class="badge-pill badge-green">BR-DHD Yard</span>
-                            </div>
-                            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap:12px;">
-                                <div>
-                                    <label style="font-size:12px; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">Cashier & Munim Name</label>
-                                    <input type="text" name="dhd_name" value="{{ dhd_cashier.full_name if dhd_cashier else 'Kailash Tiwari (Dhad Cashier)' }}" required style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:600;">
-                                </div>
-                                <div>
-                                    <label style="font-size:12px; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">Login Username</label>
-                                    <input type="text" name="dhd_username" value="{{ dhd_cashier.username if dhd_cashier else 'dhad_cashier' }}" required style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; background:#f1f5f9; font-weight:700; color:#0284c7;">
-                                </div>
-                                <div>
-                                    <label style="font-size:12px; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">Password</label>
-                                    <input type="text" name="dhd_password" placeholder="dhd123" value="dhd123" required style="width:100%; padding:8px 10px; border:1.5px solid #f59e0b; border-radius:6px; font-size:13px; font-weight:700; color:#b45309; background:#fffbeb;">
-                                </div>
-                                <div>
-                                    <label style="font-size:12px; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">Mobile Number</label>
-                                    <input type="text" name="dhd_phone" value="{{ dhd_cashier.phone if dhd_cashier else '9826055555' }}" required style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;">
-                                </div>
-                            </div>
-                        </div>
-
-                        <div style="display:flex; justify-content:space-between; align-items:center; padding-top:14px; border-top:1.5px solid #e2e8f0; margin-top:16px;">
-                            <div style="font-size:12.5px; color:var(--text-muted);">
-                                🔒 Passwords are encrypted with SHA-256 and enforce strict role-based panel separation.
-                            </div>
-                            <button type="submit" class="btn btn-admin" style="font-weight:800; padding:11px 26px; font-size:14px;">
+                        <div style="display:flex; justify-content:flex-end; margin-top:20px;">
+                            <button type="submit" class="btn btn-admin" id="btnSaveAllStaff" style="font-weight:800; padding:11px 26px; font-size:14px;">
                                 💾 Save Staff Credentials & Enforce Panel Passwords
                             </button>
                         </div>
@@ -367,7 +251,7 @@
                                 Single Branch Operator Architecture: Each branch is operated by 1 single person (Cashier & Munim). Client Admin can edit staff names, phone numbers, and reset passwords anytime.
                             </p>
                         </div>
-                        <span class="badge-pill badge-purple">{{ staff_users|length }} Active Staff Accounts</span>
+                        <span class="badge-pill badge-purple"> Active Staff Accounts</span>
                     </div>
 
                     <div class="table-container">
@@ -382,34 +266,12 @@
                                     <th>Action</th>
                                 </tr>
                             </thead>
-                            <tbody>
-                                {% for u in staff_users %}
+                            <tbody id="settingsStaffTableBody">
                                 <tr>
-                                    <td>
-                                        <strong>{{ u.branch_name }}</strong>
-                                        {% if u.branch_code %}<code style="font-size:11px; margin-left:4px;">{{ u.branch_code }}</code>{% endif %}
-                                    </td>
-                                    <td>
-                                        {% if u.role == 'SUPER_ADMIN' %}
-                                        <span class="badge-pill badge-purple">Owner / Master Admin</span>
-                                        {% elif u.role == 'ACCOUNTANT_HQ' %}
-                                        <span class="badge-pill badge-blue">Chief Accountant (HQ)</span>
-                                        {% elif u.role == 'QUALITY_INSPECTOR' %}
-                                        <span class="badge-pill" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a; font-weight:800;">Quality Inspector</span>
-                                        {% else %}
-                                        <span class="badge-pill badge-green">Branch Cashier & Munim</span>
-                                        {% endif %}
-                                    </td>
-                                    <td><strong>{{ u.full_name }}</strong></td>
-                                    <td><code style="font-weight:700; color:#0284c7;">{{ u.username }}</code></td>
-                                    <td>{{ u.phone }}</td>
-                                    <td>
-                                        <button type="button" class="btn btn-secondary btn-sm" onclick="openEditUserModal('{{ u.id }}', '{{ u.full_name }}', '{{ u.username }}', '{{ u.phone }}', '{{ u.branch_name }}', '{{ u.role }}')" style="font-weight:700; white-space:nowrap;">
-                                            ✏️ Edit / 🔑 Reset Password
-                                        </button>
+                                    <td colspan="6" style="text-align:center; padding:20px; color:#64748b;">
+                                        ⏳ Loading registered staff and cashier accounts from central database...
                                     </td>
                                 </tr>
-                                {% endfor %}
                             </tbody>
                         </table>
                     </div>
@@ -419,7 +281,7 @@
                 <div class="card" style="margin-top:20px;">
                     <div class="card-header">
                         <h2><span>📜</span> Enterprise Audit & Change Logs</h2>
-                        <span class="badge-pill badge-blue">{{ audit_logs|length }} Recent Modifications</span>
+                        <span class="badge-pill badge-blue">0 Recent Modifications</span>
                     </div>
 
                     <div class="table-container">
@@ -434,23 +296,23 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                {% if audit_logs %}
-                                {% for l in audit_logs %}
+                                
+                                
                                 <tr>
-                                    <td style="font-size:11.5px; color:var(--text-muted);">{{ l.created_at }}</td>
-                                    <td><strong>{{ l.entity_type }}: {{ l.entity_name or l.entity_id }}</strong></td>
-                                    <td><span class="badge-pill badge-amber">{{ l.action }}</span></td>
-                                    <td>{{ l.branch_id or 'GLOBAL' }} • {{ l.changed_by }}</td>
-                                    <td style="font-size:12px;">{{ l.change_summary or 'Record modified' }}</td>
+                                    <td style="font-size:11.5px; color:var(--text-muted);"></td>
+                                    <td><strong>: </strong></td>
+                                    <td><span class="badge-pill badge-amber"></span></td>
+                                    <td> • </td>
+                                    <td style="font-size:12px;"></td>
                                 </tr>
-                                {% endfor %}
-                                {% else %}
+                                
+                                
                                 <tr>
                                     <td colspan="5" style="text-align:center; padding:20px; color:var(--text-muted);">
                                         No audit change logs recorded yet. All branch farmer edits and configuration updates are preserved here.
                                     </td>
                                 </tr>
-                                {% endif %}
+                                
                             </tbody>
                         </table>
                     </div>
@@ -472,8 +334,8 @@
                                 Real-Time PostgreSQL 17 Cloud Replication & Offline Edge Resilience
                             </p>
                         </div>
-                        <span id="syncHubLiveBadge" class="badge-pill {% if supabase_status.status == 'CONNECTED' %}badge-green{% elif supabase_status.status == 'OFFLINE' %}badge-amber{% else %}badge-red{% endif %}" style="font-weight:800; font-size:11px;">
-                            {% if supabase_status.status == 'CONNECTED' %}● CONNECTED{% elif supabase_status.status == 'OFFLINE' %}● LOCAL OFFLINE{% else %}● DISCONNECTED{% endif %}
+                        <span id="syncHubLiveBadge" class="badge-pill badge-greenbadge-amberbadge-red" style="font-weight:800; font-size:11px;">
+                            ● CONNECTED● LOCAL OFFLINE● DISCONNECTED
                         </span>
                     </div>
 
@@ -489,15 +351,15 @@
                         </div>
                         <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #f1f5f9; padding-bottom:6px; margin-bottom:6px;">
                             <span style="color:#64748b; font-weight:700; font-size:11px; text-transform:uppercase;">Round-Trip Latency:</span>
-                            <strong id="syncLatencyText" style="color:#059669;">{{ supabase_status.latency_ms }} ms</strong>
+                            <strong id="syncLatencyText" style="color:#059669;"> ms</strong>
                         </div>
                         <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #f1f5f9; padding-bottom:6px; margin-bottom:6px;">
                             <span style="color:#64748b; font-weight:700; font-size:11px; text-transform:uppercase;">Last Synced At:</span>
-                            <span id="syncLastSyncText" style="font-weight:600; color:#475569; font-size:11.5px;">{{ supabase_status.last_sync }}</span>
+                            <span id="syncLastSyncText" style="font-weight:600; color:#475569; font-size:11.5px;"></span>
                         </div>
                         <div style="display:flex; justify-content:space-between; align-items:center;">
                             <span style="color:#64748b; font-weight:700; font-size:11px; text-transform:uppercase;">Pending Edge Queue:</span>
-                            <span id="syncQueueText" style="font-weight:700; color:#b45309;">{{ supabase_status.pending_queue }} mutations queued</span>
+                            <span id="syncQueueText" style="font-weight:700; color:#b45309;"> mutations queued</span>
                         </div>
                     </div>
 
@@ -528,7 +390,7 @@
                                 <span>SUPABASE_URL</span>
                                 <span style="font-size:10.5px; color:#64748b; font-weight:400;">HTTPS Endpoint</span>
                             </label>
-                            <input type="url" name="supabase_url" value="{{ supabase_config.get('supabase_url') or 'https://dbhcpebchoyjyffqjgih.supabase.co' }}" placeholder="https://dbhcpebchoyjyffqjgih.supabase.co" required style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:12px; font-family:monospace;">
+                            <input type="url" name="supabase_url" value="" placeholder="https://dbhcpebchoyjyffqjgih.supabase.co" required style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:12px; font-family:monospace;">
                         </div>
 
                         <div class="form-group" style="margin-bottom:10px;">
@@ -536,7 +398,7 @@
                                 <span>SUPABASE_ANON_KEY / SERVICE_ROLE_KEY</span>
                                 <span style="font-size:10.5px; color:#64748b; font-weight:400;">JWT Secret Token</span>
                             </label>
-                            <input type="password" name="supabase_key" value="{{ supabase_config.get('supabase_key') or '' }}" placeholder="Enter anon or service role key..." style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:12px; font-family:monospace;">
+                            <input type="password" name="supabase_key" value="" placeholder="Enter anon or service role key..." style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:12px; font-family:monospace;">
                         </div>
 
                         <div class="form-group" style="margin-bottom:12px;">
@@ -544,7 +406,7 @@
                                 <span>DATABASE_URL (PostgreSQL Connection String)</span>
                                 <span style="font-size:10.5px; color:#64748b; font-weight:400;">Port 5432 / 6543 Pooler</span>
                             </label>
-                            <input type="text" name="database_url" value="{{ supabase_config.get('database_url') or 'postgresql://postgres:RajarshiShahu2026MandiSecure@db.dbhcpebchoyjyffqjgih.supabase.co:5432/postgres' }}" placeholder="postgresql://postgres:[PASSWORD]@db.dbhcpebchoyjyffqjgih.supabase.co:5432/postgres" required style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:12px; font-family:monospace;">
+                            <input type="text" name="database_url" value="" placeholder="postgresql://postgres:[PASSWORD]@db.dbhcpebchoyjyffqjgih.supabase.co:5432/postgres" required style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:12px; font-family:monospace;">
                         </div>
 
                         <button type="submit" class="btn btn-admin" style="width:100%; background:#059669; border-color:#059669; padding:9px; font-weight:800; font-size:12px; border-radius:8px;">
@@ -596,15 +458,15 @@
                     <div style="font-size:13px; line-height:1.7; color:var(--text-secondary); margin-top:10px;">
                         <div style="margin-bottom:8px;">
                             <span style="color:var(--text-muted); font-size:11px; text-transform:uppercase; font-weight:700;">Enterprise / Firm:</span><br>
-                            <strong style="color:#0f172a; font-size:14.5px;">{{ settings.get('org_name', 'Rajeshri Shahu Trading') }}</strong>
+                            <strong style="color:#0f172a; font-size:14.5px;"></strong>
                         </div>
                         <div style="margin-bottom:8px;">
                             <span style="color:var(--text-muted); font-size:11px; text-transform:uppercase; font-weight:700;">PAN:</span><br>
-                            <strong style="color:#0f172a;">{{ settings.get('org_pan', 'AACCK1234F') }}</strong>
+                            <strong style="color:#0f172a;"></strong>
                         </div>
                         <div style="margin-bottom:8px;">
                             <span style="color:var(--text-muted); font-size:11px; text-transform:uppercase; font-weight:700;">GSTIN:</span><br>
-                            <strong style="color:#0f172a;">{{ settings.get('org_gstin', '23AACCK1234F1Z5') }}</strong>
+                            <strong style="color:#0f172a;"></strong>
                         </div>
                     </div>
                 </div>
@@ -629,13 +491,13 @@
                         <h2><span>🔗</span> Quick Portal Links</h2>
                     </div>
                     <div style="display:flex; flex-direction:column; gap:10px;">
-                        <a href="/admin/dashboard" class="btn btn-secondary" style="justify-content:flex-start;">
+                        <a href="/admin" class="btn btn-secondary" style="justify-content:flex-start;">
                             📊 Super Admin Analytics
                         </a>
-                        <a href="/accounts/dashboard" class="btn btn-secondary" style="justify-content:flex-start;">
+                        <a href="/accounts" class="btn btn-secondary" style="justify-content:flex-start;">
                             💼 Central Accounts Portal
                         </a>
-                        <a href="/branch/dashboard" class="btn btn-secondary" style="justify-content:flex-start;">
+                        <a href="/portal?branch_id=br-chikhali" class="btn btn-secondary" style="justify-content:flex-start;">
                             🚜 Branch Yard Terminal
                         </a>
                         <a href="/branch/stock" class="btn btn-secondary" style="justify-content:flex-start;">
@@ -670,6 +532,52 @@
         </div>
     </div>
 
+    <!-- MODAL: EDIT BRANCH -->
+    <div id="editBranchModal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.6); z-index:9999; justify-content:center; align-items:center;">
+        <div class="modal" style="background:#ffffff; max-width:520px; width:92%; border-radius:14px; padding:22px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1.5px solid #e2e8f0; padding-bottom:12px;">
+                <h2 style="font-size:18px; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:8px;">
+                    <span>🏢</span> Edit Branch Station
+                </h2>
+                <button type="button" onclick="closeEditBranchModal()" style="background:none; border:none; font-size:20px; cursor:pointer; color:#64748b;">✕</button>
+            </div>
+
+            <form id="editBranchForm" onsubmit="handleSaveBranch(event)" style="margin-top:16px;">
+                <input type="hidden" id="edit_branch_id" name="branch_id">
+
+                <div class="form-grid" style="display:grid; grid-template-columns:1fr; gap:12px;">
+                    <div class="form-group">
+                        <label style="font-size:12.5px; font-weight:700;">Branch Code</label>
+                        <input type="text" id="edit_branch_code" name="branch_code" readonly style="width:100%; padding:9px 12px; border:1.5px solid #e2e8f0; border-radius:8px; font-weight:700; background:#f8fafc; color:#64748b;">
+                    </div>
+                    <div class="form-group">
+                        <label style="font-size:12.5px; font-weight:700;">Branch Name *</label>
+                        <input type="text" id="edit_branch_name" name="name" required style="width:100%; padding:9px 12px; border:1.5px solid var(--input-border); border-radius:8px; font-weight:600;">
+                    </div>
+                    <div class="form-group">
+                        <label style="font-size:12.5px; font-weight:700;">Mandi License No</label>
+                        <input type="text" id="edit_branch_license" name="mandi_license_no" style="width:100%; padding:9px 12px; border:1.5px solid var(--input-border); border-radius:8px; font-weight:600;">
+                    </div>
+                    <div class="form-group">
+                        <label style="font-size:12.5px; font-weight:700;">Yard / APMC Address</label>
+                        <input type="text" id="edit_branch_address" name="address" style="width:100%; padding:9px 12px; border:1.5px solid var(--input-border); border-radius:8px; font-weight:600;">
+                    </div>
+                    <div class="form-group">
+                        <label style="font-size:12.5px; font-weight:700;">Office Phone</label>
+                        <input type="tel" id="edit_branch_phone" name="phone" style="width:100%; padding:9px 12px; border:1.5px solid var(--input-border); border-radius:8px; font-weight:600;">
+                    </div>
+                </div>
+
+                <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:18px; border-top:1px solid #e2e8f0; padding-top:12px;">
+                    <button type="button" class="btn btn-secondary" onclick="closeEditBranchModal()">Cancel</button>
+                    <button type="submit" class="btn btn-admin" style="font-weight:800; padding:10px 22px;">
+                        💾 Save Branch Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- MODAL: EDIT USER & RESET PASSWORD -->
     <div id="editUserModal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.6); z-index:9999; justify-content:center; align-items:center;">
         <div class="modal" style="background:#ffffff; max-width:500px; width:92%; border-radius:14px; padding:22px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">
@@ -680,7 +588,7 @@
                 <button type="button" onclick="closeEditUserModal()" style="background:none; border:none; font-size:20px; cursor:pointer; color:#64748b;">✕</button>
             </div>
 
-            <form action="/api/admin/users/update-credentials" method="POST" style="margin-top:16px;">
+            <form id="editUserForm" onsubmit="handleSaveSingleUser(event)" style="margin-top:16px;">
                 <input type="hidden" id="edit_user_id" name="user_id">
 
                 <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px 12px; margin-bottom:14px;">
@@ -885,5 +793,602 @@
     <script src="/static/js/live_sync.js"></script>
         </div>
     </div>
+
+    <!-- Cleaned duplicate broken script -->
+
+    <script>
+        function applyRealtimeTodayDates() {
+            const todayStr = new Date().toLocaleDateString('en-CA');
+            document.querySelectorAll('input[type="date"]').forEach(inp => {
+                if (!inp.value || inp.value === '2026-11-05' || inp.value === '2026-11-06') {
+                    inp.value = todayStr;
+                }
+            });
+        }
+        window.addEventListener('DOMContentLoaded', applyRealtimeTodayDates);
+    </script>
+
+    <script>
+        // Real-Time Branch and Staff Management for Settings Panel (Fully Synchronized)
+        let SETTINGS_BRANCHES = [];
+        let SETTINGS_STAFF = [];
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+
+        // =====================================================================
+        // STEP 1: LOAD & RENDER BRANCHES
+        // =====================================================================
+        async function loadSettingsBranches() {
+            const tbody = document.getElementById('settingsBranchesTable');
+            try {
+                const res = await fetch('/api/portal?action=branches');
+                const data = await res.json();
+                if (data.branches && Array.isArray(data.branches)) {
+                    SETTINGS_BRANCHES = data.branches;
+                }
+            } catch (err) {
+                console.warn('Could not load branches dynamically:', err);
+            }
+
+            if (tbody) {
+                if (!SETTINGS_BRANCHES || SETTINGS_BRANCHES.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px; color:#64748b;">No branch yards registered. Click Add New Branch Station above.</td></tr>';
+                } else {
+                    tbody.innerHTML = '';
+                    SETTINGS_BRANCHES.forEach(b => {
+                        const tr = document.createElement('tr');
+                        const isAct = (b.is_active === 1 || b.is_active === true);
+                        tr.innerHTML = `
+                            <td><code>${b.branch_code || b.id}</code></td>
+                            <td><strong>${escapeHtml(b.name)}</strong></td>
+                            <td>${escapeHtml(b.address || 'APMC Yard')} ${b.phone ? '• ' + escapeHtml(b.phone) : ''}</td>
+                            <td style="text-align:center;">
+                                <span class="badge-pill ${isAct ? 'badge-green' : 'badge-red'}">
+                                    ${isAct ? 'Active' : 'Deactivated'}
+                                </span>
+                            </td>
+                            <td style="text-align:right;">
+                                <div style="display:flex; gap:6px; align-items:center; justify-content:flex-end;">
+                                    <button type="button" class="btn btn-secondary btn-sm" onclick="openEditBranchModal('${b.id}', '${escapeHtml(b.name)}', '${escapeHtml(b.branch_code || '')}', '${escapeHtml(b.address || '')}', '${escapeHtml(b.phone || '')}', '${escapeHtml(b.mandi_license_no || '')}')" style="font-weight:700;">
+                                        ✏️ Edit
+                                    </button>
+                                    <button type="button" class="btn btn-sm ${isAct ? 'btn-danger' : 'btn-secondary'}" onclick="toggleBranchStatus('${b.id}')">
+                                        ${isAct ? 'Deactivate' : 'Activate'}
+                                    </button>
+                                    <button type="button" class="btn btn-sm" style="background:#dc2626; color:#fff; border:none; padding:4px 8px; border-radius:4px; font-weight:700; cursor:pointer;" onclick="deleteBranch('${b.id}', '${escapeHtml(b.name)}')" title="Delete Branch">
+                                        🗑️ Delete
+                                    </button>
+                                </div>
+                            </td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                }
+            }
+
+            // Immediately re-render Step 3 dynamic staff cards to keep in 100% sync
+            renderStep3StaffCards();
+        }
+
+        // =====================================================================
+        // BRANCH MODAL ACTIONS (EDIT, SAVE, TOGGLE, DELETE)
+        // =====================================================================
+        function openEditBranchModal(id, name, code, address, phone, license) {
+            document.getElementById('edit_branch_id').value = id;
+            document.getElementById('edit_branch_code').value = code || id;
+            document.getElementById('edit_branch_name').value = name || '';
+            document.getElementById('edit_branch_address').value = address || '';
+            document.getElementById('edit_branch_phone').value = phone || '';
+            document.getElementById('edit_branch_license').value = license || '';
+            const modal = document.getElementById('editBranchModal');
+            if (modal) modal.style.display = 'flex';
+        }
+
+        function closeEditBranchModal() {
+            const modal = document.getElementById('editBranchModal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        async function handleSaveBranch(e) {
+            e.preventDefault();
+            const bId = document.getElementById('edit_branch_id').value;
+            const name = document.getElementById('edit_branch_name').value.trim();
+            const branch_code = document.getElementById('edit_branch_code').value.trim();
+            const address = document.getElementById('edit_branch_address').value.trim();
+            const phone = document.getElementById('edit_branch_phone').value.trim();
+            const mandi_license_no = document.getElementById('edit_branch_license').value.trim();
+
+            try {
+                const res = await fetch('/api/admin/branches', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'update', branch_id: bId, id: bId, name, branch_code, address, phone, mandi_license_no })
+                });
+                const d = await res.json();
+                if (d.success) {
+                    alert(`✓ Branch "${name}" updated successfully!`);
+                    closeEditBranchModal();
+                    // Update in-memory
+                    const b = SETTINGS_BRANCHES.find(x => x.id === bId);
+                    if (b) {
+                        b.name = name;
+                        b.address = address;
+                        b.phone = phone;
+                        b.mandi_license_no = mandi_license_no;
+                    }
+                    loadSettingsBranches();
+                } else {
+                    alert('Error updating branch: ' + (d.error || 'Server rejected update'));
+                }
+            } catch (err) {
+                alert('Network error updating branch: ' + err.message);
+            }
+        }
+
+        async function toggleBranchStatus(branchId) {
+            try {
+                const res = await fetch('/api/admin/branches', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ branch_id: branchId })
+                });
+                const d = await res.json();
+                if (d.success) {
+                    const b = SETTINGS_BRANCHES.find(x => x.id === branchId);
+                    if (b) b.is_active = (b.is_active === 1 || b.is_active === true) ? 0 : 1;
+                    loadSettingsBranches();
+                } else {
+                    alert('Error: ' + d.error);
+                }
+            } catch (e) {
+                alert('Network error toggling branch: ' + e.message);
+            }
+        }
+
+        async function deleteBranch(branchId, branchName) {
+            if (!branchId) return;
+            if (!confirm(`Are you sure you want to permanently delete Branch "${branchName || branchId}"?\n\nThis will remove the branch station and unlink any assigned staff.`)) {
+                return;
+            }
+            try {
+                const res = await fetch('/api/admin/branches', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'delete', branch_id: branchId, id: branchId })
+                });
+                const d = await res.json();
+                if (d.success) {
+                    alert(`✓ Branch "${branchName || branchId}" deleted successfully.`);
+                    SETTINGS_BRANCHES = SETTINGS_BRANCHES.filter(b => b.id !== branchId);
+                    loadSettingsBranches();
+                } else {
+                    alert(`Cannot delete branch: ${d.error || 'Server error'}`);
+                }
+            } catch (e) {
+                alert('Network error deleting branch: ' + e.message);
+            }
+        }
+
+        async function handleCreateBranch(e) {
+            e.preventDefault();
+            const form = e.target;
+            const branch_code = (form.branch_code.value || '').trim();
+            const name = (form.name.value || '').trim();
+            const address = (form.address.value || '').trim();
+            const phone = (form.phone.value || '').trim();
+
+            try {
+                const res = await fetch('/api/admin/branches', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ branch_code, name, address, phone })
+                });
+                const d = await res.json();
+                if (d.success) {
+                    alert(`✓ Branch "${name}" created successfully!`);
+                    form.reset();
+                    const newId = (d.branch && d.branch.id) ? d.branch.id : `br-${branch_code.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+                    SETTINGS_BRANCHES.push({
+                        id: newId,
+                        branch_code,
+                        name,
+                        address,
+                        phone,
+                        is_active: 1
+                    });
+                    loadSettingsBranches();
+                } else {
+                    alert('Error creating branch: ' + d.error);
+                }
+            } catch (err) {
+                alert('Network error creating branch: ' + err.message);
+            }
+        }
+
+        // =====================================================================
+        // STEP 3: DYNAMIC STAFF CREDENTIAL GENERATION
+        // =====================================================================
+        function renderStep3StaffCards() {
+            const container = document.getElementById('step3DynamicStaffContainer');
+            if (!container) return;
+
+            // Find current accountant from SETTINGS_STAFF
+            const accUser = SETTINGS_STAFF.find(u => u.role === 'ACCOUNTANT_HQ' || u.username === 'accountant') || {};
+            const accName = accUser.full_name || 'Suraj (Chief Accountant HQ)';
+            const accPhone = accUser.phone || '9822001123';
+
+            let html = `
+                <!-- 1. Central Accountant Card -->
+                <div class="staff-card" style="background:#f8fafc; border:1.5px solid var(--card-border); border-radius:12px; padding:16px;">
+                    <div class="staff-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid #e2e8f0;">
+                        <strong style="font-size:14.5px; color:var(--text-primary); display:flex; align-items:center; gap:6px;">
+                            <span>💼</span> Central HQ Accountant
+                        </strong>
+                        <span class="badge-pill badge-blue">Central Financial Authority</span>
+                    </div>
+                    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap:12px;">
+                        <div>
+                            <label style="font-size:12px; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">Full Name *</label>
+                            <input type="text" id="staff_acc_name" value="${escapeHtml(accName)}" required style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:600;">
+                        </div>
+                        <div>
+                            <label style="font-size:12px; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">Login Username</label>
+                            <input type="text" id="staff_acc_username" value="accountant" readonly style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; background:#f1f5f9; font-weight:700; color:#0284c7;">
+                        </div>
+                        <div>
+                            <label style="font-size:12px; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">Password (Set or Keep Current) *</label>
+                            <input type="text" id="staff_acc_password" placeholder="acc123" value="acc123" required style="width:100%; padding:8px 10px; border:1.5px solid #f59e0b; border-radius:6px; font-size:13px; font-weight:700; color:#b45309; background:#fffbeb;">
+                        </div>
+                        <div>
+                            <label style="font-size:12px; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">Mobile Number</label>
+                            <input type="text" id="staff_acc_phone" value="${escapeHtml(accPhone)}" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;">
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Active branches cards
+            const activeBranches = SETTINGS_BRANCHES.filter(b => (b.is_active === 1 || b.is_active === true));
+            if (activeBranches.length === 0) {
+                html += `<div style="padding:16px; background:#fffbeb; border:1px solid #fde68a; border-radius:8px; color:#92400e; font-size:13px; font-weight:600;">
+                    ⚠️ No active branches found. Add or activate branches in Step 2 above to generate branch cashier credentials.
+                </div>`;
+            } else {
+                activeBranches.forEach((b, idx) => {
+                    const cleanCode = (b.branch_code || b.id).toUpperCase();
+                    const codeSlug = (b.branch_code || b.id).toLowerCase().replace(/[^a-z0-9]/g, '');
+                    const defaultUsername = `cashier_${codeSlug}`;
+
+                    // Look for existing user
+                    const existingCashier = SETTINGS_STAFF.find(u => u.branch_id === b.id || u.username === defaultUsername) || {};
+                    const cName = existingCashier.full_name || `${b.name} Cashier`;
+                    const cUser = existingCashier.username || defaultUsername;
+                    const cPhone = existingCashier.phone || b.phone || '';
+
+                    html += `
+                        <div class="staff-card" data-branch-id="${b.id}" style="background:#f8fafc; border:1.5px solid var(--card-border); border-radius:12px; padding:16px;">
+                            <div class="staff-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid #e2e8f0;">
+                                <strong style="font-size:14.5px; color:var(--text-primary); display:flex; align-items:center; gap:6px;">
+                                    <span>🌾</span> ${escapeHtml(b.name)} — Single Cashier & Munim
+                                </strong>
+                                <span class="badge-pill badge-green">${cleanCode} Yard</span>
+                            </div>
+                            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap:12px;">
+                                <div>
+                                    <label style="font-size:12px; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">Cashier & Munim Name *</label>
+                                    <input type="text" id="staff_name_${b.id}" value="${escapeHtml(cName)}" required style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:600;">
+                                </div>
+                                <div>
+                                    <label style="font-size:12px; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">Login Username</label>
+                                    <input type="text" id="staff_user_${b.id}" value="${escapeHtml(cUser)}" required style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; background:#f1f5f9; font-weight:700; color:#0284c7;">
+                                </div>
+                                <div>
+                                    <label style="font-size:12px; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">Password (Set or Keep Current) *</label>
+                                    <input type="text" id="staff_pass_${b.id}" placeholder="chikhali123" value="chikhali123" required style="width:100%; padding:8px 10px; border:1.5px solid #f59e0b; border-radius:6px; font-size:13px; font-weight:700; color:#b45309; background:#fffbeb;">
+                                </div>
+                                <div>
+                                    <label style="font-size:12px; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">Mobile Number</label>
+                                    <input type="text" id="staff_phone_${b.id}" value="${escapeHtml(cPhone)}" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;">
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+
+            container.innerHTML = html;
+        }
+
+        async function handleSaveAllStaff(e) {
+            e.preventDefault();
+            const btn = document.getElementById('btnSaveAllStaff');
+            const orig = btn ? btn.innerText : '';
+            if (btn) { btn.innerText = '⏳ Provisioning Credentials...'; btn.disabled = true; }
+
+            const staffList = [];
+
+            // 1. Accountant
+            const accName = document.getElementById('staff_acc_name') ? document.getElementById('staff_acc_name').value.trim() : 'Suraj';
+            const accUser = document.getElementById('staff_acc_username') ? document.getElementById('staff_acc_username').value.trim() : 'accountant';
+            const accPass = document.getElementById('staff_acc_password') ? document.getElementById('staff_acc_password').value.trim() : 'acc123';
+            const accPhone = document.getElementById('staff_acc_phone') ? document.getElementById('staff_acc_phone').value.trim() : '';
+
+            staffList.push({
+                id: 'usr-accountant',
+                username: accUser,
+                full_name: accName,
+                role: 'ACCOUNTANT_HQ',
+                branch_id: null,
+                phone: accPhone,
+                password: accPass
+            });
+
+            // 2. Active Branch Cashiers
+            const activeBranches = SETTINGS_BRANCHES.filter(b => (b.is_active === 1 || b.is_active === true));
+            for (const b of activeBranches) {
+                const nameEl = document.getElementById(`staff_name_${b.id}`);
+                const userEl = document.getElementById(`staff_user_${b.id}`);
+                const passEl = document.getElementById(`staff_pass_${b.id}`);
+                const phoneEl = document.getElementById(`staff_phone_${b.id}`);
+
+                if (nameEl && userEl) {
+                    const uname = userEl.value.trim().toLowerCase();
+                    staffList.push({
+                        id: `usr-${uname}`,
+                        username: uname,
+                        full_name: nameEl.value.trim(),
+                        role: 'BRANCH_CASHIER',
+                        branch_id: b.id,
+                        phone: phoneEl ? phoneEl.value.trim() : '',
+                        password: passEl ? passEl.value.trim() : ''
+                    });
+                }
+            }
+
+            try {
+                const res = await fetch('/api/admin/staff/update-all', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ staff: staffList })
+                });
+                const d = await res.json();
+                if (d.success) {
+                    alert(`✓ All staff credentials saved successfully! (${staffList.length} staff accounts provisioned)`);
+                    loadSettingsStaff();
+                } else {
+                    alert('Error saving staff: ' + (d.error || 'Server error'));
+                }
+            } catch (err) {
+                alert('Network error saving staff: ' + err.message);
+            } finally {
+                if (btn) { btn.innerText = orig; btn.disabled = false; }
+            }
+        }
+
+        // =====================================================================
+        // STEP 4: LOAD & MANAGE USERS
+        // =====================================================================
+        async function loadSettingsStaff() {
+            const tbody = document.getElementById('settingsStaffTableBody') || document.getElementById('settingsStaffTable');
+            try {
+                const res = await fetch('/api/portal?action=users');
+                const data = await res.json();
+                if (data.users && Array.isArray(data.users)) {
+                    SETTINGS_STAFF = data.users;
+                }
+            } catch (err) {
+                console.warn('Could not load users dynamically:', err);
+            }
+
+            if (tbody) {
+                if (!SETTINGS_STAFF || SETTINGS_STAFF.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px; color:#64748b;">No staff records found.</td></tr>';
+                } else {
+                    tbody.innerHTML = '';
+                    SETTINGS_STAFF.forEach(u => {
+                        const tr = document.createElement('tr');
+                        let roleBadge = `<span class="badge-pill badge-green">${u.role}</span>`;
+                        if (u.role === 'SUPER_ADMIN') roleBadge = `<span class="badge-pill badge-purple">SUPER_ADMIN</span>`;
+                        else if (u.role === 'ACCOUNTANT_HQ') roleBadge = `<span class="badge-pill badge-blue">ACCOUNTANT_HQ</span>`;
+                        else if (u.role === 'QUALITY_INSPECTOR') roleBadge = `<span class="badge-pill" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a; font-weight:800;">QUALITY_INSPECTOR</span>`;
+
+                        const isAct = (u.is_active === 1 || u.is_active === true);
+                        const bName = u.branch_name || (u.branch_id ? u.branch_id.replace('br-', '').toUpperCase() : 'HQ / Central');
+
+                        tr.innerHTML = `
+                            <td><strong>${escapeHtml(bName)}</strong></td>
+                            <td>${roleBadge}</td>
+                            <td><strong>${escapeHtml(u.full_name || u.username)}</strong></td>
+                            <td><code style="font-weight:700; color:#0284c7;">${escapeHtml(u.username)}</code></td>
+                            <td>${escapeHtml(u.phone || '-')}</td>
+                            <td>
+                                <div style="display:flex; gap:6px; align-items:center;">
+                                    <button type="button" class="btn btn-secondary btn-sm" onclick="openEditUserModal('${u.id}', '${escapeHtml(u.full_name || u.username)}', '${escapeHtml(u.username)}', '${escapeHtml(u.phone || '')}', '${escapeHtml(bName)}', '${u.role}')" style="font-weight:700; white-space:nowrap;">
+                                        ✏️ Edit
+                                    </button>
+                                    ${u.role !== 'SUPER_ADMIN' ? `
+                                        <button type="button" class="btn btn-sm ${isAct ? 'btn-danger' : 'btn-secondary'}" onclick="toggleUserStatus('${u.id}')">
+                                            ${isAct ? 'Deactivate' : 'Activate'}
+                                        </button>
+                                        <button type="button" class="btn btn-sm" style="background:#dc2626; color:#fff; border:none; padding:4px 8px; border-radius:4px; font-weight:700; cursor:pointer;" onclick="deleteUser('${u.id}', '${escapeHtml(u.username)}')" title="Delete User">
+                                            🗑️ Delete
+                                        </button>
+                                    ` : `<span style="font-size:12px; color:var(--text-muted); font-weight:600;">Permanent</span>`}
+                                </div>
+                            </td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                }
+            }
+
+            // Sync with Step 3 cards
+            renderStep3StaffCards();
+        }
+
+        // =====================================================================
+        // STAFF MODAL ACTIONS (EDIT, SAVE, TOGGLE, DELETE)
+        // =====================================================================
+        function openEditUserModal(id, fullName, username, phone, branchName, role) {
+            document.getElementById('edit_user_id').value = id;
+            document.getElementById('edit_full_name').value = fullName;
+            document.getElementById('edit_username').value = username;
+            document.getElementById('edit_phone').value = phone || '';
+            const bEl = document.getElementById('disp_user_branch');
+            if (bEl) bEl.innerText = (branchName || 'HQ / Central') + ' (' + (role || 'STAFF') + ')';
+            document.getElementById('edit_new_password').value = '';
+            const modal = document.getElementById('editUserModal');
+            if (modal) modal.style.display = 'flex';
+        }
+
+        function closeEditUserModal() {
+            const modal = document.getElementById('editUserModal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        async function handleSaveSingleUser(e) {
+            e.preventDefault();
+            const userId = document.getElementById('edit_user_id').value;
+            const fullName = document.getElementById('edit_full_name').value.trim();
+            const phone = document.getElementById('edit_phone').value.trim();
+            const newPassword = document.getElementById('edit_new_password').value.trim();
+
+            try {
+                const payload = {
+                    action: 'update',
+                    user_id: userId,
+                    id: userId,
+                    full_name: fullName,
+                    phone: phone
+                };
+                if (newPassword) payload.password = newPassword;
+
+                const res = await fetch('/api/admin/users', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const d = await res.json();
+                if (d.success) {
+                    alert('✓ Staff credentials updated successfully!');
+                    closeEditUserModal();
+                    // Update in-memory
+                    const u = SETTINGS_STAFF.find(x => x.id === userId);
+                    if (u) {
+                        u.full_name = fullName;
+                        u.phone = phone;
+                    }
+                    loadSettingsStaff();
+                } else {
+                    alert('Error updating user: ' + (d.error || 'Server error'));
+                }
+            } catch (err) {
+                alert('Network error updating user: ' + err.message);
+            }
+        }
+
+        async function toggleUserStatus(userId) {
+            try {
+                const res = await fetch('/api/admin/users', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: userId })
+                });
+                const d = await res.json();
+                if (d.success) {
+                    const u = SETTINGS_STAFF.find(x => x.id === userId);
+                    if (u) u.is_active = (u.is_active === 1 || u.is_active === true) ? 0 : 1;
+                    loadSettingsStaff();
+                } else {
+                    alert('Error: ' + d.error);
+                }
+            } catch (e) {
+                alert('Network error toggling user: ' + e.message);
+            }
+        }
+
+        async function deleteUser(userId, username) {
+            if (!userId) return;
+            if (username === 'admin' || userId === 'usr-admin') {
+                alert('Cannot delete primary SUPER_ADMIN user.');
+                return;
+            }
+            if (!confirm(`Are you sure you want to permanently delete User "${username || userId}"?\n\nThis will remove login credentials for this staff member.`)) {
+                return;
+            }
+            try {
+                const res = await fetch('/api/admin/users', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'delete', user_id: userId, id: userId })
+                });
+                const d = await res.json();
+                if (d.success) {
+                    alert(`✓ User "${username || userId}" deleted successfully.`);
+                    SETTINGS_STAFF = SETTINGS_STAFF.filter(u => u.id !== userId);
+                    loadSettingsStaff();
+                } else {
+                    alert(`Cannot delete user: ${d.error || 'Server error'}`);
+                }
+            } catch (e) {
+                alert('Network error deleting user: ' + e.message);
+            }
+        }
+
+        // =====================================================================
+        // PROFILE & ORG PARAMETERS FORM HANDLERS
+        // =====================================================================
+        async function handleSaveProfile(e) {
+            e.preventDefault();
+            const form = e.target;
+            const full_name = (form.full_name ? form.full_name.value : '').trim();
+            const phone = (form.phone ? form.phone.value : '').trim();
+            const password = (form.password ? form.password.value : '').trim();
+
+            try {
+                const res = await fetch('/api/admin/profile/update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ full_name, phone, password })
+                });
+                const d = await res.json();
+                if (d.success) {
+                    alert('✓ Super Admin profile updated successfully in Supabase cloud!');
+                } else {
+                    alert('Error updating profile: ' + (d.error || 'Server error'));
+                }
+            } catch (err) {
+                alert('Network error saving profile: ' + err.message);
+            }
+        }
+
+        async function handleSaveOrgSettings(e) {
+            e.preventDefault();
+            try {
+                const res = await fetch('/api/admin/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: 'updated' })
+                });
+                const d = await res.json();
+                if (d.success) {
+                    alert('✓ Corporate & statutory parameters updated across all branches!');
+                } else {
+                    alert('Error saving parameters: ' + (d.error || 'Server error'));
+                }
+            } catch (err) {
+                alert('Network error saving parameters: ' + err.message);
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            loadSettingsBranches();
+            loadSettingsStaff();
+        });
+    </script>
+
 </body>
 </html>

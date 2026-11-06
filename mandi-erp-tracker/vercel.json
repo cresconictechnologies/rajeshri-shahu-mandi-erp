@@ -3,6 +3,14 @@
   "cleanUrls": true,
   "rewrites": [
     {
+      "source": "/api/admin/settings",
+      "destination": "/api/portal?action=settings"
+    },
+    {
+      "source": "/api/admin/profile/update",
+      "destination": "/api/portal?action=profile_update"
+    },
+    {
       "source": "/app",
       "destination": "/app.html"
     },
@@ -121,6 +129,14 @@
     {
       "source": "/api/admin/users/toggle",
       "destination": "/api/portal?action=users"
+    },
+    {
+      "source": "/api/admin/users/update-credentials",
+      "destination": "/api/portal?action=users"
+    },
+    {
+      "source": "/api/admin/staff/update-all",
+      "destination": "/api/portal?action=staff_update_all"
     },
     {
       "source": "/api/admin/commodities",

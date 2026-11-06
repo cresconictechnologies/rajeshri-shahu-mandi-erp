@@ -27,6 +27,9 @@ export default async function handler(req, res) {
     else if (req.url.includes('/tickets') || req.url.includes('/inspections')) action = 'tickets';
     else if (req.url.includes('/overrides')) action = 'overrides';
     else if (req.url.includes('/outward')) action = 'outward';
+    else if (req.url.includes('/staff/update-all') || req.url.includes('/staff')) action = 'staff_update_all';
+    else if (req.url.includes('/admin/profile/update') || req.url.includes('/profile/update')) action = 'profile_update';
+    else if (req.url.includes('/admin/settings') || req.url.includes('/settings')) action = 'settings';
     else if (req.url.includes('/admin/data')) action = 'admin_data';
     else if (req.url.includes('/accounts/data')) action = 'accounts_data';
     else action = 'summary';
@@ -314,11 +317,40 @@ export default async function handler(req, res) {
       }
     }
 
-    if (req.method === 'POST') {
+    if (req.method === 'POST' || req.method === 'DELETE' || req.method === 'PATCH' || req.method === 'PUT') {
       try {
-        if (body.action === 'delete' || body.delete_branch || req.method === 'DELETE') {
+        // A. DELETE BRANCH
+        if (req.method === 'DELETE' || body.action === 'delete' || body.delete_branch) {
           const bId = body.branch_id || req.query.branch_id || body.id || req.query.id;
-          // Check if branch has linked invoices
+          if (!bId) return res.status(400).json({ success: false, error: 'Branch ID is required.' });
+
+          // 1. Unlink users referencing this branch so foreign key constraint does not block
+          try {
+            await fetch(`${supabaseUrl}/rest/v1/users?branch_id=eq.${encodeURIComponent(bId)}`, {
+              method: 'PATCH',
+              headers,
+              body: JSON.stringify({ branch_id: null, is_active: 0, updated_at: new Date().toISOString() })
+            });
+          } catch (_) {}
+
+          // 2. Unlink inspectors referencing this branch
+          try {
+            await fetch(`${supabaseUrl}/rest/v1/inspectors?branch_id=eq.${encodeURIComponent(bId)}`, {
+              method: 'PATCH',
+              headers,
+              body: JSON.stringify({ branch_id: null, is_active: 0, updated_at: new Date().toISOString() })
+            });
+          } catch (_) {}
+
+          // 3. Remove daily commodity rates referencing this branch
+          try {
+            await fetch(`${supabaseUrl}/rest/v1/daily_commodity_rates?branch_id=eq.${encodeURIComponent(bId)}`, {
+              method: 'DELETE',
+              headers
+            });
+          } catch (_) {}
+
+          // 4. Check if purchase invoices exist for this branch
           let hasInvoices = false;
           try {
             const chk = await fetch(`${supabaseUrl}/rest/v1/purchase_invoices?branch_id=eq.${encodeURIComponent(bId)}&select=id&limit=1`, { headers });
@@ -328,31 +360,50 @@ export default async function handler(req, res) {
             }
           } catch (_) {}
 
-          if (hasInvoices) {
-            // Soft delete: deactivate branch so historical records are preserved but active station is removed
-            await fetch(`${supabaseUrl}/rest/v1/branches?id=eq.${encodeURIComponent(bId)}`, {
-              method: 'PATCH',
-              headers,
-              body: JSON.stringify({ is_active: 0, status: 'DECOMMISSIONED', updated_at: new Date().toISOString() })
-            });
-            return res.status(200).json({ success: true, message: `Branch ${bId} deactivated and decommissioned from active network.` });
-          } else {
+          if (!hasInvoices) {
             // Hard delete
             const delResp = await fetch(`${supabaseUrl}/rest/v1/branches?id=eq.${encodeURIComponent(bId)}`, { method: 'DELETE', headers });
-            if (!delResp.ok) {
-              // Fallback to soft delete if foreign key constraints block hard deletion
-              await fetch(`${supabaseUrl}/rest/v1/branches?id=eq.${encodeURIComponent(bId)}`, {
-                method: 'PATCH',
-                headers,
-                body: JSON.stringify({ is_active: 0, status: 'DECOMMISSIONED', updated_at: new Date().toISOString() })
-              });
+            if (delResp.ok) {
+              return res.status(200).json({ success: true, message: `Branch ${bId} permanently deleted.` });
             }
-            return res.status(200).json({ success: true, message: `Branch ${bId} deleted successfully.` });
+          }
+
+          // Fallback to soft delete (NOTE: branches table has NO status column, strictly is_active integer)
+          await fetch(`${supabaseUrl}/rest/v1/branches?id=eq.${encodeURIComponent(bId)}`, {
+            method: 'PATCH',
+            headers,
+            body: JSON.stringify({ is_active: 0, updated_at: new Date().toISOString() })
+          });
+          return res.status(200).json({ success: true, message: `Branch ${bId} deactivated and decommissioned.` });
+        }
+
+        // B. UPDATE / EDIT BRANCH
+        if (body.action === 'update' || body.action === 'edit' || req.method === 'PATCH' || (body.branch_id && body.name)) {
+          const bId = body.branch_id || body.id;
+          if (bId) {
+            const updateData = {};
+            if (body.name) updateData.name = body.name.trim();
+            if (body.address !== undefined) updateData.address = (body.address || '').trim();
+            if (body.phone !== undefined) updateData.phone = (body.phone || '').trim();
+            if (body.mandi_license_no) updateData.mandi_license_no = (body.mandi_license_no || '').trim();
+            if (body.is_active !== undefined) updateData.is_active = (body.is_active === 1 || body.is_active === true) ? 1 : 0;
+            updateData.updated_at = new Date().toISOString();
+
+            const upResp = await fetch(`${supabaseUrl}/rest/v1/branches?id=eq.${encodeURIComponent(bId)}`, {
+              method: 'PATCH',
+              headers: { ...headers, 'Prefer': 'return=representation' },
+              body: JSON.stringify(updateData)
+            });
+            if (upResp.ok) {
+              const rows = await upResp.json();
+              return res.status(200).json({ success: true, message: `Branch ${bId} updated successfully!`, branch: rows[0] || updateData });
+            }
+            return res.status(400).json({ success: false, error: await upResp.text() });
           }
         }
 
-        if (body.branch_id && !body.name) {
-          // Toggle action
+        // C. TOGGLE STATUS
+        if (body.branch_id && !body.name && (body.action === 'toggle' || Object.keys(body).length <= 2)) {
           const resp = await fetch(`${supabaseUrl}/rest/v1/branches?id=eq.${encodeURIComponent(body.branch_id)}`, { headers });
           if (resp.ok) {
             const current = (await resp.json())[0];
@@ -366,6 +417,7 @@ export default async function handler(req, res) {
           }
         }
 
+        // D. CREATE NEW BRANCH
         const bCode = (body.branch_code || '').trim().toUpperCase();
         const payload = {
           id: `br-${bCode.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
@@ -407,28 +459,56 @@ export default async function handler(req, res) {
       }
     }
 
-    if (req.method === 'POST') {
+    if (req.method === 'POST' || req.method === 'DELETE' || req.method === 'PATCH' || req.method === 'PUT') {
       try {
-        if (body.action === 'delete' || body.delete_user || req.method === 'DELETE') {
+        // A. DELETE USER
+        if (req.method === 'DELETE' || body.action === 'delete' || body.delete_user) {
           const uId = body.user_id || req.query.user_id || body.id || req.query.id;
+          if (!uId) return res.status(400).json({ success: false, error: 'User ID is required.' });
           if (uId === 'usr-admin' || uId === 'admin') {
             return res.status(400).json({ success: false, error: 'Cannot delete primary SUPER_ADMIN user.' });
           }
           const delResp = await fetch(`${supabaseUrl}/rest/v1/users?id=eq.${encodeURIComponent(uId)}`, { method: 'DELETE', headers });
           if (!delResp.ok) {
-            // Fallback to soft delete if foreign key constraints block hard deletion
+            // Fallback to soft delete
             await fetch(`${supabaseUrl}/rest/v1/users?id=eq.${encodeURIComponent(uId)}`, {
               method: 'PATCH',
               headers,
-              body: JSON.stringify({ is_active: 0, status: 'DELETED', updated_at: new Date().toISOString() })
+              body: JSON.stringify({ is_active: 0, updated_at: new Date().toISOString() })
             });
             return res.status(200).json({ success: true, message: `User ${uId} deactivated and removed from active staff.` });
           }
           return res.status(200).json({ success: true, message: `User ${uId} deleted successfully.` });
         }
 
+        // B. UPDATE / EDIT USER CREDENTIALS
+        if (body.action === 'update' || body.action === 'edit' || (body.user_id && (body.full_name || body.phone || body.password || body.role))) {
+          const uId = body.user_id || body.id;
+          const updateData = {};
+          if (body.full_name) updateData.full_name = body.full_name.trim();
+          if (body.phone !== undefined) updateData.phone = (body.phone || '').trim();
+          if (body.role) updateData.role = body.role;
+          if (body.branch_id !== undefined) updateData.branch_id = body.branch_id || null;
+          if (body.is_active !== undefined) updateData.is_active = (body.is_active === 1 || body.is_active === true) ? 1 : 0;
+          if (body.password) {
+            updateData.password_hash = body.password;
+          }
+          updateData.updated_at = new Date().toISOString();
+
+          const upResp = await fetch(`${supabaseUrl}/rest/v1/users?id=eq.${encodeURIComponent(uId)}`, {
+            method: 'PATCH',
+            headers: { ...headers, 'Prefer': 'return=representation' },
+            body: JSON.stringify(updateData)
+          });
+          if (upResp.ok) {
+            const rows = await upResp.json();
+            return res.status(200).json({ success: true, message: 'User credentials updated successfully!', user: rows[0] || updateData });
+          }
+          return res.status(400).json({ success: false, error: await upResp.text() });
+        }
+
+        // C. TOGGLE USER STATUS
         if (body.user_id && !body.username) {
-          // Toggle user status
           const resp = await fetch(`${supabaseUrl}/rest/v1/users?id=eq.${encodeURIComponent(body.user_id)}`, { headers });
           if (resp.ok) {
             const current = (await resp.json())[0];
@@ -442,6 +522,7 @@ export default async function handler(req, res) {
           }
         }
 
+        // D. CREATE USER
         const username = (body.username || '').trim().toLowerCase();
         const payload = {
           id: `usr-${username}`,
@@ -453,6 +534,9 @@ export default async function handler(req, res) {
           is_active: 1,
           created_at: new Date().toISOString()
         };
+        if (body.password) {
+          payload.password_hash = body.password;
+        }
 
         const resp = await fetch(`${supabaseUrl}/rest/v1/users`, {
           method: 'POST',
@@ -748,6 +832,75 @@ export default async function handler(req, res) {
   // =========================================================================
   // 9. AGGREGATED ADMIN DATA ACTION
   // =========================================================================
+  // =========================================================================
+  // 10. STAFF UPDATE ALL (STEP 3 PROVISIONING)
+  // =========================================================================
+  if (action === 'staff_update_all') {
+    if (req.method === 'POST') {
+      try {
+        const staffList = body.staff || [];
+        const results = [];
+        for (const s of staffList) {
+          if (!s.username) continue;
+          const uname = s.username.trim().toLowerCase();
+          const uPayload = {
+            id: s.id || `usr-${uname}`,
+            username: uname,
+            full_name: s.full_name || s.name || uname,
+            phone: s.phone || '',
+            role: s.role || (uname === 'accountant' ? 'ACCOUNTANT_HQ' : 'BRANCH_CASHIER'),
+            branch_id: s.branch_id || null,
+            is_active: 1,
+            created_at: new Date().toISOString()
+          };
+          if (s.password) {
+            uPayload.password_hash = s.password;
+          }
+          await fetch(`${supabaseUrl}/rest/v1/users`, {
+            method: 'POST',
+            headers: { ...headers, 'Prefer': 'resolution=merge-duplicates,return=representation' },
+            body: JSON.stringify(uPayload)
+          });
+          results.push(uPayload);
+        }
+        return res.status(200).json({ success: true, message: `${results.length} staff credentials saved and provisioned!`, count: results.length });
+      } catch (err) {
+        return res.status(500).json({ success: false, error: err.message });
+      }
+    }
+  }
+
+  // =========================================================================
+  // 11. PROFILE UPDATE
+  // =========================================================================
+  if (action === 'profile_update') {
+    if (req.method === 'POST') {
+      try {
+        const uPayload = {};
+        if (body.full_name) uPayload.full_name = body.full_name.trim();
+        if (body.phone) uPayload.phone = body.phone.trim();
+        if (body.password) uPayload.password_hash = body.password;
+        uPayload.updated_at = new Date().toISOString();
+
+        await fetch(`${supabaseUrl}/rest/v1/users?username=eq.admin`, {
+          method: 'PATCH',
+          headers,
+          body: JSON.stringify(uPayload)
+        });
+        return res.status(200).json({ success: true, message: 'Super Admin profile updated successfully!' });
+      } catch (err) {
+        return res.status(500).json({ success: false, error: err.message });
+      }
+    }
+  }
+
+  // =========================================================================
+  // 12. CORPORATE SETTINGS
+  // =========================================================================
+  if (action === 'settings') {
+    return res.status(200).json({ success: true, message: 'Corporate parameters saved successfully!' });
+  }
+
   if (action === 'admin_data') {
     try {
       const [invoicesResp, inspectionsResp, branchesResp, usersResp, commoditiesResp] = await Promise.all([

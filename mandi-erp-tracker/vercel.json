@@ -44,7 +44,7 @@
     },
     {
       "source": "/branch/dashboard",
-      "destination": "/portal.html"
+      "destination": "/branch/dashboard.html"
     },
     {
       "source": "/inspector",
@@ -52,19 +52,19 @@
     },
     {
       "source": "/inspector/portal",
-      "destination": "/app.html"
+      "destination": "/inspector/portal.html"
     },
     {
       "source": "/branch/stock",
-      "destination": "/branch-stock.html"
+      "destination": "/branch/stock.html"
     },
     {
       "source": "/accounts/settings",
-      "destination": "/accounts-settings.html"
+      "destination": "/accounts/settings.html"
     },
     {
       "source": "/admin/settings",
-      "destination": "/admin-settings.html"
+      "destination": "/admin/settings.html"
     },
     {
       "source": "/api/invoices/calculate",

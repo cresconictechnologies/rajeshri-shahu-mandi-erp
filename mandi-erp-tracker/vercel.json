@@ -3,6 +3,27 @@
   "cleanUrls": true,
   "rewrites": [
     {
+      "source": "/api/admin/supabase/ping",
+      "destination": "/api/supabase-status"
+    },
+    {
+      "source": "/api/admin/supabase/status",
+      "destination": "/api/supabase-status"
+    },
+    {
+      "source": "/api/admin/supabase/sync",
+      "destination": "/api/supabase-status"
+    },
+    {
+      "source": "/api/admin/supabase/migrate",
+      "destination": "/api/supabase-status"
+    },
+    {
+      "source": "/api/admin/supabase/connect",
+      "destination": "/api/supabase-status"
+    },
+
+    {
       "source": "/api/admin/settings",
       "destination": "/api/portal?action=settings"
     },

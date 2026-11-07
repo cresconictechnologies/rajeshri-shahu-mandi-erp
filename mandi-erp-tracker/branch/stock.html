@@ -23,8 +23,8 @@
     </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Yard Inventory & Stock Valuation — All Branches Consolidated</title>
-        <!-- PWA Web App Manifest & Mobile/Desktop Meta -->
+    <title>Yard Inventory & Stock Valuation — Rajeshri Shahu Mandi ERP</title>
+    <!-- PWA Web App Manifest & Mobile/Desktop Meta -->
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#0f172a">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -77,18 +77,20 @@
         <div class="header-title">
             <h1>
                 <span>📦</span> Rajeshri Shahu Trading • Mandi Yard Physical Stock & Valuation
-                <span class="brand-badge badge-branch">ALL-BRANCHES</span>
+                <span class="brand-badge badge-branch" id="headerBranchBadge">CHK</span>
             </h1>
-            <p>All Branches Consolidated • Mandi License: MH/STATE/ERP-PRO • Real-Time Yard Inventory • Port 8080 Active</p>
+            <p id="headerSubtitle">Chikhali APMC Main Mandi • Mandi License: MH/STATE/ERP-PRO • Real-Time Yard Inventory</p>
         </div>
         <div class="nav-links">
             <!-- Branch Switcher Dropdown -->
-            <select onchange="window.location.href='/branch/stock?branch_id=' + this.value" style="background:#ffffff; border:1.5px solid var(--input-border); color:var(--text-primary); padding:7px 12px; border-radius:8px; font-size:13px; font-weight:700;">
-                
-                <option value="" selected></option>
-                
+            <select id="branchSwitcher" onchange="switchBranch(this.value)" style="background:#ffffff; border:1.5px solid var(--input-border); color:var(--text-primary); padding:7px 12px; border-radius:8px; font-size:13px; font-weight:700;">
+                <option value="br-chikhali">Chikhali APMC Main Mandi</option>
+                <option value="br-varvand">Varvand APMC Yard</option>
+                <option value="br-sarola">Sarola Maruti APMC Yard</option>
+                <option value="br-dhad">Dhad APMC Yard</option>
+                <option value="all">All Branches Consolidated</option>
             </select>
-            <a href="/portal?branch_id=br-chikhali" class="nav-pill" style="background:#d97706; color:#fff; font-weight:700;">← Yard Desk</a>
+            <a id="linkYardDesk" href="/portal?branch_id=br-chikhali" class="nav-pill" style="background:#d97706; color:#fff; font-weight:700;">← Yard Desk</a>
             <a href="/admin/settings" class="nav-pill">⚙️ Settings</a>
             <a href="/logout" class="nav-pill" style="color:#ef4444; border-color:#fecaca;">🚪 Logout</a>
         </div>
@@ -139,76 +141,21 @@
         <div class="card" style="margin-top:20px;">
             <div class="card-header">
                 <div>
-                    <h2><span>🌱</span> Physical Yard Commodity Stock (ALL-BRANCHES)</h2>
+                    <h2><span>🌱</span> Physical Yard Commodity Stock (<span id="sectionBranchCode">CHK</span>)</h2>
                     <p style="font-size:12px; color:var(--text-muted); margin-top:2px;">
                         Active physical stock in hand and average purchase rates (commodities with zero stock are hidden)
                     </p>
                 </div>
-                
-                <span class="badge-pill badge-green"> In-Stock Commodities</span>
+                <span class="badge-pill badge-green" id="badgeCommInStock">0 In-Stock Commodities</span>
             </div>
-
             
             <div class="stock-grid" id="stockCardsGrid">
-            <div style="grid-column:1/-1; text-align:center; padding:36px; background:#f8fafc; border:1.5px dashed #cbd5e1; border-radius:12px; color:#64748b;">
-                <div style="font-size:32px; margin-bottom:8px;">📦</div>
-                <strong style="font-size:14px; color:#334155;">Clean Inventory Zero-State Active</strong>
-                <p style="margin:4px 0 0 0; font-size:12px;">Commodity stock cards and mark-to-market valuations will compute automatically as inward purchase invoices are recorded.</p>
-            </div>
-        </div>
-    </div>
-                        <span class="badge-pill badge-green">
-                            ✓ In Yard Stock
-                        </span>
-                    </div>
-
-                    <!-- KEY NUMBERS: STOCK & AVG BUYING PRICE -->
-                    <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px; display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px; text-align:center;">
-                        <div>
-                            <div style="font-size:10.5px; text-transform:uppercase; color:var(--text-muted); font-weight:800;">Available Yard Stock</div>
-                            <div style="font-size:18px; font-weight:800; color:#0f172a; margin-top:2px;">
-                                 <span style="font-size:12px;">Qtl</span>
-                            </div>
-                            <div style="font-size:11px; color:#059669; font-weight:700;">
-                                ( MT •  Kg)
-                            </div>
-                        </div>
-                        <div>
-                            <div style="font-size:10.5px; text-transform:uppercase; color:var(--text-muted); font-weight:800;">Avg Buying Price</div>
-                            <div style="font-size:18px; font-weight:800; color:#d97706; margin-top:2px;">
-                                ₹
-                            </div>
-                            <div style="font-size:11px; color:var(--text-muted);">
-                                Today Target: ₹
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Inward vs Outward Movement Meter -->
-                    <div style="font-size:11.5px; color:var(--text-secondary); margin-bottom:6px; display:flex; justify-content:space-between;">
-                        <span>Inward: <strong> Qtl</strong></span>
-                        <span>Dispatched: <strong> Qtl</strong></span>
-                    </div>
-                    <div class="stock-meter">
-                        
-                        
-                        <div class="stock-meter-in" style="width: %;" title="Stock In Yard"></div>
-                        <div class="stock-meter-out" style="width: %;" title="Dispatched"></div>
-                        
-                    </div>
-
-                    <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px dashed #e2e8f0; padding-top:10px; margin-top:10px; font-size:12.5px;">
-                        <span style="color:var(--text-muted); font-weight:600;">Yard Inventory Value:</span>
-                        <strong style="color:#0f172a; font-size:15px; font-weight:800;">₹</strong>
-                    </div>
+                <div style="grid-column:1/-1; text-align:center; padding:36px; background:#f8fafc; border:1.5px dashed #cbd5e1; border-radius:12px; color:#64748b;">
+                    <div style="font-size:32px; margin-bottom:8px;">📦</div>
+                    <strong style="font-size:14px; color:#334155;">Clean Inventory Zero-State Active</strong>
+                    <p style="margin:4px 0 0 0; font-size:12px;">Commodity stock cards and mark-to-market valuations will compute automatically as inward purchase invoices are recorded.</p>
                 </div>
-                
             </div>
-            
-            <div style="text-align:center; padding:40px; color:var(--text-muted); font-size:14px; font-weight:600;">
-                📦 Zero stock currently in All Branches Consolidated yard. Commodities with active physical stock will appear here automatically.
-            </div>
-            
         </div>
 
         <!-- DETAILED INVENTORY & DISPATCH REGISTER TABLE -->
@@ -234,48 +181,35 @@
                             <th style="text-align:center;">Yard Status</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        
-                        <tr>
-                            <td><strong> </strong></td>
-                            <td><code></code></td>
-                            <td style="text-align:right;"></td>
-                            <td style="text-align:right; color:#ea580c;"></td>
-                            <td style="text-align:right; font-weight:800; color:#0284c7;"></td>
-                            <td style="text-align:right; font-weight:700; color:#d97706;">₹</td>
-                            <td style="text-align:right; font-weight:800; color:#0f172a;">₹</td>
-                            <td style="text-align:center;">
-                                <span class="badge-pill badge-green">Ready in Yard</span>
-                            </td>
-                        </tr>
-                        
+                    <tbody id="inventorySummaryBody">
                         <tr>
                             <td colspan="8" style="text-align:center; padding:24px; color:var(--text-muted); font-size:13.5px;">
                                 🌾 Zero physical stock in yard. In-stock commodities will appear automatically.
                             </td>
                         </tr>
-                        
                     </tbody>
                     <tfoot>
                         <tr style="background:#f8fafc; font-weight:bold; font-size:13.5px;">
                             <td colspan="4">TOTAL YARD INVENTORY VALUATION:</td>
-                            <td style="text-align:right; color:#0284c7;"><span id="totalStockQtl">0.00</span> Qtl</td>
-                            <td style="text-align:right; color:#d97706;">₹<span id="yardAvgPrice">0.00</span></td>
-                            <td style="text-align:right; color:#0f172a;">₹<span id="totalStockVal">0.00</span></td>
+                            <td style="text-align:right; color:#0284c7;"><span id="tfootTotalStockQtl">0.00</span> Qtl</td>
+                            <td style="text-align:right; color:#d97706;">₹<span id="tfootYardAvgPrice">0.00</span></td>
+                            <td style="text-align:right; color:#0f172a;">₹<span id="tfootTotalStockVal">0.00</span></td>
                             <td></td>
                         </tr>
                     </tfoot>
                 </table>
             </div>
+        </div>
+
         <!-- RECENT YARD INWARD & OUTWARD ACTIVITY TABLES -->
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top:20px;">
             <!-- Inward Activity -->
             <div class="card">
                 <div class="card-header">
                     <h2><span>🌾</span> Recent Inward Yard Purchases</h2>
-                    <span class="badge-pill badge-green"> Receipts</span>
+                    <span class="badge-pill badge-green" id="badgeInwardCount">0 Receipts</span>
                 </div>
-                <div class="table-container">
+                <div class="table-container" style="max-height: 480px; overflow-y: auto;">
                     <table>
                         <thead>
                             <tr>
@@ -287,21 +221,8 @@
                                 <th style="text-align:right;">Payable</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            
-                            
-                            <tr>
-                                <td><strong></strong></td>
-                                <td></td>
-                                <td></td>
-                                <td style="text-align:right; font-weight:700;"></td>
-                                <td style="text-align:right;">₹</td>
-                                <td style="text-align:right; font-weight:800; color:#15803d;">₹</td>
-                            </tr>
-                            
-                            
+                        <tbody id="recentInwardBody">
                             <tr><td colspan="6" style="text-align:center; padding:15px; color:#94a3b8;">No inward purchases recorded yet.</td></tr>
-                            
                         </tbody>
                     </table>
                 </div>
@@ -311,9 +232,9 @@
             <div class="card">
                 <div class="card-header">
                     <h2><span>🚚</span> Recent Outward Dispatches (Gate Pass)</h2>
-                    <span class="badge-pill badge-blue"> Dispatches</span>
+                    <span class="badge-pill badge-blue" id="badgeOutwardCount">0 Dispatches</span>
                 </div>
-                <div class="table-container">
+                <div class="table-container" style="max-height: 480px; overflow-y: auto;">
                     <table>
                         <thead>
                             <tr>
@@ -325,26 +246,347 @@
                                 <th style="text-align:right;">Bill Value</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            
-                            
-                            <tr>
-                                <td><strong></strong></td>
-                                <td></td>
-                                <td></td>
-                                <td style="text-align:right; font-weight:700; color:#0284c7;"></td>
-                                <td style="text-align:right;">₹</td>
-                                <td style="text-align:right; font-weight:800; color:#0f172a;">₹</td>
-                            </tr>
-                            
-                            
+                        <tbody id="recentOutwardBody">
                             <tr><td colspan="6" style="text-align:center; padding:15px; color:#94a3b8;">No outward dispatches recorded yet.</td></tr>
-                            
                         </tbody>
                     </table>
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- CLIENT LOGIC & REAL-TIME SUPABASE DATA CALCULATION -->
+    <script>
+        const BRANCH_CONFIG = {
+            'br-chikhali': { code: 'CHK', name: 'Chikhali APMC Main Mandi', license: 'MH/STATE/ERP-PRO' },
+            'br-varvand': { code: 'VRV', name: 'Varvand APMC Yard', license: 'MH/APMC-VRV-001' },
+            'br-sarola': { code: 'SRL', name: 'Sarola Maruti APMC Yard', license: 'MH/APMC-SRL-002' },
+            'br-dhad': { code: 'DHD', name: 'Dhad APMC Yard', license: 'MH/APMC-DHD-003' },
+            'all': { code: 'ALL', name: 'All Branches Consolidated', license: 'MH/STATE/ERP-PRO' }
+        };
+
+        const COMMODITY_ICONS = {
+            'soya': '🌱',
+            'soyabean': '🌱',
+            'cotton': '☁️',
+            'kapas': '☁️',
+            'tur': '🍲',
+            'toor': '🍲',
+            'chana': '🫘',
+            'wheat': '🌾',
+            'mustard': '🌼',
+            'maize': '🌽',
+            'moong': '🟢',
+            'urad': '⚫',
+            'groundnut': '🥜'
+        };
+
+        function getCommodityIcon(name) {
+            const n = (name || '').toLowerCase();
+            for (const [k, icon] of Object.entries(COMMODITY_ICONS)) {
+                if (n.includes(k)) return icon;
+            }
+            return '🌾';
+        }
+
+        function getSelectedBranch() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const b = urlParams.get('branch_id');
+            if (b && (BRANCH_CONFIG[b] || b === 'all')) return b;
+            
+            // Try user profile
+            try {
+                const user = JSON.parse(localStorage.getItem('mandi_user') || '{}');
+                if (user && user.branch_id && BRANCH_CONFIG[user.branch_id]) return user.branch_id;
+            } catch (_) {}
+
+            return 'br-chikhali';
+        }
+
+        function switchBranch(bId) {
+            window.location.href = '/branch/stock?branch_id=' + bId;
+        }
+
+        async function initStockPage() {
+            const activeBranchId = getSelectedBranch();
+            const cfg = BRANCH_CONFIG[activeBranchId] || BRANCH_CONFIG['br-chikhali'];
+
+            // Sync Header & Select
+            document.getElementById('branchSwitcher').value = activeBranchId;
+            document.getElementById('headerBranchBadge').innerText = cfg.code;
+            document.getElementById('sectionBranchCode').innerText = cfg.code;
+            document.getElementById('headerSubtitle').innerText = `${cfg.name} • Mandi License: ${cfg.license} • Real-Time Yard Inventory`;
+            document.getElementById('linkYardDesk').href = `/portal?branch_id=${activeBranchId === 'all' ? 'br-chikhali' : activeBranchId}`;
+
+            // Fetch live aggregated data
+            let allInvoices = [];
+            let allOutward = [];
+            try {
+                const resp = await fetch('/api/admin/data');
+                if (resp.ok) {
+                    const data = await resp.json();
+                    allInvoices = data.invoices || [];
+                }
+            } catch (err) {
+                console.warn('Network fetch error, checking portal invoices:', err);
+            }
+
+            if (allInvoices.length === 0) {
+                try {
+                    const resp = await fetch('/api/portal?action=invoices');
+                    if (resp.ok) {
+                        const data = await resp.json();
+                        allInvoices = data.invoices || [];
+                    }
+                } catch (_) {}
+            }
+
+            // Fetch outward dispatches
+            try {
+                const resp = await fetch('/api/portal?action=outward');
+                if (resp.ok) {
+                    const data = await resp.json();
+                    allOutward = data.orders || [];
+                }
+            } catch (_) {}
+
+            // Filter strictly by branch (unless 'all')
+            const branchInvoices = activeBranchId === 'all'
+                ? allInvoices
+                : allInvoices.filter(inv => inv.branch_id === activeBranchId);
+
+            const branchOutward = activeBranchId === 'all'
+                ? allOutward
+                : allOutward.filter(o => o.branch_id === activeBranchId);
+
+            // Compute Commodity Aggregations
+            const commMap = {};
+            let totalInwardQtl = 0.0;
+            let totalInwardCost = 0.0;
+            let totalOutwardQtl = 0.0;
+
+            branchInvoices.forEach(inv => {
+                const cName = inv.commodity_name || 'Soyabean (Yellow)';
+                const qtl = parseFloat(inv.net_quintals) || 0.0;
+                const amt = parseFloat(inv.net_payable_amount) || 0.0;
+
+                totalInwardQtl += qtl;
+                totalInwardCost += amt;
+
+                if (!commMap[cName]) {
+                    commMap[cName] = {
+                        name: cName,
+                        inward_qtl: 0.0,
+                        inward_cost: 0.0,
+                        outward_qtl: 0.0,
+                        inward_count: 0
+                    };
+                }
+                commMap[cName].inward_qtl += qtl;
+                commMap[cName].inward_cost += amt;
+                commMap[cName].inward_count += 1;
+            });
+
+            branchOutward.forEach(o => {
+                const cName = o.commodity_name || 'Soyabean (Yellow)';
+                const qtl = parseFloat(o.net_quintals) || 0.0;
+                totalOutwardQtl += qtl;
+
+                if (!commMap[cName]) {
+                    commMap[cName] = {
+                        name: cName,
+                        inward_qtl: 0.0,
+                        inward_cost: 0.0,
+                        outward_qtl: 0.0,
+                        inward_count: 0
+                    };
+                }
+                commMap[cName].outward_qtl += qtl;
+            });
+
+            // Calculate Net Stock & Valuation
+            let totalStockQtl = 0.0;
+            let totalStockVal = 0.0;
+
+            const commList = Object.values(commMap).map(c => {
+                const netQtl = Math.max(0, c.inward_qtl - c.outward_qtl);
+                const avgPrice = c.inward_qtl > 0 ? (c.inward_cost / c.inward_qtl) : 0.0;
+                const val = netQtl * avgPrice;
+                totalStockQtl += netQtl;
+                totalStockVal += val;
+                return {
+                    ...c,
+                    net_qtl: netQtl,
+                    avg_price: avgPrice,
+                    valuation: val
+                };
+            });
+
+            const overallAvgPrice = totalStockQtl > 0 ? (totalStockVal / totalStockQtl) : 0.0;
+            const totalStockMt = totalStockQtl / 10.0;
+            const totalOutwardMt = totalOutwardQtl / 10.0;
+
+            // 1. Update Top Stats Cards
+            document.getElementById('totalStockQtl').innerText = totalStockQtl.toFixed(2);
+            document.getElementById('totalStockMt').innerText = totalStockMt.toFixed(2);
+            document.getElementById('totalStockVal').innerText = totalStockVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            document.getElementById('yardAvgPrice').innerText = overallAvgPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            document.getElementById('totalOutwardQtl').innerText = totalOutwardQtl.toFixed(2);
+            document.getElementById('totalOutwardMt').innerText = totalOutwardMt.toFixed(2);
+
+            // Update Footer Totals
+            document.getElementById('tfootTotalStockQtl').innerText = totalStockQtl.toFixed(2);
+            document.getElementById('tfootYardAvgPrice').innerText = overallAvgPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            document.getElementById('tfootTotalStockVal').innerText = totalStockVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+            // 2. Render Commodity Stock Grid
+            const activeComms = commList.filter(c => c.net_qtl > 0);
+            document.getElementById('badgeCommInStock').innerText = `${activeComms.length} In-Stock Commodities`;
+            const grid = document.getElementById('stockCardsGrid');
+
+            if (activeComms.length === 0) {
+                grid.innerHTML = `
+                    <div style="grid-column:1/-1; text-align:center; padding:36px; background:#f8fafc; border:1.5px dashed #cbd5e1; border-radius:12px; color:#64748b;">
+                        <div style="font-size:32px; margin-bottom:8px;">📦</div>
+                        <strong style="font-size:14px; color:#334155;">Zero stock currently in ${cfg.name} yard.</strong>
+                        <p style="margin:4px 0 0 0; font-size:12px;">Only Chikhali branch has recorded audited inward purchases. Non-Chikhali branches (Varvand, Sarola, Dhad) cleanly maintain 0.00 Qtl until procurement begins.</p>
+                    </div>
+                `;
+            } else {
+                grid.innerHTML = activeComms.map(c => {
+                    const icon = getCommodityIcon(c.name);
+                    const mt = (c.net_qtl / 10.0).toFixed(2);
+                    const kg = (c.net_qtl * 100).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+                    const inwardPct = c.inward_qtl > 0 ? Math.min(100, Math.round((c.net_qtl / c.inward_qtl) * 100)) : 100;
+                    const outPct = 100 - inwardPct;
+
+                    return `
+                        <div class="stock-card">
+                            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
+                                <div style="display:flex; align-items:center; gap:10px;">
+                                    <span style="font-size:26px;">${icon}</span>
+                                    <div>
+                                        <div style="font-size:16px; font-weight:800; color:#0f172a;">${c.name}</div>
+                                        <div style="font-size:11px; color:var(--text-muted);">Grade: FAQ Standard</div>
+                                    </div>
+                                </div>
+                                <span class="badge-pill badge-green">✓ In Yard Stock</span>
+                            </div>
+
+                            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px; display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px; text-align:center;">
+                                <div>
+                                    <div style="font-size:10px; text-transform:uppercase; color:var(--text-muted); font-weight:800;">Available Yard Stock</div>
+                                    <div style="font-size:18px; font-weight:800; color:#0f172a; margin-top:2px;">
+                                        ${c.net_qtl.toFixed(2)} <span style="font-size:12px;">Qtl</span>
+                                    </div>
+                                    <div style="font-size:11px; color:#059669; font-weight:700;">
+                                        (${mt} MT • ${kg} Kg)
+                                    </div>
+                                </div>
+                                <div>
+                                    <div style="font-size:10px; text-transform:uppercase; color:var(--text-muted); font-weight:800;">Avg Buying Price</div>
+                                    <div style="font-size:18px; font-weight:800; color:#d97706; margin-top:2px;">
+                                        ₹${c.avg_price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </div>
+                                    <div style="font-size:11px; color:var(--text-muted);">
+                                        Procured: ${c.inward_count} Invoices
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div style="font-size:11.5px; color:var(--text-secondary); margin-bottom:6px; display:flex; justify-content:space-between;">
+                                <span>Inward: <strong>${c.inward_qtl.toFixed(2)} Qtl</strong></span>
+                                <span>Dispatched: <strong>${c.outward_qtl.toFixed(2)} Qtl</strong></span>
+                            </div>
+                            <div class="stock-meter">
+                                <div class="stock-meter-in" style="width: ${inwardPct}%;" title="Stock In Yard (${inwardPct}%)"></div>
+                                <div class="stock-meter-out" style="width: ${outPct}%;" title="Dispatched (${outPct}%)"></div>
+                            </div>
+
+                            <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px dashed #e2e8f0; padding-top:10px; margin-top:10px; font-size:12.5px;">
+                                <span style="color:var(--text-muted); font-weight:600;">Yard Inventory Value:</span>
+                                <strong style="color:#0f172a; font-size:15px; font-weight:800;">₹${c.valuation.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            // 3. Render Branch Inventory Ledger Summary Table
+            const summaryTbody = document.getElementById('inventorySummaryBody');
+            if (commList.length === 0) {
+                summaryTbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" style="text-align:center; padding:24px; color:var(--text-muted); font-size:13.5px;">
+                            🌾 Zero physical stock in yard. In-stock commodities will appear automatically.
+                        </td>
+                    </tr>
+                `;
+            } else {
+                summaryTbody.innerHTML = commList.map(c => `
+                    <tr>
+                        <td><strong>${c.name}</strong></td>
+                        <td><code>1201</code></td>
+                        <td style="text-align:right;">${c.inward_qtl.toFixed(2)}</td>
+                        <td style="text-align:right; color:#ea580c;">${c.outward_qtl.toFixed(2)}</td>
+                        <td style="text-align:right; font-weight:800; color:#0284c7;">${c.net_qtl.toFixed(2)}</td>
+                        <td style="text-align:right; font-weight:700; color:#d97706;">₹${c.avg_price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td style="text-align:right; font-weight:800; color:#0f172a;">₹${c.valuation.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td style="text-align:center;">
+                            ${c.net_qtl > 0 ? '<span class="badge-pill badge-green">Ready in Yard</span>' : '<span class="badge-pill badge-secondary">Zero Stock</span>'}
+                        </td>
+                    </tr>
+                `).join('');
+            }
+
+            // 4. Render Recent Inward Table (all branch invoices)
+            const inwardTbody = document.getElementById('recentInwardBody');
+            document.getElementById('badgeInwardCount').innerText = `${branchInvoices.length} Receipts`;
+            if (branchInvoices.length === 0) {
+                inwardTbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:15px; color:#94a3b8;">No inward purchases recorded yet for ${cfg.name}.</td></tr>`;
+            } else {
+                inwardTbody.innerHTML = branchInvoices.slice(0, 100).map(inv => {
+                    const qtl = (parseFloat(inv.net_quintals) || 0).toFixed(2);
+                    const rate = (parseFloat(inv.rate_per_quintal) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    const amt = (parseFloat(inv.net_payable_amount) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    return `
+                        <tr>
+                            <td><strong>${inv.token_number || inv.id}</strong></td>
+                            <td>${inv.party_name || 'Farmer'}</td>
+                            <td>${inv.commodity_name || 'Soyabean (Yellow)'}</td>
+                            <td style="text-align:right; font-weight:700;">${qtl}</td>
+                            <td style="text-align:right;">₹${rate}</td>
+                            <td style="text-align:right; font-weight:800; color:#15803d;">₹${amt}</td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+
+            // 5. Render Recent Outward Table
+            const outwardTbody = document.getElementById('recentOutwardBody');
+            document.getElementById('badgeOutwardCount').innerText = `${branchOutward.length} Dispatches`;
+            if (branchOutward.length === 0) {
+                outwardTbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:15px; color:#94a3b8;">No outward dispatches recorded yet for ${cfg.name}.</td></tr>`;
+            } else {
+                outwardTbody.innerHTML = branchOutward.map(o => {
+                    const qtl = (parseFloat(o.net_quintals) || 0).toFixed(2);
+                    const rate = (parseFloat(o.rate_per_quintal) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    const amt = (parseFloat(o.total_bill_amount) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    return `
+                        <tr>
+                            <td><strong>${o.challan_number || o.id}</strong></td>
+                            <td>${o.buyer_name || 'Buyer Mill'}</td>
+                            <td>${o.commodity_name || 'Soyabean'}</td>
+                            <td style="text-align:right; font-weight:700; color:#0284c7;">${qtl}</td>
+                            <td style="text-align:right;">₹${rate}</td>
+                            <td style="text-align:right; font-weight:800; color:#0f172a;">₹${amt}</td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', initStockPage);
+    </script>
 </body>
 </html>

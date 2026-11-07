@@ -23,6 +23,8 @@ export default async function handler(req, res) {
     else if (req.url.includes('/branches')) action = 'branches';
     else if (req.url.includes('/users')) action = 'users';
     else if (req.url.includes('/commodities')) action = 'commodities';
+    else if (req.url.includes('/parties') || req.url.includes('/farmers')) action = 'parties';
+    else if (req.url.includes('/ledgers') || req.url.includes('/ledger')) action = 'ledgers';
     else if (req.url.includes('/inspectors')) action = 'inspectors';
     else if (req.url.includes('/tickets') || req.url.includes('/inspections')) action = 'tickets';
     else if (req.url.includes('/overrides')) action = 'overrides';
@@ -315,6 +317,50 @@ export default async function handler(req, res) {
         });
 
         if (!resp.ok) return res.status(resp.status).json({ success: false, error: await resp.text() });
+        
+        // Auto-post double-entry journal records to Supabase ledger_entries
+        try {
+          const invDate = invoicePayload.invoice_date || now.toISOString().slice(0, 10);
+          const farmerName = invoicePayload.party_name || 'Farmer';
+          const ledgerEntries = [
+            {
+              id: `led-deb-${invoiceId}`,
+              branch_id: branchId,
+              transaction_date: invDate,
+              voucher_type: 'PURCHASE_INVOICE',
+              voucher_id: tokenNumber || invoiceId,
+              account_name: `Grain Procurement - ${invoicePayload.commodity_name}`,
+              party_id: invoicePayload.party_id,
+              debit_amount: netPayable,
+              credit_amount: 0.0,
+              narration: `Procurement of ${netQuintals.toFixed(2)} Qtl ${invoicePayload.commodity_name} from ${farmerName} @ Rs.${ratePerQtl.toFixed(2)}/Qtl (Token #${tokenNumber})`,
+              created_at: now.toISOString(),
+              updated_at: now.toISOString()
+            },
+            {
+              id: `led-crd-${invoiceId}`,
+              branch_id: branchId,
+              transaction_date: invDate,
+              voucher_type: 'PURCHASE_INVOICE',
+              voucher_id: tokenNumber || invoiceId,
+              account_name: `${weighmentMode === 'CASH' ? 'Cash In Hand' : 'Farmer Payable (RTGS)'} - ${farmerName}`,
+              party_id: invoicePayload.party_id,
+              debit_amount: 0.0,
+              credit_amount: netPayable,
+              narration: `Payment obligation for Token #${tokenNumber} (${farmerName})`,
+              created_at: now.toISOString(),
+              updated_at: now.toISOString()
+            }
+          ];
+          await fetch(`${supabaseUrl}/rest/v1/ledger_entries`, {
+            method: 'POST',
+            headers: { ...headers, 'Prefer': 'resolution=merge-duplicates' },
+            body: JSON.stringify(ledgerEntries)
+          });
+        } catch (ledErr) {
+          console.warn('Ledger auto-post warning:', ledErr);
+        }
+
         return res.status(200).json({ success: true, message: `Invoice #${tokenNumber} registered!`, data: await resp.json() });
       } catch (err) {
         return res.status(500).json({ success: false, error: err.message });
@@ -681,6 +727,119 @@ export default async function handler(req, res) {
         return res.status(200).json({ success: true, message: `Commodity ${commId} removed` });
       } catch (err) {
         return res.status(500).json({ success: false, error: err.message });
+      }
+    }
+  }
+
+  // =========================================================================
+  // 6B. PARTIES ACTION (FARMERS & BUYERS DIRECTORY)
+  // =========================================================================
+  if (action === 'parties' || action === 'farmers') {
+    if (req.method === 'GET') {
+      try {
+        const partyType = req.query.type;
+        let url = `${supabaseUrl}/rest/v1/parties?select=*&order=name.asc`;
+        if (partyType && partyType !== 'all') {
+          url += `&party_type=eq.${encodeURIComponent(partyType.toUpperCase())}`;
+        }
+        const resp = await fetch(url, { headers });
+        if (!resp.ok) return res.status(200).json({ success: true, count: 0, parties: [] });
+        const rows = await resp.json();
+        const parties = Array.isArray(rows) ? rows : [];
+        return res.status(200).json({ success: true, count: parties.length, parties: parties });
+      } catch (err) {
+        return res.status(200).json({ success: true, count: 0, parties: [], error: err.message });
+      }
+    }
+
+    if (req.method === 'POST') {
+      try {
+        const pId = body.id || `party-${(body.name || 'farmer').toLowerCase().replace(/[^a-z0-9]/g, '-')}-${Date.now().toString(36)}`;
+        const payload = {
+          id: pId,
+          name: (body.name || '').trim(),
+          phone: (body.phone || '').trim(),
+          village: (body.village || 'Chikhali Taluka').trim(),
+          party_type: (body.party_type || 'FARMER').toUpperCase(),
+          khasra_number: body.khasra_number || body.land_record_no || null,
+          aadhaar_number: body.aadhaar_number || null,
+          pan_number: body.pan_number || null,
+          bank_name: body.bank_name || null,
+          account_number: body.account_number || body.rtgs_account_no || null,
+          ifsc_code: body.ifsc_code || body.rtgs_ifsc_code || null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+
+        const resp = await fetch(`${supabaseUrl}/rest/v1/parties`, {
+          method: 'POST',
+          headers: { ...headers, 'Prefer': 'resolution=merge-duplicates,return=representation' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!resp.ok) return res.status(resp.status).json({ success: false, error: await resp.text() });
+        return res.status(200).json({ success: true, message: `Party ${payload.name} saved successfully!`, party: payload });
+      } catch (err) {
+        return res.status(500).json({ success: false, error: err.message });
+      }
+    }
+  }
+
+  // =========================================================================
+  // 6C. LEDGERS ACTION (GENERAL & BRANCH AUDIT KHATA)
+  // =========================================================================
+  if (action === 'ledgers' || action === 'ledger') {
+    if (req.method === 'GET') {
+      try {
+        const branchId = req.query.branch_id;
+        let url = `${supabaseUrl}/rest/v1/ledger_entries?select=*&order=transaction_date.desc,created_at.desc&limit=500`;
+        if (branchId && branchId !== 'all') {
+          url += `&branch_id=eq.${encodeURIComponent(branchId)}`;
+        }
+
+        const [ledResp, partiesResp, branchesResp] = await Promise.all([
+          fetch(url, { headers }),
+          fetch(`${supabaseUrl}/rest/v1/parties?select=id,name,phone,village`, { headers }),
+          fetch(`${supabaseUrl}/rest/v1/branches?select=id,name`, { headers })
+        ]);
+
+        const rows = ledResp.ok ? await ledResp.json() : [];
+        const parties = partiesResp.ok ? await partiesResp.json() : [];
+        const branches = branchesResp.ok ? await branchesResp.json() : [];
+
+        const partyMap = {};
+        parties.forEach(p => { partyMap[p.id] = p; });
+        const branchMap = {};
+        branches.forEach(b => { branchMap[b.id] = b.name; });
+
+        let totalDebits = 0.0;
+        let totalCredits = 0.0;
+
+        const entries = (Array.isArray(rows) ? rows : []).map(entry => {
+          const deb = parseFloat(entry.debit_amount) || 0.0;
+          const crd = parseFloat(entry.credit_amount) || 0.0;
+          totalDebits += deb;
+          totalCredits += crd;
+
+          const p = partyMap[entry.party_id];
+          return {
+            ...entry,
+            party_name: p ? p.name : (entry.party_id ? entry.party_id.replace('party-', '').replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : 'Farmer'),
+            party_phone: p ? p.phone : '',
+            party_village: p ? p.village : '',
+            branch_name: branchMap[entry.branch_id] || (entry.branch_id === 'br-chikhali' ? 'Chikhali APMC Main Yard' : (entry.branch_id === 'br-varvand' ? 'Varvand Yard' : (entry.branch_id === 'br-sarola' ? 'Sarola Maruti Yard' : 'APMC Yard')))
+          };
+        });
+
+        return res.status(200).json({
+          success: true,
+          count: entries.length,
+          total_debits: totalDebits,
+          total_credits: totalCredits,
+          entries: entries
+        });
+      } catch (err) {
+        return res.status(500).json({ success: false, entries: [], error: err.message });
       }
     }
   }
@@ -1134,7 +1293,7 @@ export default async function handler(req, res) {
         fetch(`${supabaseUrl}/rest/v1/outward_orders?select=*&order=created_at.desc&limit=100`, { headers }),
         fetch(`${supabaseUrl}/rest/v1/inspectors?select=*&order=name.asc`, { headers }),
         fetch(`${supabaseUrl}/rest/v1/commodities?select=*&order=name.asc`, { headers }),
-        fetch(`${supabaseUrl}/rest/v1/ledger_entries?select=*&order=created_at.desc&limit=100`, { headers }),
+        fetch(`${supabaseUrl}/rest/v1/ledger_entries?select=*&order=transaction_date.desc,created_at.desc&limit=500`, { headers }),
         fetch(`${supabaseUrl}/rest/v1/parties?select=id,name,party_type`, { headers }),
         fetch(`${supabaseUrl}/rest/v1/branches?select=id,name`, { headers })
       ]);
@@ -1222,6 +1381,19 @@ export default async function handler(req, res) {
         }
       }
 
+      const partiesList = partiesResp.ok ? await partiesResp.json() : [];
+      const branchesList = branchesResp.ok ? await branchesResp.json() : [];
+      const pMap = {};
+      partiesList.forEach(p => { pMap[p.id] = p.name; });
+      const bMap = {};
+      branchesList.forEach(b => { bMap[b.id] = b.name; });
+
+      const enrichedLedgers = (Array.isArray(ledgers) ? ledgers : []).map(l => ({
+        ...l,
+        party_name: pMap[l.party_id] || (l.party_id ? l.party_id.replace('party-', '').replace(/-/g, ' ') : 'Farmer'),
+        branch_name: bMap[l.branch_id] || (l.branch_id === 'br-chikhali' ? 'Chikhali APMC Main Yard' : (l.branch_id === 'br-varvand' ? 'Varvand Yard' : (l.branch_id === 'br-sarola' ? 'Sarola Maruti Yard' : 'APMC Yard')))
+      }));
+
       return res.status(200).json({
         success: true,
         rates: rates,
@@ -1230,7 +1402,9 @@ export default async function handler(req, res) {
         outward_orders: outwardOrders,
         inspectors: inspectors,
         commodities: commodities,
-        ledgers: ledgers,
+        ledgers: enrichedLedgers,
+        parties: partiesList,
+        branches: branchesList,
         metrics: {
           total_outward_billed: totalOutwardBilled,
           total_outward_received: totalOutwardReceived,

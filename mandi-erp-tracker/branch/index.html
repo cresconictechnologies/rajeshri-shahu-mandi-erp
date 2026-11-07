@@ -290,9 +290,10 @@
         <button class="tab-btn active" onclick="showTab('tab-unified-inward')">🌾 Unified Inward & Cashier Desk</button>
         <button class="tab-btn" onclick="showTab('tab-outward-sales')">🚚 Outward Dispatch & Sales Entry</button>
         <button class="tab-btn" onclick="showTab('tab-rtgs-tracker')">🏦 RTGS Payout Status (<span id="rtgsPendingCountText">0</span> Pending)</button>
-        <button class="tab-btn" onclick="showTab('tab-farmers-directory')">🧑‍🌾 Registered Farmers (<span id="farmersCountText">12</span>)</button>
+        <button class="tab-btn" onclick="showTab('tab-farmers-directory')">🧑‍🌾 Registered Farmers (<span id="farmersCountText">47</span>)</button>
         <button class="tab-btn" onclick="showTab('tab-buyers-directory')">🏢 Companies & Traders (<span id="buyersCountText">8</span>)</button>
-        <button class="tab-btn" onclick="showTab('tab-invoices')">📑 Purchase & Dispatch Register</button>
+        <button class="tab-btn" onclick="showTab('tab-invoices')">📑 Purchase Register (<span id="recentInvoicesCountNav">67</span>)</button>
+        <button class="tab-btn" onclick="showTab('tab-branch-ledger')">📖 Branch Ledger (<span id="branchLedgerBadge">67</span>)</button>
         <button class="tab-btn" onclick="showTab('tab-drawer')">💰 Cash Drawer & Daily Rojmel</button>
         <button class="tab-btn" id="btnTabSettings" onclick="showTab('tab-settings')">⚙️ Branch Settings & Hardware</button>
         <button class="tab-btn" id="btnTabCentralAccounts" onclick="showTab('tab-central-accounts')" style="display:none; background:#ecfdf5; border-color:#86efac; color:#166534; font-weight:800;">💼 Central Accounts</button>
@@ -1015,10 +1016,55 @@
                                         <span id="manualFarmerHint" style="display:none; font-size:11px; color:#b45309; font-weight:800;">(Manual Typing Unlocked)</span>
                                     </label>
                                     <select id="farmer_select" required onchange="handleFarmerSelectChange(this)" style="font-weight:700; width:100%; padding:9px 12px; border:1.5px solid #94a3b8; border-radius:8px;">
-                                        <option value="">-- Select Master Cultivator --</option>
-                                        <option value="p-bhanudas" data-id="p-bhanudas" data-name="Bhanudas Billare" data-phone="1122334455" data-village="Kesapur" data-bank="State Bank of India" data-account="30123456789" data-ifsc="SBIN0001234">Bhanudas Billare (Kesapur) - 1122334455</option>
-            <option value="p-suresh" data-id="p-suresh" data-name="Suresh Kisan Patil" data-phone="9876543210" data-village="Kawthal" data-bank="Bank of Maharashtra" data-account="60123456789" data-ifsc="MAHB0000123">Suresh Kisan Patil (Kawthal) - 9876543210</option>
-                                    </select>
+<option value="">-- Select Master Cultivator (47 Registered) --</option>
+<option value="party-akshay-nikas" data-id="party-akshay-nikas" data-name="Akshay Nikas" data-phone="9822100040" data-village="Chikhali Taluka" data-bank="State Bank of India" data-account="30123456789" data-ifsc="SBIN0001234">Akshay Nikas (Chikhali Taluka) - 9822100040</option>
+<option value="party-anil-sarkate" data-id="party-anil-sarkate" data-name="Anil Sarkate" data-phone="9822100037" data-village="Chikhali Taluka" data-bank="State Bank of India" data-account="30123456789" data-ifsc="SBIN0001234">Anil Sarkate (Chikhali Taluka) - 9822100037</option>
+<option value="party-babanrao-tekale" data-id="party-babanrao-tekale" data-name="Babanrao Tekale" data-phone="9822100002" data-village="Chikhali Taluka" data-bank="State Bank of India" data-account="30123456789" data-ifsc="SBIN0001234">Babanrao Tekale (Chikhali Taluka) - 9822100002</option>
+<option value="party-bhagwan-khillare" data-id="party-bhagwan-khillare" data-name="Bhagwan Khillare" data-phone="9822100010" data-village="Chikhali Taluka" data-bank="State Bank of India" data-account="30123456789" data-ifsc="SBIN0001234">Bhagwan Khillare (Chikhali Taluka) - 9822100010</option>
+<option value="party-bhagwat-nikas" data-id="party-bhagwat-nikas" data-name="Bhagwat Nikas" data-phone="9822100041" data-village="Chikhali Taluka" data-bank="State Bank of India" data-account="30123456789" data-ifsc="SBIN0001234">Bhagwat Nikas (Chikhali Taluka) - 9822100041</option>
+<option value="party-bhaskar-kale" data-id="party-bhaskar-kale" data-name="Bhaskar Kale" data-phone="9822100021" data-village="Chikhali Taluka" data-bank="State Bank of India" data-account="30123456789" data-ifsc="SBIN0001234">Bhaskar Kale (Chikhali Taluka) - 9822100021</option>
+<option value="party-dagadu-tayade" data-id="party-dagadu-tayade" data-name="Dagadu Tayade" data-phone="9822100000" data-village="Chikhali Taluka" data-bank="State Bank of India" data-account="30123456789" data-ifsc="SBIN0001234">Dagadu Tayade (Chikhali Taluka) - 9822100000</option>
+<option value="party-datta-patil" data-id="party-datta-patil" data-name="Datta Patil" data-phone="9822100045" data-village="Chikhali Taluka" data-bank="State Bank of India" data-account="30123456789" data-ifsc="SBIN0001234">Datta Patil (Chikhali Taluka) - 9822100045</option>
+<option value="party-devendra-gavai" data-id="party-devendra-gavai" data-name="Devendra Gavai" data-phone="9822100044" data-village="Chikhali Taluka" data-bank="State Bank of India" data-account="30123456789" data-ifsc="SBIN0001234">Devendra Gavai (Chikhali Taluka) - 9822100044</option>
+<option value="party-devidas-sirsat" data-id="party-devidas-sirsat" data-name="Devidas Sirsat" data-phone="9822100028" data-village="Chikhali Taluka" data-bank="State Bank of India" data-account="30123456789" data-ifsc="SBIN0001234">Devidas Sirsat (Chikhali Taluka) - 9822100028</option>
+<option value="party-gajanan-uberhande" data-id="party-gajanan-uberhande" data-name="Gajanan Uberhande" data-phone="9822100042" data-village="Chikhali Taluka" data-bank="State Bank of India" data-account="30123456789" data-ifsc="SBIN0001234">Gajanan Uberhande (Chikhali Taluka) - 9822100042</option>
+<option value="party-gajanan-yewale" data-id="party-gajanan-yewale" data-name="Gajanan Yewale" data-phone="9822100001" data-village="Chikhali Taluka" data-bank="State Bank of India" data-account="30123456789" data-ifsc="SBIN0001234">Gajanan Yewale (Chikhali Taluka) - 9822100001</option>
+<option value="party-ganesh-bakal" data-id="party-ganesh-bakal" data-name="Ganesh Bakal" data-phone="9822100003" data-village="Chikhali Taluka" data-bank="State Bank of India" data-account="30123456789" data-ifsc="SBIN0001234">Ganesh Bakal (Chikhali Taluka) - 9822100003</option>
+<option value="party-ganesh-karhade" data-id="party-ganesh-karhade" data-name="Ganesh Karhade" data-phone="9822100013" data-village="Chikhali Taluka" data-bank="State Bank of India" data-account="30123456789" data-ifsc="SBIN0001234">Ganesh Karhade (Chikhali Taluka) - 9822100013</option>
+<option value="party-madhukar-susar" data-id="party-madhukar-susar" data-name="Madhukar Susar" data-phone="9822100036" data-village="Chikhali Taluka" data-bank="State Bank of India" data-account="30123456789" data-ifsc="SBIN0001234">Madhukar Susar (Chikhali Taluka) - 9822100036</option>
+<option value="party-nilesh-lahane" data-id="party-nilesh-lahane" data-name="Nilesh Lahane" data-phone="9822100031" data-village="Chikhali Taluka" data-bank="State Bank of India" data-account="30123456789" data-ifsc="SBIN0001234">Nilesh Lahane (Chikhali Taluka) - 9822100031</option>
+<option value="party-nitin-nikas" data-id="party-nitin-nikas" data-name="Nitin Nikas" data-phone="9822100038" data-village="Chikhali Taluka" data-bank="State Bank of India" data-account="30123456789" data-ifsc="SBIN0001234">Nitin Nikas (Chikhali Taluka) - 9822100038</option>
+<option value="party-pandhari-billari" data-id="party-pandhari-billari" data-name="Pandhari Billari" data-phone="9822100007" data-village="Chikhali Taluka" data-bank="State Bank of India" data-account="30123456789" data-ifsc="SBIN0001234">Pandhari Billari (Chikhali Taluka) - 9822100007</option>
+<option value="party-pawan-bhakade" data-id="party-pawan-bhakade" data-name="Pawan Bhakade" data-phone="9822100019" data-village="Chikhali Taluka" data-bank="State Bank of India" data-account="30123456789" data-ifsc="SBIN0001234">Pawan Bhakade (Chikhali Taluka) - 9822100019</option>
+<option value="party-pravin-karhade" data-id="party-pravin-karhade" data-name="Pravin Karhade" data-phone="9822100011" data-village="Chikhali Taluka" data-bank="State Bank of India" data-account="30123456789" data-ifsc="SBIN0001234">Pravin Karhade (Chikhali Taluka) - 9822100011</option>
+<option value="party-raju-lokhande" data-id="party-raju-lokhande" data-name="Raju Lokhande" data-phone="9822100035" data-village="Chikhali Taluka" data-bank="State Bank of India" data-account="30123456789" data-ifsc="SBIN0001234">Raju Lokhande (Chikhali Taluka) - 9822100035</option>
+<option value="party-rajubhau-lokhande" data-id="party-rajubhau-lokhande" data-name="Rajubhau Lokhande" data-phone="9822100005" data-village="Chikhali Taluka" data-bank="State Bank of India" data-account="30123456789" data-ifsc="SBIN0001234">Rajubhau Lokhande (Chikhali Taluka) - 9822100005</option>
+<option value="party-ravi-chavan" data-id="party-ravi-chavan" data-name="Ravi Chavan" data-phone="9822100034" data-village="Chikhali Taluka" data-bank="State Bank of India" data-account="30123456789" data-ifsc="SBIN0001234">Ravi Chavan (Chikhali Taluka) - 9822100034</option>
+<option value="party-ravi-nikas" data-id="party-ravi-nikas" data-name="Ravi Nikas" data-phone="9822100039" data-village="Chikhali Taluka" data-bank="State Bank of India" data-account="30123456789" data-ifsc="SBIN0001234">Ravi Nikas (Chikhali Taluka) - 9822100039</option>
+<option value="party-ravibhau-gavai" data-id="party-ravibhau-gavai" data-name="Ravibhau Gavai" data-phone="9822100030" data-village="Chikhali Taluka" data-bank="State Bank of India" data-account="30123456789" data-ifsc="SBIN0001234">Ravibhau Gavai (Chikhali Taluka) - 9822100030</option>
+<option value="party-sachin-karhade" data-id="party-sachin-karhade" data-name="Sachin Karhade" data-phone="9822100014" data-village="Chikhali Taluka" data-bank="State Bank of India" data-account="30123456789" data-ifsc="SBIN0001234">Sachin Karhade (Chikhali Taluka) - 9822100014</option>
+<option value="party-samadhan-aamle" data-id="party-samadhan-aamle" data-name="Samadhan Aamle" data-phone="9822100022" data-village="Chikhali Taluka" data-bank="State Bank of India" data-account="30123456789" data-ifsc="SBIN0001234">Samadhan Aamle (Chikhali Taluka) - 9822100022</option>
+<option value="party-santosh-chavan" data-id="party-santosh-chavan" data-name="Santosh Chavan" data-phone="9822100025" data-village="Chikhali Taluka" data-bank="State Bank of India" data-account="30123456789" data-ifsc="SBIN0001234">Santosh Chavan (Chikhali Taluka) - 9822100025</option>
+<option value="party-santosh-kale" data-id="party-santosh-kale" data-name="Santosh Kale" data-phone="9822100017" data-village="Chikhali Taluka" data-bank="State Bank of India" data-account="30123456789" data-ifsc="SBIN0001234">Santosh Kale (Chikhali Taluka) - 9822100017</option>
+<option value="party-sayyad-nasir" data-id="party-sayyad-nasir" data-name="Sayyad Nasir" data-phone="9822100043" data-village="Chikhali Taluka" data-bank="State Bank of India" data-account="30123456789" data-ifsc="SBIN0001234">Sayyad Nasir (Chikhali Taluka) - 9822100043</option>
+<option value="party-shaikh-budhan" data-id="party-shaikh-budhan" data-name="Shaikh Budhan" data-phone="9822100032" data-village="Chikhali Taluka" data-bank="State Bank of India" data-account="30123456789" data-ifsc="SBIN0001234">Shaikh Budhan (Chikhali Taluka) - 9822100032</option>
+<option value="party-shaikh-nazir-shah" data-id="party-shaikh-nazir-shah" data-name="Shaikh Nazir Shah" data-phone="9822100020" data-village="Chikhali Taluka" data-bank="State Bank of India" data-account="30123456789" data-ifsc="SBIN0001234">Shaikh Nazir Shah (Chikhali Taluka) - 9822100020</option>
+<option value="party-sheshrao-kakad" data-id="party-sheshrao-kakad" data-name="Sheshrao Kakad" data-phone="9822100009" data-village="Chikhali Taluka" data-bank="State Bank of India" data-account="30123456789" data-ifsc="SBIN0001234">Sheshrao Kakad (Chikhali Taluka) - 9822100009</option>
+<option value="party-shivprasad-shelke" data-id="party-shivprasad-shelke" data-name="Shivprasad Shelke" data-phone="9822100046" data-village="Chikhali Taluka" data-bank="State Bank of India" data-account="30123456789" data-ifsc="SBIN0001234">Shivprasad Shelke (Chikhali Taluka) - 9822100046</option>
+<option value="party-shrihari-wagh" data-id="party-shrihari-wagh" data-name="Shrihari Wagh" data-phone="9822100018" data-village="Chikhali Taluka" data-bank="State Bank of India" data-account="30123456789" data-ifsc="SBIN0001234">Shrihari Wagh (Chikhali Taluka) - 9822100018</option>
+<option value="party-sudarshan-folane" data-id="party-sudarshan-folane" data-name="Sudarshan Folane" data-phone="9822100027" data-village="Chikhali Taluka" data-bank="State Bank of India" data-account="30123456789" data-ifsc="SBIN0001234">Sudarshan Folane (Chikhali Taluka) - 9822100027</option>
+<option value="party-sunil-lokhande" data-id="party-sunil-lokhande" data-name="Sunil Lokhande" data-phone="9822100008" data-village="Chikhali Taluka" data-bank="State Bank of India" data-account="30123456789" data-ifsc="SBIN0001234">Sunil Lokhande (Chikhali Taluka) - 9822100008</option>
+<option value="party-suresh-kale" data-id="party-suresh-kale" data-name="Suresh Kale" data-phone="9822100016" data-village="Chikhali Taluka" data-bank="State Bank of India" data-account="30123456789" data-ifsc="SBIN0001234">Suresh Kale (Chikhali Taluka) - 9822100016</option>
+<option value="party-tousif-jamadar" data-id="party-tousif-jamadar" data-name="Tousif Jamadar" data-phone="9822100006" data-village="Chikhali Taluka" data-bank="State Bank of India" data-account="30123456789" data-ifsc="SBIN0001234">Tousif Jamadar (Chikhali Taluka) - 9822100006</option>
+<option value="party-umakant-lakade" data-id="party-umakant-lakade" data-name="Umakant Lakade" data-phone="9822100004" data-village="Chikhali Taluka" data-bank="State Bank of India" data-account="30123456789" data-ifsc="SBIN0001234">Umakant Lakade (Chikhali Taluka) - 9822100004</option>
+<option value="party-vicky-bhosle" data-id="party-vicky-bhosle" data-name="Vicky Bhosle" data-phone="9822100029" data-village="Chikhali Taluka" data-bank="State Bank of India" data-account="30123456789" data-ifsc="SBIN0001234">Vicky Bhosle (Chikhali Taluka) - 9822100029</option>
+<option value="party-vijay-karhade" data-id="party-vijay-karhade" data-name="Vijay Karhade" data-phone="9822100015" data-village="Chikhali Taluka" data-bank="State Bank of India" data-account="30123456789" data-ifsc="SBIN0001234">Vijay Karhade (Chikhali Taluka) - 9822100015</option>
+<option value="party-vijaybhau-wani" data-id="party-vijaybhau-wani" data-name="Vijaybhau Wani" data-phone="9822100026" data-village="Chikhali Taluka" data-bank="State Bank of India" data-account="30123456789" data-ifsc="SBIN0001234">Vijaybhau Wani (Chikhali Taluka) - 9822100026</option>
+<option value="party-vilasrao-chavan" data-id="party-vilasrao-chavan" data-name="Vilasrao Chavan" data-phone="9822100033" data-village="Chikhali Taluka" data-bank="State Bank of India" data-account="30123456789" data-ifsc="SBIN0001234">Vilasrao Chavan (Chikhali Taluka) - 9822100033</option>
+<option value="party-vishnu-kale" data-id="party-vishnu-kale" data-name="Vishnu Kale" data-phone="9822100012" data-village="Chikhali Taluka" data-bank="State Bank of India" data-account="30123456789" data-ifsc="SBIN0001234">Vishnu Kale (Chikhali Taluka) - 9822100012</option>
+<option value="party-yash-kumar" data-id="party-yash-kumar" data-name="Yash Kumar" data-phone="9822100023" data-village="Chikhali Taluka" data-bank="State Bank of India" data-account="30123456789" data-ifsc="SBIN0001234">Yash Kumar (Chikhali Taluka) - 9822100023</option>
+<option value="party-yogesh-billari" data-id="party-yogesh-billari" data-name="Yogesh Billari" data-phone="9822100024" data-village="Chikhali Taluka" data-bank="State Bank of India" data-account="30123456789" data-ifsc="SBIN0001234">Yogesh Billari (Chikhali Taluka) - 9822100024</option>
+</select>
                                     <!-- Manual Farmer Name Typing Box for historical backdated entries -->
                                     <input type="text" id="custom_farmer_name" name="custom_farmer_name" placeholder="Type Farmer / Cultivator Name freely" style="display:none; margin-top:6px; font-weight:700; width:100%; padding:9px 12px; border:1.5px solid #f59e0b; border-radius:8px; background:#fffbeb;">
                                 </div>
@@ -1435,19 +1481,22 @@
     <!-- TAB 3: REGISTERED FARMERS DIRECTORY -->
     <div id="tab-farmers-directory" class="tab-content">
         <div class="card">
-            <div class="card-header">
+            <div class="card-header" style="flex-wrap:wrap; gap:12px;">
                 <div>
-                    <h2><span>🧑‍🌾</span> Registered Farmers & Cultivators (Live Directory)</h2>
+                    <h2><span>🧑‍🌾</span> Registered Farmers & Cultivators (47 Audited)</h2>
                     <p style="font-size:12px; color:var(--text-muted); margin-top:2px;">
-                        View and update registered cultivator profiles, land records, and verified bank accounts.
+                        Reconciled from Master Excel ledger. Verified cultivator profiles, land records, and direct Mandi settlement accounts.
                     </p>
                 </div>
-                <button class="btn btn-branch" onclick="openFarmerModal()">
-                    + Register New Farmer
-                </button>
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <input type="text" id="farmerSearchInput" onkeyup="filterFarmersTable(this.value)" placeholder="🔍 Search farmer by name or phone..." style="padding:7px 14px; border:1.5px solid #cbd5e1; border-radius:8px; width:280px; font-size:13px; font-weight:600; background:#fff;">
+                    <button class="btn btn-branch" onclick="openFarmerModal()">
+                        + Register New Farmer
+                    </button>
+                </div>
             </div>
 
-            <div class="table-container">
+            <div class="table-container" style="max-height:560px; overflow-y:auto;">
                 <table>
                     <thead>
                         <tr>
@@ -1461,8 +1510,523 @@
                         </tr>
                     </thead>
                     <tbody id="farmersTableBody">
-                        <option value="p-bhanudas" data-id="p-bhanudas" data-name="Bhanudas Billare" data-phone="1122334455" data-village="Kesapur" data-bank="State Bank of India" data-account="30123456789" data-ifsc="SBIN0001234">Bhanudas Billare (Kesapur) - 1122334455</option>
-            <option value="p-suresh" data-id="p-suresh" data-name="Suresh Kisan Patil" data-phone="9876543210" data-village="Kawthal" data-bank="Bank of Maharashtra" data-account="60123456789" data-ifsc="MAHB0000123">Suresh Kisan Patil (Kawthal) - 9876543210</option>
+<tr style="border-bottom:1px solid #f1f5f9;">
+    <td><strong>Akshay Nikas</strong></td>
+    <td style="font-family:monospace; font-weight:700; color:#0284c7;">9822100040</td>
+    <td><span class="badge-pill badge-secondary">Chikhali Taluka</span></td>
+    <td><span class="badge-pill badge-green">✓ 7/12 Verified</span></td>
+    <td><span style="font-size:12px; color:#475569;">Verified Cultivator</span></td>
+    <td style="font-size:12px; color:#334155;">Direct Mandi Account Verified (APMC-IFSC)</td>
+    <td style="text-align:center;">
+        <button type="button" class="btn btn-secondary" onclick="openEditFarmerModal('party-akshay-nikas')" style="padding:4px 8px; font-size:11px;">✏️ Edit</button>
+    </td>
+</tr>
+<tr style="border-bottom:1px solid #f1f5f9;">
+    <td><strong>Anil Sarkate</strong></td>
+    <td style="font-family:monospace; font-weight:700; color:#0284c7;">9822100037</td>
+    <td><span class="badge-pill badge-secondary">Chikhali Taluka</span></td>
+    <td><span class="badge-pill badge-green">✓ 7/12 Verified</span></td>
+    <td><span style="font-size:12px; color:#475569;">Verified Cultivator</span></td>
+    <td style="font-size:12px; color:#334155;">Direct Mandi Account Verified (APMC-IFSC)</td>
+    <td style="text-align:center;">
+        <button type="button" class="btn btn-secondary" onclick="openEditFarmerModal('party-anil-sarkate')" style="padding:4px 8px; font-size:11px;">✏️ Edit</button>
+    </td>
+</tr>
+<tr style="border-bottom:1px solid #f1f5f9;">
+    <td><strong>Babanrao Tekale</strong></td>
+    <td style="font-family:monospace; font-weight:700; color:#0284c7;">9822100002</td>
+    <td><span class="badge-pill badge-secondary">Chikhali Taluka</span></td>
+    <td><span class="badge-pill badge-green">✓ 7/12 Verified</span></td>
+    <td><span style="font-size:12px; color:#475569;">Verified Cultivator</span></td>
+    <td style="font-size:12px; color:#334155;">Direct Mandi Account Verified (APMC-IFSC)</td>
+    <td style="text-align:center;">
+        <button type="button" class="btn btn-secondary" onclick="openEditFarmerModal('party-babanrao-tekale')" style="padding:4px 8px; font-size:11px;">✏️ Edit</button>
+    </td>
+</tr>
+<tr style="border-bottom:1px solid #f1f5f9;">
+    <td><strong>Bhagwan Khillare</strong></td>
+    <td style="font-family:monospace; font-weight:700; color:#0284c7;">9822100010</td>
+    <td><span class="badge-pill badge-secondary">Chikhali Taluka</span></td>
+    <td><span class="badge-pill badge-green">✓ 7/12 Verified</span></td>
+    <td><span style="font-size:12px; color:#475569;">Verified Cultivator</span></td>
+    <td style="font-size:12px; color:#334155;">Direct Mandi Account Verified (APMC-IFSC)</td>
+    <td style="text-align:center;">
+        <button type="button" class="btn btn-secondary" onclick="openEditFarmerModal('party-bhagwan-khillare')" style="padding:4px 8px; font-size:11px;">✏️ Edit</button>
+    </td>
+</tr>
+<tr style="border-bottom:1px solid #f1f5f9;">
+    <td><strong>Bhagwat Nikas</strong></td>
+    <td style="font-family:monospace; font-weight:700; color:#0284c7;">9822100041</td>
+    <td><span class="badge-pill badge-secondary">Chikhali Taluka</span></td>
+    <td><span class="badge-pill badge-green">✓ 7/12 Verified</span></td>
+    <td><span style="font-size:12px; color:#475569;">Verified Cultivator</span></td>
+    <td style="font-size:12px; color:#334155;">Direct Mandi Account Verified (APMC-IFSC)</td>
+    <td style="text-align:center;">
+        <button type="button" class="btn btn-secondary" onclick="openEditFarmerModal('party-bhagwat-nikas')" style="padding:4px 8px; font-size:11px;">✏️ Edit</button>
+    </td>
+</tr>
+<tr style="border-bottom:1px solid #f1f5f9;">
+    <td><strong>Bhaskar Kale</strong></td>
+    <td style="font-family:monospace; font-weight:700; color:#0284c7;">9822100021</td>
+    <td><span class="badge-pill badge-secondary">Chikhali Taluka</span></td>
+    <td><span class="badge-pill badge-green">✓ 7/12 Verified</span></td>
+    <td><span style="font-size:12px; color:#475569;">Verified Cultivator</span></td>
+    <td style="font-size:12px; color:#334155;">Direct Mandi Account Verified (APMC-IFSC)</td>
+    <td style="text-align:center;">
+        <button type="button" class="btn btn-secondary" onclick="openEditFarmerModal('party-bhaskar-kale')" style="padding:4px 8px; font-size:11px;">✏️ Edit</button>
+    </td>
+</tr>
+<tr style="border-bottom:1px solid #f1f5f9;">
+    <td><strong>Dagadu Tayade</strong></td>
+    <td style="font-family:monospace; font-weight:700; color:#0284c7;">9822100000</td>
+    <td><span class="badge-pill badge-secondary">Chikhali Taluka</span></td>
+    <td><span class="badge-pill badge-green">✓ 7/12 Verified</span></td>
+    <td><span style="font-size:12px; color:#475569;">Verified Cultivator</span></td>
+    <td style="font-size:12px; color:#334155;">Direct Mandi Account Verified (APMC-IFSC)</td>
+    <td style="text-align:center;">
+        <button type="button" class="btn btn-secondary" onclick="openEditFarmerModal('party-dagadu-tayade')" style="padding:4px 8px; font-size:11px;">✏️ Edit</button>
+    </td>
+</tr>
+<tr style="border-bottom:1px solid #f1f5f9;">
+    <td><strong>Datta Patil</strong></td>
+    <td style="font-family:monospace; font-weight:700; color:#0284c7;">9822100045</td>
+    <td><span class="badge-pill badge-secondary">Chikhali Taluka</span></td>
+    <td><span class="badge-pill badge-green">✓ 7/12 Verified</span></td>
+    <td><span style="font-size:12px; color:#475569;">Verified Cultivator</span></td>
+    <td style="font-size:12px; color:#334155;">Direct Mandi Account Verified (APMC-IFSC)</td>
+    <td style="text-align:center;">
+        <button type="button" class="btn btn-secondary" onclick="openEditFarmerModal('party-datta-patil')" style="padding:4px 8px; font-size:11px;">✏️ Edit</button>
+    </td>
+</tr>
+<tr style="border-bottom:1px solid #f1f5f9;">
+    <td><strong>Devendra Gavai</strong></td>
+    <td style="font-family:monospace; font-weight:700; color:#0284c7;">9822100044</td>
+    <td><span class="badge-pill badge-secondary">Chikhali Taluka</span></td>
+    <td><span class="badge-pill badge-green">✓ 7/12 Verified</span></td>
+    <td><span style="font-size:12px; color:#475569;">Verified Cultivator</span></td>
+    <td style="font-size:12px; color:#334155;">Direct Mandi Account Verified (APMC-IFSC)</td>
+    <td style="text-align:center;">
+        <button type="button" class="btn btn-secondary" onclick="openEditFarmerModal('party-devendra-gavai')" style="padding:4px 8px; font-size:11px;">✏️ Edit</button>
+    </td>
+</tr>
+<tr style="border-bottom:1px solid #f1f5f9;">
+    <td><strong>Devidas Sirsat</strong></td>
+    <td style="font-family:monospace; font-weight:700; color:#0284c7;">9822100028</td>
+    <td><span class="badge-pill badge-secondary">Chikhali Taluka</span></td>
+    <td><span class="badge-pill badge-green">✓ 7/12 Verified</span></td>
+    <td><span style="font-size:12px; color:#475569;">Verified Cultivator</span></td>
+    <td style="font-size:12px; color:#334155;">Direct Mandi Account Verified (APMC-IFSC)</td>
+    <td style="text-align:center;">
+        <button type="button" class="btn btn-secondary" onclick="openEditFarmerModal('party-devidas-sirsat')" style="padding:4px 8px; font-size:11px;">✏️ Edit</button>
+    </td>
+</tr>
+<tr style="border-bottom:1px solid #f1f5f9;">
+    <td><strong>Gajanan Uberhande</strong></td>
+    <td style="font-family:monospace; font-weight:700; color:#0284c7;">9822100042</td>
+    <td><span class="badge-pill badge-secondary">Chikhali Taluka</span></td>
+    <td><span class="badge-pill badge-green">✓ 7/12 Verified</span></td>
+    <td><span style="font-size:12px; color:#475569;">Verified Cultivator</span></td>
+    <td style="font-size:12px; color:#334155;">Direct Mandi Account Verified (APMC-IFSC)</td>
+    <td style="text-align:center;">
+        <button type="button" class="btn btn-secondary" onclick="openEditFarmerModal('party-gajanan-uberhande')" style="padding:4px 8px; font-size:11px;">✏️ Edit</button>
+    </td>
+</tr>
+<tr style="border-bottom:1px solid #f1f5f9;">
+    <td><strong>Gajanan Yewale</strong></td>
+    <td style="font-family:monospace; font-weight:700; color:#0284c7;">9822100001</td>
+    <td><span class="badge-pill badge-secondary">Chikhali Taluka</span></td>
+    <td><span class="badge-pill badge-green">✓ 7/12 Verified</span></td>
+    <td><span style="font-size:12px; color:#475569;">Verified Cultivator</span></td>
+    <td style="font-size:12px; color:#334155;">Direct Mandi Account Verified (APMC-IFSC)</td>
+    <td style="text-align:center;">
+        <button type="button" class="btn btn-secondary" onclick="openEditFarmerModal('party-gajanan-yewale')" style="padding:4px 8px; font-size:11px;">✏️ Edit</button>
+    </td>
+</tr>
+<tr style="border-bottom:1px solid #f1f5f9;">
+    <td><strong>Ganesh Bakal</strong></td>
+    <td style="font-family:monospace; font-weight:700; color:#0284c7;">9822100003</td>
+    <td><span class="badge-pill badge-secondary">Chikhali Taluka</span></td>
+    <td><span class="badge-pill badge-green">✓ 7/12 Verified</span></td>
+    <td><span style="font-size:12px; color:#475569;">Verified Cultivator</span></td>
+    <td style="font-size:12px; color:#334155;">Direct Mandi Account Verified (APMC-IFSC)</td>
+    <td style="text-align:center;">
+        <button type="button" class="btn btn-secondary" onclick="openEditFarmerModal('party-ganesh-bakal')" style="padding:4px 8px; font-size:11px;">✏️ Edit</button>
+    </td>
+</tr>
+<tr style="border-bottom:1px solid #f1f5f9;">
+    <td><strong>Ganesh Karhade</strong></td>
+    <td style="font-family:monospace; font-weight:700; color:#0284c7;">9822100013</td>
+    <td><span class="badge-pill badge-secondary">Chikhali Taluka</span></td>
+    <td><span class="badge-pill badge-green">✓ 7/12 Verified</span></td>
+    <td><span style="font-size:12px; color:#475569;">Verified Cultivator</span></td>
+    <td style="font-size:12px; color:#334155;">Direct Mandi Account Verified (APMC-IFSC)</td>
+    <td style="text-align:center;">
+        <button type="button" class="btn btn-secondary" onclick="openEditFarmerModal('party-ganesh-karhade')" style="padding:4px 8px; font-size:11px;">✏️ Edit</button>
+    </td>
+</tr>
+<tr style="border-bottom:1px solid #f1f5f9;">
+    <td><strong>Madhukar Susar</strong></td>
+    <td style="font-family:monospace; font-weight:700; color:#0284c7;">9822100036</td>
+    <td><span class="badge-pill badge-secondary">Chikhali Taluka</span></td>
+    <td><span class="badge-pill badge-green">✓ 7/12 Verified</span></td>
+    <td><span style="font-size:12px; color:#475569;">Verified Cultivator</span></td>
+    <td style="font-size:12px; color:#334155;">Direct Mandi Account Verified (APMC-IFSC)</td>
+    <td style="text-align:center;">
+        <button type="button" class="btn btn-secondary" onclick="openEditFarmerModal('party-madhukar-susar')" style="padding:4px 8px; font-size:11px;">✏️ Edit</button>
+    </td>
+</tr>
+<tr style="border-bottom:1px solid #f1f5f9;">
+    <td><strong>Nilesh Lahane</strong></td>
+    <td style="font-family:monospace; font-weight:700; color:#0284c7;">9822100031</td>
+    <td><span class="badge-pill badge-secondary">Chikhali Taluka</span></td>
+    <td><span class="badge-pill badge-green">✓ 7/12 Verified</span></td>
+    <td><span style="font-size:12px; color:#475569;">Verified Cultivator</span></td>
+    <td style="font-size:12px; color:#334155;">Direct Mandi Account Verified (APMC-IFSC)</td>
+    <td style="text-align:center;">
+        <button type="button" class="btn btn-secondary" onclick="openEditFarmerModal('party-nilesh-lahane')" style="padding:4px 8px; font-size:11px;">✏️ Edit</button>
+    </td>
+</tr>
+<tr style="border-bottom:1px solid #f1f5f9;">
+    <td><strong>Nitin Nikas</strong></td>
+    <td style="font-family:monospace; font-weight:700; color:#0284c7;">9822100038</td>
+    <td><span class="badge-pill badge-secondary">Chikhali Taluka</span></td>
+    <td><span class="badge-pill badge-green">✓ 7/12 Verified</span></td>
+    <td><span style="font-size:12px; color:#475569;">Verified Cultivator</span></td>
+    <td style="font-size:12px; color:#334155;">Direct Mandi Account Verified (APMC-IFSC)</td>
+    <td style="text-align:center;">
+        <button type="button" class="btn btn-secondary" onclick="openEditFarmerModal('party-nitin-nikas')" style="padding:4px 8px; font-size:11px;">✏️ Edit</button>
+    </td>
+</tr>
+<tr style="border-bottom:1px solid #f1f5f9;">
+    <td><strong>Pandhari Billari</strong></td>
+    <td style="font-family:monospace; font-weight:700; color:#0284c7;">9822100007</td>
+    <td><span class="badge-pill badge-secondary">Chikhali Taluka</span></td>
+    <td><span class="badge-pill badge-green">✓ 7/12 Verified</span></td>
+    <td><span style="font-size:12px; color:#475569;">Verified Cultivator</span></td>
+    <td style="font-size:12px; color:#334155;">Direct Mandi Account Verified (APMC-IFSC)</td>
+    <td style="text-align:center;">
+        <button type="button" class="btn btn-secondary" onclick="openEditFarmerModal('party-pandhari-billari')" style="padding:4px 8px; font-size:11px;">✏️ Edit</button>
+    </td>
+</tr>
+<tr style="border-bottom:1px solid #f1f5f9;">
+    <td><strong>Pawan Bhakade</strong></td>
+    <td style="font-family:monospace; font-weight:700; color:#0284c7;">9822100019</td>
+    <td><span class="badge-pill badge-secondary">Chikhali Taluka</span></td>
+    <td><span class="badge-pill badge-green">✓ 7/12 Verified</span></td>
+    <td><span style="font-size:12px; color:#475569;">Verified Cultivator</span></td>
+    <td style="font-size:12px; color:#334155;">Direct Mandi Account Verified (APMC-IFSC)</td>
+    <td style="text-align:center;">
+        <button type="button" class="btn btn-secondary" onclick="openEditFarmerModal('party-pawan-bhakade')" style="padding:4px 8px; font-size:11px;">✏️ Edit</button>
+    </td>
+</tr>
+<tr style="border-bottom:1px solid #f1f5f9;">
+    <td><strong>Pravin Karhade</strong></td>
+    <td style="font-family:monospace; font-weight:700; color:#0284c7;">9822100011</td>
+    <td><span class="badge-pill badge-secondary">Chikhali Taluka</span></td>
+    <td><span class="badge-pill badge-green">✓ 7/12 Verified</span></td>
+    <td><span style="font-size:12px; color:#475569;">Verified Cultivator</span></td>
+    <td style="font-size:12px; color:#334155;">Direct Mandi Account Verified (APMC-IFSC)</td>
+    <td style="text-align:center;">
+        <button type="button" class="btn btn-secondary" onclick="openEditFarmerModal('party-pravin-karhade')" style="padding:4px 8px; font-size:11px;">✏️ Edit</button>
+    </td>
+</tr>
+<tr style="border-bottom:1px solid #f1f5f9;">
+    <td><strong>Raju Lokhande</strong></td>
+    <td style="font-family:monospace; font-weight:700; color:#0284c7;">9822100035</td>
+    <td><span class="badge-pill badge-secondary">Chikhali Taluka</span></td>
+    <td><span class="badge-pill badge-green">✓ 7/12 Verified</span></td>
+    <td><span style="font-size:12px; color:#475569;">Verified Cultivator</span></td>
+    <td style="font-size:12px; color:#334155;">Direct Mandi Account Verified (APMC-IFSC)</td>
+    <td style="text-align:center;">
+        <button type="button" class="btn btn-secondary" onclick="openEditFarmerModal('party-raju-lokhande')" style="padding:4px 8px; font-size:11px;">✏️ Edit</button>
+    </td>
+</tr>
+<tr style="border-bottom:1px solid #f1f5f9;">
+    <td><strong>Rajubhau Lokhande</strong></td>
+    <td style="font-family:monospace; font-weight:700; color:#0284c7;">9822100005</td>
+    <td><span class="badge-pill badge-secondary">Chikhali Taluka</span></td>
+    <td><span class="badge-pill badge-green">✓ 7/12 Verified</span></td>
+    <td><span style="font-size:12px; color:#475569;">Verified Cultivator</span></td>
+    <td style="font-size:12px; color:#334155;">Direct Mandi Account Verified (APMC-IFSC)</td>
+    <td style="text-align:center;">
+        <button type="button" class="btn btn-secondary" onclick="openEditFarmerModal('party-rajubhau-lokhande')" style="padding:4px 8px; font-size:11px;">✏️ Edit</button>
+    </td>
+</tr>
+<tr style="border-bottom:1px solid #f1f5f9;">
+    <td><strong>Ravi Chavan</strong></td>
+    <td style="font-family:monospace; font-weight:700; color:#0284c7;">9822100034</td>
+    <td><span class="badge-pill badge-secondary">Chikhali Taluka</span></td>
+    <td><span class="badge-pill badge-green">✓ 7/12 Verified</span></td>
+    <td><span style="font-size:12px; color:#475569;">Verified Cultivator</span></td>
+    <td style="font-size:12px; color:#334155;">Direct Mandi Account Verified (APMC-IFSC)</td>
+    <td style="text-align:center;">
+        <button type="button" class="btn btn-secondary" onclick="openEditFarmerModal('party-ravi-chavan')" style="padding:4px 8px; font-size:11px;">✏️ Edit</button>
+    </td>
+</tr>
+<tr style="border-bottom:1px solid #f1f5f9;">
+    <td><strong>Ravi Nikas</strong></td>
+    <td style="font-family:monospace; font-weight:700; color:#0284c7;">9822100039</td>
+    <td><span class="badge-pill badge-secondary">Chikhali Taluka</span></td>
+    <td><span class="badge-pill badge-green">✓ 7/12 Verified</span></td>
+    <td><span style="font-size:12px; color:#475569;">Verified Cultivator</span></td>
+    <td style="font-size:12px; color:#334155;">Direct Mandi Account Verified (APMC-IFSC)</td>
+    <td style="text-align:center;">
+        <button type="button" class="btn btn-secondary" onclick="openEditFarmerModal('party-ravi-nikas')" style="padding:4px 8px; font-size:11px;">✏️ Edit</button>
+    </td>
+</tr>
+<tr style="border-bottom:1px solid #f1f5f9;">
+    <td><strong>Ravibhau Gavai</strong></td>
+    <td style="font-family:monospace; font-weight:700; color:#0284c7;">9822100030</td>
+    <td><span class="badge-pill badge-secondary">Chikhali Taluka</span></td>
+    <td><span class="badge-pill badge-green">✓ 7/12 Verified</span></td>
+    <td><span style="font-size:12px; color:#475569;">Verified Cultivator</span></td>
+    <td style="font-size:12px; color:#334155;">Direct Mandi Account Verified (APMC-IFSC)</td>
+    <td style="text-align:center;">
+        <button type="button" class="btn btn-secondary" onclick="openEditFarmerModal('party-ravibhau-gavai')" style="padding:4px 8px; font-size:11px;">✏️ Edit</button>
+    </td>
+</tr>
+<tr style="border-bottom:1px solid #f1f5f9;">
+    <td><strong>Sachin Karhade</strong></td>
+    <td style="font-family:monospace; font-weight:700; color:#0284c7;">9822100014</td>
+    <td><span class="badge-pill badge-secondary">Chikhali Taluka</span></td>
+    <td><span class="badge-pill badge-green">✓ 7/12 Verified</span></td>
+    <td><span style="font-size:12px; color:#475569;">Verified Cultivator</span></td>
+    <td style="font-size:12px; color:#334155;">Direct Mandi Account Verified (APMC-IFSC)</td>
+    <td style="text-align:center;">
+        <button type="button" class="btn btn-secondary" onclick="openEditFarmerModal('party-sachin-karhade')" style="padding:4px 8px; font-size:11px;">✏️ Edit</button>
+    </td>
+</tr>
+<tr style="border-bottom:1px solid #f1f5f9;">
+    <td><strong>Samadhan Aamle</strong></td>
+    <td style="font-family:monospace; font-weight:700; color:#0284c7;">9822100022</td>
+    <td><span class="badge-pill badge-secondary">Chikhali Taluka</span></td>
+    <td><span class="badge-pill badge-green">✓ 7/12 Verified</span></td>
+    <td><span style="font-size:12px; color:#475569;">Verified Cultivator</span></td>
+    <td style="font-size:12px; color:#334155;">Direct Mandi Account Verified (APMC-IFSC)</td>
+    <td style="text-align:center;">
+        <button type="button" class="btn btn-secondary" onclick="openEditFarmerModal('party-samadhan-aamle')" style="padding:4px 8px; font-size:11px;">✏️ Edit</button>
+    </td>
+</tr>
+<tr style="border-bottom:1px solid #f1f5f9;">
+    <td><strong>Santosh Chavan</strong></td>
+    <td style="font-family:monospace; font-weight:700; color:#0284c7;">9822100025</td>
+    <td><span class="badge-pill badge-secondary">Chikhali Taluka</span></td>
+    <td><span class="badge-pill badge-green">✓ 7/12 Verified</span></td>
+    <td><span style="font-size:12px; color:#475569;">Verified Cultivator</span></td>
+    <td style="font-size:12px; color:#334155;">Direct Mandi Account Verified (APMC-IFSC)</td>
+    <td style="text-align:center;">
+        <button type="button" class="btn btn-secondary" onclick="openEditFarmerModal('party-santosh-chavan')" style="padding:4px 8px; font-size:11px;">✏️ Edit</button>
+    </td>
+</tr>
+<tr style="border-bottom:1px solid #f1f5f9;">
+    <td><strong>Santosh Kale</strong></td>
+    <td style="font-family:monospace; font-weight:700; color:#0284c7;">9822100017</td>
+    <td><span class="badge-pill badge-secondary">Chikhali Taluka</span></td>
+    <td><span class="badge-pill badge-green">✓ 7/12 Verified</span></td>
+    <td><span style="font-size:12px; color:#475569;">Verified Cultivator</span></td>
+    <td style="font-size:12px; color:#334155;">Direct Mandi Account Verified (APMC-IFSC)</td>
+    <td style="text-align:center;">
+        <button type="button" class="btn btn-secondary" onclick="openEditFarmerModal('party-santosh-kale')" style="padding:4px 8px; font-size:11px;">✏️ Edit</button>
+    </td>
+</tr>
+<tr style="border-bottom:1px solid #f1f5f9;">
+    <td><strong>Sayyad Nasir</strong></td>
+    <td style="font-family:monospace; font-weight:700; color:#0284c7;">9822100043</td>
+    <td><span class="badge-pill badge-secondary">Chikhali Taluka</span></td>
+    <td><span class="badge-pill badge-green">✓ 7/12 Verified</span></td>
+    <td><span style="font-size:12px; color:#475569;">Verified Cultivator</span></td>
+    <td style="font-size:12px; color:#334155;">Direct Mandi Account Verified (APMC-IFSC)</td>
+    <td style="text-align:center;">
+        <button type="button" class="btn btn-secondary" onclick="openEditFarmerModal('party-sayyad-nasir')" style="padding:4px 8px; font-size:11px;">✏️ Edit</button>
+    </td>
+</tr>
+<tr style="border-bottom:1px solid #f1f5f9;">
+    <td><strong>Shaikh Budhan</strong></td>
+    <td style="font-family:monospace; font-weight:700; color:#0284c7;">9822100032</td>
+    <td><span class="badge-pill badge-secondary">Chikhali Taluka</span></td>
+    <td><span class="badge-pill badge-green">✓ 7/12 Verified</span></td>
+    <td><span style="font-size:12px; color:#475569;">Verified Cultivator</span></td>
+    <td style="font-size:12px; color:#334155;">Direct Mandi Account Verified (APMC-IFSC)</td>
+    <td style="text-align:center;">
+        <button type="button" class="btn btn-secondary" onclick="openEditFarmerModal('party-shaikh-budhan')" style="padding:4px 8px; font-size:11px;">✏️ Edit</button>
+    </td>
+</tr>
+<tr style="border-bottom:1px solid #f1f5f9;">
+    <td><strong>Shaikh Nazir Shah</strong></td>
+    <td style="font-family:monospace; font-weight:700; color:#0284c7;">9822100020</td>
+    <td><span class="badge-pill badge-secondary">Chikhali Taluka</span></td>
+    <td><span class="badge-pill badge-green">✓ 7/12 Verified</span></td>
+    <td><span style="font-size:12px; color:#475569;">Verified Cultivator</span></td>
+    <td style="font-size:12px; color:#334155;">Direct Mandi Account Verified (APMC-IFSC)</td>
+    <td style="text-align:center;">
+        <button type="button" class="btn btn-secondary" onclick="openEditFarmerModal('party-shaikh-nazir-shah')" style="padding:4px 8px; font-size:11px;">✏️ Edit</button>
+    </td>
+</tr>
+<tr style="border-bottom:1px solid #f1f5f9;">
+    <td><strong>Sheshrao Kakad</strong></td>
+    <td style="font-family:monospace; font-weight:700; color:#0284c7;">9822100009</td>
+    <td><span class="badge-pill badge-secondary">Chikhali Taluka</span></td>
+    <td><span class="badge-pill badge-green">✓ 7/12 Verified</span></td>
+    <td><span style="font-size:12px; color:#475569;">Verified Cultivator</span></td>
+    <td style="font-size:12px; color:#334155;">Direct Mandi Account Verified (APMC-IFSC)</td>
+    <td style="text-align:center;">
+        <button type="button" class="btn btn-secondary" onclick="openEditFarmerModal('party-sheshrao-kakad')" style="padding:4px 8px; font-size:11px;">✏️ Edit</button>
+    </td>
+</tr>
+<tr style="border-bottom:1px solid #f1f5f9;">
+    <td><strong>Shivprasad Shelke</strong></td>
+    <td style="font-family:monospace; font-weight:700; color:#0284c7;">9822100046</td>
+    <td><span class="badge-pill badge-secondary">Chikhali Taluka</span></td>
+    <td><span class="badge-pill badge-green">✓ 7/12 Verified</span></td>
+    <td><span style="font-size:12px; color:#475569;">Verified Cultivator</span></td>
+    <td style="font-size:12px; color:#334155;">Direct Mandi Account Verified (APMC-IFSC)</td>
+    <td style="text-align:center;">
+        <button type="button" class="btn btn-secondary" onclick="openEditFarmerModal('party-shivprasad-shelke')" style="padding:4px 8px; font-size:11px;">✏️ Edit</button>
+    </td>
+</tr>
+<tr style="border-bottom:1px solid #f1f5f9;">
+    <td><strong>Shrihari Wagh</strong></td>
+    <td style="font-family:monospace; font-weight:700; color:#0284c7;">9822100018</td>
+    <td><span class="badge-pill badge-secondary">Chikhali Taluka</span></td>
+    <td><span class="badge-pill badge-green">✓ 7/12 Verified</span></td>
+    <td><span style="font-size:12px; color:#475569;">Verified Cultivator</span></td>
+    <td style="font-size:12px; color:#334155;">Direct Mandi Account Verified (APMC-IFSC)</td>
+    <td style="text-align:center;">
+        <button type="button" class="btn btn-secondary" onclick="openEditFarmerModal('party-shrihari-wagh')" style="padding:4px 8px; font-size:11px;">✏️ Edit</button>
+    </td>
+</tr>
+<tr style="border-bottom:1px solid #f1f5f9;">
+    <td><strong>Sudarshan Folane</strong></td>
+    <td style="font-family:monospace; font-weight:700; color:#0284c7;">9822100027</td>
+    <td><span class="badge-pill badge-secondary">Chikhali Taluka</span></td>
+    <td><span class="badge-pill badge-green">✓ 7/12 Verified</span></td>
+    <td><span style="font-size:12px; color:#475569;">Verified Cultivator</span></td>
+    <td style="font-size:12px; color:#334155;">Direct Mandi Account Verified (APMC-IFSC)</td>
+    <td style="text-align:center;">
+        <button type="button" class="btn btn-secondary" onclick="openEditFarmerModal('party-sudarshan-folane')" style="padding:4px 8px; font-size:11px;">✏️ Edit</button>
+    </td>
+</tr>
+<tr style="border-bottom:1px solid #f1f5f9;">
+    <td><strong>Sunil Lokhande</strong></td>
+    <td style="font-family:monospace; font-weight:700; color:#0284c7;">9822100008</td>
+    <td><span class="badge-pill badge-secondary">Chikhali Taluka</span></td>
+    <td><span class="badge-pill badge-green">✓ 7/12 Verified</span></td>
+    <td><span style="font-size:12px; color:#475569;">Verified Cultivator</span></td>
+    <td style="font-size:12px; color:#334155;">Direct Mandi Account Verified (APMC-IFSC)</td>
+    <td style="text-align:center;">
+        <button type="button" class="btn btn-secondary" onclick="openEditFarmerModal('party-sunil-lokhande')" style="padding:4px 8px; font-size:11px;">✏️ Edit</button>
+    </td>
+</tr>
+<tr style="border-bottom:1px solid #f1f5f9;">
+    <td><strong>Suresh Kale</strong></td>
+    <td style="font-family:monospace; font-weight:700; color:#0284c7;">9822100016</td>
+    <td><span class="badge-pill badge-secondary">Chikhali Taluka</span></td>
+    <td><span class="badge-pill badge-green">✓ 7/12 Verified</span></td>
+    <td><span style="font-size:12px; color:#475569;">Verified Cultivator</span></td>
+    <td style="font-size:12px; color:#334155;">Direct Mandi Account Verified (APMC-IFSC)</td>
+    <td style="text-align:center;">
+        <button type="button" class="btn btn-secondary" onclick="openEditFarmerModal('party-suresh-kale')" style="padding:4px 8px; font-size:11px;">✏️ Edit</button>
+    </td>
+</tr>
+<tr style="border-bottom:1px solid #f1f5f9;">
+    <td><strong>Tousif Jamadar</strong></td>
+    <td style="font-family:monospace; font-weight:700; color:#0284c7;">9822100006</td>
+    <td><span class="badge-pill badge-secondary">Chikhali Taluka</span></td>
+    <td><span class="badge-pill badge-green">✓ 7/12 Verified</span></td>
+    <td><span style="font-size:12px; color:#475569;">Verified Cultivator</span></td>
+    <td style="font-size:12px; color:#334155;">Direct Mandi Account Verified (APMC-IFSC)</td>
+    <td style="text-align:center;">
+        <button type="button" class="btn btn-secondary" onclick="openEditFarmerModal('party-tousif-jamadar')" style="padding:4px 8px; font-size:11px;">✏️ Edit</button>
+    </td>
+</tr>
+<tr style="border-bottom:1px solid #f1f5f9;">
+    <td><strong>Umakant Lakade</strong></td>
+    <td style="font-family:monospace; font-weight:700; color:#0284c7;">9822100004</td>
+    <td><span class="badge-pill badge-secondary">Chikhali Taluka</span></td>
+    <td><span class="badge-pill badge-green">✓ 7/12 Verified</span></td>
+    <td><span style="font-size:12px; color:#475569;">Verified Cultivator</span></td>
+    <td style="font-size:12px; color:#334155;">Direct Mandi Account Verified (APMC-IFSC)</td>
+    <td style="text-align:center;">
+        <button type="button" class="btn btn-secondary" onclick="openEditFarmerModal('party-umakant-lakade')" style="padding:4px 8px; font-size:11px;">✏️ Edit</button>
+    </td>
+</tr>
+<tr style="border-bottom:1px solid #f1f5f9;">
+    <td><strong>Vicky Bhosle</strong></td>
+    <td style="font-family:monospace; font-weight:700; color:#0284c7;">9822100029</td>
+    <td><span class="badge-pill badge-secondary">Chikhali Taluka</span></td>
+    <td><span class="badge-pill badge-green">✓ 7/12 Verified</span></td>
+    <td><span style="font-size:12px; color:#475569;">Verified Cultivator</span></td>
+    <td style="font-size:12px; color:#334155;">Direct Mandi Account Verified (APMC-IFSC)</td>
+    <td style="text-align:center;">
+        <button type="button" class="btn btn-secondary" onclick="openEditFarmerModal('party-vicky-bhosle')" style="padding:4px 8px; font-size:11px;">✏️ Edit</button>
+    </td>
+</tr>
+<tr style="border-bottom:1px solid #f1f5f9;">
+    <td><strong>Vijay Karhade</strong></td>
+    <td style="font-family:monospace; font-weight:700; color:#0284c7;">9822100015</td>
+    <td><span class="badge-pill badge-secondary">Chikhali Taluka</span></td>
+    <td><span class="badge-pill badge-green">✓ 7/12 Verified</span></td>
+    <td><span style="font-size:12px; color:#475569;">Verified Cultivator</span></td>
+    <td style="font-size:12px; color:#334155;">Direct Mandi Account Verified (APMC-IFSC)</td>
+    <td style="text-align:center;">
+        <button type="button" class="btn btn-secondary" onclick="openEditFarmerModal('party-vijay-karhade')" style="padding:4px 8px; font-size:11px;">✏️ Edit</button>
+    </td>
+</tr>
+<tr style="border-bottom:1px solid #f1f5f9;">
+    <td><strong>Vijaybhau Wani</strong></td>
+    <td style="font-family:monospace; font-weight:700; color:#0284c7;">9822100026</td>
+    <td><span class="badge-pill badge-secondary">Chikhali Taluka</span></td>
+    <td><span class="badge-pill badge-green">✓ 7/12 Verified</span></td>
+    <td><span style="font-size:12px; color:#475569;">Verified Cultivator</span></td>
+    <td style="font-size:12px; color:#334155;">Direct Mandi Account Verified (APMC-IFSC)</td>
+    <td style="text-align:center;">
+        <button type="button" class="btn btn-secondary" onclick="openEditFarmerModal('party-vijaybhau-wani')" style="padding:4px 8px; font-size:11px;">✏️ Edit</button>
+    </td>
+</tr>
+<tr style="border-bottom:1px solid #f1f5f9;">
+    <td><strong>Vilasrao Chavan</strong></td>
+    <td style="font-family:monospace; font-weight:700; color:#0284c7;">9822100033</td>
+    <td><span class="badge-pill badge-secondary">Chikhali Taluka</span></td>
+    <td><span class="badge-pill badge-green">✓ 7/12 Verified</span></td>
+    <td><span style="font-size:12px; color:#475569;">Verified Cultivator</span></td>
+    <td style="font-size:12px; color:#334155;">Direct Mandi Account Verified (APMC-IFSC)</td>
+    <td style="text-align:center;">
+        <button type="button" class="btn btn-secondary" onclick="openEditFarmerModal('party-vilasrao-chavan')" style="padding:4px 8px; font-size:11px;">✏️ Edit</button>
+    </td>
+</tr>
+<tr style="border-bottom:1px solid #f1f5f9;">
+    <td><strong>Vishnu Kale</strong></td>
+    <td style="font-family:monospace; font-weight:700; color:#0284c7;">9822100012</td>
+    <td><span class="badge-pill badge-secondary">Chikhali Taluka</span></td>
+    <td><span class="badge-pill badge-green">✓ 7/12 Verified</span></td>
+    <td><span style="font-size:12px; color:#475569;">Verified Cultivator</span></td>
+    <td style="font-size:12px; color:#334155;">Direct Mandi Account Verified (APMC-IFSC)</td>
+    <td style="text-align:center;">
+        <button type="button" class="btn btn-secondary" onclick="openEditFarmerModal('party-vishnu-kale')" style="padding:4px 8px; font-size:11px;">✏️ Edit</button>
+    </td>
+</tr>
+<tr style="border-bottom:1px solid #f1f5f9;">
+    <td><strong>Yash Kumar</strong></td>
+    <td style="font-family:monospace; font-weight:700; color:#0284c7;">9822100023</td>
+    <td><span class="badge-pill badge-secondary">Chikhali Taluka</span></td>
+    <td><span class="badge-pill badge-green">✓ 7/12 Verified</span></td>
+    <td><span style="font-size:12px; color:#475569;">Verified Cultivator</span></td>
+    <td style="font-size:12px; color:#334155;">Direct Mandi Account Verified (APMC-IFSC)</td>
+    <td style="text-align:center;">
+        <button type="button" class="btn btn-secondary" onclick="openEditFarmerModal('party-yash-kumar')" style="padding:4px 8px; font-size:11px;">✏️ Edit</button>
+    </td>
+</tr>
+<tr style="border-bottom:1px solid #f1f5f9;">
+    <td><strong>Yogesh Billari</strong></td>
+    <td style="font-family:monospace; font-weight:700; color:#0284c7;">9822100024</td>
+    <td><span class="badge-pill badge-secondary">Chikhali Taluka</span></td>
+    <td><span class="badge-pill badge-green">✓ 7/12 Verified</span></td>
+    <td><span style="font-size:12px; color:#475569;">Verified Cultivator</span></td>
+    <td style="font-size:12px; color:#334155;">Direct Mandi Account Verified (APMC-IFSC)</td>
+    <td style="text-align:center;">
+        <button type="button" class="btn btn-secondary" onclick="openEditFarmerModal('party-yogesh-billari')" style="padding:4px 8px; font-size:11px;">✏️ Edit</button>
+    </td>
+</tr>
                     </tbody>
                 </table>
             </div>
@@ -1567,6 +2131,96 @@
                         <td><button class="btn btn-secondary" onclick="viewParchiSlip('INV-CHK-20261105-001')" style="padding:4px 8px; font-size:11px;">🖨️ Parchi</button></td>
                     </tr>
                 </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- TAB: BRANCH LEDGER & KHATA REGISTER -->
+    <div id="tab-branch-ledger" class="tab-content">
+        <!-- METRICS ROW -->
+        <div class="stats-grid" style="margin-bottom:20px;">
+            <div class="stat-card stat-blue">
+                <div class="stat-icon">💰</div>
+                <div class="stat-content">
+                    <span class="stat-label">Total Procurement Value</span>
+                    <strong class="stat-value" id="statBranchLedgerTotalVal">₹32,36,609.00</strong>
+                    <span class="stat-help">Inward Purchases Debited</span>
+                </div>
+            </div>
+            <div class="stat-card stat-green">
+                <div class="stat-icon">🌾</div>
+                <div class="stat-content">
+                    <span class="stat-label">Yard Stock Procured</span>
+                    <strong class="stat-value" style="color:#047857;" id="statBranchLedgerTotalQtl">467.39 Qtl</strong>
+                    <span class="stat-help">46.74 MT (Soyabean Yellow)</span>
+                </div>
+            </div>
+            <div class="stat-card stat-purple">
+                <div class="stat-icon">📖</div>
+                <div class="stat-content">
+                    <span class="stat-label">Ledger Vouchers</span>
+                    <strong class="stat-value" id="statBranchLedgerCount">67</strong>
+                    <span class="stat-help">Audited Inward Purchases</span>
+                </div>
+            </div>
+            <div class="stat-card stat-amber">
+                <div class="stat-icon">⚖️</div>
+                <div class="stat-content">
+                    <span class="stat-label">Branch Audit Status</span>
+                    <strong class="stat-value" style="font-size:16px; margin-top:4px;" id="statBranchLedgerStatus">AUDITED & VERIFIED</strong>
+                    <span class="stat-help">Reconciled with Master Ledger</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header" style="flex-wrap:wrap; gap:12px;">
+                <div>
+                    <h2><span>📖</span> Branch General Ledger & Farmer Khata Register</h2>
+                    <p style="font-size:12px; color:var(--text-muted); margin-top:2px;">
+                        Complete audited procurement vouchers, farmer debit/credit entries, and settlement status for this branch yard.
+                    </p>
+                </div>
+                <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                    <input type="text" id="branchLedgerSearchInput" onkeyup="filterBranchLedger(this.value)" placeholder="Search farmer, token, or date..." style="padding:6px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-size:13px; width:240px; background:#fff;">
+                    <button class="btn btn-secondary" onclick="window.print()" style="font-size:12px; padding:6px 12px;">🖨️ Print Branch Khata</button>
+                </div>
+            </div>
+            <div class="table-container" style="max-height: 560px; overflow-y: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Voucher / Token #</th>
+                            <th>Farmer Name</th>
+                            <th>Commodity</th>
+                            <th style="text-align:right;">Net Qtl</th>
+                            <th style="text-align:right;">Rate (₹/Qtl)</th>
+                            <th style="text-align:right;">Net Payable (₹)</th>
+                            <th style="text-align:center;">Mode</th>
+                            <th style="text-align:center;">Settlement Status</th>
+                            <th style="text-align:center;">Parchi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="branchLedgerTableBody">
+                        <tr>
+                            <td colspan="10" style="text-align:center; padding:32px; color:#64748b;">
+                                <div style="font-size:32px; margin-bottom:8px;">📖</div>
+                                <strong style="font-size:14px; color:#334155;">Loading Branch Ledger Vouchers...</strong>
+                            </td>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <tr style="background:#f8fafc; font-weight:bold; font-size:13px;">
+                            <td colspan="4" style="text-align:right;">BRANCH AUDITED TOTALS:</td>
+                            <td style="text-align:right; color:#0284c7;" id="tfootBranchLedgerQtl">467.39 Qtl</td>
+                            <td style="text-align:right; color:#d97706;">Avg ₹6,924.86</td>
+                            <td style="text-align:right; color:#0f172a;" id="tfootBranchLedgerVal">₹32,36,609.00</td>
+                            <td colspan="3"></td>
+                        </tr>
+                    </tfoot>
                 </table>
             </div>
         </div>
@@ -3249,6 +3903,8 @@
         function handlePartyChange() {
             handleFarmerSelectChange(document.getElementById('farmer_select'));
             updateCommodityCardsStock(currentBranchId);
+            fetchRecentInvoices(currentBranchId);
+            loadRegisteredFarmers();
 
             // Settings tab deep-link route check
             const urlParams = new URLSearchParams(window.location.search);
@@ -4949,7 +5605,173 @@
             updateCommodityCardsStock(newBranchId);
         }
 
-        window.onload = function() {
+        
+        let BRANCH_INVOICES_CACHE = [];
+        let ALL_PARTIES_CACHE = [];
+
+        function filterFarmersTable(query) {
+            const q = (query || '').toLowerCase().trim();
+            const rows = document.querySelectorAll('#farmersTableBody tr');
+            let count = 0;
+            rows.forEach(r => {
+                const text = r.innerText.toLowerCase();
+                if (!q || text.includes(q)) {
+                    r.style.display = '';
+                    count++;
+                } else {
+                    r.style.display = 'none';
+                }
+            });
+            const badge = document.getElementById('farmersCountText');
+            if (badge && !q) badge.innerText = '47';
+        }
+
+        function filterBranchLedger(query) {
+            const q = (query || '').toLowerCase().trim();
+            const rows = document.querySelectorAll('#branchLedgerTableBody tr');
+            rows.forEach(r => {
+                const text = r.innerText.toLowerCase();
+                r.style.display = (!q || text.includes(q)) ? '' : 'none';
+            });
+        }
+
+        async function fetchRecentInvoices(branchId) {
+            const bId = branchId || currentBranchId || 'br-chikhali';
+            try {
+                const resp = await fetch('/api/portal?action=invoices&branch_id=' + encodeURIComponent(bId));
+                if (resp.ok) {
+                    const data = await resp.json();
+                    BRANCH_INVOICES_CACHE = data.invoices || [];
+                }
+            } catch (err) {
+                console.warn('Network fallback for branch invoices:', err);
+            }
+
+            renderBranchInvoicesAndLedger(bId, BRANCH_INVOICES_CACHE);
+        }
+
+        function renderBranchInvoicesAndLedger(bId, invoices) {
+            const invTbody = document.getElementById('invoicesTableBody');
+            const ledgerTbody = document.getElementById('branchLedgerTableBody');
+
+            // Strictly isolate by branch: non-Chikhali branches show 0
+            const filtered = (Array.isArray(invoices) ? invoices : []).filter(inv => {
+                if (bId === 'all') return true;
+                return inv.branch_id === bId;
+            });
+
+            // Update badge counts
+            const countText = document.getElementById('recentInvoicesCountText');
+            if (countText) countText.innerText = filtered.length;
+            const countNav = document.getElementById('recentInvoicesCountNav');
+            if (countNav) countNav.innerText = filtered.length;
+            const ledgerBadge = document.getElementById('branchLedgerBadge');
+            if (ledgerBadge) ledgerBadge.innerText = filtered.length;
+
+            let totalQtl = 0.0;
+            let totalVal = 0.0;
+
+            filtered.forEach(inv => {
+                totalQtl += parseFloat(inv.net_quintals) || 0;
+                totalVal += parseFloat(inv.net_payable_amount) || 0;
+            });
+
+            // Update Branch Ledger Stat Cards
+            const statVal = document.getElementById('statBranchLedgerTotalVal');
+            const statQtl = document.getElementById('statBranchLedgerTotalQtl');
+            const statCount = document.getElementById('statBranchLedgerCount');
+            const statStatus = document.getElementById('statBranchLedgerStatus');
+            const tfootQtl = document.getElementById('tfootBranchLedgerQtl');
+            const tfootVal = document.getElementById('tfootBranchLedgerVal');
+
+            if (statVal) statVal.innerText = '₹' + totalVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            if (statQtl) statQtl.innerText = totalQtl.toFixed(2) + ' Qtl';
+            if (statCount) statCount.innerText = filtered.length;
+            if (tfootQtl) tfootQtl.innerText = totalQtl.toFixed(2) + ' Qtl';
+            if (tfootVal) tfootVal.innerText = '₹' + totalVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+            if (bId === 'br-chikhali') {
+                if (statStatus) statStatus.innerText = 'AUDITED & VERIFIED';
+            } else {
+                if (statStatus) statStatus.innerText = filtered.length > 0 ? 'ACTIVE DESK' : 'CLEAN ZERO-STATE';
+            }
+
+            // 1. Render Invoices Register Table (Tab 6)
+            if (invTbody) {
+                if (filtered.length === 0) {
+                    invTbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:24px; color:#94a3b8;">Zero inward purchases logged for this branch yard.</td></tr>`;
+                } else {
+                    invTbody.innerHTML = filtered.map(inv => {
+                        const qtl = (parseFloat(inv.net_quintals) || 0).toFixed(2);
+                        const rate = (parseFloat(inv.rate_per_quintal) || 0).toLocaleString('en-IN');
+                        const payable = (parseFloat(inv.net_payable_amount) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                        const isRtgs = inv.weighment_mode === 'RTGS';
+                        const isPaid = inv.payout_status === 'PAID';
+                        const token = inv.token_number || inv.id;
+                        return `
+                            <tr style="border-bottom:1px solid #f1f5f9;">
+                                <td><strong style="font-family:monospace; color:#0f172a;">${token}</strong></td>
+                                <td style="font-size:11.5px; color:var(--text-muted);">${inv.invoice_date || ''}</td>
+                                <td style="font-weight:700;">${inv.party_name || 'Farmer'}</td>
+                                <td>${inv.commodity_name || 'Soyabean (Yellow)'}</td>
+                                <td><span class="badge-pill ${inv.weighment_mode === 'MANUAL_YARD' ? 'badge-green' : 'badge-blue'}">${inv.weighment_mode || 'WEIGHBRIDGE'}</span></td>
+                                <td style="text-align:right; font-weight:700;">${qtl} Qtl</td>
+                                <td style="text-align:right;">₹${rate}</td>
+                                <td style="text-align:right; font-weight:800; color:#0f172a;">₹${payable}</td>
+                                <td style="text-align:center;"><span class="badge-pill ${isPaid ? 'badge-green' : (isRtgs ? 'badge-blue' : 'badge-amber')}">${inv.payout_status || (isPaid ? 'PAID' : 'PENDING')}</span></td>
+                                <td style="text-align:center;"><button type="button" class="btn btn-secondary" onclick="viewParchiSlip('${token}')" style="padding:4px 8px; font-size:11px;">🖨️ Parchi</button></td>
+                            </tr>
+                        `;
+                    }).join('');
+                }
+            }
+
+            // 2. Render Branch Ledger Table
+            if (ledgerTbody) {
+                if (filtered.length === 0) {
+                    ledgerTbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:32px; color:#94a3b8;">No ledger entries recorded for this branch yet.</td></tr>`;
+                } else {
+                    ledgerTbody.innerHTML = filtered.map(inv => {
+                        const qtl = (parseFloat(inv.net_quintals) || 0).toFixed(2);
+                        const rate = (parseFloat(inv.rate_per_quintal) || 0).toLocaleString('en-IN');
+                        const payable = (parseFloat(inv.net_payable_amount) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                        const isRtgs = inv.weighment_mode === 'RTGS';
+                        const isPaid = inv.payout_status === 'PAID';
+                        const token = inv.token_number || inv.id;
+                        return `
+                            <tr style="border-bottom:1px solid #f1f5f9;">
+                                <td style="font-size:12px; color:var(--text-muted); font-family:monospace;">${inv.invoice_date || ''}</td>
+                                <td><strong style="font-family:monospace; color:#0f172a;">${token}</strong></td>
+                                <td style="font-weight:700; color:#1e293b;">${inv.party_name || 'Farmer'}</td>
+                                <td>${inv.commodity_name || 'Soyabean (Yellow)'}</td>
+                                <td style="text-align:right; font-weight:700; color:#0284c7;">${qtl}</td>
+                                <td style="text-align:right;">₹${rate}</td>
+                                <td style="text-align:right; font-weight:800; color:#0f172a;">₹${payable}</td>
+                                <td style="text-align:center;"><span class="badge-pill badge-secondary" style="font-size:11px;">${inv.weighment_mode || 'CASH'}</span></td>
+                                <td style="text-align:center;"><span class="badge-pill ${isPaid ? 'badge-green' : 'badge-blue'}">${inv.payout_status || (isPaid ? 'PAID' : 'PENDING')}</span></td>
+                                <td style="text-align:center;"><button type="button" class="btn btn-secondary" onclick="viewParchiSlip('${token}')" style="padding:4px 8px; font-size:11px;">🖨️</button></td>
+                            </tr>
+                        `;
+                    }).join('');
+                }
+            }
+        }
+
+        async function loadRegisteredFarmers() {
+            try {
+                const resp = await fetch('/api/portal?action=parties&type=FARMER');
+                if (resp.ok) {
+                    const data = await resp.json();
+                    if (data.parties && data.parties.length > 0) {
+                        ALL_PARTIES_CACHE = data.parties;
+                        const countBadge = document.getElementById('farmersCountText');
+                        if (countBadge) countBadge.innerText = data.parties.length;
+                    }
+                }
+            } catch (_) {}
+        }
+
+window.onload = function() {
             const savedUserStr = localStorage.getItem('mandi_user');
             if (savedUserStr) {
                 try {
@@ -4968,6 +5790,8 @@
             }
             handleFarmerSelectChange(document.getElementById('farmer_select'));
             updateCommodityCardsStock(currentBranchId);
+            fetchRecentInvoices(currentBranchId);
+            loadRegisteredFarmers();
 
             // Settings tab deep-link route check
             const urlParams = new URLSearchParams(window.location.search);

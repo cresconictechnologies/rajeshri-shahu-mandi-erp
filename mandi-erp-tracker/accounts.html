@@ -467,33 +467,94 @@
 
     <!-- TAB 4: GENERAL LEDGER & CASHBOOK -->
     <div id="tab-ledgers" class="tab-content">
-        <div class="card">
-            <div class="card-header">
-                <h2><span>📑</span> Consolidated General Ledger Entries</h2>
+        <!-- METRICS ROW -->
+        <div class="stats-grid" style="margin-bottom:20px;">
+            <div class="stat-card stat-blue">
+                <div class="stat-icon">📥</div>
+                <div class="stat-content">
+                    <span class="stat-label">Total Procurement Debits</span>
+                    <strong class="stat-value" id="statLedgerDebits">₹0.00</strong>
+                    <span class="stat-help">Inventory / Purchases debited</span>
+                </div>
             </div>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>Branch</th>
-                        <th>Voucher Type</th>
-                        <th>Voucher #</th>
-                        <th>Account Name</th>
-                        <th>Debit (₹)</th>
-                        <th>Credit (₹)</th>
-                        <th>Narration</th>
-                    </tr>
-                </thead>
-                <tbody id="ledgersTableBody">
-                    <tr>
-                        <td colspan="8" style="text-align:center; padding:32px; color:#64748b;">
-                            <div style="font-size:32px; margin-bottom:8px;">📖</div>
-                            <strong style="font-size:14px; color:#334155;">No Ledger Entries Logged for Selected Period</strong>
-                            <p style="margin:4px 0 0 0; font-size:12px;">Double-entry bookkeeping journal entries will display here automatically.</p>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+            <div class="stat-card stat-green">
+                <div class="stat-icon">📤</div>
+                <div class="stat-content">
+                    <span class="stat-label">Total Payment Credits</span>
+                    <strong class="stat-value" style="color:#047857;" id="statLedgerCredits">₹0.00</strong>
+                    <span class="stat-help">Farmer Payable / Cash Outflow</span>
+                </div>
+            </div>
+            <div class="stat-card stat-purple">
+                <div class="stat-icon">📖</div>
+                <div class="stat-content">
+                    <span class="stat-label">Journal Entries</span>
+                    <strong class="stat-value" id="statLedgerCount">0</strong>
+                    <span class="stat-help">Double-entry audit log</span>
+                </div>
+            </div>
+            <div class="stat-card stat-amber">
+                <div class="stat-icon">⚖️</div>
+                <div class="stat-content">
+                    <span class="stat-label">Trial Balance Status</span>
+                    <strong class="stat-value" style="font-size:16px; margin-top:4px;" id="statLedgerBalance">BALANCED (₹0 Diff)</strong>
+                    <span class="stat-help">Debits == Credits (SSOT)</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header" style="flex-wrap:wrap; gap:12px;">
+                <div>
+                    <h2><span>📑</span> Consolidated General Ledger & Audit Register</h2>
+                    <p style="font-size:12px; color:var(--text-muted); margin-top:2px;">
+                        Authoritative double-entry general ledger journal vouchers across all APMC branches.
+                    </p>
+                </div>
+                <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                    <select id="ledgerBranchFilter" onchange="filterLedgers()" style="padding:6px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-weight:700; font-size:13px; background:#fff;">
+                        <option value="all">All Branches Consolidated</option>
+                        <option value="br-chikhali" selected>Chikhali APMC Main Yard</option>
+                        <option value="br-varvand">Varvand APMC Yard</option>
+                        <option value="br-sarola">Sarola Maruti APMC Yard</option>
+                        <option value="br-dhad">Dhad APMC Yard</option>
+                    </select>
+                    <input type="text" id="ledgerSearchInput" onkeyup="filterLedgers()" placeholder="Search farmer, token, account..." style="padding:6px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-size:13px; width:220px; background:#fff;">
+                    <button class="btn btn-secondary" onclick="window.print()" style="font-size:12px; padding:6px 12px;">🖨️ Print Ledger</button>
+                </div>
+            </div>
+            <div class="table-container" style="max-height: 560px; overflow-y: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Branch</th>
+                            <th>Voucher Type</th>
+                            <th>Voucher / Token #</th>
+                            <th>Account Name</th>
+                            <th style="text-align:right;">Debit (₹)</th>
+                            <th style="text-align:right;">Credit (₹)</th>
+                            <th>Narration</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ledgersTableBody">
+                        <tr>
+                            <td colspan="8" style="text-align:center; padding:32px; color:#64748b;">
+                                <div style="font-size:32px; margin-bottom:8px;">📖</div>
+                                <strong style="font-size:14px; color:#334155;">Loading Double-Entry General Ledger...</strong>
+                            </td>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <tr style="background:#f8fafc; font-weight:bold; font-size:13px;">
+                            <td colspan="5" style="text-align:right;">FILTERED TOTALS:</td>
+                            <td style="text-align:right; color:#0284c7;" id="tfootLedgerDebits">₹0.00</td>
+                            <td style="text-align:right; color:#059669;" id="tfootLedgerCredits">₹0.00</td>
+                            <td id="tfootLedgerDiff">Balanced ✓</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
         </div>
     </div>
 
@@ -1541,6 +1602,98 @@
             });
         }
 
+        function renderLedgersTable(entries) {
+            const tbody = document.getElementById('ledgersTableBody');
+            if (!tbody) return;
+            const branchFilter = document.getElementById('ledgerBranchFilter')?.value || 'all';
+            const searchTerm = (document.getElementById('ledgerSearchInput')?.value || '').toLowerCase().trim();
+
+            let filtered = Array.isArray(entries) ? entries : [];
+            if (branchFilter && branchFilter !== 'all') {
+                filtered = filtered.filter(e => e.branch_id === branchFilter);
+            }
+            if (searchTerm) {
+                filtered = filtered.filter(e => {
+                    const str = `${e.voucher_id || ''} ${e.account_name || ''} ${e.party_name || ''} ${e.narration || ''} ${e.transaction_date || ''}`.toLowerCase();
+                    return str.includes(searchTerm);
+                });
+            }
+
+            let totalDebits = 0.0;
+            let totalCredits = 0.0;
+
+            filtered.forEach(e => {
+                totalDebits += parseFloat(e.debit_amount) || 0;
+                totalCredits += parseFloat(e.credit_amount) || 0;
+            });
+
+            // Update stats
+            const statDebits = document.getElementById('statLedgerDebits');
+            const statCredits = document.getElementById('statLedgerCredits');
+            const statCount = document.getElementById('statLedgerCount');
+            const statBalance = document.getElementById('statLedgerBalance');
+
+            if (statDebits) statDebits.innerText = '₹' + totalDebits.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            if (statCredits) statCredits.innerText = '₹' + totalCredits.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            if (statCount) statCount.innerText = filtered.length;
+            if (statBalance) {
+                const diff = Math.abs(totalDebits - totalCredits);
+                if (diff < 0.01) {
+                    statBalance.innerHTML = '<span style="color:#059669;">BALANCED (₹0 Diff)</span>';
+                } else {
+                    statBalance.innerHTML = `<span style="color:#dc2626;">Diff: ₹${diff.toFixed(2)}</span>`;
+                }
+            }
+
+            const tfootDebits = document.getElementById('tfootLedgerDebits');
+            const tfootCredits = document.getElementById('tfootLedgerCredits');
+            const tfootDiff = document.getElementById('tfootLedgerDiff');
+            if (tfootDebits) tfootDebits.innerText = '₹' + totalDebits.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            if (tfootCredits) tfootCredits.innerText = '₹' + totalCredits.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            if (tfootDiff) {
+                const diff = Math.abs(totalDebits - totalCredits);
+                tfootDiff.innerText = diff < 0.01 ? 'Balanced ✓' : `Diff: ₹${diff.toFixed(2)}`;
+            }
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" style="text-align:center; padding:32px; color:#64748b;">
+                            <div style="font-size:32px; margin-bottom:8px;">📖</div>
+                            <strong style="font-size:14px; color:#334155;">No Ledger Entries Match the Selected Filter</strong>
+                            <p style="margin:4px 0 0 0; font-size:12px;">Try switching to Chikhali branch or clearing the search query.</p>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = filtered.map(e => {
+                const deb = parseFloat(e.debit_amount) || 0;
+                const crd = parseFloat(e.credit_amount) || 0;
+                const debStr = deb > 0 ? `₹${deb.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-';
+                const crdStr = crd > 0 ? `₹${crd.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-';
+
+                return `
+                    <tr style="border-bottom:1px solid #f1f5f9;">
+                        <td style="font-size:12px; color:var(--text-muted); font-family:monospace;">${e.transaction_date || ''}</td>
+                        <td><span class="badge-pill badge-secondary" style="font-size:11px;">${e.branch_name || 'Chikhali Yard'}</span></td>
+                        <td><span class="badge-pill ${e.voucher_type === 'PURCHASE_INVOICE' ? 'badge-blue' : 'badge-green'}">${e.voucher_type}</span></td>
+                        <td><strong style="font-family:monospace; color:#0f172a;">${e.voucher_id || e.id}</strong></td>
+                        <td style="font-weight:700; color:#334155;">${e.account_name || 'Procurement Account'}</td>
+                        <td style="text-align:right; font-weight:800; color:#0284c7;">${debStr}</td>
+                        <td style="text-align:right; font-weight:800; color:#059669;">${crdStr}</td>
+                        <td style="font-size:12px; color:#475569; max-width:280px;">${e.narration || '-'}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function filterLedgers() {
+            renderLedgersTable(ACCOUNTS_CACHE.ledgers);
+        }
+
+
         function renderInspectorsTable(inspectors) {
             const tbody = document.getElementById('inspectorsTableBody');
             if (!tbody) return;
@@ -1584,6 +1737,98 @@
             });
         }
 
+        function renderLedgersTable(entries) {
+            const tbody = document.getElementById('ledgersTableBody');
+            if (!tbody) return;
+            const branchFilter = document.getElementById('ledgerBranchFilter')?.value || 'all';
+            const searchTerm = (document.getElementById('ledgerSearchInput')?.value || '').toLowerCase().trim();
+
+            let filtered = Array.isArray(entries) ? entries : [];
+            if (branchFilter && branchFilter !== 'all') {
+                filtered = filtered.filter(e => e.branch_id === branchFilter);
+            }
+            if (searchTerm) {
+                filtered = filtered.filter(e => {
+                    const str = `${e.voucher_id || ''} ${e.account_name || ''} ${e.party_name || ''} ${e.narration || ''} ${e.transaction_date || ''}`.toLowerCase();
+                    return str.includes(searchTerm);
+                });
+            }
+
+            let totalDebits = 0.0;
+            let totalCredits = 0.0;
+
+            filtered.forEach(e => {
+                totalDebits += parseFloat(e.debit_amount) || 0;
+                totalCredits += parseFloat(e.credit_amount) || 0;
+            });
+
+            // Update stats
+            const statDebits = document.getElementById('statLedgerDebits');
+            const statCredits = document.getElementById('statLedgerCredits');
+            const statCount = document.getElementById('statLedgerCount');
+            const statBalance = document.getElementById('statLedgerBalance');
+
+            if (statDebits) statDebits.innerText = '₹' + totalDebits.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            if (statCredits) statCredits.innerText = '₹' + totalCredits.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            if (statCount) statCount.innerText = filtered.length;
+            if (statBalance) {
+                const diff = Math.abs(totalDebits - totalCredits);
+                if (diff < 0.01) {
+                    statBalance.innerHTML = '<span style="color:#059669;">BALANCED (₹0 Diff)</span>';
+                } else {
+                    statBalance.innerHTML = `<span style="color:#dc2626;">Diff: ₹${diff.toFixed(2)}</span>`;
+                }
+            }
+
+            const tfootDebits = document.getElementById('tfootLedgerDebits');
+            const tfootCredits = document.getElementById('tfootLedgerCredits');
+            const tfootDiff = document.getElementById('tfootLedgerDiff');
+            if (tfootDebits) tfootDebits.innerText = '₹' + totalDebits.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            if (tfootCredits) tfootCredits.innerText = '₹' + totalCredits.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            if (tfootDiff) {
+                const diff = Math.abs(totalDebits - totalCredits);
+                tfootDiff.innerText = diff < 0.01 ? 'Balanced ✓' : `Diff: ₹${diff.toFixed(2)}`;
+            }
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" style="text-align:center; padding:32px; color:#64748b;">
+                            <div style="font-size:32px; margin-bottom:8px;">📖</div>
+                            <strong style="font-size:14px; color:#334155;">No Ledger Entries Match the Selected Filter</strong>
+                            <p style="margin:4px 0 0 0; font-size:12px;">Try switching to Chikhali branch or clearing the search query.</p>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = filtered.map(e => {
+                const deb = parseFloat(e.debit_amount) || 0;
+                const crd = parseFloat(e.credit_amount) || 0;
+                const debStr = deb > 0 ? `₹${deb.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-';
+                const crdStr = crd > 0 ? `₹${crd.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-';
+
+                return `
+                    <tr style="border-bottom:1px solid #f1f5f9;">
+                        <td style="font-size:12px; color:var(--text-muted); font-family:monospace;">${e.transaction_date || ''}</td>
+                        <td><span class="badge-pill badge-secondary" style="font-size:11px;">${e.branch_name || 'Chikhali Yard'}</span></td>
+                        <td><span class="badge-pill ${e.voucher_type === 'PURCHASE_INVOICE' ? 'badge-blue' : 'badge-green'}">${e.voucher_type}</span></td>
+                        <td><strong style="font-family:monospace; color:#0f172a;">${e.voucher_id || e.id}</strong></td>
+                        <td style="font-weight:700; color:#334155;">${e.account_name || 'Procurement Account'}</td>
+                        <td style="text-align:right; font-weight:800; color:#0284c7;">${debStr}</td>
+                        <td style="text-align:right; font-weight:800; color:#059669;">${crdStr}</td>
+                        <td style="font-size:12px; color:#475569; max-width:280px;">${e.narration || '-'}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function filterLedgers() {
+            renderLedgersTable(ACCOUNTS_CACHE.ledgers);
+        }
+
+
         async function loadAccountsData() {
             try {
                 const res = await fetch('/api/accounts/data');
@@ -1604,6 +1849,7 @@
             renderCommodityCards(ACCOUNTS_CACHE.rates);
             renderPublishedRatesTable(ACCOUNTS_CACHE.rates);
             renderInspectorsTable(ACCOUNTS_CACHE.inspectors);
+            renderLedgersTable(ACCOUNTS_CACHE.ledgers);
         }
 
         // Rate submission override
@@ -1683,6 +1929,7 @@
                     form.reset();
                     ACCOUNTS_CACHE.inspectors.push(d.inspector || { id: 'ins-' + Date.now(), name, designation, phone, branch_id, username, is_active: true });
                     renderInspectorsTable(ACCOUNTS_CACHE.inspectors);
+            renderLedgersTable(ACCOUNTS_CACHE.ledgers);
                 } else {
                     alert('Error creating inspector: ' + d.error);
                 }
@@ -1690,6 +1937,7 @@
                 alert(`Inspector ${name} created locally in session.`);
                 ACCOUNTS_CACHE.inspectors.push({ id: 'ins-' + Date.now(), name, designation, phone, branch_id, username, is_active: true });
                 renderInspectorsTable(ACCOUNTS_CACHE.inspectors);
+            renderLedgersTable(ACCOUNTS_CACHE.ledgers);
                 form.reset();
             }
         }
@@ -1719,6 +1967,7 @@
                 ins.branch_id = branch_id;
             }
             renderInspectorsTable(ACCOUNTS_CACHE.inspectors);
+            renderLedgersTable(ACCOUNTS_CACHE.ledgers);
             closeEditInspectorModal();
             alert('✓ Inspector details updated successfully!');
         }
@@ -1734,6 +1983,7 @@
             const ins = ACCOUNTS_CACHE.inspectors.find(x => x.id === insId);
             if (ins) ins.is_active = !ins.is_active;
             renderInspectorsTable(ACCOUNTS_CACHE.inspectors);
+            renderLedgersTable(ACCOUNTS_CACHE.ledgers);
         }
 
         async function handlePostPaymentReceipt(e) {
@@ -1779,6 +2029,7 @@
                     if (ACCOUNTS_CACHE && ACCOUNTS_CACHE.inspectors) {
                         ACCOUNTS_CACHE.inspectors = ACCOUNTS_CACHE.inspectors.filter(i => i.id !== inspId);
                         renderInspectorsTable(ACCOUNTS_CACHE.inspectors);
+            renderLedgersTable(ACCOUNTS_CACHE.ledgers);
                     }
                 } else {
                     alert(`Cannot delete inspector: ${d.error || 'Server rejected request'}`);

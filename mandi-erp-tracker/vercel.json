@@ -22,13 +22,16 @@
       "source": "/api/admin/supabase/connect",
       "destination": "/api/supabase-status"
     },
-
     {
       "source": "/api/admin/settings",
       "destination": "/api/portal?action=settings"
     },
     {
       "source": "/api/admin/profile/update",
+      "destination": "/api/portal?action=profile_update"
+    },
+    {
+      "source": "/api/profile/update",
       "destination": "/api/portal?action=profile_update"
     },
     {

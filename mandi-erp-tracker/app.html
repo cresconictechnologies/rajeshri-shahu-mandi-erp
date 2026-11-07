@@ -164,7 +164,8 @@
             <!-- Active User & Logout -->
             <div id="userBadge" class="hidden items-center gap-1.5 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200 text-xs">
                 <span class="font-bold text-slate-800" id="currentUserName">Sanjay Patil</span>
-                <button onclick="handleLogout()" title="Logout" class="text-red-600 hover:text-red-700 font-bold ml-1">🚪</button>
+                <button type="button" onclick="openInspectorSettingsModal()" title="Operator Profile & Password Settings" class="text-slate-600 hover:text-emerald-700 font-bold ml-1 transition">⚙️</button>
+                <button type="button" onclick="handleLogout()" title="Logout" class="text-red-600 hover:text-red-700 font-bold ml-1 transition">🚪</button>
             </div>
 
             <!-- Install App Button (PWA) -->
@@ -1702,5 +1703,177 @@ Please check internet connection or LAN Wi-Fi connection to Branch Server.`);
         </div>
     </div>
     </script>
+
+    <!-- ======================================================== -->
+    <!-- 👤 INSPECTOR PROFILE & SECURITY MODAL -->
+    <!-- ======================================================== -->
+    <div id="inspectorSettingsModal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-slate-200 text-left space-y-4 animate-in fade-in zoom-in duration-200">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-200">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-lg">
+                        👤
+                    </div>
+                    <div>
+                        <h2 class="font-display font-extrabold text-lg text-slate-900 leading-tight">Inspector Profile & Security</h2>
+                        <p class="text-xs text-slate-500 font-medium">Quality Assayer credentials & password</p>
+                    </div>
+                </div>
+                <button type="button" onclick="closeInspectorSettingsModal()" class="text-slate-400 hover:text-slate-600 text-xl font-bold p-1">✕</button>
+            </div>
+
+            <form id="inspectorProfileForm" onsubmit="saveInspectorProfile(event)" class="space-y-3.5">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Inspector Full Name *</label>
+                    <input type="text" id="ins_full_name" required placeholder="e.g. Sanjay Patil (Chikhali Inspector)" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-slate-900 font-bold text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 transition">
+                    <p class="text-[11px] text-slate-500 mt-1">Appears on assay certificates, ticket prints, and audit logs.</p>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Station Username</label>
+                        <input type="text" id="ins_username" readonly value="inspector" class="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-100 text-emerald-700 font-mono font-bold text-sm outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Mobile Contact *</label>
+                        <input type="tel" id="ins_phone" required placeholder="10-digit number" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-slate-900 font-medium text-sm outline-none focus:border-emerald-600 transition">
+                    </div>
+                </div>
+
+                <div class="space-y-2 pt-2 border-t border-slate-100">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">New Terminal Password (Optional)</label>
+                        <input type="password" id="ins_new_password" placeholder="Leave blank to keep current password" autocomplete="new-password" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-slate-900 text-sm outline-none focus:border-emerald-600 transition">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Confirm New Password</label>
+                        <input type="password" id="ins_confirm_password" placeholder="Re-enter new password to verify" autocomplete="new-password" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-slate-900 text-sm outline-none focus:border-emerald-600 transition">
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between pt-3 border-t border-slate-200">
+                    <span id="insSaveStatus" class="text-xs font-bold text-emerald-600"></span>
+                    <div class="flex gap-2">
+                        <button type="button" onclick="closeInspectorSettingsModal()" class="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-50 transition">Cancel</button>
+                        <button type="submit" id="btnSaveInsProfile" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-600/20 transition flex items-center gap-1.5">
+                            <span>💾</span> Save Credentials
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
+    <script>
+        function openInspectorSettingsModal() {
+            let sessionUser = null;
+            try {
+                sessionUser = JSON.parse(localStorage.getItem('mandi_user'));
+            } catch (_) {}
+
+            const nameEl = document.getElementById('ins_full_name');
+            const userEl = document.getElementById('ins_username');
+            const phoneEl = document.getElementById('ins_phone');
+
+            let currentName = 'Sanjay Patil (Chikhali Inspector)';
+            let currentUname = 'inspector';
+            let currentPhone = '9826077775';
+
+            if (sessionUser && sessionUser.username) {
+                currentName = sessionUser.name || sessionUser.full_name || currentName;
+                currentUname = sessionUser.username || currentUname;
+                currentPhone = sessionUser.phone || currentPhone;
+            }
+
+            if (nameEl) nameEl.value = currentName;
+            if (userEl) userEl.value = currentUname;
+            if (phoneEl) phoneEl.value = currentPhone;
+
+            document.getElementById('ins_new_password').value = '';
+            document.getElementById('ins_confirm_password').value = '';
+            document.getElementById('insSaveStatus').innerText = '';
+
+            const m = document.getElementById('inspectorSettingsModal');
+            if (m) {
+                m.classList.remove('hidden');
+                m.classList.add('flex');
+            }
+        }
+
+        function closeInspectorSettingsModal() {
+            const m = document.getElementById('inspectorSettingsModal');
+            if (m) {
+                m.classList.remove('flex');
+                m.classList.add('hidden');
+            }
+        }
+
+        async function saveInspectorProfile(e) {
+            e.preventDefault();
+            const btn = document.getElementById('btnSaveInsProfile');
+            const statusEl = document.getElementById('insSaveStatus');
+            const fullName = document.getElementById('ins_full_name').value.trim();
+            const username = document.getElementById('ins_username').value.trim();
+            const phone = document.getElementById('ins_phone').value.trim();
+            const password = document.getElementById('ins_new_password').value;
+            const confirmPassword = document.getElementById('ins_confirm_password').value;
+
+            if (!fullName) {
+                alert('Inspector full name cannot be empty.');
+                return;
+            }
+            if (password && password !== confirmPassword) {
+                alert('Passwords do not match. Please verify and re-enter.');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = '<span>⏳</span> Saving...';
+            statusEl.innerText = '';
+
+            try {
+                const payload = {
+                    username: username,
+                    full_name: fullName,
+                    phone: phone
+                };
+                if (password && password.trim()) {
+                    payload.password = password.trim();
+                }
+
+                const res = await fetch('/api/profile/update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    try {
+                        let u = JSON.parse(localStorage.getItem('mandi_user') || '{}');
+                        u.name = fullName;
+                        u.full_name = fullName;
+                        u.phone = phone;
+                        localStorage.setItem('mandi_user', JSON.stringify(u));
+                    } catch (_) {}
+
+                    const uNameBadge = document.getElementById('currentUserName');
+                    if (uNameBadge) uNameBadge.innerText = fullName;
+
+                    alert(`✓ Inspector profile and security credentials updated in Supabase Cloud for 👤 ${fullName}!`);
+                    closeInspectorSettingsModal();
+                } else {
+                    alert('Error saving profile: ' + (data.error || 'Server error'));
+                }
+            } catch (err) {
+                alert('Network error updating profile: ' + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<span>💾</span> Save Credentials';
+            }
+        }
+    </script>
+
 </body>
 </html>

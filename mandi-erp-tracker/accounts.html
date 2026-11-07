@@ -135,8 +135,8 @@
             </div>
 
             <!-- User Role Tag -->
-            <span class="nav-pill" style="background:#ecfdf5; color:#065f46; border-color:#a7f3d0; font-weight:700;">
-                👤 Chief Accountant (HQ)
+            <span class="nav-pill" id="accUserRoleTag" style="background:#ecfdf5; color:#065f46; border-color:#a7f3d0; font-weight:700;">
+                👤 Suraj (Chief Accountant HQ)
             </span>
 
             <!-- Quick Tools Dropdown (Replaces 5 Cluttered Buttons) -->
@@ -1800,10 +1800,36 @@
             if (ribbon) ribbon.innerText = `⚡ Today's HQ Buying Corridor (${todayStr}):`;
         }
         if (document.readyState === 'loading') {
-            window.addEventListener('DOMContentLoaded', applyRealtimeTodayDates);
+            
+        // Sync user role badge
+        try {
+            const uStr = localStorage.getItem('mandi_user');
+            if (uStr) {
+                const u = JSON.parse(uStr);
+                const tag = document.getElementById('accUserRoleTag');
+                if (tag && (u.name || u.full_name)) {
+                    tag.innerText = '👤 ' + (u.name || u.full_name);
+                }
+            }
+        } catch (_) {}
+
+        window.addEventListener('DOMContentLoaded', applyRealtimeTodayDates);
         } else {
             applyRealtimeTodayDates();
         }
+
+        
+        // Sync user role badge
+        try {
+            const uStr = localStorage.getItem('mandi_user');
+            if (uStr) {
+                const u = JSON.parse(uStr);
+                const tag = document.getElementById('accUserRoleTag');
+                if (tag && (u.name || u.full_name)) {
+                    tag.innerText = '👤 ' + (u.name || u.full_name);
+                }
+            }
+        } catch (_) {}
 
         window.addEventListener('DOMContentLoaded', loadAccountsData);
     </script>

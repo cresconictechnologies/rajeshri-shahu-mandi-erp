@@ -209,6 +209,7 @@
             <a href="/portal" class="nav-link">← Yard Operations Desk</a>
             <a href="/branch/stock?branch_id=br-chikhali" id="navStockLink" class="nav-link">📦 Yard Stock</a>
             <a href="/branch/settings" class="nav-link active">⚙️ Branch Settings</a>
+            <span id="branchNavUserBadge" class="nav-link" style="background:rgba(254,243,199,0.15); color:#fcd34d; border:1px solid rgba(252,211,77,0.3); border-radius:6px; font-weight:800;">👤 Operator Desk</span>
             <a href="/logout" class="nav-link" style="color:#ef4444;" onclick="localStorage.removeItem('mandi_user')">🚪 Logout</a>
         </div>
     </div>
@@ -242,6 +243,62 @@
         <div class="content-grid" style="display:grid; grid-template-columns: 2fr 1fr; gap:22px;">
             <!-- LEFT COLUMN: HARDWARE & WEIGHMENT FORM -->
             <div>
+                <!-- ======================================================== -->
+                <!-- 👤 YARD OPERATOR PROFILE & SECURITY CREDENTIALS CARD -->
+                <!-- ======================================================== -->
+                <div class="card" style="border-top: 4px solid #0284c7; box-shadow: 0 4px 14px rgba(2, 132, 199, 0.08); margin-bottom: 22px;">
+                    <div class="card-header" style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:10px;">
+                        <div>
+                            <h2><span>👤</span> Yard Operator Profile & Security Credentials</h2>
+                            <p style="font-size:12px; color:var(--text-muted); margin:4px 0 0 0;">
+                                Configure person full name (e.g. <code>Govind Solanki (Varvand Cashier)</code>), contact number, and login password. Changes sync live to Supabase PostgreSQL cloud.
+                            </p>
+                        </div>
+                        <span class="badge-pill badge-blue" id="opRoleBadge">👤 Cashier In-Charge</span>
+                    </div>
+
+                    <form id="operatorProfileForm" onsubmit="saveOperatorProfile(event)">
+                        <div class="form-grid">
+                            <div class="form-group" style="grid-column: 1 / -1;">
+                                <label>Operator Full Name (Person Name on Vouchers & Top Badge) *</label>
+                                <input type="text" id="op_full_name" name="full_name" placeholder="e.g. Govind Solanki (Varvand Cashier)" required style="font-weight:700; font-size:14.5px; color:#0f172a;">
+                                <small>This exact name appears on inward parchi receipts, payment vouchers, and your top user badge.</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Assigned Station Username</label>
+                                <input type="text" id="op_username" name="username" readonly style="background:#f1f5f9; font-weight:700; color:#0284c7; font-family:monospace;">
+                                <small>Terminal station login identifier.</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Mobile Contact Number *</label>
+                                <input type="tel" id="op_phone" name="phone" placeholder="10-digit mobile number" required style="font-weight:600;">
+                                <small>Used for emergency rate corridor alerts & recovery.</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label>New Terminal Password (Optional)</label>
+                                <input type="password" id="op_new_password" name="password" placeholder="Leave blank to keep existing password" autocomplete="new-password">
+                                <small>Fill only if changing password for this terminal operator.</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Confirm New Password</label>
+                                <input type="password" id="op_confirm_password" placeholder="Re-enter new password to verify" autocomplete="new-password">
+                                <small>Must match the new password entered above.</small>
+                            </div>
+                        </div>
+
+                        <div style="margin-top:20px; padding-top:14px; border-top:1px solid #f1f5f9; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                            <span id="opSaveStatus" style="font-size:12.5px; font-weight:700; color:#059669;"></span>
+                            <button type="submit" id="btnSaveOpProfile" class="btn btn-primary" style="padding:10px 24px; font-weight:800; font-size:13.5px;">
+                                <span>💾</span> Save Profile & Update Password
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
                 <div class="card">
                     <div class="card-header">
                         <h2><span>🚜</span> Mandi Weighment & Hardware Configuration</h2>
@@ -450,6 +507,7 @@
             document.getElementById('branch_address_display').value = b.address;
             document.getElementById('branch_phone_display').value = b.phone;
             document.getElementById('cashier_incharge_display').value = b.cashier;
+            syncOperatorProfileFields(bId);
             document.getElementById('navStockLink').href = `/branch/stock?branch_id=${bId}`;
             document.getElementById('branchSelector').value = bId;
 
@@ -535,6 +593,125 @@
             } catch (_) {
                 badge.innerText = '● Local Standalone Mode';
                 badge.className = 'badge-pill badge-green';
+            }
+        }
+
+
+        // =====================================================================
+        // OPERATOR PROFILE & SECURITY CREDENTIALS
+        // =====================================================================
+        const DEFAULT_BRANCH_CASHIERS = {
+            'br-chikhali': { name: 'Santosh V. Patil (Chikhali Cashier)', username: 'chikhali', phone: '9822001124' },
+            'br-varvand': { name: 'Govind Solanki (Varvand Cashier)', username: 'varvand', phone: '9826044444' },
+            'br-sarola': { name: 'Ganesh Deshmukh (Sarola Cashier)', username: 'sarola', phone: '9826066666' },
+            'br-dhad': { name: 'Narayan Sharma (Dhad Cashier)', username: 'dhad', phone: '9826055555' }
+        };
+
+        function syncOperatorProfileFields(bId) {
+            let sessionUser = null;
+            try {
+                sessionUser = JSON.parse(localStorage.getItem('mandi_user'));
+            } catch (_) {}
+
+            const b = BRANCH_CONFIGS[bId] || BRANCH_CONFIGS['br-chikhali'];
+            const defStaff = DEFAULT_BRANCH_CASHIERS[bId] || DEFAULT_BRANCH_CASHIERS['br-chikhali'];
+
+            const nameEl = document.getElementById('op_full_name');
+            const userEl = document.getElementById('op_username');
+            const phoneEl = document.getElementById('op_phone');
+            const navBadge = document.getElementById('branchNavUserBadge');
+            const roleBadge = document.getElementById('opRoleBadge');
+
+            let currentName = defStaff.name;
+            let currentUname = defStaff.username;
+            let currentPhone = defStaff.phone;
+
+            if (sessionUser && sessionUser.username) {
+                // If logged in user matches current branch or admin
+                if (sessionUser.branch_id === bId || sessionUser.role === 'SUPER_ADMIN') {
+                    currentName = sessionUser.name || sessionUser.full_name || defStaff.name;
+                    currentUname = sessionUser.username || defStaff.username;
+                    currentPhone = sessionUser.phone || defStaff.phone;
+                }
+            }
+
+            if (nameEl) nameEl.value = currentName;
+            if (userEl) userEl.value = currentUname;
+            if (phoneEl) phoneEl.value = currentPhone;
+            if (navBadge) navBadge.innerText = '👤 ' + currentName;
+            if (roleBadge) roleBadge.innerText = `👤 ${b.code} Cashier In-Charge`;
+        }
+
+        async function saveOperatorProfile(e) {
+            e.preventDefault();
+            const btn = document.getElementById('btnSaveOpProfile');
+            const statusEl = document.getElementById('opSaveStatus');
+            const fullName = document.getElementById('op_full_name').value.trim();
+            const username = document.getElementById('op_username').value.trim();
+            const phone = document.getElementById('op_phone').value.trim();
+            const password = document.getElementById('op_new_password').value;
+            const confirmPassword = document.getElementById('op_confirm_password').value;
+
+            if (!fullName) {
+                alert('Operator full name is required.');
+                return;
+            }
+            if (password && password !== confirmPassword) {
+                alert('Passwords do not match. Please verify and re-enter.');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = '<span>⏳</span> Updating Supabase Cloud...';
+            statusEl.innerText = '';
+
+            try {
+                const payload = {
+                    username: username,
+                    full_name: fullName,
+                    phone: phone
+                };
+                if (password && password.trim()) {
+                    payload.password = password.trim();
+                }
+
+                const res = await fetch('/api/profile/update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    // Update session storage
+                    try {
+                        let u = JSON.parse(localStorage.getItem('mandi_user') || '{}');
+                        u.name = fullName;
+                        u.full_name = fullName;
+                        u.phone = phone;
+                        localStorage.setItem('mandi_user', JSON.stringify(u));
+                    } catch (_) {}
+
+                    // Update UI elements
+                    const navBadge = document.getElementById('branchNavUserBadge');
+                    if (navBadge) navBadge.innerText = '👤 ' + fullName;
+                    const inchargeDisplay = document.getElementById('cashier_incharge_display');
+                    if (inchargeDisplay) inchargeDisplay.value = fullName;
+
+                    document.getElementById('op_new_password').value = '';
+                    document.getElementById('op_confirm_password').value = '';
+
+                    showToast(`✓ Profile and password saved for 👤 ${fullName}!`);
+                    statusEl.innerText = `✓ Synced with Supabase Cloud (${new Date().toLocaleTimeString()})`;
+                    setTimeout(() => { statusEl.innerText = ''; }, 6000);
+                } else {
+                    alert('Error saving profile: ' + (data.error || 'Server error'));
+                }
+            } catch (err) {
+                alert('Network error updating profile: ' + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<span>💾</span> Save Profile & Update Password';
             }
         }
 

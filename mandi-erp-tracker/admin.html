@@ -176,8 +176,8 @@
             </div>
 
             <!-- User Tag -->
-            <span class="nav-pill" style="background:#eff6ff; color:#1e40af; border-color:#bfdbfe; font-weight:700; padding:4px 9px; font-size:11.5px;">
-                👤 Super Admin
+            <span class="nav-pill" id="adminUserRoleTag" style="background:#eff6ff; color:#1e40af; border-color:#bfdbfe; font-weight:700; padding:4px 9px; font-size:11.5px;">
+                👤 Santosh Patil (Chairman & MD)
             </span>
 
             <!-- Quick Tools Dropdown (Replaces 4 Cluttered Buttons) -->
@@ -1487,10 +1487,36 @@
             if (hqDate) hqDate.innerText = `Today (${todayStr})`;
         }
         if (document.readyState === 'loading') {
-            window.addEventListener('DOMContentLoaded', applyRealtimeTodayDates);
+            
+        // Sync user role badge
+        try {
+            const uStr = localStorage.getItem('mandi_user');
+            if (uStr) {
+                const u = JSON.parse(uStr);
+                const tag = document.getElementById('adminUserRoleTag');
+                if (tag && (u.name || u.full_name)) {
+                    tag.innerText = '👤 ' + (u.name || u.full_name);
+                }
+            }
+        } catch (_) {}
+
+        window.addEventListener('DOMContentLoaded', applyRealtimeTodayDates);
         } else {
             applyRealtimeTodayDates();
         }
+
+        
+        // Sync user role badge
+        try {
+            const uStr = localStorage.getItem('mandi_user');
+            if (uStr) {
+                const u = JSON.parse(uStr);
+                const tag = document.getElementById('adminUserRoleTag');
+                if (tag && (u.name || u.full_name)) {
+                    tag.innerText = '👤 ' + (u.name || u.full_name);
+                }
+            }
+        } catch (_) {}
 
         window.addEventListener('DOMContentLoaded', loadAdminData);
     </script>

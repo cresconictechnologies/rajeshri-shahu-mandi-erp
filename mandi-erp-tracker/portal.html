@@ -1662,6 +1662,62 @@
     <div id="tab-settings" class="tab-content">
         <div class="layout-grid">
             <div>
+                <!-- ======================================================== -->
+                <!-- 👤 YARD OPERATOR PROFILE & SECURITY CREDENTIALS CARD -->
+                <!-- ======================================================== -->
+                <div class="card" style="border-top: 4px solid #0284c7; box-shadow: 0 4px 14px rgba(2, 132, 199, 0.08); margin-bottom: 22px;">
+                    <div class="card-header" style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:10px;">
+                        <div>
+                            <h2><span>👤</span> Yard Operator Profile & Security Credentials</h2>
+                            <p style="font-size:12px; color:var(--text-muted); margin:4px 0 0 0;">
+                                Update operator display name (e.g. <code>👤 Govind Solanki (Varvand Cashier)</code>), contact number, and login password. Synchronizes live to Supabase PostgreSQL cloud.
+                            </p>
+                        </div>
+                        <span class="badge-pill badge-blue" id="portalOpRoleBadge">👤 Cashier In-Charge</span>
+                    </div>
+
+                    <form id="portalOperatorProfileForm" onsubmit="savePortalOperatorProfile(event)">
+                        <div class="form-grid">
+                            <div class="form-group" style="grid-column: 1 / -1;">
+                                <label>Operator Full Name (Person Name on Vouchers & Top Badge) *</label>
+                                <input type="text" id="portal_op_full_name" name="full_name" placeholder="e.g. Govind Solanki (Varvand Cashier)" required style="font-weight:700; font-size:14.5px; color:#0f172a;">
+                                <small style="color:var(--text-muted); font-size:11px;">This exact name appears on inward parchi slips, payment vouchers, and your top user badge.</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Assigned Station Username</label>
+                                <input type="text" id="portal_op_username" name="username" readonly style="background:#f1f5f9; font-weight:700; color:#0284c7; font-family:monospace;">
+                                <small style="color:var(--text-muted); font-size:11px;">Terminal station login identifier.</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Mobile Contact Number *</label>
+                                <input type="tel" id="portal_op_phone" name="phone" placeholder="10-digit mobile number" required style="font-weight:600;">
+                                <small style="color:var(--text-muted); font-size:11px;">Used for corridor approval alerts & password recovery.</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label>New Terminal Password (Optional)</label>
+                                <input type="password" id="portal_op_new_password" name="password" placeholder="Leave blank to keep existing password" autocomplete="new-password">
+                                <small style="color:var(--text-muted); font-size:11px;">Only fill if resetting password for this terminal operator.</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Confirm New Password</label>
+                                <input type="password" id="portal_op_confirm_password" placeholder="Re-enter new password to verify" autocomplete="new-password">
+                                <small style="color:var(--text-muted); font-size:11px;">Must match the new password above.</small>
+                            </div>
+                        </div>
+
+                        <div style="margin-top:20px; padding-top:14px; border-top:1px solid #f1f5f9; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                            <span id="portalOpSaveStatus" style="font-size:12.5px; font-weight:700; color:#059669;"></span>
+                            <button type="submit" id="btnPortalSaveOpProfile" class="btn btn-primary" style="padding:10px 24px; font-weight:800; font-size:13.5px;">
+                                <span>💾</span> Save Profile & Update Password
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
                 <!-- MANDI WEIGHMENT & HARDWARE SETTINGS -->
                 <div class="card">
                     <div class="card-header">

@@ -4020,6 +4020,76 @@ def api_admin_update_profile(
         conn.close()
     return RedirectResponse(url="/admin/settings?msg=Owner+profile+and+admin+name+updated+successfully", status_code=303)
 
+@app.post("/api/profile/update")
+async def api_user_update_profile(request: Request):
+    body = {}
+    content_type = request.headers.get("content-type", "")
+    if "application/json" in content_type:
+        try:
+            body = await request.json()
+        except Exception:
+            body = {}
+    else:
+        try:
+            form = await request.form()
+            body = dict(form)
+        except Exception:
+            body = {}
+
+    full_name = str(body.get("full_name") or body.get("owner_name") or body.get("name") or "").strip()
+    phone = str(body.get("phone") or body.get("mobile") or "").strip()
+    password = str(body.get("password") or body.get("new_password") or "").strip()
+    username = str(body.get("username") or "").strip().lower()
+    user_id = str(body.get("user_id") or body.get("id") or "").strip()
+
+    if not username and not user_id:
+        sess_user = get_current_user(request)
+        if sess_user:
+            username = str(sess_user.get("username", "")).strip().lower()
+            user_id = str(sess_user.get("id", "")).strip()
+
+    conn = get_connection()
+    updated_user = None
+    try:
+        cur = conn.cursor()
+        if user_id:
+            cur.execute("SELECT id, username, full_name, phone, role, branch_id FROM users WHERE id=?", (user_id,))
+        elif username:
+            cur.execute("SELECT id, username, full_name, phone, role, branch_id FROM users WHERE LOWER(username)=?", (username,))
+        else:
+            cur.execute("SELECT id, username, full_name, phone, role, branch_id FROM users WHERE role='SUPER_ADMIN'")
+        row = cur.fetchone()
+        if row:
+            uid, uname, u_name, u_phone, u_role, u_bid = row
+            target_name = full_name or u_name
+            target_phone = phone or u_phone
+            if password:
+                pw_hash = hash_password(password)
+                cur.execute("UPDATE users SET full_name=?, phone=?, password_hash=?, updated_at=CURRENT_TIMESTAMP WHERE id=?", (target_name, target_phone, pw_hash, uid))
+            else:
+                cur.execute("UPDATE users SET full_name=?, phone=?, updated_at=CURRENT_TIMESTAMP WHERE id=?", (target_name, target_phone, uid))
+            conn.commit()
+            updated_user = {
+                "id": uid,
+                "username": uname,
+                "name": target_name,
+                "full_name": target_name,
+                "phone": target_phone,
+                "role": u_role,
+                "branch_id": u_bid
+            }
+    finally:
+        conn.close()
+
+    if "application/json" in content_type:
+        return JSONResponse({
+            "success": True,
+            "message": "Profile and security credentials updated successfully!",
+            "user": updated_user
+        })
+    else:
+        return RedirectResponse(url="/branch/settings?msg=Profile+updated+successfully", status_code=303)
+
 @app.post("/api/admin/branches/create")
 async def api_admin_settings_add_branch(
     request: Request,

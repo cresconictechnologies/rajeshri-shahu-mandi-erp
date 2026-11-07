@@ -1429,10 +1429,36 @@
             if (hqDate) hqDate.innerText = `Today (${todayStr})`;
         }
         if (document.readyState === 'loading') {
-            window.addEventListener('DOMContentLoaded', applyRealtimeTodayDates);
+            
+        // Sync user role badge
+        try {
+            const uStr = localStorage.getItem('mandi_user');
+            if (uStr) {
+                const u = JSON.parse(uStr);
+                const tag = document.getElementById('adminUserRoleTag');
+                if (tag && (u.name || u.full_name)) {
+                    tag.innerText = '👤 ' + (u.name || u.full_name);
+                }
+            }
+        } catch (_) {}
+
+        window.addEventListener('DOMContentLoaded', applyRealtimeTodayDates);
         } else {
             applyRealtimeTodayDates();
         }
+
+        
+        // Sync user role badge
+        try {
+            const uStr = localStorage.getItem('mandi_user');
+            if (uStr) {
+                const u = JSON.parse(uStr);
+                const tag = document.getElementById('adminUserRoleTag');
+                if (tag && (u.name || u.full_name)) {
+                    tag.innerText = '👤 ' + (u.name || u.full_name);
+                }
+            }
+        } catch (_) {}
 
         window.addEventListener('DOMContentLoaded', loadAdminData);
     </script>

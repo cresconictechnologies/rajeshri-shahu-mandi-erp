@@ -99,23 +99,27 @@
                         <span class="badge-pill badge-purple">Master Ownership</span>
                     </div>
 
-                    <form method="POST" action="/api/admin/profile/update" onsubmit="handleSaveProfile(event)">
+                    <form method="POST" action="/api/profile/update" onsubmit="handleSaveProfile(event)">
                         <div class="form-grid">
                             <div class="form-group">
                                 <label>Owner / Super Admin Full Name *</label>
-                                <input type="text" name="owner_name" value="" required style="font-weight:700;">
+                                <input type="text" id="admin_owner_name" name="owner_name" value="" required style="font-weight:700; font-size:14px; color:#0f172a;">
+                                <small style="color:var(--text-muted); font-size:11px;">Primary administrator name displayed on command bar & audit logs.</small>
                             </div>
                             <div class="form-group">
                                 <label>Login Username *</label>
-                                <input type="text" name="username" value="" required style="font-weight:700; color:#0284c7;">
+                                <input type="text" id="admin_username" name="username" value="admin" required style="font-weight:700; color:#0284c7; background:#f1f5f9;" readonly>
+                                <small style="color:var(--text-muted); font-size:11px;">Master administrative login username.</small>
                             </div>
                             <div class="form-group">
                                 <label>Mobile Phone Number *</label>
-                                <input type="tel" name="phone" value="" required>
+                                <input type="tel" id="admin_phone" name="phone" value="" required style="font-weight:600;">
+                                <small style="color:var(--text-muted); font-size:11px;">Primary registered phone for OTP / critical alerts.</small>
                             </div>
                             <div class="form-group">
                                 <label>New Master Password (Leave blank to keep current)</label>
-                                <input type="text" name="new_password" placeholder="Enter new password to change">
+                                <input type="password" id="admin_new_password" name="new_password" placeholder="Enter new master password" autocomplete="new-password">
+                                <small style="color:var(--text-muted); font-size:11px;">Updates root access password in Supabase cloud.</small>
                             </div>
                         </div>
                         <div style="margin-top:14px; text-align:right;">
@@ -1218,7 +1222,7 @@
             const accPhone = document.getElementById('staff_acc_phone') ? document.getElementById('staff_acc_phone').value.trim() : '';
 
             staffList.push({
-                id: 'usr-accountant',
+                id: (accUser.id || 'u-accountant'),
                 username: accUser,
                 full_name: accName,
                 role: 'ACCOUNTANT_HQ',
@@ -1326,6 +1330,17 @@
                         tbody.appendChild(tr);
                     });
                 }
+            }
+
+            // Pre-fill Super Admin Profile Card
+            const adminUser = SETTINGS_STAFF.find(u => u.role === 'SUPER_ADMIN' || u.username === 'admin');
+            if (adminUser) {
+                const oName = document.getElementById('admin_owner_name');
+                const oUser = document.getElementById('admin_username');
+                const oPhone = document.getElementById('admin_phone');
+                if (oName && !oName.value) oName.value = adminUser.full_name || 'Santosh Patil (Chairman & MD)';
+                if (oUser) oUser.value = adminUser.username || 'admin';
+                if (oPhone && !oPhone.value) oPhone.value = adminUser.phone || '9826011111';
             }
 
             // Sync with Step 3 cards
@@ -1447,19 +1462,40 @@
         async function handleSaveProfile(e) {
             e.preventDefault();
             const form = e.target;
-            const full_name = (form.full_name ? form.full_name.value : '').trim();
-            const phone = (form.phone ? form.phone.value : '').trim();
-            const password = (form.password ? form.password.value : '').trim();
+            const full_name = (document.getElementById('admin_owner_name')?.value || form.owner_name?.value || form.full_name?.value || '').trim();
+            const username = (document.getElementById('admin_username')?.value || form.username?.value || 'admin').trim();
+            const phone = (document.getElementById('admin_phone')?.value || form.phone?.value || '').trim();
+            const password = (document.getElementById('admin_new_password')?.value || form.new_password?.value || form.password?.value || '').trim();
+
+            if (!full_name) {
+                alert('Owner / Super Admin full name cannot be empty.');
+                return;
+            }
 
             try {
-                const res = await fetch('/api/admin/profile/update', {
+                const res = await fetch('/api/profile/update', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ full_name, phone, password })
+                    body: JSON.stringify({ username, full_name, phone, password })
                 });
                 const d = await res.json();
                 if (d.success) {
-                    alert('✓ Super Admin profile updated successfully in Supabase cloud!');
+                    try {
+                        let u = JSON.parse(localStorage.getItem('mandi_user') || '{}');
+                        u.name = full_name;
+                        u.full_name = full_name;
+                        u.phone = phone;
+                        localStorage.setItem('mandi_user', JSON.stringify(u));
+                    } catch (_) {}
+
+                    const topTag = document.getElementById('adminUserRoleTag');
+                    if (topTag) topTag.innerText = '👤 ' + full_name;
+
+                    if (document.getElementById('admin_new_password')) {
+                        document.getElementById('admin_new_password').value = '';
+                    }
+                    alert('✓ Super Admin profile and master credentials updated successfully in Supabase cloud!');
+                    await loadSettingsStaff();
                 } else {
                     alert('Error updating profile: ' + (d.error || 'Server error'));
                 }

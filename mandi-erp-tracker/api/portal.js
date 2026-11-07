@@ -61,7 +61,7 @@ export default async function handler(req, res) {
         'admin': { name: 'Super Admin', role: 'SUPER_ADMIN', panel: 'admin', branch_id: 'all', branch_name: 'HQ Central Command', passwords: ['admin123', 'admin@123', 'Admin123', '123456', 'admin'] },
         'accountant': { name: 'Chief Accountant (HQ)', role: 'ACCOUNTANT_HQ', panel: 'accountant', branch_id: 'all', branch_name: 'Chikhali Central Accounts', passwords: ['suraj123', 'acc123', 'Suraj@123', '123456', 'admin123'] },
         'suraj': { name: 'Suraj (Chief Accountant)', role: 'ACCOUNTANT_HQ', panel: 'accountant', branch_id: 'all', branch_name: 'Chikhali Central Accounts', passwords: ['suraj123', 'acc123', 'Suraj@123', '123456'] },
-        'chikhali': { name: 'Babulal Meena (Chikhali Cashier)', role: 'BRANCH_CASHIER', panel: 'branch', branch_id: 'br-chikhali', yard_code: 'CHK', branch_name: 'Chikhali APMC Main Mandi', passwords: ['chk123', 'chk@123', 'chikhali123', '123456', 'insp123'] },
+        'chikhali': { name: 'Santosh V. Patil (Chikhali Cashier)', role: 'BRANCH_CASHIER', panel: 'branch', branch_id: 'br-chikhali', yard_code: 'CHK', branch_name: 'Chikhali APMC Main Mandi', passwords: ['chk123', 'chk@123', 'chikhali123', '123456', 'insp123'] },
         'chikhali_cashier': { name: 'Chikhali Cashier Desk', role: 'BRANCH_CASHIER', panel: 'branch', branch_id: 'br-chikhali', yard_code: 'CHK', branch_name: 'Chikhali APMC Main Mandi', passwords: ['chk123', 'chk@123', '123456'] },
         'varvand': { name: 'Govind Solanki (Varvand Cashier)', role: 'BRANCH_CASHIER', panel: 'branch', branch_id: 'br-varvand', yard_code: 'VRV', branch_name: 'Varvand APMC Yard', passwords: ['vrv123', 'vrv@123', 'varvand123', '123456', 'insp123'] },
         'sarola': { name: 'Ganesh Deshmukh (Sarola Cashier)', role: 'BRANCH_CASHIER', panel: 'branch', branch_id: 'br-sarola', yard_code: 'SRL', branch_name: 'Sarola Maruti APMC Yard', passwords: ['srl123', 'srl@123', 'sarola123', '123456', 'insp123'] },
@@ -515,14 +515,25 @@ export default async function handler(req, res) {
           }
           updateData.updated_at = new Date().toISOString();
 
-          const upResp = await fetch(`${supabaseUrl}/rest/v1/users?id=eq.${encodeURIComponent(uId)}`, {
+          let upResp = await fetch(`${supabaseUrl}/rest/v1/users?id=eq.${encodeURIComponent(uId)}`, {
             method: 'PATCH',
             headers: { ...headers, 'Prefer': 'return=representation' },
             body: JSON.stringify(updateData)
           });
+          let rows = upResp.ok ? await upResp.json() : [];
+          if (rows.length === 0 && body.username) {
+            upResp = await fetch(`${supabaseUrl}/rest/v1/users?username=eq.${encodeURIComponent(body.username.trim().toLowerCase())}`, {
+              method: 'PATCH',
+              headers: { ...headers, 'Prefer': 'return=representation' },
+              body: JSON.stringify(updateData)
+            });
+            rows = upResp.ok ? await upResp.json() : [];
+          }
+          if (rows.length > 0) {
+            return res.status(200).json({ success: true, message: 'User credentials updated successfully in Supabase!', user: rows[0] });
+          }
           if (upResp.ok) {
-            const rows = await upResp.json();
-            return res.status(200).json({ success: true, message: 'User credentials updated successfully!', user: rows[0] || updateData });
+            return res.status(200).json({ success: true, message: 'User credentials updated successfully in Supabase!', user: updateData });
           }
           return res.status(400).json({ success: false, error: await upResp.text() });
         }
@@ -853,7 +864,7 @@ export default async function handler(req, res) {
   // 9. AGGREGATED ADMIN DATA ACTION
   // =========================================================================
   // =========================================================================
-  // 10. STAFF UPDATE ALL (STEP 3 PROVISIONING)
+  // 10. STAFF UPDATE ALL (STEP 3 PROVISIONING WITH DIRECT SUPABASE SYNC)
   // =========================================================================
   if (action === 'staff_update_all') {
     if (req.method === 'POST') {
@@ -863,27 +874,69 @@ export default async function handler(req, res) {
         for (const s of staffList) {
           if (!s.username) continue;
           const uname = s.username.trim().toLowerCase();
-          const uPayload = {
-            id: s.id || `usr-${uname}`,
-            username: uname,
-            full_name: s.full_name || s.name || uname,
-            phone: s.phone || '',
-            role: s.role || (uname === 'accountant' ? 'ACCOUNTANT_HQ' : 'BRANCH_CASHIER'),
-            branch_id: s.branch_id || null,
-            is_active: 1,
-            created_at: new Date().toISOString()
-          };
-          if (s.password) {
-            uPayload.password_hash = s.password;
+
+          // 1. Check if user already exists by username or id in Supabase
+          let checkResp = await fetch(`${supabaseUrl}/rest/v1/users?username=eq.${encodeURIComponent(uname)}`, { headers });
+          let existingUsers = checkResp.ok ? await checkResp.json() : [];
+          if ((!existingUsers || existingUsers.length === 0) && s.id) {
+            checkResp = await fetch(`${supabaseUrl}/rest/v1/users?id=eq.${encodeURIComponent(s.id)}`, { headers });
+            existingUsers = checkResp.ok ? await checkResp.json() : [];
           }
-          await fetch(`${supabaseUrl}/rest/v1/users`, {
-            method: 'POST',
-            headers: { ...headers, 'Prefer': 'resolution=merge-duplicates,return=representation' },
-            body: JSON.stringify(uPayload)
-          });
-          results.push(uPayload);
+
+          if (existingUsers && existingUsers.length > 0) {
+            // PATCH existing user in Supabase
+            const targetId = existingUsers[0].id;
+            const patchData = {
+              full_name: s.full_name || s.name || existingUsers[0].full_name || uname,
+              phone: (s.phone || existingUsers[0].phone || '9822001124').trim(),
+              role: s.role || existingUsers[0].role || (uname === 'accountant' ? 'ACCOUNTANT_HQ' : 'BRANCH_CASHIER'),
+              is_active: 1,
+              updated_at: new Date().toISOString()
+            };
+            if (s.branch_id !== undefined) patchData.branch_id = s.branch_id || null;
+            if (s.password) patchData.password_hash = s.password;
+
+            const patchResp = await fetch(`${supabaseUrl}/rest/v1/users?id=eq.${encodeURIComponent(targetId)}`, {
+              method: 'PATCH',
+              headers: { ...headers, 'Prefer': 'return=representation' },
+              body: JSON.stringify(patchData)
+            });
+            if (patchResp.ok) {
+              const resData = await patchResp.json();
+              results.push(resData[0] || patchData);
+            } else {
+              const errTxt = await patchResp.text();
+              console.error('Failed to patch user in Supabase:', targetId, errTxt);
+            }
+          } else {
+            // INSERT new user into Supabase
+            const uPayload = {
+              id: s.id || `usr-${uname}-${Date.now().toString(36)}`,
+              username: uname,
+              full_name: s.full_name || s.name || uname,
+              phone: (s.phone || '9822001124').trim(),
+              password_hash: s.password || `${uname}123`,
+              role: s.role || (uname === 'accountant' ? 'ACCOUNTANT_HQ' : 'BRANCH_CASHIER'),
+              branch_id: s.branch_id || null,
+              is_active: 1,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            };
+            const insertResp = await fetch(`${supabaseUrl}/rest/v1/users`, {
+              method: 'POST',
+              headers: { ...headers, 'Prefer': 'return=representation' },
+              body: JSON.stringify(uPayload)
+            });
+            if (insertResp.ok) {
+              const resData = await insertResp.json();
+              results.push(resData[0] || uPayload);
+            } else {
+              const errTxt = await insertResp.text();
+              console.error('Failed to insert user in Supabase:', uname, errTxt);
+            }
+          }
         }
-        return res.status(200).json({ success: true, message: `${results.length} staff credentials saved and provisioned!`, count: results.length });
+        return res.status(200).json({ success: true, message: `${results.length} staff credentials successfully saved in Supabase!`, count: results.length, staff: results });
       } catch (err) {
         return res.status(500).json({ success: false, error: err.message });
       }

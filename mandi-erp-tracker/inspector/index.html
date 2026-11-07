@@ -163,7 +163,7 @@
 
             <!-- Active User & Logout -->
             <div id="userBadge" class="hidden items-center gap-1.5 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200 text-xs">
-                <span class="font-bold text-slate-800" id="currentUserName">Babulal Meena</span>
+                <span class="font-bold text-slate-800" id="currentUserName">Sanjay Patil</span>
                 <button onclick="handleLogout()" title="Logout" class="text-red-600 hover:text-red-700 font-bold ml-1">🚪</button>
             </div>
 
@@ -204,7 +204,7 @@
                     <input id="loginUsername" type="text" list="userSuggestions" placeholder="Enter username (e.g. inspector or qc_chikhali)" autocomplete="username" class="w-full text-sm font-semibold bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-slate-900 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 outline-none transition">
                     <datalist id="userSuggestions">
                         <option value="inspector">Universal Quality Inspector</option>
-                        <option value="qc_chikhali">Babulal Meena (Chikhali Yard)</option>
+                        <option value="qc_chikhali">Sanjay Patil (Chikhali Yard)</option>
                         <option value="qc_varvand">Govind Solanki (Varvand Yard)</option>
                         <option value="qc_sarola">Ganesh Deshmukh (Sarola Yard)</option>
                         <option value="qc_dhad">Narayan Sharma (Dhad Yard)</option>
@@ -575,8 +575,8 @@ Mandi Cess       : 0% (APMC Deregulated)
         // Authentication & Session Management (Provisioned exclusively by HQ Accountant)
         const STAFF_CREDENTIALS = {
             'inspector': { pass: ['insp123', 'qc123', 'insp@123', 'inspector123'], name: 'Universal Quality Inspector', yard: 'CHK', yardName: 'Chikhali APMC Yard' },
-            'qc_chikhali': { pass: ['insp123', 'qc123', 'chk123'], name: 'Babulal Meena', yard: 'CHK', yardName: 'Chikhali APMC Yard' },
-            'chikhali': { pass: ['chk123', 'chk@123', 'chikhali123', 'insp123', 'qc123'], name: 'Babulal Meena (Chikhali)', yard: 'CHK', yardName: 'Chikhali APMC Yard' },
+            'qc_chikhali': { pass: ['insp123', 'qc123', 'chk123'], name: 'Sanjay Patil', yard: 'CHK', yardName: 'Chikhali APMC Yard' },
+            'chikhali': { pass: ['chk123', 'chk@123', 'chikhali123', 'insp123', 'qc123'], name: 'Santosh V. Patil (Chikhali)', yard: 'CHK', yardName: 'Chikhali APMC Yard' },
             'qc_varvand': { pass: ['insp123', 'qc123', 'vrv123'], name: 'Govind Solanki', yard: 'VRV', yardName: 'Varvand APMC Yard' },
             'varvand': { pass: ['vrv123', 'vrv@123', 'varvand123', 'insp123', 'qc123'], name: 'Govind Solanki (Varvand)', yard: 'VRV', yardName: 'Varvand APMC Yard' },
             'qc_sarola': { pass: ['insp123', 'qc123', 'srl123'], name: 'Ganesh Deshmukh', yard: 'SRL', yardName: 'Sarola Maruti APMC Yard' },
@@ -855,7 +855,7 @@ Mandi Cess       : 0% (APMC Deregulated)
             const user = getCurrentUser();
             const activeYard = yardCode || (user ? user.yard : 'CHK');
             const activeYardName = yardName || (user ? user.yardName : 'Chikhali APMC Yard');
-            const activeInspector = inspectorName || (user ? user.name : 'Babulal Meena');
+            const activeInspector = inspectorName || (user ? user.name : 'Sanjay Patil');
             const isLocked = !user || user.username !== 'admin';
 
             const slipInspector = document.getElementById('slipInspector');
@@ -1359,7 +1359,7 @@ Mandi Cess       : 0% (APMC Deregulated)
             const user = getCurrentUser();
             const yardCode = user ? user.yard : 'CHK';
             const yardName = user ? (YARD_NAMES[user.yard] || user.yardName) : 'Chikhali APMC Yard';
-            const inspectorName = user ? user.name : 'Babulal Meena';
+            const inspectorName = user ? user.name : 'Sanjay Patil';
             generateNewTicketNumber(yardCode);
             updateSlipMetadata(yardCode, yardName, inspectorName);
         }
@@ -1400,7 +1400,7 @@ Mandi Cess       : 0% (APMC Deregulated)
             const user = getCurrentUser();
             const yardCode = user ? user.yard : 'CHK';
             const yardName = user ? (YARD_NAMES[user.yard] || user.yardName) : 'Chikhali APMC Yard';
-            const inspectorName = user ? user.name : 'Babulal Meena';
+            const inspectorName = user ? user.name : 'Sanjay Patil';
 
             btn.disabled = true;
             btn.innerHTML = '<span>⏳</span> <span>Syncing to Cloud & Branch...</span>';

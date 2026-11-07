@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- Mandi ERP Authentication Guard: Enforce Staff / Cashier / Admin Login -->
+    <script>
+        (function() {
+            try {
+                var userStr = localStorage.getItem('mandi_user');
+                if (!userStr) {
+                    window.location.replace('/login?redirect=' + encodeURIComponent(window.location.pathname + window.location.search));
+                    return;
+                }
+                var user = JSON.parse(userStr);
+                if (!user || !user.role) {
+                    localStorage.removeItem('mandi_user');
+                    window.location.replace('/login?redirect=' + encodeURIComponent(window.location.pathname + window.location.search));
+                    return;
+                }
+            } catch (e) {
+                localStorage.removeItem('mandi_user');
+                window.location.replace('/login?redirect=' + encodeURIComponent(window.location.pathname + window.location.search));
+            }
+        })();
+    </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Branch Yard Terminal Settings — Rajarshi Shahu Trading Mandi ERP</title>
+    <!-- PWA Web App Manifest & Mobile/Desktop Meta -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#0284c7">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Rajarshi ERP">
+    <link rel="apple-touch-icon" href="/icons/icon-192.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+
+    <link rel="stylesheet" href="/static/theme.css">
+    <style>
+        :root {
+            --primary: #0284c7;
+            --primary-dark: #0369a1;
+            --bg-page: #f8fafc;
+            --card-border: #e2e8f0;
+            --text-dark: #0f172a;
+            --text-muted: #64748b;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-page);
+            color: var(--text-dark);
+            margin: 0;
+            padding: 0;
+        }
+        .top-nav {
+            background: #0f172a;
+            color: #fff;
+            padding: 12px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #0284c7;
+        }
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #fff;
+            text-decoration: none;
+            font-weight: 800;
+            font-size: 16px;
+        }
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .nav-link {
+            color: #94a3b8;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 600;
+            padding: 6px 12px;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+        .nav-link:hover, .nav-link.active {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.1);
+        }
+        .container {
+            max-width: 1200px;
+            margin: 24px auto;
+            padding: 0 16px;
+        }
+        .card {
+            background: #ffffff;
+            border-radius: 12px;
+            border: 1px solid var(--card-border);
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        .header-card {
+            background: #ffffff;
+            border-left: 5px solid #0284c7;
+        }
+        .card-header {
+            border-bottom: 1px solid #f1f5f9;
+            padding-bottom: 14px;
+            margin-bottom: 18px;
+        }
+        .card-header h2 {
+            margin: 0;
+            font-size: 17px;
+            font-weight: 800;
+            color: #0f172a;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 18px;
+        }
+        @media (max-width: 768px) {
+            .form-grid { grid-template-columns: 1fr; }
+            .content-grid { grid-template-columns: 1fr !important; }
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .form-group label {
+            font-size: 12.5px;
+            font-weight: 700;
+            color: #334155;
+        }
+        .form-group input, .form-group select {
+            padding: 9px 12px;
+            border-radius: 8px;
+            border: 1.5px solid #cbd5e1;
+            font-size: 13.5px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .form-group input:focus, .form-group select:focus {
+            border-color: #0284c7;
+        }
+        .form-group small {
+            color: #64748b;
+            font-size: 11px;
+        }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 9px 18px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+            text-decoration: none;
+        }
+        .btn-primary {
+            background: #0284c7;
+            color: #ffffff;
+        }
+        .btn-primary:hover {
+            background: #0369a1;
+        }
+        .badge-pill {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11.5px;
+            font-weight: 800;
+            display: inline-block;
+        }
+        .badge-blue { background: #e0f2fe; color: #0369a1; }
+        .badge-green { background: #dcfce7; color: #15803d; }
+        .badge-amber { background: #fef3c7; color: #b45309; }
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: #065f46;
+            color: #ffffff;
+            padding: 12px 20px;
+            border-radius: 8px;
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.2);
+            font-weight: 700;
+            font-size: 13px;
+            display: none;
+            z-index: 999999;
+        }
+    </style>
+</head>
+<body>
+    <div class="top-nav">
+        <a href="/portal" class="brand">
+            <span style="font-size:20px;">🌾</span>
+            <span>RAJARSHI SHAHU MANDI ERP</span>
+            <span class="badge-pill badge-blue" style="font-size:11px;">BRANCH DESK</span>
+        </a>
+        <div class="nav-links">
+            <a href="/portal" class="nav-link">← Yard Operations Desk</a>
+            <a href="/branch/stock?branch_id=br-chikhali" id="navStockLink" class="nav-link">📦 Yard Stock</a>
+            <a href="/branch/settings" class="nav-link active">⚙️ Branch Settings</a>
+            <a href="/logout" class="nav-link" style="color:#ef4444;" onclick="localStorage.removeItem('mandi_user')">🚪 Logout</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- HEADER -->
+        <div class="card header-card">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:15px;">
+                <div>
+                    <h1 style="margin:0; font-size:22px; font-weight:900; display:flex; align-items:center; gap:10px;">
+                        <span>⚙️</span>
+                        <span>Branch Yard Configuration & Hardware Settings</span>
+                    </h1>
+                    <p style="color:var(--text-muted); font-size:13px; margin:4px 0 0 0;" id="branchSubtitle">
+                        Chikhali APMC Main Mandi (BR-CHK) • Mandi License: MH/CHK/APMC-101
+                    </p>
+                </div>
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <label style="font-size:12px; font-weight:700; color:#475569;">Active Yard:</label>
+                    <select id="branchSelector" onchange="handleBranchSwitch(this.value)" style="padding:8px 12px; border-radius:8px; border:1.5px solid #cbd5e1; font-weight:700; background:#ffffff;">
+                        <option value="br-chikhali" selected>BR-CHK — Chikhali APMC Main Mandi</option>
+                        <option value="br-varvand">BR-VRV — Varvand APMC Yard</option>
+                        <option value="br-sarola">BR-SRL — Sarola Maruti APMC Yard</option>
+                        <option value="br-dhad">BR-DHD — Dhad APMC Yard</option>
+                    </select>
+                    <span class="badge-pill badge-green" id="syncStatusBadge">● Cloud Synced</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="content-grid" style="display:grid; grid-template-columns: 2fr 1fr; gap:22px;">
+            <!-- LEFT COLUMN: HARDWARE & WEIGHMENT FORM -->
+            <div>
+                <div class="card">
+                    <div class="card-header">
+                        <h2><span>🚜</span> Mandi Weighment & Hardware Configuration</h2>
+                    </div>
+
+                    <form id="branchSettingsForm" onsubmit="saveBranchSettings(event)">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>Default Weighment Intake Mode</label>
+                                <select id="default_weighment_mode" name="default_weighment_mode">
+                                    <option value="MANUAL_YARD">⚖️ Manual Yard Scale (Standard Bag Weighment)</option>
+                                    <option value="WEIGHBRIDGE">🚛 Weighbridge / Dharamkanta (Gross & Tare)</option>
+                                </select>
+                                <small>Pre-selected on the inward intake desk when loading tokens.</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Yard Intake Gate / Station Number</label>
+                                <input type="text" id="parchi_gate_no" name="parchi_gate_no" value="Gate No. 2" required>
+                                <small>Printed on thermal inward tokens for tractor & vehicle routing.</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Auto-Open Print Dialog on Token Generation</label>
+                                <select id="auto_print_parchi" name="auto_print_parchi">
+                                    <option value="ENABLED">ENABLED (Auto-Launch Thermal Print Slip)</option>
+                                    <option value="DISABLED">DISABLED (Manual Print Button Only)</option>
+                                </select>
+                                <small>Immediately prompts system print dialog after token submission.</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Cash Drawer Low Warning Limit (₹)</label>
+                                <input type="number" id="cash_drawer_warning_limit" name="cash_drawer_warning_limit" value="50000" min="5000" step="1000" required>
+                                <small>Alerts cashier when physical drawer balance drops below this threshold.</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Thermal Slip Printer Width</label>
+                                <select id="thermal_printer_width" name="thermal_printer_width">
+                                    <option value="80mm">80mm Standard POS Thermal Receipt (Recommended)</option>
+                                    <option value="58mm">58mm Compact Receipt Printer</option>
+                                </select>
+                                <small>Sets default width for inward parchi and payment vouchers.</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Default Commodity Filter</label>
+                                <select id="default_commodity" name="default_commodity">
+                                    <option value="Soyabean (Yellow)">Soyabean (Yellow)</option>
+                                    <option value="Chana (Desi)">Chana (Desi)</option>
+                                    <option value="Toor (White)">Toor (White)</option>
+                                    <option value="Wheat (Sharbati)">Wheat (Sharbati)</option>
+                                </select>
+                                <small>Pre-focused commodity card when starting a new purchase entry.</small>
+                            </div>
+                        </div>
+
+                        <div style="margin-top:24px; padding-top:16px; border-top:1px solid #f1f5f9; display:flex; justify-content:space-between; align-items:center;">
+                            <span id="saveStatusText" style="font-size:12.5px; font-weight:700; color:#059669;"></span>
+                            <button type="submit" class="btn btn-primary" style="padding:10px 24px;">
+                                <span>💾</span> Save Yard Settings
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- PREMISES INFO CARD -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2><span>🏢</span> Physical Premises & APMC Mandi Registration</h2>
+                    </div>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Branch System ID</label>
+                            <input type="text" id="branch_id_display" value="br-chikhali" readonly style="background:#f1f5f9; font-family:monospace; font-weight:700;">
+                        </div>
+                        <div class="form-group">
+                            <label>Official APMC Mandi License No.</label>
+                            <input type="text" id="mandi_license_display" value="MH/CHK/APMC-101" readonly style="background:#f1f5f9; font-weight:700;">
+                        </div>
+                        <div class="form-group" style="grid-column: 1 / -1;">
+                            <label>Yard Physical Address</label>
+                            <input type="text" id="branch_address_display" value="APMC Market Yard, Chikhali (Buldhana) - 443201" readonly style="background:#f1f5f9;">
+                        </div>
+                        <div class="form-group">
+                            <label>Yard Office Telephone</label>
+                            <input type="text" id="branch_phone_display" value="07264-242110" readonly style="background:#f1f5f9;">
+                        </div>
+                        <div class="form-group">
+                            <label>Assigned Cashier In-Charge</label>
+                            <input type="text" id="cashier_incharge_display" value="Santosh V. Patil" readonly style="background:#f1f5f9; font-weight:700; color:#0f172a;">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT COLUMN: TELEMETRY & POLICIES -->
+            <div>
+                <div class="card" style="background:#f8fafc; border:1px solid #cbd5e1;">
+                    <div class="card-header">
+                        <h2><span>⚡</span> Edge Sync & Compliance</h2>
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:14px; font-size:13px;">
+                        <div style="background:#ffffff; padding:12px; border-radius:8px; border:1px solid #e2e8f0;">
+                            <div style="font-weight:800; color:#0f172a; margin-bottom:4px;">PostgreSQL Cloud Hub</div>
+                            <div style="font-size:12px; color:#059669; font-weight:700;">● Supabase Active (ap-south-1)</div>
+                            <div style="font-size:11px; color:#64748b; margin-top:2px;">Sub-second replication across all 4 branches.</div>
+                        </div>
+
+                        <div style="background:#ffffff; padding:12px; border-radius:8px; border:1px solid #e2e8f0;">
+                            <div style="font-weight:800; color:#0f172a; margin-bottom:4px;">Maharashtra APMC Policy</div>
+                            <div style="font-size:12px; color:#0284c7; font-weight:700;">✓ Zero Mandi Cess Enforced</div>
+                            <div style="font-size:11px; color:#64748b; margin-top:2px;">0.00% Cess charged to farmers as per mandate.</div>
+                        </div>
+
+                        <div style="background:#ffffff; padding:12px; border-radius:8px; border:1px solid #e2e8f0;">
+                            <div style="font-weight:800; color:#0f172a; margin-bottom:4px;">Offline Edge Buffer</div>
+                            <div style="font-size:12px; color:#15803d; font-weight:700;">✓ IndexedDB Cache Active</div>
+                            <div style="font-size:11px; color:#64748b; margin-top:2px;">Yard continues intake if broadband disconnects.</div>
+                        </div>
+
+                        <div style="margin-top:10px; text-align:center;">
+                            <button type="button" class="btn" onclick="testPingCloud()" style="background:#0f172a; color:#ffffff; width:100%; justify-content:center;">
+                                <span>🔄</span> Test Cloud Ping
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card" style="background:#fff7ed; border:1px solid #fed7aa;">
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                        <span style="font-size:18px;">⚠️</span>
+                        <span style="font-weight:800; color:#9a3412; font-size:13.5px;">Statutory Cash Limits</span>
+                    </div>
+                    <p style="font-size:12px; color:#7c2d12; margin:0; line-height:1.5;">
+                        Under Income Tax Act Section 269ST, single-day farmer cash payouts exceeding ₹1,99,000 must be disbursed via direct RTGS transfer.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toastMsg" class="toast">✓ Settings successfully saved!</div>
+
+    <script>
+        const BRANCH_CONFIGS = {
+            'br-chikhali': {
+                name: 'Chikhali APMC Main Mandi',
+                code: 'BR-CHK',
+                license: 'MH/CHK/APMC-101',
+                address: 'APMC Market Yard, Chikhali (Buldhana) - 443201',
+                phone: '07264-242110',
+                cashier: 'Santosh V. Patil',
+                defaultGate: 'Gate No. 2',
+                defaultMode: 'MANUAL_YARD'
+            },
+            'br-varvand': {
+                name: 'Varvand APMC Yard',
+                code: 'BR-VRV',
+                license: 'MH/VRV/APMC-204',
+                address: 'Varvand Sub-Yard, Taluka Chikhali, Dist. Buldhana',
+                phone: '07264-242204',
+                cashier: 'Govind Solanki',
+                defaultGate: 'Main Gate 1',
+                defaultMode: 'MANUAL_YARD'
+            },
+            'br-sarola': {
+                name: 'Sarola Maruti APMC Yard',
+                code: 'BR-SRL',
+                license: 'MH/SRL/APMC-305',
+                address: 'Sarola Maruti Mandi Yard, Buldhana Highway',
+                phone: '07264-242305',
+                cashier: 'Ganesh Deshmukh',
+                defaultGate: 'North Gate',
+                defaultMode: 'WEIGHBRIDGE'
+            },
+            'br-dhad': {
+                name: 'Dhad APMC Yard',
+                code: 'BR-DHD',
+                license: 'MH/DHD/APMC-406',
+                address: 'Dhad Road, Buldhana District',
+                phone: '07264-242406',
+                cashier: 'Narayan Sharma',
+                defaultGate: 'Gate No. 1',
+                defaultMode: 'MANUAL_YARD'
+            }
+        };
+
+        function getActiveBranchId() {
+            const urlParams = new URLSearchParams(window.location.search);
+            let bId = urlParams.get('branch_id');
+            if (bId && BRANCH_CONFIGS[bId]) return bId;
+            try {
+                const u = JSON.parse(localStorage.getItem('mandi_user'));
+                if (u && u.branch_id && BRANCH_CONFIGS[u.branch_id]) return u.branch_id;
+            } catch (_) {}
+            return 'br-chikhali';
+        }
+
+        function loadBranchDetails(bId) {
+            const b = BRANCH_CONFIGS[bId] || BRANCH_CONFIGS['br-chikhali'];
+            document.getElementById('branchSubtitle').innerText = `${b.name} (${b.code}) • Mandi License: ${b.license}`;
+            document.getElementById('branch_id_display').value = bId;
+            document.getElementById('mandi_license_display').value = b.license;
+            document.getElementById('branch_address_display').value = b.address;
+            document.getElementById('branch_phone_display').value = b.phone;
+            document.getElementById('cashier_incharge_display').value = b.cashier;
+            document.getElementById('navStockLink').href = `/branch/stock?branch_id=${bId}`;
+            document.getElementById('branchSelector').value = bId;
+
+            // Load saved settings from localStorage
+            const savedStr = localStorage.getItem('branch_settings_' + bId);
+            if (savedStr) {
+                try {
+                    const s = JSON.parse(savedStr);
+                    if (s.default_weighment_mode) document.getElementById('default_weighment_mode').value = s.default_weighment_mode;
+                    if (s.parchi_gate_no) document.getElementById('parchi_gate_no').value = s.parchi_gate_no;
+                    if (s.auto_print_parchi) document.getElementById('auto_print_parchi').value = s.auto_print_parchi;
+                    if (s.cash_drawer_warning_limit) document.getElementById('cash_drawer_warning_limit').value = s.cash_drawer_warning_limit;
+                    if (s.thermal_printer_width) document.getElementById('thermal_printer_width').value = s.thermal_printer_width;
+                    if (s.default_commodity) document.getElementById('default_commodity').value = s.default_commodity;
+                } catch (_) {}
+            } else {
+                document.getElementById('parchi_gate_no').value = b.defaultGate;
+                document.getElementById('default_weighment_mode').value = b.defaultMode;
+            }
+        }
+
+        function handleBranchSwitch(newBId) {
+            const currentUrl = new URL(window.location);
+            currentUrl.searchParams.set('branch_id', newBId);
+            window.history.pushState({}, '', currentUrl);
+            loadBranchDetails(newBId);
+            showToast('Loaded settings for ' + BRANCH_CONFIGS[newBId].name);
+        }
+
+        function saveBranchSettings(e) {
+            e.preventDefault();
+            const bId = document.getElementById('branchSelector').value;
+            const settings = {
+                branch_id: bId,
+                default_weighment_mode: document.getElementById('default_weighment_mode').value,
+                parchi_gate_no: document.getElementById('parchi_gate_no').value,
+                auto_print_parchi: document.getElementById('auto_print_parchi').value,
+                cash_drawer_warning_limit: document.getElementById('cash_drawer_warning_limit').value,
+                thermal_printer_width: document.getElementById('thermal_printer_width').value,
+                default_commodity: document.getElementById('default_commodity').value,
+                updated_at: new Date().toISOString()
+            };
+
+            // Save to localStorage
+            localStorage.setItem('branch_settings_' + bId, JSON.stringify(settings));
+
+            // Also attempt cloud sync
+            fetch('/api/branch/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(settings)
+            }).catch(function() {});
+
+            showToast('✓ Settings successfully saved for ' + BRANCH_CONFIGS[bId].name);
+            const statusEl = document.getElementById('saveStatusText');
+            statusEl.innerText = '✓ Saved to terminal memory (' + new Date().toLocaleTimeString() + ')';
+            setTimeout(() => { statusEl.innerText = ''; }, 4000);
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toastMsg');
+            toast.innerText = msg;
+            toast.style.display = 'block';
+            setTimeout(() => { toast.style.display = 'none'; }, 3000);
+        }
+
+        async function testPingCloud() {
+            const badge = document.getElementById('syncStatusBadge');
+            badge.innerText = '🔄 Pinging Cloud...';
+            badge.className = 'badge-pill badge-amber';
+            const t0 = performance.now();
+            try {
+                const res = await fetch('/api/admin/supabase/ping');
+                const t1 = performance.now();
+                if (res.ok) {
+                    badge.innerText = `● Connected (${Math.round(t1 - t0)}ms)`;
+                    badge.className = 'badge-pill badge-green';
+                    showToast(`Cloud PostgreSQL ping: ${Math.round(t1 - t0)}ms`);
+                } else {
+                    badge.innerText = '● Edge Offline';
+                    badge.className = 'badge-pill badge-blue';
+                }
+            } catch (_) {
+                badge.innerText = '● Local Standalone Mode';
+                badge.className = 'badge-pill badge-green';
+            }
+        }
+
+        window.onload = function() {
+            const activeId = getActiveBranchId();
+            loadBranchDetails(activeId);
+        };
+    </script>
+</body>
+</html>

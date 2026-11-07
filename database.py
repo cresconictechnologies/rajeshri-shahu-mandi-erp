@@ -786,7 +786,7 @@ def init_db():
         ("u-dewas-munim", "br-dhad", "dewas_munim", dhd_pw, "Dhad Yard Munim (Kailash Tiwari)", "9826055555", "BRANCH_MUNIM"),
         ("u-dhad-cashier", "br-dhad", "dhad_cashier", dhd_pw, "Dhad Cashier Lead", "9826055555", "BRANCH_CASHIER"),
         ("u-dhad-munim", "br-dhad", "dhad_munim", dhd_pw, "Dhad Yard Munim", "9826055555", "BRANCH_MUNIM"),
-        ("u-qc-chikhali", "br-chikhali", "qc_chikhali", qc_pw, "Babulal Meena", "9826077771", "QUALITY_INSPECTOR"),
+        ("u-qc-chikhali", "br-chikhali", "qc_chikhali", qc_pw, "Sanjay Patil", "9826077771", "QUALITY_INSPECTOR"),
         ("u-qc-varvand", "br-varvand", "qc_varvand", qc_pw, "Govind Solanki", "9826077772", "QUALITY_INSPECTOR"),
         ("u-qc-sarola", "br-sarola", "qc_sarola", qc_pw, "Ganesh Deshmukh", "9826077776", "QUALITY_INSPECTOR"),
         ("u-qc-dhad", "br-dhad", "qc_dhad", qc_pw, "Narayan Sharma", "9826077773", "QUALITY_INSPECTOR"),
@@ -797,7 +797,7 @@ def init_db():
 
     # Seed matching entries into inspectors table
     inspectors_seed = [
-        ("u-qc-chikhali", "br-chikhali", "Babulal Meena", "Quality Inspector (Chikhali Yard)", "9826077771"),
+        ("u-qc-chikhali", "br-chikhali", "Sanjay Patil", "Quality Inspector (Chikhali Yard)", "9826077771"),
         ("u-qc-varvand", "br-varvand", "Govind Solanki", "Quality Inspector (Varvand Yard)", "9826077772"),
         ("u-qc-sarola", "br-sarola", "Ganesh Deshmukh", "Quality Inspector (Sarola Maruti Yard)", "9826077776"),
         ("u-qc-dhad", "br-dhad", "Narayan Sharma", "Quality Inspector (Dhad Yard)", "9826077773"),
@@ -900,7 +900,7 @@ def seed_test_fixtures(conn=None):
         ("u-sarola", "br-sarola", "sarola", srl_pw, "Sarola Maruti Cashier", "9826066666", "BRANCH_CASHIER"),
         ("u-dewas-munim", "br-dhad", "dhad_munim", dhd_pw, "Kailash Tiwari (Dhad Cashier)", "9826055555", "BRANCH_MUNIM"),
         ("u-dewas-cashier", "br-dhad", "dhad_cashier", dhd_pw, "Kailash Tiwari (Dhad Cashier)", "9826055555", "BRANCH_CASHIER"),
-        ("u-qc-chikhali", "br-chikhali", "qc_chikhali", qc_pw, "Babulal Meena", "9826077771", "QUALITY_INSPECTOR"),
+        ("u-qc-chikhali", "br-chikhali", "qc_chikhali", qc_pw, "Sanjay Patil", "9826077771", "QUALITY_INSPECTOR"),
         ("u-qc-varvand", "br-varvand", "qc_varvand", qc_pw, "Govind Solanki", "9826077772", "QUALITY_INSPECTOR"),
         ("u-qc-sarola", "br-sarola", "qc_sarola", qc_pw, "Ganesh Deshmukh", "9826077776", "QUALITY_INSPECTOR"),
         ("u-qc-dhad", "br-dhad", "qc_dhad", qc_pw, "Narayan Sharma", "9826077773", "QUALITY_INSPECTOR"),
@@ -952,10 +952,10 @@ def seed_test_fixtures(conn=None):
     inspectors = [
         ("ins-1", None, "Mahesh Patidar", "Chief Assayer & Quality Lead", "9826011111"),
         ("ins-2", None, "Suresh Yadav", "Mandi Certified Inspector", "9826022222"),
-        ("ins-3", "br-chikhali", "Babulal Meena", "Chikhali Yard Sampler", "9826033333"),
+        ("ins-3", "br-chikhali", "Sanjay Patil", "Chikhali Yard Sampler", "9826033333"),
         ("ins-4", "br-varvand", "Govind Solanki", "Varvand Quality Inspector", "9826044444"),
         ("ins-5", "br-dhad", "Narayan Sharma", "Dhad Assayer", "9826055555"),
-        ("u-qc-chikhali", "br-chikhali", "Babulal Meena", "Quality Inspector (Chikhali Yard)", "9826077771"),
+        ("u-qc-chikhali", "br-chikhali", "Sanjay Patil", "Quality Inspector (Chikhali Yard)", "9826077771"),
         ("u-qc-varvand", "br-varvand", "Govind Solanki", "Quality Inspector (Varvand Yard)", "9826077772"),
         ("u-qc-dhad", "br-dhad", "Narayan Sharma", "Quality Inspector (Dhad Yard)", "9826077773"),
         ("u-qc-head", "br-chikhali", "Mahesh Patidar", "Chief Quality Assayer", "9826077774"),

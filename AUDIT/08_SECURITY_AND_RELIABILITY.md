@@ -126,7 +126,7 @@ However, the audit discovered **critical security vulnerabilities, severe creden
 - **Discovered Configuration:**
   ```javascript
   const STAFF_CREDENTIALS = {
-      'qc_chikhali': { pass: 'qc123', name: 'Babulal Meena', yard: 'CHK', yardName: 'Chikhali APMC Yard' },
+      'qc_chikhali': { pass: 'qc123', name: 'Sanjay Patil', yard: 'CHK', yardName: 'Chikhali APMC Yard' },
       'qc_varvand': { pass: 'qc123', name: 'Govind Solanki', yard: 'VRV', yardName: 'Varvand APMC Yard' },
       'qc_dhad': { pass: 'qc123', name: 'Narayan Sharma', yard: 'DHD', yardName: 'Dhad APMC Yard' },
       'admin': { pass: 'admin123', name: 'Super Admin', yard: 'CHK', yardName: 'Chikhali APMC Yard' }
@@ -304,7 +304,7 @@ All 76 application routes were audited for authorization barriers:
 - **Actual:** Lines 526-531 embed `STAFF_CREDENTIALS`:
   ```javascript
   const STAFF_CREDENTIALS = {
-      'qc_chikhali': { pass: 'qc123', name: 'Babulal Meena', yard: 'CHK', yardName: 'Chikhali APMC Yard' },
+      'qc_chikhali': { pass: 'qc123', name: 'Sanjay Patil', yard: 'CHK', yardName: 'Chikhali APMC Yard' },
       'qc_varvand': { pass: 'qc123', name: 'Govind Solanki', yard: 'VRV', yardName: 'Varvand APMC Yard' },
       'qc_dhad': { pass: 'qc123', name: 'Narayan Sharma', yard: 'DHD', yardName: 'Dhad APMC Yard' },
       'admin': { pass: 'admin123', name: 'Super Admin', yard: 'CHK', yardName: 'Chikhali APMC Yard' }

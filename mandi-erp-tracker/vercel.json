@@ -69,7 +69,7 @@
     },
     {
       "source": "/branch/settings",
-      "destination": "/portal.html"
+      "destination": "/branch-settings.html"
     },
     {
       "source": "/branch/dashboard",

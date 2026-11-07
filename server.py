@@ -817,7 +817,7 @@ MASTER_STAFF_CREDENTIALS = {
     "qc_chikhali": {
         "passwords": ["insp123", "qc123", "chk123"],
         "role": "QUALITY_INSPECTOR",
-        "full_name": "Babulal Meena (Chikhali QC)",
+        "full_name": "Sanjay Patil (Chikhali QC)",
         "branch_id": "br-chikhali",
         "phone": "9826077771"
     },

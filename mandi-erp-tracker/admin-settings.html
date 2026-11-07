@@ -1117,6 +1117,7 @@
             const accUser = SETTINGS_STAFF.find(u => u.role === 'ACCOUNTANT_HQ' || u.username === 'accountant') || {};
             const accName = accUser.full_name || 'Suraj (Chief Accountant HQ)';
             const accPhone = accUser.phone || '9822001123';
+            const accPass = accUser.password_hash || accUser.password || 'acc123';
 
             let html = `
                 <!-- 1. Central Accountant Card -->
@@ -1138,7 +1139,7 @@
                         </div>
                         <div>
                             <label style="font-size:12px; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">Password (Set or Keep Current) *</label>
-                            <input type="text" id="staff_acc_password" placeholder="acc123" value="acc123" required style="width:100%; padding:8px 10px; border:1.5px solid #f59e0b; border-radius:6px; font-size:13px; font-weight:700; color:#b45309; background:#fffbeb;">
+                            <input type="text" id="staff_acc_password" placeholder="acc123" value="${escapeHtml(accPass)}" required style="width:100%; padding:8px 10px; border:1.5px solid #f59e0b; border-radius:6px; font-size:13px; font-weight:700; color:#b45309; background:#fffbeb;">
                         </div>
                         <div>
                             <label style="font-size:12px; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">Mobile Number</label>
@@ -1161,10 +1162,12 @@
                     const defaultUsername = `cashier_${codeSlug}`;
 
                     // Look for existing user
-                    const existingCashier = SETTINGS_STAFF.find(u => u.branch_id === b.id || u.username === defaultUsername) || {};
+                    const existingCashier = SETTINGS_STAFF.find(u => (u.branch_id === b.id && (u.role === 'BRANCH_CASHIER' || u.role === 'BRANCH_MUNIM')) || (u.branch_id === b.id) || u.username === defaultUsername || u.username === codeSlug) || {};
                     const cName = existingCashier.full_name || `${b.name} Cashier`;
                     const cUser = existingCashier.username || defaultUsername;
                     const cPhone = existingCashier.phone || b.phone || '';
+                    const defaultPass = `${codeSlug}123`;
+                    const cPass = existingCashier.password_hash || existingCashier.password || defaultPass;
 
                     html += `
                         <div class="staff-card" data-branch-id="${b.id}" style="background:#f8fafc; border:1.5px solid var(--card-border); border-radius:12px; padding:16px;">
@@ -1185,7 +1188,7 @@
                                 </div>
                                 <div>
                                     <label style="font-size:12px; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">Password (Set or Keep Current) *</label>
-                                    <input type="text" id="staff_pass_${b.id}" placeholder="chikhali123" value="chikhali123" required style="width:100%; padding:8px 10px; border:1.5px solid #f59e0b; border-radius:6px; font-size:13px; font-weight:700; color:#b45309; background:#fffbeb;">
+                                    <input type="text" id="staff_pass_${b.id}" placeholder="${defaultPass}" value="${escapeHtml(cPass)}" required style="width:100%; padding:8px 10px; border:1.5px solid #f59e0b; border-radius:6px; font-size:13px; font-weight:700; color:#b45309; background:#fffbeb;">
                                 </div>
                                 <div>
                                     <label style="font-size:12px; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">Mobile Number</label>
@@ -1234,13 +1237,14 @@
 
                 if (nameEl && userEl) {
                     const uname = userEl.value.trim().toLowerCase();
+                    const existingU = SETTINGS_STAFF.find(u => u.username === uname || u.branch_id === b.id);
                     staffList.push({
-                        id: `usr-${uname}`,
+                        id: existingU ? existingU.id : `usr-${uname}`,
                         username: uname,
                         full_name: nameEl.value.trim(),
                         role: 'BRANCH_CASHIER',
                         branch_id: b.id,
-                        phone: phoneEl ? phoneEl.value.trim() : '',
+                        phone: phoneEl ? phoneEl.value.trim() : (b.phone || ''),
                         password: passEl ? passEl.value.trim() : ''
                     });
                 }
@@ -1254,8 +1258,9 @@
                 });
                 const d = await res.json();
                 if (d.success) {
-                    alert(`✓ All staff credentials saved successfully! (${staffList.length} staff accounts provisioned)`);
-                    loadSettingsStaff();
+                    alert(`✓ All staff credentials saved successfully in Supabase! (${staffList.length} staff accounts provisioned)`);
+                    await loadSettingsStaff();
+                    renderStep3StaffCards();
                 } else {
                     alert('Error saving staff: ' + (d.error || 'Server error'));
                 }

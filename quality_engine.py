@@ -1749,7 +1749,7 @@ Date & Time    : {date_str}
 Vehicle No     : {v_no}
 Farmer/Party   : {farmer}
 Commodity      : {comm}
-Yard Inspector : {qc.get('inspector_name', 'Babulal Meena')}
+Yard Inspector : {qc.get('inspector_name', 'Sanjay Patil')}
 ------------------------------------------------------
          PHYSICAL QUALITY & SORTEX REFRACTIONS
 ------------------------------------------------------

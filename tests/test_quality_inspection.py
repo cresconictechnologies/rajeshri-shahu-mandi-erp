@@ -191,7 +191,7 @@ class TestQualityAssayingEngine(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         self.assertIn("Mandi QC Assayer Mobile", res.text)
         self.assertIn("Farmer Details & Intake Lot", res.text)
-        self.assertIn("Babulal Meena", res.text)
+        self.assertIn("Sanjay Patil", res.text)
         self.assertIn("No Sign Required", res.text)
         self.assertNotIn("signaturePad", res.text)
 
@@ -251,7 +251,7 @@ class TestQualityAssayingEngine(unittest.TestCase):
             "farmer_phone": "9827099999",
             "vehicle_no": "MH-28-V-8821",
             "commodity_name": "Soyabean (Yellow)",
-            "inspector_name": "Babulal Meena",
+            "inspector_name": "Sanjay Patil",
             "inspector_signature": "",
             "moisture_pct": 11.2,
             "karda_pct": 1.1,
@@ -291,7 +291,7 @@ class TestQualityAssayingEngine(unittest.TestCase):
         self.assertIn("APMC YARD QUALITY ASSAYING CERTIFICATE", slip_text)
         self.assertIn(ticket_no, slip_text)
         self.assertIn("Devidas Patil", slip_text)
-        self.assertIn("Babulal Meena", slip_text)
+        self.assertIn("Sanjay Patil", slip_text)
 
         # 4. Cashier views pending tickets
         pending_res = self.client.get("/api/inspector/tickets/pending?branch_id=br-chikhali")
@@ -307,7 +307,7 @@ class TestQualityAssayingEngine(unittest.TestCase):
         detail_data = detail_res.json()
         self.assertTrue(detail_data["success"])
         self.assertEqual(detail_data["ticket"]["farmer_name"], "Devidas Patil")
-        self.assertEqual(detail_data["ticket"]["inspector_name"], "Babulal Meena")
+        self.assertEqual(detail_data["ticket"]["inspector_name"], "Sanjay Patil")
 
         # Cashier opens printable report
         report_res = self.client.get(f"/inspector/report/{ticket_no}")
@@ -320,7 +320,7 @@ class TestQualityAssayingEngine(unittest.TestCase):
         inv_res = self.client.post("/api/branch/invoices/create", data={
             "branch_id": "br-chikhali",
             "party_id": "p-farmer-1",
-            "inspector_name": "Babulal Meena",
+            "inspector_name": "Sanjay Patil",
             "commodity_name": "Soyabean (Yellow)",
             "rate_per_quintal": 4700.0,
             "weighment_mode": "MANUAL_YARD",
@@ -731,7 +731,7 @@ class TestQualityAssayingEngine(unittest.TestCase):
         inv_res = cashier_client.post("/api/branch/invoices/create", data={
             "branch_id": "br-chikhali",
             "party_id": party_id,
-            "inspector_name": "Babulal Meena",
+            "inspector_name": "Sanjay Patil",
             "commodity_name": "Soyabean (Yellow)",
             "rate_per_quintal": 4750.0,
             "weighment_mode": "MANUAL_YARD",

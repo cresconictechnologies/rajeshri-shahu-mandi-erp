@@ -990,12 +990,12 @@ export default async function handler(req, res) {
         // Target user lookup in Supabase
         let patchUrl = '';
         if (userId) {
-          patchUrl = ${supabaseUrl}/rest/v1/users?id=eq.;
+          patchUrl = `${supabaseUrl}/rest/v1/users?id=eq.${encodeURIComponent(userId)}`;
         } else if (username) {
-          patchUrl = ${supabaseUrl}/rest/v1/users?username=eq.;
+          patchUrl = `${supabaseUrl}/rest/v1/users?username=eq.${encodeURIComponent(username)}`;
         } else {
           // Default to admin
-          patchUrl = ${supabaseUrl}/rest/v1/users?username=eq.admin;
+          patchUrl = `${supabaseUrl}/rest/v1/users?username=eq.admin`;
         }
 
         const patchResp = await fetch(patchUrl, {
@@ -1018,7 +1018,7 @@ export default async function handler(req, res) {
         // If target was admin, also update system_settings owner_name if provided
         if ((username === 'admin' || (!username && !userId)) && fullName) {
           try {
-            await fetch(${supabaseUrl}/rest/v1/system_settings, {
+            await fetch(`${supabaseUrl}/rest/v1/system_settings`, {
               method: 'POST',
               headers: { ...headers, 'Prefer': 'resolution=merge-duplicates' },
               body: JSON.stringify({

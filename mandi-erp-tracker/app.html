@@ -499,7 +499,7 @@
                                 <span class="text-xs text-emerald-950 font-bold font-sans">/ Quintal</span>
                             </div>
                             <div class="text-xs text-slate-600 mt-1">
-                                Today's Mandi Corridor: <span class="font-mono font-bold text-slate-800">₹4,400 - ₹4,800</span>
+                                Today's Mandi Corridor: <span class="font-mono font-bold text-slate-800" id="corridorRange">₹6,500 - ₹7,500</span>
                             </div>
                         </div>
 
@@ -550,7 +550,7 @@ Admixture (Other Breed) % : <span id="slipAdmixture">--</span>
 ------------------------------------------------------
         APMC CORRIDOR RATE DISCOVERY & PRICING
 ------------------------------------------------------
-Today's Corridor : Rs. 4,400 - Rs. 4,800 / Qtl
+Today's Corridor : <span id="slipCorridor">Rs. 6,500 - Rs. 7,500 / Qtl</span>
 APMC FAQ Grade   : <span id="slipGrade">--</span>
 SUGGESTED RATE   : <span id="slipRate">--</span>
 ------------------------------------------------------
@@ -1239,29 +1239,30 @@ Mandi Cess       : 0% (APMC Deregulated)
         }
 
         function getCommodityConfig(val) {
-            if (!val) return { baseRate: 6850, stdMoisture: 10.0 };
+            if (!val) return COMMODITY_BENCHMARKS['Soyabean (Yellow)'];
             const clean = val.split(' - ')[0].trim();
             if (COMMODITY_BENCHMARKS[clean]) return COMMODITY_BENCHMARKS[clean];
+            
+            const cleanLower = clean.toLowerCase();
             for (const [k, cfg] of Object.entries(COMMODITY_BENCHMARKS)) {
-                if (clean.toLowerCase().includes(k.toLowerCase()) || k.toLowerCase().includes(clean.toLowerCase())) {
+                const kLower = k.toLowerCase();
+                if (cleanLower.includes('brazil') && kLower.includes('brazil')) return cfg;
+                if (cleanLower.includes('varun') && kLower.includes('varun')) return cfg;
+                if (cleanLower.includes('virat') && kLower.includes('virat')) return cfg;
+                if (cleanLower.includes('besan') && kLower.includes('besan')) return cfg;
+                if ((cleanLower.includes('bengal') || cleanLower.includes('red gram')) && (kLower.includes('bengal') || kLower.includes('red gram'))) return cfg;
+                if (cleanLower.includes('dollar') && kLower.includes('dollar')) return cfg;
+                if (cleanLower.includes('soya') && kLower.includes('soya')) return cfg;
+                if ((cleanLower.includes('rajma') && !cleanLower.includes('varun') && !cleanLower.includes('brazil')) && 
+                    (kLower.includes('rajma') && !kLower.includes('varun') && !kLower.includes('brazil'))) return cfg;
+            }
+
+            for (const [k, cfg] of Object.entries(COMMODITY_BENCHMARKS)) {
+                if (cleanLower.includes(k.toLowerCase()) || k.toLowerCase().includes(cleanLower)) {
                     return cfg;
                 }
             }
-            if (clean.includes('Dollar')) return { baseRate: 12500, stdMoisture: 10.0 };
-            if (clean.includes('Rajma')) return { baseRate: 8200, stdMoisture: 10.0 };
-            if (clean.includes('Masoor')) return { baseRate: 6200, stdMoisture: 10.0 };
-            if (clean.includes('Groundnut') || clean.includes('Bhuimug')) return { baseRate: 6200, stdMoisture: 8.0 };
-            if (clean.includes('Tur') || clean.includes('Arhar')) return { baseRate: 7100, stdMoisture: 10.0 };
-            if (clean.includes('Moong')) return { baseRate: 7600, stdMoisture: 10.0 };
-            if (clean.includes('Urad')) return { baseRate: 7400, stdMoisture: 10.0 };
-            if (clean.includes('Cotton') || clean.includes('Kapas')) return { baseRate: 7250, stdMoisture: 8.0 };
-            if (clean.includes('Mustard') || clean.includes('Rayda')) return { baseRate: 5450, stdMoisture: 9.0 };
-            if (clean.includes('Chana')) return { baseRate: 5500, stdMoisture: 10.0 };
-            if (clean.includes('Wheat') || clean.includes('Lokwan')) return { baseRate: 2850, stdMoisture: 10.0 };
-            if (clean.includes('Jowar') || clean.includes('Sorghum')) return { baseRate: 3100, stdMoisture: 11.0 };
-            if (clean.includes('Bajra')) return { baseRate: 2400, stdMoisture: 12.0 };
-            if (clean.includes('Maize') || clean.includes('Makka')) return { baseRate: 2350, stdMoisture: 12.0 };
-            return { baseRate: 6850, stdMoisture: 10.0 };
+            return COMMODITY_BENCHMARKS['Soyabean (Yellow)'];
         }
 
         function recalculateRate() {
@@ -1271,16 +1272,33 @@ Mandi Cess       : 0% (APMC Deregulated)
             const slipGrade = document.getElementById('slipGrade');
             const valRateEl = document.getElementById('valRate');
             const slipRateEl = document.getElementById('slipRate');
+            const corridorRangeEl = document.getElementById('corridorRange');
+            const slipCorridorEl = document.getElementById('slipCorridor');
+
+            const commVal = document.getElementById('inpCommodity')?.value || 'Soyabean (Yellow)';
+            const commCfg = getCommodityConfig(commVal);
+            const baseRate = commCfg.baseRate;
+            const floor = commCfg.minRate || Math.round(baseRate * 0.95);
+            const ceiling = commCfg.maxRate || Math.round(baseRate * 1.05);
+            const stdMoisture = commCfg.stdMoisture || 10.0;
+
+            // Always synchronize corridor range in both UI and thermal slip
+            if (corridorRangeEl) {
+                corridorRangeEl.innerText = `₹${floor.toLocaleString('en-IN')} - ₹${ceiling.toLocaleString('en-IN')}`;
+            }
+            if (slipCorridorEl) {
+                slipCorridorEl.innerText = `Rs. ${floor.toLocaleString('en-IN')} - Rs. ${ceiling.toLocaleString('en-IN')} / Qtl`;
+            }
 
             if (!moistInput) {
                 if (slipMoisture) slipMoisture.innerText = '--';
                 if (badgeGrade) {
-                    badgeGrade.innerText = 'Awaiting Assaying';
-                    badgeGrade.className = 'text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-full border border-slate-200';
+                    badgeGrade.innerText = 'Benchmark Target (Awaiting Assaying)';
+                    badgeGrade.className = 'text-xs font-bold text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full border border-emerald-300';
                 }
-                if (slipGrade) slipGrade.innerText = '--';
-                if (valRateEl) valRateEl.innerText = '₹ --';
-                if (slipRateEl) slipRateEl.innerText = '--';
+                if (slipGrade) slipGrade.innerText = 'Standard FAQ Benchmark';
+                if (valRateEl) valRateEl.innerText = `₹ ${baseRate.toLocaleString('en-IN')}`;
+                if (slipRateEl) slipRateEl.innerText = `Rs. ${baseRate.toLocaleString('en-IN')}.00 / Quintal (Target)`;
                 return;
             }
 
@@ -1288,28 +1306,32 @@ Mandi Cess       : 0% (APMC Deregulated)
             if (isNaN(moisture)) return;
             if (slipMoisture) slipMoisture.innerText = `${moisture.toFixed(1)}%`;
 
-            const commVal = document.getElementById('inpCommodity')?.value || 'Soyabean (Yellow)';
-            const commCfg = getCommodityConfig(commVal);
-            const baseRate = commCfg.baseRate;
-            const stdMoisture = commCfg.stdMoisture;
-
             let rate = baseRate;
             let grade = 'Grade 1 (Premium FAQ)';
             let badgeClass = 'text-xs font-bold text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full border border-emerald-300';
 
-            if (moisture <= (stdMoisture + 0.5)) {
-                rate = Math.round(baseRate * (4725 / 4650));
+            if (moisture <= stdMoisture) {
+                // Dry / Premium grain: premium incentive up to ceiling
+                const bonusPct = Math.min(0.04, (stdMoisture - moisture) * 0.01);
+                rate = Math.round(baseRate * (1 + bonusPct));
                 grade = 'Grade 1 (Premium FAQ)';
                 badgeClass = 'text-xs font-bold text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full border border-emerald-300';
-            } else if (moisture <= (stdMoisture + 2.0)) {
-                rate = Math.round(baseRate * (4620 / 4650));
+            } else if (moisture <= (stdMoisture + 1.5)) {
+                // Normal acceptable trading range: slight discount
+                const discountPct = (moisture - stdMoisture) * 0.008;
+                rate = Math.round(baseRate * (1 - discountPct));
                 grade = 'Grade 2 (Standard FAQ)';
                 badgeClass = 'text-xs font-bold text-amber-800 bg-amber-100 px-3 py-1 rounded-full border border-amber-300';
             } else {
-                rate = Math.round(baseRate * (4350 / 4650));
+                // High moisture: standard mandi deduction 1.5% per 1% excess moisture
+                const excess = moisture - stdMoisture;
+                rate = Math.round(baseRate * (1 - (excess * 0.015)));
                 grade = 'Grade 3 (Non-FAQ / Discounted)';
                 badgeClass = 'text-xs font-bold text-red-800 bg-red-100 px-3 py-1 rounded-full border border-red-300';
             }
+
+            // Strictly constrain rate within official Mandi Corridor [floor, ceiling]
+            rate = Math.max(floor, Math.min(ceiling, rate));
 
             if (badgeGrade) {
                 badgeGrade.innerText = grade;

@@ -1570,7 +1570,7 @@ Mandi Cess       : 0% (APMC Deregulated)
             // Fallback to LAN if not reachable on cloud
             if (!syncSuccess) {
                 try {
-                    const host = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? '127.0.0.1' : (window.location.hostname || '192.168.0.140');
+                    const host = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? '127.0.0.1' : (window.location.hostname || 'localhost');
                     const lanRes = await fetch(`http://${host}:8080/api/inspector/submit-qc`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },

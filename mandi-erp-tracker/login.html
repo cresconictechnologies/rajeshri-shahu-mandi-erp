@@ -313,6 +313,17 @@
 
         function completeLogin(user) {
         localStorage.setItem('mandi_user', JSON.stringify(user));
+        // Synchronize inspector terminal session
+        if (user.role === 'INSPECTOR' || user.role === 'QUALITY_INSPECTOR' || user.panel === 'inspector' || (user.username && (user.username === 'inspector' || user.username.startsWith('qc_')))) {
+            const qcSession = {
+                username: user.username || 'inspector',
+                name: user.name || 'Quality Inspector',
+                yard: (user.branch_id || 'br-chikhali').replace('br-', '').toUpperCase(),
+                yardName: user.branch_name || 'Chikhali APMC Yard',
+                role: 'inspector'
+            };
+            localStorage.setItem('mandi_qc_user', JSON.stringify(qcSession));
+        }
         const urlParams = new URLSearchParams(window.location.search);
         const redirectUrl = urlParams.get('redirect');
 
@@ -378,7 +389,11 @@
                 'varvand': { name: 'Govind Solanki (Varvand Cashier)', role: 'BRANCH_CASHIER', branch_id: 'br-varvand', branch_name: 'Varvand Branch', yard_code: 'BR-VRV', mandi_license: 'MH/VRV/APMC-204' },
                 'sarola': { name: 'Ganesh Deshmukh (Sarola Cashier)', role: 'BRANCH_CASHIER', branch_id: 'br-sarola', branch_name: 'Sarola Branch', yard_code: 'BR-SRL', mandi_license: 'MH/SRL/APMC-305' },
                 'dhad': { name: 'Narayan Sharma (Dhad Cashier)', role: 'BRANCH_CASHIER', branch_id: 'br-dhad', branch_name: 'Dhad Branch', yard_code: 'BR-DHD', mandi_license: 'MH/DHD/APMC-406' },
-                'inspector': { name: 'Sanjay Patil (Chikhali Inspector)', role: 'INSPECTOR', branch_id: 'br-chikhali', branch_name: 'Chikhali APMC Main Mandi', yard_code: 'CHK' }
+                'inspector': { name: 'Universal Quality Inspector (Chikhali APMC)', role: 'QUALITY_INSPECTOR', panel: 'inspector', branch_id: 'br-chikhali', branch_name: 'Chikhali APMC Main Mandi', yard_code: 'CHK' },
+                'qc_chikhali': { name: 'Sanjay Patil (Chikhali Inspector)', role: 'QUALITY_INSPECTOR', panel: 'inspector', branch_id: 'br-chikhali', branch_name: 'Chikhali APMC Main Mandi', yard_code: 'CHK' },
+                'qc_varvand': { name: 'Govind Solanki (Varvand Inspector)', role: 'QUALITY_INSPECTOR', panel: 'inspector', branch_id: 'br-varvand', branch_name: 'Varvand APMC Yard', yard_code: 'VRV' },
+                'qc_sarola': { name: 'Ganesh Deshmukh (Sarola Inspector)', role: 'QUALITY_INSPECTOR', panel: 'inspector', branch_id: 'br-sarola', branch_name: 'Sarola Maruti APMC Yard', yard_code: 'SRL' },
+                'qc_dhad': { name: 'Narayan Sharma (Dhad Inspector)', role: 'QUALITY_INSPECTOR', panel: 'inspector', branch_id: 'br-dhad', branch_name: 'Dhad APMC Yard', yard_code: 'DHD' }
             };
 
             if (LOCAL_USERS[uLower]) {

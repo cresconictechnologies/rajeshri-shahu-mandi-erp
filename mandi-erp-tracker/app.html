@@ -286,21 +286,23 @@
                     <div>
                         <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Target Commodity *</label>
                         <select id="inpCommodity" class="w-full text-sm font-semibold bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-slate-900 focus:bg-white focus:border-emerald-500 outline-none transition">
-                            <option value="Soyabean (Yellow)" selected>Soyabean (Yellow) - Benchmark: 10.0% Moisture</option>
-                            <option value="Wheat (Lokwan)">Wheat (Lokwan) - Benchmark: 10.0% Moisture</option>
-                            <option value="Chana (Desi) / Harbhara">Chana (Desi) / Harbhara - Benchmark: 10.0% Moisture</option>
-                            <option value="Dollar Chana (Kabuli)">Dollar Chana (Kabuli) - Benchmark: 10.0% Moisture</option>
-                            <option value="Rajma (Red Kidney Beans)">Rajma (Red Kidney Beans) - Benchmark: 10.0% Moisture</option>
-                            <option value="Masoor (Red Lentil)">Masoor (Red Lentil) - Benchmark: 10.0% Moisture</option>
-                            <option value="Tur / Arhar">Tur / Arhar - Benchmark: 10.0% Moisture</option>
-                            <option value="Moong (Green Gram)">Moong (Green Gram) - Benchmark: 10.0% Moisture</option>
-                            <option value="Urad (Black Gram)">Urad (Black Gram) - Benchmark: 10.0% Moisture</option>
-                            <option value="Groundnut / Bhuimug">Groundnut / Bhuimug - Benchmark: 8.0% Moisture</option>
-                            <option value="Cotton / Kapas">Cotton / Kapas - Benchmark: 8.0% Moisture</option>
-                            <option value="Mustard (Rayda)">Mustard (Rayda) - Benchmark: 9.0% Moisture</option>
-                            <option value="Maize (Makka)">Maize (Makka) - Benchmark: 12.0% Moisture</option>
-                            <option value="Jowar / Sorghum">Jowar / Sorghum - Benchmark: 11.0% Moisture</option>
-                            <option value="Bajra / Pearl Millet">Bajra / Pearl Millet - Benchmark: 12.0% Moisture</option>
+                            <option value="Soyabean (Yellow)" selected>Soyabean (Yellow / सोयाबीन) - Benchmark: 10.0% Moisture (Target: ₹6,850)</option>
+                            <option value="Dollar Chana (Kabuli)">Dollar Chana (Kabuli / डॉलर चना) - Benchmark: 10.0% Moisture (Target: ₹7,560)</option>
+                            <option value="Rajma (Red Kidney Beans)">Rajma (Red Kidney Beans / राजमा) - Benchmark: 10.0% Moisture (Target: ₹7,650)</option>
+                            <option value="Rajma (Varun)">Rajma (Varun / वरुण राजमा) - Benchmark: 10.0% Moisture (Target: ₹5,450)</option>
+                            <option value="Virat (Chickpea)">Virat (Chickpea / विराट चना) - Benchmark: 10.0% Moisture (Target: ₹6,800)</option>
+                            <option value="Rajma (Brazil)">Rajma (Brazil / ब्राझील राजमा) - Benchmark: 10.0% Moisture (Target: ₹5,620)</option>
+                            <option value="Bengal Gram / Red Gram">Bengal Gram / Red Gram (लाल चना) - Benchmark: 10.0% Moisture (Target: ₹6,300)</option>
+                            <option value="Besan (Gram Flour)">Besan (Gram Flour / बेसन) - Benchmark: 10.0% Moisture (Target: ₹4,475)</option>
+                            <option value="Chana (Desi) / Harbhara">Chana (Desi) / Harbhara - Benchmark: 10.0% Moisture (Target: ₹5,900)</option>
+                            <option value="Wheat (Lokwan)">Wheat (Lokwan / गहू) - Benchmark: 10.0% Moisture (Target: ₹2,950)</option>
+                            <option value="Tur / Arhar">Tur / Arhar (तूर) - Benchmark: 11.0% Moisture (Target: ₹8,200)</option>
+                            <option value="Mustard (Rayda)">Mustard (Rayda / मोहरी) - Benchmark: 9.0% Moisture (Target: ₹5,400)</option>
+                            <option value="Maize (Makka)">Maize (Makka / मका) - Benchmark: 12.0% Moisture (Target: ₹2,250)</option>
+                            <option value="Bajra / Pearl Millet">Bajra / Pearl Millet (बाजरी) - Benchmark: 12.0% Moisture (Target: ₹2,400)</option>
+                            <option value="Cotton / Kapas">Cotton / Kapas (कापूस) - Benchmark: 8.0% Moisture (Target: ₹7,250)</option>
+                            <option value="Groundnut / Bhuimug">Groundnut / Bhuimug (भुईमूग) - Benchmark: 8.0% Moisture (Target: ₹6,200)</option>
+                            <option value="Masoor (Red Lentil)">Masoor (Red Lentil / मसूर) - Benchmark: 10.0% Moisture (Target: ₹6,200)</option>
                         </select>
                     </div>
                 </div>
@@ -597,9 +599,26 @@ Mandi Cess       : 0% (APMC Deregulated)
 
         function getCurrentUser() {
             try {
+                // 1. Check dedicated inspector session
                 const sessionRaw = localStorage.getItem('mandi_qc_user');
                 if (sessionRaw) {
                     return JSON.parse(sessionRaw);
+                }
+                // 2. Check general Mandi ERP login session
+                const mandiUserRaw = localStorage.getItem('mandi_user');
+                if (mandiUserRaw) {
+                    const mu = JSON.parse(mandiUserRaw);
+                    if (mu && (mu.role === 'INSPECTOR' || mu.role === 'QUALITY_INSPECTOR' || mu.panel === 'inspector' || mu.role === 'SUPER_ADMIN' || mu.role === 'ACCOUNTANT_HQ' || mu.role === 'BRANCH_CASHIER')) {
+                        const session = {
+                            username: mu.username || 'inspector',
+                            name: mu.name || 'Quality Inspector',
+                            yard: (mu.branch_id || 'br-chikhali').replace('br-', '').toUpperCase(),
+                            yardName: mu.branch_name || 'Chikhali APMC Yard',
+                            role: mu.role === 'SUPER_ADMIN' ? 'admin' : 'inspector'
+                        };
+                        localStorage.setItem('mandi_qc_user', JSON.stringify(session));
+                        return session;
+                    }
                 }
             } catch(e) {}
             return null;
@@ -608,19 +627,20 @@ Mandi Cess       : 0% (APMC Deregulated)
         function checkAuthSession() {
             try {
                 const session = getCurrentUser();
-                if (session && STAFF_CREDENTIALS[session.username]) {
-                    const official = STAFF_CREDENTIALS[session.username];
-                    // Strict security guardrail: Lock inspector to HQ Accountant provisioned yard even if tampered
+                if (session) {
+                    const uKey = (session.username || '').toLowerCase();
+                    const official = STAFF_CREDENTIALS[uKey] || STAFF_CREDENTIALS['inspector'];
                     if (session.username !== 'admin') {
-                        session.yard = official.yard;
-                        session.yardName = official.yardName;
-                        session.name = official.name;
+                        session.yard = session.yard || (official ? official.yard : 'CHK');
+                        session.yardName = session.yardName || (official ? official.yardName : 'Chikhali APMC Yard');
+                        session.name = session.name || (official ? official.name : 'Quality Inspector');
                         session.role = 'inspector';
                     } else {
                         session.role = 'admin';
                     }
                     localStorage.setItem('mandi_qc_user', JSON.stringify(session));
                     applyUserSession(session);
+                    showLoginModal(false);
                     return true;
                 }
             } catch(e) {}
@@ -750,6 +770,7 @@ Mandi Cess       : 0% (APMC Deregulated)
         // Initialize session on page load
         document.addEventListener('DOMContentLoaded', () => {
             checkAuthSession();
+            fetchLiveMandiRates();
             checkCloudSyncNow();
             setInterval(checkCloudSyncNow, 30000);
             // Bind input sync to thermal slip
@@ -1167,26 +1188,58 @@ Mandi Cess       : 0% (APMC Deregulated)
         }
 
         const COMMODITY_BENCHMARKS = {
-            'Dollar Chana (Kabuli)': { baseRate: 12500, stdMoisture: 10.0 },
-            'Rajma (Red Kidney Beans)': { baseRate: 8200, stdMoisture: 10.0 },
-            'Moong (Green Gram)': { baseRate: 7600, stdMoisture: 10.0 },
-            'Urad (Black Gram)': { baseRate: 7400, stdMoisture: 10.0 },
-            'Cotton / Kapas': { baseRate: 7250, stdMoisture: 8.0 },
-            'Tur / Arhar': { baseRate: 7100, stdMoisture: 10.0 },
-            'Masoor (Red Lentil)': { baseRate: 6200, stdMoisture: 10.0 },
-            'Groundnut / Bhuimug': { baseRate: 6200, stdMoisture: 8.0 },
-            'Chana (Desi) / Harbhara': { baseRate: 5500, stdMoisture: 10.0 },
-            'Chana (Desi)': { baseRate: 5500, stdMoisture: 10.0 },
-            'Mustard (Rayda)': { baseRate: 5450, stdMoisture: 9.0 },
-            'Soyabean (Yellow)': { baseRate: 4650, stdMoisture: 10.0 },
-            'Jowar / Sorghum': { baseRate: 3100, stdMoisture: 11.0 },
-            'Wheat (Lokwan)': { baseRate: 2850, stdMoisture: 10.0 },
-            'Bajra / Pearl Millet': { baseRate: 2400, stdMoisture: 12.0 },
-            'Maize (Makka)': { baseRate: 2350, stdMoisture: 12.0 }
+            'Soyabean (Yellow)': { baseRate: 6850, minRate: 6500, maxRate: 7500, stdMoisture: 10.0 },
+            'Soybean': { baseRate: 6850, minRate: 6500, maxRate: 7500, stdMoisture: 10.0 },
+            'Dollar Chana (Kabuli)': { baseRate: 7560, minRate: 7400, maxRate: 7600, stdMoisture: 10.0 },
+            'Dollar (Chickpea)': { baseRate: 7560, minRate: 7400, maxRate: 7600, stdMoisture: 10.0 },
+            'Rajma (Red Kidney Beans)': { baseRate: 7650, minRate: 7000, maxRate: 8200, stdMoisture: 10.0 },
+            'Rajma (Kidney Beans)': { baseRate: 7650, minRate: 7000, maxRate: 8200, stdMoisture: 10.0 },
+            'Rajma (Varun)': { baseRate: 5450, minRate: 5000, maxRate: 6000, stdMoisture: 10.0 },
+            'Virat (Chickpea)': { baseRate: 6800, minRate: 6400, maxRate: 7200, stdMoisture: 10.0 },
+            'Rajma (Brazil)': { baseRate: 5620, minRate: 5200, maxRate: 6000, stdMoisture: 10.0 },
+            'Bengal Gram / Red Gram': { baseRate: 6300, minRate: 6000, maxRate: 6800, stdMoisture: 10.0 },
+            'Besan (Gram Flour)': { baseRate: 4475, minRate: 4200, maxRate: 4800, stdMoisture: 10.0 },
+            'Chana (Desi) / Harbhara': { baseRate: 5900, minRate: 5600, maxRate: 6400, stdMoisture: 10.0 },
+            'Chana (Desi)': { baseRate: 5900, minRate: 5600, maxRate: 6400, stdMoisture: 10.0 },
+            'Tur / Arhar': { baseRate: 8200, minRate: 7800, maxRate: 8800, stdMoisture: 11.0 },
+            'Wheat (Lokwan)': { baseRate: 2950, minRate: 2750, maxRate: 3300, stdMoisture: 10.0 },
+            'Mustard (Rayda)': { baseRate: 5400, minRate: 5200, maxRate: 5650, stdMoisture: 9.0 },
+            'Maize (Makka)': { baseRate: 2250, minRate: 2100, maxRate: 2400, stdMoisture: 12.0 },
+            'Bajra / Pearl Millet': { baseRate: 2400, minRate: 2100, maxRate: 2700, stdMoisture: 12.0 },
+            'Cotton / Kapas': { baseRate: 7250, minRate: 6800, maxRate: 7600, stdMoisture: 8.0 },
+            'Groundnut / Bhuimug': { baseRate: 6200, minRate: 5500, maxRate: 7200, stdMoisture: 8.0 },
+            'Masoor (Red Lentil)': { baseRate: 6200, minRate: 5800, maxRate: 6600, stdMoisture: 10.0 }
         };
 
+        // Live Mandi Rates Dynamic Synchronizer
+        async function fetchLiveMandiRates() {
+            try {
+                const resp = await fetch('/api/portal?action=rates');
+                if (resp.ok) {
+                    const data = await resp.json();
+                    const rates = data.rates || data.daily_rates || [];
+                    if (Array.isArray(rates) && rates.length > 0) {
+                        rates.forEach(r => {
+                            const cName = r.commodity_name || '';
+                            const target = parseFloat(r.target_rate_per_qtl || r.rate || 0);
+                            const minR = parseFloat(r.min_rate_per_qtl || 0);
+                            const maxR = parseFloat(r.max_rate_per_qtl || 0);
+                            const moist = parseFloat(r.standard_moisture_pct || 10.0);
+                            if (target > 0) {
+                                COMMODITY_BENCHMARKS[cName] = { baseRate: target, minRate: minR, maxRate: maxR, stdMoisture: moist };
+                            }
+                        });
+                        console.log('Synchronized live mandi rates from Central HQ Accountant.');
+                        recalculateRate();
+                    }
+                }
+            } catch(err) {
+                console.warn('Live rates sync error:', err);
+            }
+        }
+
         function getCommodityConfig(val) {
-            if (!val) return { baseRate: 4650, stdMoisture: 10.0 };
+            if (!val) return { baseRate: 6850, stdMoisture: 10.0 };
             const clean = val.split(' - ')[0].trim();
             if (COMMODITY_BENCHMARKS[clean]) return COMMODITY_BENCHMARKS[clean];
             for (const [k, cfg] of Object.entries(COMMODITY_BENCHMARKS)) {
@@ -1208,7 +1261,7 @@ Mandi Cess       : 0% (APMC Deregulated)
             if (clean.includes('Jowar') || clean.includes('Sorghum')) return { baseRate: 3100, stdMoisture: 11.0 };
             if (clean.includes('Bajra')) return { baseRate: 2400, stdMoisture: 12.0 };
             if (clean.includes('Maize') || clean.includes('Makka')) return { baseRate: 2350, stdMoisture: 12.0 };
-            return { baseRate: 4650, stdMoisture: 10.0 };
+            return { baseRate: 6850, stdMoisture: 10.0 };
         }
 
         function recalculateRate() {
@@ -1579,7 +1632,7 @@ Please check internet connection or LAN Wi-Fi connection to Branch Server.`);
             try {
                 const resp = await fetch('/api/supabase/status', { cache: 'no-store' })
                     .catch(() => fetch('/api/supabase-status', { cache: 'no-store' }))
-                    .catch(() => fetch('http://192.168.0.140:8080/api/supabase/status', { cache: 'no-store' }));
+                    .catch(() => fetch('/api/supabase/status', { cache: 'no-store' }));
                 const data = await resp.json();
                 if (data.status === 'CONNECTED' || data.online) {
                     if (dot) dot.className = 'w-2 h-2 rounded-full bg-emerald-600 animate-pulse';
@@ -1614,7 +1667,7 @@ Please check internet connection or LAN Wi-Fi connection to Branch Server.`);
                 let endpoint = '/api/system/updates/status';
                 const resp = await fetch(endpoint)
                     .catch(() => fetch('/api/system-updates'))
-                    .catch(() => fetch('http://192.168.0.140:8080/api/system/updates/status'));
+                    .catch(() => fetch('/api/system/updates/status'));
                 const data = await resp.json();
                 if (data.success) {
                     if (badge) {
@@ -1677,7 +1730,7 @@ Please check internet connection or LAN Wi-Fi connection to Branch Server.`);
                     </span>
                 </div>
                 <div id="appSysNote" class="text-xs text-slate-700 leading-relaxed">
-                    <strong>Master PC Host:</strong> <code>192.168.0.140:8080</code><br>
+                    <strong>Master PC Host:</strong> <code></code><br>
                     <strong>QC Assayer Engine:</strong> Multi-Spectral Norm-Chroma Assayer v3.0<br>
                     <strong>Deployment:</strong> Vercel Edge + Yard Local LAN.
                 </div>

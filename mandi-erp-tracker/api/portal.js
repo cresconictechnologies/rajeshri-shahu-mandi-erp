@@ -78,10 +78,15 @@ export default async function handler(req, res) {
                           (username === 'accountant' && (password === 'acc123' || password === 'suraj123')) ||
                           (username === 'suraj' && (password === 'acc123' || password === 'suraj123')) ||
                           (username === 'admin' && (password === 'admin123' || password === 'admin')) ||
-                          (username === 'chikhali' && (password === 'chk123' || password === 'chikhali123'));
+                          (username === 'chikhali' && (password === 'chk123' || password === 'chikhali123')) ||
+                          (username === 'varvand' && (password === 'vrv123' || password === 'varvand123')) ||
+                          (username === 'sarola' && (password === 'srl123' || password === 'sarola123')) ||
+                          (username === 'dhad' && (password === 'dhd123' || password === 'dhad123')) ||
+                          ((username === 'inspector' || username.startsWith('qc_') || u.role === 'QUALITY_INSPECTOR' || u.role === 'INSPECTOR') && 
+                           (password === 'insp123' || password === 'qc123' || password === 'inspector' || password === 'insp@123' || password === '123456' || password === 'chk123' || password === 'vrv123' || password === 'srl123' || password === 'dhd123'));
 
           if (isMatch) {
-            const panel = u.role === 'SUPER_ADMIN' ? 'admin' : (u.role === 'ACCOUNTANT_HQ' ? 'accountant' : (u.role === 'QUALITY_INSPECTOR' ? 'inspector' : 'branch'));
+            const panel = u.role === 'SUPER_ADMIN' ? 'admin' : (u.role === 'ACCOUNTANT_HQ' ? 'accountant' : ((u.role === 'QUALITY_INSPECTOR' || u.role === 'INSPECTOR' || username === 'inspector' || username.startsWith('qc_')) ? 'inspector' : 'branch'));
             const bId = u.branch_id || (u.role === 'ACCOUNTANT_HQ' || u.role === 'SUPER_ADMIN' ? 'all' : 'br-chikhali');
             const bName = u.branch_name || (bId === 'br-chikhali' ? 'Chikhali APMC Main Mandi' : (bId === 'br-varvand' ? 'Varvand APMC Yard' : (bId === 'br-sarola' ? 'Sarola Maruti APMC Yard' : (bId === 'br-dhad' ? 'Dhad APMC Yard' : 'HQ Central Command'))));
             const yCode = bId !== 'all' ? bId.replace('br-', '').toUpperCase() : 'HQ';
@@ -119,7 +124,11 @@ export default async function handler(req, res) {
         'varvand': { name: 'Govind Solanki (Varvand Cashier)', role: 'BRANCH_CASHIER', panel: 'branch', branch_id: 'br-varvand', yard_code: 'VRV', branch_name: 'Varvand APMC Yard', passwords: ['vrv123', 'vrv@123', 'varvand123', '123456', 'insp123'] },
         'sarola': { name: 'Ganesh Deshmukh (Sarola Cashier)', role: 'BRANCH_CASHIER', panel: 'branch', branch_id: 'br-sarola', yard_code: 'SRL', branch_name: 'Sarola Maruti APMC Yard', passwords: ['srl123', 'srl@123', 'sarola123', '123456', 'insp123'] },
         'dhad': { name: 'Narayan Sharma (Dhad Cashier)', role: 'BRANCH_CASHIER', panel: 'branch', branch_id: 'br-dhad', yard_code: 'DHD', branch_name: 'Dhad APMC Yard', passwords: ['dhd123', 'dhd@123', 'dhad123', '123456', 'insp123'] },
-        'inspector': { name: 'Universal Quality Inspector', role: 'QUALITY_INSPECTOR', panel: 'inspector', branch_id: 'br-chikhali', yard_code: 'CHK', branch_name: 'Chikhali APMC Yard', passwords: ['insp123', 'qc123', 'insp@123', '123456'] }
+        'inspector': { name: 'Universal Quality Inspector (Chikhali APMC)', role: 'QUALITY_INSPECTOR', panel: 'inspector', branch_id: 'br-chikhali', yard_code: 'CHK', branch_name: 'Chikhali APMC Main Mandi', passwords: ['insp123', 'qc123', 'insp@123', 'inspector123', 'inspector', '123456', 'chk123'] },
+        'qc_chikhali': { name: 'Sanjay Patil (Chikhali Inspector)', role: 'QUALITY_INSPECTOR', panel: 'inspector', branch_id: 'br-chikhali', yard_code: 'CHK', branch_name: 'Chikhali APMC Main Mandi', passwords: ['insp123', 'chk123', 'qc123', '123456'] },
+        'qc_varvand': { name: 'Govind Solanki (Varvand Inspector)', role: 'QUALITY_INSPECTOR', panel: 'inspector', branch_id: 'br-varvand', yard_code: 'VRV', branch_name: 'Varvand APMC Yard', passwords: ['insp123', 'vrv123', 'qc123', '123456'] },
+        'qc_sarola': { name: 'Ganesh Deshmukh (Sarola Inspector)', role: 'QUALITY_INSPECTOR', panel: 'inspector', branch_id: 'br-sarola', yard_code: 'SRL', branch_name: 'Sarola Maruti APMC Yard', passwords: ['insp123', 'srl123', 'qc123', '123456'] },
+        'qc_dhad': { name: 'Narayan Sharma (Dhad Inspector)', role: 'QUALITY_INSPECTOR', panel: 'inspector', branch_id: 'br-dhad', yard_code: 'DHD', branch_name: 'Dhad APMC Yard', passwords: ['insp123', 'dhd123', 'qc123', '123456'] }
       };
 
       if (STAFF_DIRECTORY[username]) {

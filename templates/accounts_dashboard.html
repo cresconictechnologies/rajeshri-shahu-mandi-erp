@@ -36,6 +36,40 @@
             background: #f0fdf4 !important;
         }
     </style>
+
+    <style>
+        @media print {
+            body > *:not(#pdfViewerModal) {
+                display: none !important;
+            }
+            #pdfViewerModal {
+                display: block !important;
+                position: fixed !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 100vw !important;
+                height: 100vh !important;
+                background: white !important;
+                padding: 0 !important;
+                z-index: 9999999 !important;
+            }
+            #pdfViewerModal > div {
+                max-width: 100% !important;
+                height: 100% !important;
+                border-radius: 0 !important;
+                border: none !important;
+                box-shadow: none !important;
+            }
+            #pdfViewerModal > div > div:first-child {
+                display: none !important;
+            }
+            #pdfPrintIframe {
+                width: 100% !important;
+                height: 100% !important;
+            }
+        }
+    </style>
+
 </head>
 <body>
     <!-- HEADER CARD (3-CLUSTER STANDARD) -->
@@ -807,6 +841,9 @@
                         </button>
                         <button class="btn btn-secondary" onclick="shareAllPartiesWhatsApp()" style="background:#25D366; color:#fff; font-weight:800; font-size:12.5px; padding:7px 14px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; border:none; box-shadow:0 2px 4px rgba(37,211,102,0.3);">
                             <span>💬</span> WhatsApp
+                        </button>
+                        <button class="btn btn-secondary" onclick="printAllPartiesReport()" style="font-weight:700; font-size:12.5px; padding:7px 12px; border-radius:8px; display:inline-flex; align-items:center; gap:5px;">
+                            <span>🖨️</span> Print
                         </button>
                     </div>
                 </div>
@@ -3226,6 +3263,132 @@ _For inquiries or bank RTGS verification, please contact Central Accounts._`;
             window.open(targetUrl, '_blank');
         }
 
+        
+        // =====================================================================
+        // IN-SOFTWARE PDF PREVIEW & DIRECT PRINT CONTROLLER
+        // =====================================================================
+        let CURRENT_MODAL_PDF_URL = '';
+        let CURRENT_MODAL_TYPE = 'party_ledger';
+        let CURRENT_MODAL_TITLE = '';
+
+        function openPdfModal(url, title, subtitle, modalType) {
+            CURRENT_MODAL_PDF_URL = url;
+            CURRENT_MODAL_TYPE = modalType || 'party_ledger';
+            CURRENT_MODAL_TITLE = title || 'Document';
+
+            const modal = document.getElementById('pdfViewerModal');
+            const titleEl = document.getElementById('pdfModalTitle');
+            const subEl = document.getElementById('pdfModalSubtitle');
+            const spinner = document.getElementById('pdfLoadingSpinner');
+            const iframe = document.getElementById('pdfPrintIframe');
+
+            if (titleEl) titleEl.textContent = title;
+            if (subEl) subEl.textContent = subtitle || 'Rajarshi Shahu Mandi ERP — In-Software Direct Print';
+            if (spinner) spinner.style.display = 'flex';
+
+            if (modal) {
+                modal.style.display = 'flex';
+                document.body.style.overflow = 'hidden';
+            }
+
+            if (iframe) {
+                iframe.src = url;
+            }
+        }
+
+        function closePdfModal() {
+            const modal = document.getElementById('pdfViewerModal');
+            const iframe = document.getElementById('pdfPrintIframe');
+            if (modal) {
+                modal.style.display = 'none';
+                document.body.style.overflow = '';
+            }
+            if (iframe) {
+                iframe.src = 'about:blank';
+            }
+        }
+
+        function onPdfIframeLoaded() {
+            const spinner = document.getElementById('pdfLoadingSpinner');
+            if (spinner) spinner.style.display = 'none';
+        }
+
+        function triggerIframePrint() {
+            const iframe = document.getElementById('pdfPrintIframe');
+            if (!iframe) return;
+            try {
+                iframe.contentWindow.focus();
+                iframe.contentWindow.print();
+            } catch (err) {
+                console.warn('Iframe print delegation, opening direct print window:', err);
+                if (CURRENT_MODAL_PDF_URL) {
+                    const printWin = window.open(CURRENT_MODAL_PDF_URL, '_blank');
+                    if (printWin) {
+                        printWin.onload = () => { printWin.print(); };
+                    }
+                }
+            }
+        }
+
+        function downloadCurrentModalPdf() {
+            if (CURRENT_MODAL_PDF_URL) {
+                const a = document.createElement('a');
+                a.href = CURRENT_MODAL_PDF_URL;
+                a.download = (CURRENT_MODAL_TITLE || 'Document').replace(/[^a-zA-Z0-9_-]/g, '_') + '.pdf';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            }
+        }
+
+        function shareCurrentModalWhatsApp() {
+            if (CURRENT_MODAL_TYPE === 'party_ledger') {
+                sharePartyLedgerWhatsApp();
+            } else if (CURRENT_MODAL_TYPE === 'daily_inward') {
+                shareDailyInwardWhatsApp();
+            } else if (CURRENT_MODAL_TYPE === 'daily_outward') {
+                shareDailyOutwardWhatsApp();
+            } else if (CURRENT_MODAL_TYPE === 'party_balances') {
+                shareAllPartiesWhatsApp();
+            }
+        }
+
+        // --- In-Software Print Handlers (Connecting Print buttons to PDF Viewer) ---
+        function printPartyLedgerReport() {
+            const pSelect = document.getElementById('partyLedgerSelect');
+            const pId = pSelect ? pSelect.value : '';
+            if (!pId) { alert('Please select a party first to print statement.'); return; }
+            const party = (ACCOUNTS_CACHE.parties || []).find(p => p.id === pId) || {};
+            const pName = party.name || 'Party';
+            const bId = document.getElementById('partyLedgerBranchSelect')?.value || 'all';
+            const fromDate = document.getElementById('partyLedgerFrom')?.value || '';
+            const toDate = document.getElementById('partyLedgerTo')?.value || '';
+
+            const url = `/api/accounts/reports/party-ledger?party_id=${encodeURIComponent(pId)}&branch_id=${encodeURIComponent(bId)}&from_date=${encodeURIComponent(fromDate)}&to_date=${encodeURIComponent(toDate)}&format=pdf`;
+            openPdfModal(url, `Statement: ${pName}`, `Farmer / Buyer Khata Statement (${fromDate || 'Start'} to ${toDate || 'Today'})`, 'party_ledger');
+        }
+
+        function printDailyInwardReport() {
+            const d = document.getElementById('inwardDateInput')?.value || new Date().toISOString().slice(0, 10);
+            const b = document.getElementById('inwardBranchSelect')?.value || 'all';
+            const c = document.getElementById('inwardCommodityFilter')?.value || 'all';
+            const url = `/api/accounts/reports/daily-inward?date=${encodeURIComponent(d)}&branch_id=${encodeURIComponent(b)}&commodity_name=${encodeURIComponent(c)}&format=pdf`;
+            openPdfModal(url, `Daily Inward Register (${d})`, `Procurement Lots & Weighbridge Daybook`, 'daily_inward');
+        }
+
+        function printDailyOutwardReport() {
+            const d = document.getElementById('outwardDateInput')?.value || new Date().toISOString().slice(0, 10);
+            const b = document.getElementById('outwardBranchSelect')?.value || 'all';
+            const c = document.getElementById('outwardCommodityFilter')?.value || 'all';
+            const url = `/api/accounts/reports/daily-outward?date=${encodeURIComponent(d)}&branch_id=${encodeURIComponent(b)}&commodity_name=${encodeURIComponent(c)}&format=pdf`;
+            openPdfModal(url, `Daily Outward Register (${d})`, `Grain Sales & Mill Dispatches Daybook`, 'daily_outward');
+        }
+
+        function printAllPartiesReport() {
+            const url = '/api/accounts/reports/party-balances?format=pdf';
+            openPdfModal(url, 'All Parties Outstanding Balances Register', 'Consolidated Dues & Account Balances', 'party_balances');
+        }
+
         function downloadPartyLedgerTallyXml() {
             if (!CURRENT_PARTY_REPORT) {
                 alert('Please select a party first.');
@@ -4187,5 +4350,47 @@ _For inquiries or bank RTGS verification, please contact Central Accounts._`;
             downloadFileBlob(xml, 'Tally_All_Ledger_Masters.xml', 'application/xml');
         }
 </script>
+
+    <!-- ================================================================= -->
+    <!-- IN-SOFTWARE PDF PREVIEW & DIRECT PRINT MODAL -->
+    <!-- ================================================================= -->
+    <div id="pdfViewerModal" style="display:none; position:fixed; z-index:999999; inset:0; background:rgba(15,23,42,0.8); backdrop-filter:blur(4px); align-items:center; justify-content:center; padding:15px; box-sizing:border-box;">
+        <div style="background:#fff; width:100%; max-width:1040px; height:94vh; border-radius:12px; display:flex; flex-direction:column; box-shadow:0 25px 50px -12px rgba(0,0,0,0.5); overflow:hidden; border:1px solid #cbd5e1;">
+            <!-- MODAL HEADER -->
+            <div style="padding:12px 20px; background:#047857; color:#fff; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <span style="font-size:24px;">📄</span>
+                    <div>
+                        <h3 id="pdfModalTitle" style="margin:0; font-size:15.5px; font-weight:800; color:#fff;">Official Document Print Preview</h3>
+                        <span id="pdfModalSubtitle" style="font-size:11px; opacity:0.9;">Rajarshi Shahu Mandi ERP — In-Software Direct Print</span>
+                    </div>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                    <button type="button" class="btn" onclick="triggerIframePrint()" style="background:#fff; color:#047857; font-weight:900; font-size:13px; padding:7px 18px; border-radius:8px; border:none; display:inline-flex; align-items:center; gap:6px; cursor:pointer; box-shadow:0 2px 4px rgba(0,0,0,0.2);">
+                        <span style="font-size:16px;">🖨️</span> Print Document Now
+                    </button>
+                    <button type="button" class="btn" id="pdfModalDownloadBtn" onclick="downloadCurrentModalPdf()" style="background:#065f46; color:#fff; font-weight:700; font-size:12px; padding:7px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.3); display:inline-flex; align-items:center; gap:5px; cursor:pointer;">
+                        <span>📥</span> Download PDF
+                    </button>
+                    <button type="button" class="btn" id="pdfModalWaBtn" onclick="shareCurrentModalWhatsApp()" style="background:#25D366; color:#fff; font-weight:800; font-size:12px; padding:7px 12px; border-radius:8px; border:none; display:inline-flex; align-items:center; gap:5px; cursor:pointer; box-shadow:0 2px 4px rgba(37,211,102,0.3);">
+                        <span>💬</span> WhatsApp
+                    </button>
+                    <button type="button" onclick="closePdfModal()" style="background:transparent; color:#fff; font-size:22px; font-weight:800; border:none; cursor:pointer; padding:2px 8px; line-height:1; margin-left:4px;" title="Close Preview">
+                        ✕
+                    </button>
+                </div>
+            </div>
+            <!-- MODAL BODY: EMBEDDED IFRAME -->
+            <div style="flex:1; background:#f8fafc; position:relative; overflow:hidden;">
+                <div id="pdfLoadingSpinner" style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; background:#f8fafc; z-index:10;">
+                    <div style="font-size:36px;">⏳</div>
+                    <strong style="margin-top:10px; color:#334155; font-size:14px;">Loading Document for In-Software Print...</strong>
+                    <span style="font-size:12px; color:#64748b; margin-top:4px;">Direct printing will be ready in a moment</span>
+                </div>
+                <iframe id="pdfPrintIframe" style="width:100%; height:100%; border:none; display:block;" onload="onPdfIframeLoaded()"></iframe>
+            </div>
+        </div>
+    </div>
+
 </body>
 </html>

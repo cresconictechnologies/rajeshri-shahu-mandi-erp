@@ -571,14 +571,20 @@
                         </p>
                     </div>
                     <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-                        <button class="btn btn-primary" onclick="downloadPartyLedgerTallyXml()" style="background:#047857; color:#fff; font-weight:800; font-size:13px; padding:8px 16px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; box-shadow:0 2px 4px rgba(4,120,87,0.2);">
-                            <span>📥</span> Download Tally XML
+                        <button class="btn btn-primary" onclick="downloadPartyLedgerTallyXml()" style="background:#047857; color:#fff; font-weight:800; font-size:12.5px; padding:7px 14px; border-radius:8px; display:inline-flex; align-items:center; gap:5px; box-shadow:0 2px 4px rgba(4,120,87,0.2);">
+                            <span>📥</span> Tally XML
                         </button>
-                        <button class="btn btn-secondary" onclick="downloadPartyLedgerCsv()" style="font-weight:700; font-size:13px; padding:8px 14px; border-radius:8px; display:inline-flex; align-items:center; gap:6px;">
-                            <span>📊</span> Download Excel (CSV)
+                        <button class="btn btn-secondary" onclick="downloadPartyLedgerPdf()" style="font-weight:800; font-size:12.5px; padding:7px 12px; border-radius:8px; display:inline-flex; align-items:center; gap:5px; color:#dc2626; border-color:#fca5a5; background:#fef2f2;">
+                            <span>📄</span> PDF
                         </button>
-                        <button class="btn btn-secondary" onclick="printPartyLedgerReport()" style="font-weight:700; font-size:13px; padding:8px 14px; border-radius:8px; display:inline-flex; align-items:center; gap:6px;">
-                            <span>🖨️</span> Print Statement
+                        <button class="btn btn-secondary" onclick="downloadPartyLedgerXlsx()" style="font-weight:800; font-size:12.5px; padding:7px 12px; border-radius:8px; display:inline-flex; align-items:center; gap:5px; color:#166534; border-color:#86efac; background:#f0fdf4;">
+                            <span>📊</span> Excel (.xlsx)
+                        </button>
+                        <button class="btn btn-secondary" onclick="sharePartyLedgerWhatsApp()" style="background:#25D366; color:#fff; font-weight:800; font-size:12.5px; padding:7px 14px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; border:none; box-shadow:0 2px 4px rgba(37,211,102,0.3);">
+                            <span>💬</span> WhatsApp
+                        </button>
+                        <button class="btn btn-secondary" onclick="printPartyLedgerReport()" style="font-weight:700; font-size:12.5px; padding:7px 12px; border-radius:8px; display:inline-flex; align-items:center; gap:5px;">
+                            <span>🖨️</span> Print
                         </button>
                     </div>
                 </div>
@@ -793,8 +799,14 @@
                         </span>
                     </div>
                     <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-                        <button class="btn btn-secondary" onclick="downloadAllPartiesCsv()" style="font-weight:700; font-size:13px; padding:8px 14px; border-radius:8px; display:inline-flex; align-items:center; gap:6px;">
-                            <span>📊</span> Download Balances (CSV)
+                        <button class="btn btn-secondary" onclick="downloadAllPartiesPdf()" style="font-weight:800; font-size:12.5px; padding:7px 12px; border-radius:8px; display:inline-flex; align-items:center; gap:5px; color:#dc2626; border-color:#fca5a5; background:#fef2f2;">
+                            <span>📄</span> PDF
+                        </button>
+                        <button class="btn btn-secondary" onclick="downloadAllPartiesXlsx()" style="font-weight:800; font-size:12.5px; padding:7px 12px; border-radius:8px; display:inline-flex; align-items:center; gap:5px; color:#166534; border-color:#86efac; background:#f0fdf4;">
+                            <span>📊</span> Excel (.xlsx)
+                        </button>
+                        <button class="btn btn-secondary" onclick="shareAllPartiesWhatsApp()" style="background:#25D366; color:#fff; font-weight:800; font-size:12.5px; padding:7px 14px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; border:none; box-shadow:0 2px 4px rgba(37,211,102,0.3);">
+                            <span>💬</span> WhatsApp
                         </button>
                     </div>
                 </div>
@@ -867,14 +879,20 @@
                     </p>
                 </div>
                 <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-                    <button class="btn btn-primary" onclick="downloadDailyInwardTallyXml()" style="background:#0284c7; color:#fff; font-weight:800; font-size:13px; padding:8px 16px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; box-shadow:0 2px 4px rgba(2,132,199,0.2);">
-                        <span>📥</span> Export Inward to Tally XML
+                    <button class="btn btn-primary" onclick="downloadDailyInwardTallyXml()" style="background:#0284c7; color:#fff; font-weight:800; font-size:12.5px; padding:7px 14px; border-radius:8px; display:inline-flex; align-items:center; gap:5px; box-shadow:0 2px 4px rgba(2,132,199,0.2);">
+                        <span>📥</span> Tally XML
                     </button>
-                    <button class="btn btn-secondary" onclick="downloadDailyInwardCsv()" style="font-weight:700; font-size:13px; padding:8px 14px; border-radius:8px; display:inline-flex; align-items:center; gap:6px;">
-                        <span>📊</span> Export Excel (CSV)
+                    <button class="btn btn-secondary" onclick="downloadDailyInwardPdf()" style="font-weight:800; font-size:12.5px; padding:7px 12px; border-radius:8px; display:inline-flex; align-items:center; gap:5px; color:#dc2626; border-color:#fca5a5; background:#fef2f2;">
+                        <span>📄</span> PDF
                     </button>
-                    <button class="btn btn-secondary" onclick="printDailyInwardReport()" style="font-weight:700; font-size:13px; padding:8px 14px; border-radius:8px; display:inline-flex; align-items:center; gap:6px;">
-                        <span>🖨️</span> Print Register
+                    <button class="btn btn-secondary" onclick="downloadDailyInwardXlsx()" style="font-weight:800; font-size:12.5px; padding:7px 12px; border-radius:8px; display:inline-flex; align-items:center; gap:5px; color:#166534; border-color:#86efac; background:#f0fdf4;">
+                        <span>📊</span> Excel (.xlsx)
+                    </button>
+                    <button class="btn btn-secondary" onclick="shareDailyInwardWhatsApp()" style="background:#25D366; color:#fff; font-weight:800; font-size:12.5px; padding:7px 14px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; border:none; box-shadow:0 2px 4px rgba(37,211,102,0.3);">
+                        <span>💬</span> WhatsApp
+                    </button>
+                    <button class="btn btn-secondary" onclick="printDailyInwardReport()" style="font-weight:700; font-size:12.5px; padding:7px 12px; border-radius:8px; display:inline-flex; align-items:center; gap:5px;">
+                        <span>🖨️</span> Print
                     </button>
                 </div>
             </div>
@@ -1019,14 +1037,20 @@
                     </p>
                 </div>
                 <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-                    <button class="btn btn-primary" onclick="downloadDailyOutwardTallyXml()" style="background:#7c3aed; color:#fff; font-weight:800; font-size:13px; padding:8px 16px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; box-shadow:0 2px 4px rgba(124,58,237,0.2);">
-                        <span>📥</span> Export Outward to Tally XML
+                    <button class="btn btn-primary" onclick="downloadDailyOutwardTallyXml()" style="background:#7c3aed; color:#fff; font-weight:800; font-size:12.5px; padding:7px 14px; border-radius:8px; display:inline-flex; align-items:center; gap:5px; box-shadow:0 2px 4px rgba(124,58,237,0.2);">
+                        <span>📥</span> Tally XML
                     </button>
-                    <button class="btn btn-secondary" onclick="downloadDailyOutwardCsv()" style="font-weight:700; font-size:13px; padding:8px 14px; border-radius:8px; display:inline-flex; align-items:center; gap:6px;">
-                        <span>📊</span> Export Excel (CSV)
+                    <button class="btn btn-secondary" onclick="downloadDailyOutwardPdf()" style="font-weight:800; font-size:12.5px; padding:7px 12px; border-radius:8px; display:inline-flex; align-items:center; gap:5px; color:#dc2626; border-color:#fca5a5; background:#fef2f2;">
+                        <span>📄</span> PDF
                     </button>
-                    <button class="btn btn-secondary" onclick="printDailyOutwardReport()" style="font-weight:700; font-size:13px; padding:8px 14px; border-radius:8px; display:inline-flex; align-items:center; gap:6px;">
-                        <span>🖨️</span> Print Dispatches
+                    <button class="btn btn-secondary" onclick="downloadDailyOutwardXlsx()" style="font-weight:800; font-size:12.5px; padding:7px 12px; border-radius:8px; display:inline-flex; align-items:center; gap:5px; color:#166534; border-color:#86efac; background:#f0fdf4;">
+                        <span>📊</span> Excel (.xlsx)
+                    </button>
+                    <button class="btn btn-secondary" onclick="shareDailyOutwardWhatsApp()" style="background:#25D366; color:#fff; font-weight:800; font-size:12.5px; padding:7px 14px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; border:none; box-shadow:0 2px 4px rgba(37,211,102,0.3);">
+                        <span>💬</span> WhatsApp
+                    </button>
+                    <button class="btn btn-secondary" onclick="printDailyOutwardReport()" style="font-weight:700; font-size:12.5px; padding:7px 12px; border-radius:8px; display:inline-flex; align-items:center; gap:5px;">
+                        <span>🖨️</span> Print
                     </button>
                 </div>
             </div>
@@ -2966,9 +2990,14 @@
                     </td>
                     <td style="text-align:center;">${statusBadge}</td>
                     <td style="text-align:center;">
-                        <button type="button" class="btn btn-secondary btn-sm" onclick="loadSinglePartyLedger('${r.party_id}')" style="font-size:11.5px; padding:4px 10px; font-weight:700; border-radius:6px; color:#047857; cursor:pointer;">
-                            <span>🔍</span> Khata
-                        </button>
+                        <div style="display:inline-flex; gap:4px; align-items:center;">
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="loadSinglePartyLedger('${r.party_id}')" style="font-size:11.5px; padding:4px 8px; font-weight:700; border-radius:6px; color:#047857; cursor:pointer;" title="View Khata Statement">
+                                <span>🔍</span> Khata
+                            </button>
+                            <button type="button" class="btn btn-sm" onclick="shareIndividualPartyWhatsApp('${r.party_id}')" style="font-size:11px; padding:4px 8px; font-weight:800; border-radius:6px; background:#25D366; color:#fff; border:none; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,0.1);" title="Share Balance on WhatsApp">
+                                <span>💬</span> WA
+                            </button>
+                        </div>
                     </td>
                 </tr>`;
             });
@@ -2987,6 +3016,214 @@
                 csvLines.push(`${idx + 1},"${name}","${r.party_type}","${village}","${r.phone}",${r.total_procured_or_billed.toFixed(2)},${r.total_paid_or_received.toFixed(2)},${r.remaining_balance.toFixed(2)},"${r.balance_type}","${r.status_label}"`);
             });
             downloadFileBlob(csvLines.join('\n'), 'All_Parties_Remaining_Balances.csv', 'text/csv');
+        }
+
+        
+        // =====================================================================
+        // PDF, EXCEL (.XLSX) & WHATSAPP SHARING ENGINES
+        // =====================================================================
+
+        // --- 1. PARTY LEDGER EXPORTS ---
+        function downloadPartyLedgerPdf() {
+            const pSelect = document.getElementById('partyLedgerSelect');
+            const pId = pSelect ? pSelect.value : '';
+            if (!pId) { alert('Please select a party from the dropdown first.'); return; }
+            const bId = document.getElementById('partyLedgerBranchSelect')?.value || 'all';
+            const fromDate = document.getElementById('partyLedgerFrom')?.value || '';
+            const toDate = document.getElementById('partyLedgerTo')?.value || '';
+            const url = `/api/accounts/reports/party-ledger?party_id=${encodeURIComponent(pId)}&branch_id=${encodeURIComponent(bId)}&from_date=${encodeURIComponent(fromDate)}&to_date=${encodeURIComponent(toDate)}&format=pdf`;
+            window.open(url, '_blank');
+        }
+
+        function downloadPartyLedgerXlsx() {
+            const pSelect = document.getElementById('partyLedgerSelect');
+            const pId = pSelect ? pSelect.value : '';
+            if (!pId) { alert('Please select a party from the dropdown first.'); return; }
+            const bId = document.getElementById('partyLedgerBranchSelect')?.value || 'all';
+            const fromDate = document.getElementById('partyLedgerFrom')?.value || '';
+            const toDate = document.getElementById('partyLedgerTo')?.value || '';
+            const url = `/api/accounts/reports/party-ledger?party_id=${encodeURIComponent(pId)}&branch_id=${encodeURIComponent(bId)}&from_date=${encodeURIComponent(fromDate)}&to_date=${encodeURIComponent(toDate)}&format=xlsx`;
+            window.open(url, '_blank');
+        }
+
+        function sharePartyLedgerWhatsApp() {
+            const pSelect = document.getElementById('partyLedgerSelect');
+            const pId = pSelect ? pSelect.value : '';
+            if (!pId) { alert('Please select a party from the dropdown first.'); return; }
+            const party = (ACCOUNTS_CACHE.parties || []).find(p => p.id === pId) || {};
+            const pName = party.name || 'Valued Party';
+            const isFarmer = (party.party_type || '').toUpperCase() !== 'BUYER';
+            const phone = (party.phone || '').replace(/[^0-9]/g, '');
+
+            const clEl = document.getElementById('statPartyClosingBal')?.textContent || '0.00';
+            const debEl = document.getElementById('statPartyDebit')?.textContent || '0.00';
+            const crEl = document.getElementById('statPartyCredit')?.textContent || '0.00';
+            const opEl = document.getElementById('statPartyOpeningBal')?.textContent || '0.00';
+            const fromDate = document.getElementById('partyLedgerFrom')?.value || 'Opening';
+            const toDate = document.getElementById('partyLedgerTo')?.value || 'Today';
+
+            const text = 
+`🌾 *RAJARSHI SHAHU TRADING CO.* 🌾
+*APMC Market Yard, Chikhali (Dist. Buldhana)*
+----------------------------------------
+📋 *STATEMENT OF ACCOUNT / हिशोब पावती*
+👤 *Party:* ${pName} (${isFarmer ? 'Farmer / शेतकरी' : 'Buyer / व्यापारी'})
+📍 *Village:* ${party.village || 'Chikhali'} | 📞 *Phone:* ${party.phone || 'N/A'}
+📅 *Period:* ${fromDate} to ${toDate}
+----------------------------------------
+⚖️ *Opening Balance:* ${opEl}
+📥 *Total Billed / Procured:* ${crEl}
+📤 *Total Payment Settled:* ${debEl}
+----------------------------------------
+💰 *REMAINING BALANCE (बाकी रक्कम):*
+*${clEl}*
+----------------------------------------
+🙏 _Computer-generated statement from Rajarshi Shahu Mandi ERP._
+_For inquiries or bank RTGS verification, please contact Central Accounts._`;
+
+            const encoded = encodeURIComponent(text);
+            const targetUrl = (phone.length === 10) ? `https://wa.me/91${phone}?text=${encoded}` : `https://wa.me/?text=${encoded}`;
+            window.open(targetUrl, '_blank');
+        }
+
+        // --- 2. DAILY INWARD EXPORTS ---
+        function downloadDailyInwardPdf() {
+            const d = document.getElementById('inwardDateInput')?.value || new Date().toISOString().slice(0, 10);
+            const b = document.getElementById('inwardBranchSelect')?.value || 'all';
+            const c = document.getElementById('inwardCommodityFilter')?.value || 'all';
+            window.open(`/api/accounts/reports/daily-inward?date=${encodeURIComponent(d)}&branch_id=${encodeURIComponent(b)}&commodity_name=${encodeURIComponent(c)}&format=pdf`, '_blank');
+        }
+
+        function downloadDailyInwardXlsx() {
+            const d = document.getElementById('inwardDateInput')?.value || new Date().toISOString().slice(0, 10);
+            const b = document.getElementById('inwardBranchSelect')?.value || 'all';
+            const c = document.getElementById('inwardCommodityFilter')?.value || 'all';
+            window.open(`/api/accounts/reports/daily-inward?date=${encodeURIComponent(d)}&branch_id=${encodeURIComponent(b)}&commodity_name=${encodeURIComponent(c)}&format=xlsx`, '_blank');
+        }
+
+        function shareDailyInwardWhatsApp() {
+            const targetDate = document.getElementById('inwardDateInput')?.value || new Date().toISOString().slice(0, 10);
+            const bEl = document.getElementById('inwardBranchSelect');
+            const branchName = bEl ? bEl.options[bEl.selectedIndex]?.textContent : 'All Branches';
+            const lots = document.getElementById('statInwardLots')?.textContent || '0 Lots';
+            const vol = document.getElementById('statInwardVolume')?.textContent || '0.00 Qtl';
+            const gross = document.getElementById('statInwardGross')?.textContent || '₹0.00';
+            const payable = document.getElementById('statInwardNetPayable')?.textContent || '₹0.00';
+            const paidDue = document.getElementById('statInwardPaidPending')?.textContent || '';
+
+            const text = 
+`📥 *RAJARSHI SHAHU TRADING CO.*
+*DAILY INWARD PROCUREMENT REPORT*
+📅 *Date:* ${targetDate}
+🏢 *Branch:* ${branchName}
+----------------------------------------
+🌾 *Procurement Lots:* ${lots}
+⚖️ *Total Net Volume:* ${vol}
+💵 *Gross Outlay:* ${gross}
+💰 *Net Farmer Payable:* ${payable}
+📊 *Settlement Status:* ${paidDue}
+----------------------------------------
+🙏 _Report generated by Rajarshi Shahu Mandi Central Accounts._`;
+
+            window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+        }
+
+        // --- 3. DAILY OUTWARD EXPORTS ---
+        function downloadDailyOutwardPdf() {
+            const d = document.getElementById('outwardDateInput')?.value || new Date().toISOString().slice(0, 10);
+            const b = document.getElementById('outwardBranchSelect')?.value || 'all';
+            const c = document.getElementById('outwardCommodityFilter')?.value || 'all';
+            window.open(`/api/accounts/reports/daily-outward?date=${encodeURIComponent(d)}&branch_id=${encodeURIComponent(b)}&commodity_name=${encodeURIComponent(c)}&format=pdf`, '_blank');
+        }
+
+        function downloadDailyOutwardXlsx() {
+            const d = document.getElementById('outwardDateInput')?.value || new Date().toISOString().slice(0, 10);
+            const b = document.getElementById('outwardBranchSelect')?.value || 'all';
+            const c = document.getElementById('outwardCommodityFilter')?.value || 'all';
+            window.open(`/api/accounts/reports/daily-outward?date=${encodeURIComponent(d)}&branch_id=${encodeURIComponent(b)}&commodity_name=${encodeURIComponent(c)}&format=xlsx`, '_blank');
+        }
+
+        function shareDailyOutwardWhatsApp() {
+            const targetDate = document.getElementById('outwardDateInput')?.value || new Date().toISOString().slice(0, 10);
+            const bEl = document.getElementById('outwardBranchSelect');
+            const branchName = bEl ? bEl.options[bEl.selectedIndex]?.textContent : 'All Branches';
+            const disp = document.getElementById('statOutwardDispatches')?.textContent || '0 Dispatches';
+            const vol = document.getElementById('statOutwardVolume')?.textContent || '0.00 Qtl';
+            const billed = document.getElementById('statOutwardBilled')?.textContent || '₹0.00';
+            const recv = document.getElementById('statOutwardReceived')?.textContent || '₹0.00';
+            const due = document.getElementById('statOutwardDue')?.textContent || '₹0.00';
+
+            const text = 
+`🚚 *RAJARSHI SHAHU TRADING CO.*
+*DAILY OUTWARD SALES & DISPATCH REPORT*
+📅 *Date:* ${targetDate}
+🏢 *Branch:* ${branchName}
+----------------------------------------
+📦 *Total Dispatches:* ${disp}
+⚖️ *Dispatched Stock:* ${vol}
+💵 *Total Billed Revenue:* ${billed}
+✅ *Realized Payments:* ${recv}
+⚠️ *Outstanding Receivables:* ${due}
+----------------------------------------
+🙏 _Report generated by Rajarshi Shahu Mandi Central Accounts._`;
+
+            window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+        }
+
+        // --- 4. ALL PARTIES BALANCES EXPORTS ---
+        function downloadAllPartiesPdf() {
+            window.open('/api/accounts/reports/party-balances?format=pdf', '_blank');
+        }
+
+        function downloadAllPartiesXlsx() {
+            window.open('/api/accounts/reports/party-balances?format=xlsx', '_blank');
+        }
+
+        function shareAllPartiesWhatsApp() {
+            const farmPay = document.getElementById('statAllFarmersPayable')?.textContent || '₹0.00';
+            const buyRec = document.getElementById('statAllBuyersReceivable')?.textContent || '₹0.00';
+            const dueCnt = document.getElementById('statAllPartiesDue')?.textContent || '0 Parties';
+            const setCnt = document.getElementById('statAllPartiesSettled')?.textContent || '0 Parties';
+
+            const text = 
+`👥 *RAJARSHI SHAHU TRADING CO.*
+*OUTSTANDING DUES & PARTY BALANCES SUMMARY*
+📅 *Date:* ${new Date().toLocaleDateString('en-IN')}
+----------------------------------------
+⚠️ *Total Farmer Dues (शेतकऱ्यांना देणे बाकी):* ${farmPay}
+📥 *Total Buyer Dues (व्यापाऱ्यांकडून येणे बाकी):* ${buyRec}
+👥 *Accounts with Pending Balance:* ${dueCnt}
+✅ *Fully Settled Accounts:* ${setCnt}
+----------------------------------------
+🙏 _Consolidated Mandi ERP Audit Summary._`;
+
+            window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+        }
+
+        function shareIndividualPartyWhatsApp(partyId) {
+            const party = (ACCOUNTS_CACHE.parties || []).find(p => p.id === partyId) || {};
+            const row = (ALL_PARTIES_BALANCES_CACHE || []).find(r => r.party_id === partyId) || {};
+            const pName = row.party_name || party.name || 'Valued Party';
+            const isFarmer = row.party_type === 'FARMER';
+            const phone = (row.phone || party.phone || '').replace(/[^0-9]/g, '');
+
+            const balText = row.status === 'SETTLED' ? '₹0.00 (Fully Settled / हिशोब पूर्ण ✓)' : `₹${row.remaining_balance.toLocaleString('en-IN', {minimumFractionDigits:2})} (${row.balance_type})`;
+
+            const text = 
+`🌾 *RAJARSHI SHAHU TRADING CO.*
+👤 *Party:* ${pName} (${isFarmer ? 'Farmer / शेतकरी' : 'Buyer / व्यापारी'})
+📍 *Village:* ${row.village || party.village || 'Chikhali'}
+----------------------------------------
+📊 *Total Billed / Procured:* ₹${(row.total_procured_or_billed || 0).toLocaleString('en-IN', {minimumFractionDigits:2})}
+💵 *Total Paid / Settled:* ₹${(row.total_paid_or_received || 0).toLocaleString('en-IN', {minimumFractionDigits:2})}
+💰 *Remaining Balance (बाकी रक्कम):*
+*${balText}*
+----------------------------------------
+🙏 _Rajarshi Shahu Mandi Accounts Desk._`;
+
+            const encoded = encodeURIComponent(text);
+            const targetUrl = (phone.length === 10) ? `https://wa.me/91${phone}?text=${encoded}` : `https://wa.me/?text=${encoded}`;
+            window.open(targetUrl, '_blank');
         }
 
         function downloadPartyLedgerTallyXml() {

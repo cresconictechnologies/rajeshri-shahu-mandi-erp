@@ -1817,6 +1817,16 @@ def api_report_party_ledger(
             xml_str = tally_reports.export_party_ledger_tally_xml(report)
             return Response(content=xml_str, media_type="application/xml", headers={"Content-Disposition": f'attachment; filename="Tally_Ledger_{clean_name}.xml"'})
 
+        if format == "pdf":
+            import report_exports
+            pdf_bytes = report_exports.generate_party_ledger_pdf(report)
+            return Response(content=pdf_bytes, media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="Ledger_{clean_name}.pdf"'})
+
+        if format in ["xlsx", "xls"]:
+            import report_exports
+            xlsx_bytes = report_exports.generate_party_ledger_xlsx(report)
+            return Response(content=xlsx_bytes, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": f'attachment; filename="Ledger_{clean_name}.xlsx"'})
+
         return JSONResponse({"success": True, "report": report})
     finally:
         conn.close()
@@ -1865,6 +1875,16 @@ def api_report_party_balances(
                 csv_lines.append(f'"{p_name}","{row.get("party_type")}","{row.get("phone")}","{village}",{row.get("total_procured_or_billed", 0):.2f},{row.get("total_paid_or_received", 0):.2f},{row.get("remaining_balance", 0):.2f},"{row.get("balance_type")}","{row.get("status_label")}"')
             csv_out = "\n".join(csv_lines)
             return Response(content=csv_out, media_type="text/csv", headers={"Content-Disposition": 'attachment; filename="Party_Balances_Remaining.csv"'})
+
+        if format == "pdf":
+            import report_exports
+            pdf_bytes = report_exports.generate_party_balances_pdf(balances_data)
+            return Response(content=pdf_bytes, media_type="application/pdf", headers={"Content-Disposition": 'attachment; filename="Party_Balances.pdf"'})
+
+        if format in ["xlsx", "xls"]:
+            import report_exports
+            xlsx_bytes = report_exports.generate_party_balances_xlsx(balances_data)
+            return Response(content=xlsx_bytes, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": 'attachment; filename="Party_Balances.xlsx"'})
 
         return JSONResponse({"success": True, **balances_data})
     finally:
@@ -1936,6 +1956,16 @@ def api_report_daily_inward(
             xml_str = tally_reports.export_daily_inward_tally_xml(invoices, target_date, branch_label)
             return Response(content=xml_str, media_type="application/xml", headers={"Content-Disposition": f'attachment; filename="Tally_Inward_{target_date}_{branch_id}.xml"'})
 
+        if format == "pdf":
+            import report_exports
+            pdf_bytes = report_exports.generate_daily_inward_pdf(invoices, target_date, branch_label)
+            return Response(content=pdf_bytes, media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="Inward_Register_{target_date}_{branch_id}.pdf"'})
+
+        if format in ["xlsx", "xls"]:
+            import report_exports
+            xlsx_bytes = report_exports.generate_daily_inward_xlsx(invoices, target_date, branch_label)
+            return Response(content=xlsx_bytes, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": f'attachment; filename="Inward_Register_{target_date}_{branch_id}.xlsx"'})
+
         return JSONResponse({"success": True, "report": report_summary})
     finally:
         conn.close()
@@ -2001,6 +2031,16 @@ def api_report_daily_outward(
         if format == "xml":
             xml_str = tally_reports.export_daily_outward_tally_xml(orders, target_date, branch_label)
             return Response(content=xml_str, media_type="application/xml", headers={"Content-Disposition": f'attachment; filename="Tally_Outward_{target_date}_{branch_id}.xml"'})
+
+        if format == "pdf":
+            import report_exports
+            pdf_bytes = report_exports.generate_daily_outward_pdf(orders, target_date, branch_label)
+            return Response(content=pdf_bytes, media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="Outward_Register_{target_date}_{branch_id}.pdf"'})
+
+        if format in ["xlsx", "xls"]:
+            import report_exports
+            xlsx_bytes = report_exports.generate_daily_outward_xlsx(orders, target_date, branch_label)
+            return Response(content=xlsx_bytes, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": f'attachment; filename="Outward_Register_{target_date}_{branch_id}.xlsx"'})
 
         return JSONResponse({"success": True, "report": report_summary})
     finally:

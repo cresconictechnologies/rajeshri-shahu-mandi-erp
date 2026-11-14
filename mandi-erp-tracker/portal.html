@@ -234,6 +234,11 @@
                 👤 Cashier & Munim
             </span>
 
+            <!-- 2.5 Direct Link to Central Accounts & Ledgers -->
+            <a href="/accounts?tab=ledgers" class="btn" style="background:#047857; color:#ffffff; border:1.5px solid #064e3b; padding:6px 13px; border-radius:8px; font-weight:800; font-size:12px; text-decoration:none; display:inline-flex; align-items:center; gap:6px; box-shadow:0 1px 3px rgba(4,120,87,0.3);" title="Open Central Accounts, Party Khata & Cashbook">
+                <span>📚</span> <span>Ledger Entries & Cashbook</span>
+            </a>
+
             <!-- 3. Quick Tools Dropdown -->
             <div style="position:relative;" id="quickToolsContainer">
                 <button type="button" id="quickToolsDropdownBtn" onclick="toggleQuickToolsDropdown()" style="display:inline-flex; align-items:center; gap:5px; background:#0f172a; color:#f8fafc; border:none; padding:6px 12px; border-radius:8px; font-weight:800; font-size:12px; cursor:pointer; box-shadow:0 1px 3px rgba(0,0,0,0.12);">
@@ -241,6 +246,9 @@
                     <span style="font-size:10px;">▾</span>
                 </button>
                 <div id="quickToolsMenu" style="display:none; position:absolute; top:36px; right:0; width:210px; background:#ffffff; border:1.5px solid #cbd5e1; border-radius:12px; box-shadow:0 10px 25px -5px rgba(0,0,0,0.15); z-index:9999; padding:6px 0; font-size:12.5px;">
+                    <a href="/accounts?tab=ledgers" style="display:flex; align-items:center; gap:8px; padding:8px 14px; color:#047857; text-decoration:none; font-weight:800; background:#f0fdf4; border-bottom:1px solid #e2e8f0;">
+                        <span>📚</span> Ledger Entries & Cashbook
+                    </a>
                     <a href="/app" target="_blank" target="_blank" style="display:flex; align-items:center; gap:8px; padding:8px 14px; color:#0f172a; text-decoration:none; font-weight:700;">
                         <span>🔬</span> Inspector QC Portal
                     </a>
@@ -296,7 +304,9 @@
         <button class="tab-btn" onclick="showTab('tab-branch-ledger')">📖 Branch Ledger (<span id="branchLedgerBadge">67</span>)</button>
         <button class="tab-btn" onclick="showTab('tab-drawer')">💰 Cash Drawer & Daily Rojmel</button>
         <button class="tab-btn" id="btnTabSettings" onclick="showTab('tab-settings')">⚙️ Branch Settings & Hardware</button>
-        <button class="tab-btn" id="btnTabCentralAccounts" onclick="showTab('tab-central-accounts')" style="display:none; background:#ecfdf5; border-color:#86efac; color:#166534; font-weight:800;">💼 Central Accounts</button>
+        <button class="tab-btn" id="btnTabLedgersPortal" onclick="window.location.href='/accounts?tab=ledgers'" style="background:#f0fdf4; border:1.5px solid #047857; color:#047857; font-weight:800;" title="Open Party Khata, Dues, Cashbook & Tally Hub">
+            <span>📚</span> Ledger Entries & Cashbook
+        </button>
         <button class="tab-btn" id="btnTabSuperAdmin" onclick="showTab('tab-super-admin')" style="display:none; background:#eff6ff; border-color:#93c5fd; color:#1e40af; font-weight:800;">👑 Admin Analytics</button>
     </div>
 
@@ -2386,6 +2396,21 @@
 
     <!-- TAB: BRANCH LEDGER & KHATA REGISTER -->
     <div id="tab-branch-ledger" class="tab-content">
+        <!-- DIRECT LINK BANNER TO FULL LEDGER ENTRIES & CASHBOOK -->
+        <div style="background:linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border:1.5px solid #86efac; border-radius:12px; padding:12px 18px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+            <div>
+                <strong style="color:#065f46; font-size:13.5px; display:flex; align-items:center; gap:6px;">
+                    <span>📚</span> Looking for Party Khata, Remaining Dues & Master Cashbook?
+                </strong>
+                <p style="margin:2px 0 0; font-size:12px; color:#166534;">
+                    View detailed party-wise statements, remaining balance due alerts, daily cashbook (रोकडवही), PDF/Excel exports & WhatsApp sharing in the central accounts portal.
+                </p>
+            </div>
+            <a href="/accounts?tab=ledgers" class="btn" style="background:#047857; color:#fff; font-weight:800; font-size:12px; padding:7px 15px; border-radius:8px; text-decoration:none; display:inline-flex; align-items:center; gap:6px; box-shadow:0 1px 3px rgba(4,120,87,0.3);">
+                <span>📚</span> Open Ledger Entries & Cashbook →
+            </a>
+        </div>
+
         <!-- METRICS ROW -->
         <div class="stats-grid" style="margin-bottom:20px;">
             <div class="stat-card stat-blue">
@@ -2475,6 +2500,21 @@
 
     <!-- TAB 5: DAILY CASH DRAWER & ROJMEL -->
     <div id="tab-drawer" class="tab-content">
+        <!-- DIRECT LINK BANNER TO DAILY CASHBOOK -->
+        <div style="background:linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border:1.5px solid #86efac; border-radius:12px; padding:12px 18px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+            <div>
+                <strong style="color:#065f46; font-size:13.5px; display:flex; align-items:center; gap:6px;">
+                    <span>💵</span> Master Daily Cashbook (रोकडवही & Daybook)
+                </strong>
+                <p style="margin:2px 0 0; font-size:12px; color:#166534;">
+                    Reconcile daily cash counter inflows (sales), farmer cash payouts, closing cash in hand, and export official PDF / Excel reports.
+                </p>
+            </div>
+            <a href="/accounts?tab=cashbook" class="btn" style="background:#047857; color:#fff; font-weight:800; font-size:12px; padding:7px 15px; border-radius:8px; text-decoration:none; display:inline-flex; align-items:center; gap:6px; box-shadow:0 1px 3px rgba(4,120,87,0.3);">
+                <span>💵</span> Open Cashbook (रोकडवही) →
+            </a>
+        </div>
+
         <div class="stats-grid">
             <div class="stat-card stat-blue">
                 <div class="stat-icon">💵</div>

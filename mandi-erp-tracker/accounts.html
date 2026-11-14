@@ -219,7 +219,7 @@
         <button class="tab-btn" id="tabBtnDailyInward" onclick="showTab('tab-daily-inward')">📥 Daily Inward Report</button>
         <button class="tab-btn" id="tabBtnDailyOutward" onclick="showTab('tab-daily-outward')">🚚 Daily Outward Report</button>
         <button class="tab-btn" id="tabBtnTallyHub" onclick="showTab('tab-tally-hub')" style="background:#f0fdf4; border-color:#047857; color:#047857; font-weight:800;">⚡ Tally Prime Import Hub</button>
-        <button class="tab-btn" id="tabBtnLedgers" onclick="showTab('tab-ledgers')">📚 Ledger Entries & Cashbook</button>
+        <button class="tab-btn" id="tabBtnLedgers" onclick="showTab('tab-ledgers')" style="background:#f0fdf4; border:1.5px solid #047857; color:#047857; font-weight:800;">📚 Ledger Entries & Cashbook</button>
     </div>
 
     <!-- TAB 1: DAILY RATE MASTER -->
@@ -5447,6 +5447,43 @@ _For inquiries or bank RTGS verification, please contact Central Accounts._`;
             const dateVal = document.getElementById('cashbookDateInput')?.value || new Date().toISOString().split('T')[0];
             openPdfModal(`/api/accounts/reports/cashbook?branch_id=${branchId}&target_date=${dateVal}&format=pdf`, `Daily_Cashbook_${dateVal}.pdf`);
         }
+
+    
+        // Automatic URL parameter and hash router on page load
+        (function initTabRouter() {
+            function handleRouting() {
+                try {
+                    const params = new URLSearchParams(window.location.search);
+                    const tabParam = params.get('tab');
+                    const hashParam = window.location.hash.replace('#', '');
+                    const target = tabParam || hashParam;
+
+                    if (target === 'ledgers' || target === 'tab-ledgers') {
+                        showTab('tab-ledgers');
+                    } else if (target === 'cashbook') {
+                        showTab('tab-ledgers');
+                        switchLedgersSection('cashbook');
+                    } else if (target === 'party' || target === 'party-khata' || target === 'tab-party-ledger') {
+                        showTab('tab-ledgers');
+                        switchLedgersSection('party-khata');
+                    } else if (target === 'balances' || target === 'party-balances') {
+                        showTab('tab-ledgers');
+                        switchLedgersSection('party-balances');
+                    } else if (target === 'general') {
+                        showTab('tab-ledgers');
+                        switchLedgersSection('general-ledger');
+                    }
+                } catch(e) {
+                    console.error("Tab router error:", e);
+                }
+            }
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', handleRouting);
+            } else {
+                handleRouting();
+            }
+            window.addEventListener('hashchange', handleRouting);
+        })();
 
     </script>
 

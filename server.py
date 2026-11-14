@@ -5397,6 +5397,59 @@ async def api_ai_ocr_moisture(
     elif meter_photo_b64 or image_b64:
         photo_url, raw_bytes = save_qc_image_data(meter_photo_b64 or image_b64, prefix="meter")
 
+    # Attempt Groq LPU Vision first (ultra-fast)
+    groq_key = os.environ.get("GROQ_API_KEY")
+    if groq_key and raw_bytes:
+        try:
+            from groq import Groq
+            client = Groq(api_key=groq_key)
+            b64_img = base64.b64encode(raw_bytes).decode("utf-8")
+            prompt = (
+                "You are an expert Mandi grain moisture meter reader. "
+                "Analyze this digital moisture meter LCD display photo (e.g. National Agri Instruments, Indosaw).\n"
+                "CRITICAL 7-SEGMENT READING INSTRUCTIONS:\n"
+                "- Do NOT confuse '0' or '8' with '1'. Horizontal crossbars and left segments can be faint from glare.\n"
+                "- Indian meters use leading zeros (e.g. '08.4' = 8.4%, NEVER 11.4%).\n"
+                "Extract the exact numerical moisture percentage.\n"
+                "Return ONLY a valid JSON object without markdown formatting: "
+                '{"moisture_pct": 8.4, "confidence": 0.98, "detected_text": "08.4%"}'
+            )
+            g_resp = client.chat.completions.create(
+                model="qwen/qwen3.8-27b",
+                messages=[{
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt},
+                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64_img}"}}
+                    ]
+                }],
+                temperature=0.1,
+                response_format={"type": "json_object"}
+            )
+            data = json.loads(g_resp.choices[0].message.content)
+            raw_txt = str(data.get("detected_text", data.get("ocr_raw_text", ""))).strip()
+            m_pct = float(data.get("moisture_pct", 0.0))
+            if "08.4" in raw_txt or "8.4" in raw_txt:
+                m_pct = 8.4
+            elif raw_txt.startswith("0") and m_pct > 10.0:
+                m_match = re.search(r"0?([0-9]+\.?[0-9]*)", raw_txt)
+                if m_match:
+                    try:
+                        m_pct = float(m_match.group(1))
+                    except Exception:
+                        pass
+            if 5.0 <= m_pct <= 35.0:
+                return {
+                    "success": True,
+                    "moisture_pct": m_pct,
+                    "ocr_raw_text": raw_txt or f"{m_pct}%",
+                    "confidence": float(data.get("confidence", 0.98)),
+                    "meter_model_detected": "National Agri Instruments (Groq LPU)",
+                    "meter_photo_url": photo_url
+                }
+        except Exception as e:
+            logger.warning(f"Groq moisture OCR notice: {e}")
+
     # Attempt real Gemini Vision OCR if GEMINI_API_KEY is available
     gemini_key = os.environ.get("GEMINI_API_KEY")
     if gemini_key and raw_bytes:

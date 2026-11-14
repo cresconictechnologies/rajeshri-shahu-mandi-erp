@@ -903,6 +903,37 @@ Mandi Cess       : 0% (APMC Deregulated)
         // HARDWARE CAMERA CAPTURE & GOOGLE GEMINI 2.5 FLASH AI ENGINE
         // ----------------------------------------------------
 
+        // Utility: High-performance canvas downsampler & compressor to prevent Vercel 4.5MB HTTP 413 payload drops
+        function compressImageDataUrl(dataUrl, maxDim = 1280, quality = 0.82) {
+            return new Promise((resolve) => {
+                if (!dataUrl || !dataUrl.startsWith('data:image')) {
+                    return resolve(null);
+                }
+                const img = new Image();
+                img.onload = () => {
+                    let w = img.width;
+                    let h = img.height;
+                    if (w > maxDim || h > maxDim) {
+                        if (w > h) {
+                            h = Math.round((h * maxDim) / w);
+                            w = maxDim;
+                        } else {
+                            w = Math.round((w * maxDim) / h);
+                            h = maxDim;
+                        }
+                    }
+                    const canvas = document.createElement('canvas');
+                    canvas.width = w;
+                    canvas.height = h;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, w, h);
+                    resolve(canvas.toDataURL('image/jpeg', quality));
+                };
+                img.onerror = () => resolve(dataUrl); // fallback to original if decode fails
+                img.src = dataUrl;
+            });
+        }
+
         // Handle Real Camera Capture for Moisture Meter LCD with Google Gemini 2.5 Flash Vision OCR
         async function handleMoistureFile(event) {
             const file = event.target.files[0];
@@ -910,10 +941,11 @@ Mandi Cess       : 0% (APMC Deregulated)
 
             const reader = new FileReader();
             reader.onload = async function(e) {
+                const rawDataUrl = e.target.result;
                 const preview = document.getElementById('moisturePhotoPreview');
                 const box = document.getElementById('moisturePhotoPreviewBox');
                 if (preview && box) {
-                    preview.src = e.target.result;
+                    preview.src = rawDataUrl;
                     box.classList.remove('hidden');
                 }
 
@@ -923,12 +955,20 @@ Mandi Cess       : 0% (APMC Deregulated)
                     badge.className = 'text-amber-800 bg-amber-100 px-2.5 py-0.5 rounded text-[10px] font-extrabold border border-amber-300 animate-pulse';
                 }
 
+                // Compress image to ensure payload stays under ~250KB (well below Vercel's 4.5MB limit)
+                let base64Data = rawDataUrl;
+                try {
+                    const compressed = await compressImageDataUrl(rawDataUrl, 1280, 0.82);
+                    if (compressed) base64Data = compressed;
+                } catch(cErr) {
+                    console.warn('Moisture image compression notice:', cErr);
+                }
+
                 let detectedMoisture = 11.2;
                 let ocrSource = 'Google Gemini 2.5 Flash OCR';
 
                 try {
                     const serverUrl = localStorage.getItem('mandi_server_url') || '';
-                    const base64Data = e.target.result;
 
                     // 1. Primary: Serverless / Cloud Vercel Gemini OCR endpoint
                     let res = null;
@@ -971,9 +1011,10 @@ Mandi Cess       : 0% (APMC Deregulated)
 
                     if (res && res.ok) {
                         const data = await res.json();
-                        if (data.moisture_pct) {
+                        if (data.moisture_pct !== undefined && data.moisture_pct !== null) {
                             detectedMoisture = parseFloat(data.moisture_pct).toFixed(1);
-                            ocrSource = data.ai_engine || 'Google Gemini 2.5 Flash OCR';
+                            const rawTxt = data.ocr_raw_text ? ` [Read: ${data.ocr_raw_text}]` : '';
+                            ocrSource = (data.ai_engine || 'Google Gemini 2.5 Flash OCR') + rawTxt;
                         }
                     }
                 } catch (err) {
@@ -1021,7 +1062,13 @@ Mandi Cess       : 0% (APMC Deregulated)
 
                 const commodityName = document.getElementById('inpCommodity') ? document.getElementById('inpCommodity').value : 'Soyabean (Yellow)';
                 const currentMoisture = parseFloat(document.getElementById('inpMoisture')?.value || 11.2);
-                const base64Data = e.target.result;
+                let base64Data = e.target.result;
+                try {
+                    const compressed = await compressImageDataUrl(e.target.result, 1280, 0.82);
+                    if (compressed) base64Data = compressed;
+                } catch (cErr) {
+                    console.warn('Tray compression notice:', cErr);
+                }
 
                 let assayData = null;
                 const serverUrl = localStorage.getItem('mandi_server_url') || '';

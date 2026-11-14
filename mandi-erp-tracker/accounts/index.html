@@ -473,185 +473,322 @@
     <!-- TAB 4: GENERAL LEDGER & CASHBOOK -->
     
     <!-- TAB 6: PARTY-WISE LEDGER STATEMENT (KHATA) -->
+    <!-- TAB: PARTY-WISE LEDGER & ALL PARTIES BALANCES REGISTER -->
     <div id="tab-party-ledger" class="tab-content">
-        <!-- FILTER & ACTION TOOLBAR -->
-        <div class="card" style="margin-bottom:20px; border-left: 4px solid #047857;">
-            <div class="card-header" style="flex-wrap:wrap; gap:12px; border-bottom:none; padding-bottom:0;">
-                <div>
-                    <h2 style="font-size:18px; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:8px;">
-                        <span>📑</span> Party-Wise Ledger & Double-Entry Khata Statement
-                    </h2>
-                    <p style="font-size:12.5px; color:var(--text-muted); margin:4px 0 0 0;">
-                        Generates complete chronological ledger statement with Opening Balance, Double-Entry Vouchers, Running Balance, and 1-Click Tally XML Export.
-                    </p>
-                </div>
-                <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-                    <button class="btn btn-primary" onclick="downloadPartyLedgerTallyXml()" style="background:#047857; color:#fff; font-weight:800; font-size:13px; padding:8px 16px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; box-shadow:0 2px 4px rgba(4,120,87,0.2);">
-                        <span>📥</span> Download Tally XML
-                    </button>
-                    <button class="btn btn-secondary" onclick="downloadPartyLedgerCsv()" style="font-weight:700; font-size:13px; padding:8px 14px; border-radius:8px; display:inline-flex; align-items:center; gap:6px;">
-                        <span>📊</span> Download Excel (CSV)
-                    </button>
-                    <button class="btn btn-secondary" onclick="printPartyLedgerReport()" style="font-weight:700; font-size:13px; padding:8px 14px; border-radius:8px; display:inline-flex; align-items:center; gap:6px;">
-                        <span>🖨️</span> Print Statement
-                    </button>
-                </div>
+        <!-- SUB-VIEW SWITCHER -->
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:16px; border-bottom:1.5px solid #e2e8f0; padding-bottom:12px;">
+            <div style="display:flex; gap:8px; align-items:center;">
+                <button type="button" class="btn btn-secondary active" id="btnSubPartySingle" onclick="switchPartySubView('single')" style="font-weight:800; font-size:13px; padding:9px 18px; border-radius:8px; display:inline-flex; align-items:center; gap:6px;">
+                    <span>📑</span> Single Party Khata Statement
+                </button>
+                <button type="button" class="btn btn-secondary" id="btnSubPartyAll" onclick="switchPartySubView('all')" style="font-weight:800; font-size:13px; padding:9px 18px; border-radius:8px; display:inline-flex; align-items:center; gap:6px;">
+                    <span>👥</span> All Parties Remaining Balances Register (<span id="allPartiesDueCount" style="color:#dc2626; font-weight:800;">0</span> Pending)
+                </button>
             </div>
-
-            <!-- CONTROLS ROW -->
-            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px; padding:18px 20px 14px 20px;">
-                <div>
-                    <label style="display:block; font-size:12px; font-weight:800; color:#334155; margin-bottom:4px; text-transform:uppercase;">Select Party (Farmer / Buyer) *</label>
-                    <select id="partyLedgerSelect" onchange="renderPartyLedger()" style="width:100%; padding:9px 12px; border:1.5px solid #047857; border-radius:8px; font-weight:700; font-size:13px; background:#fff; color:#0f172a;">
-                        <option value="">-- Choose Party --</option>
-                    </select>
-                </div>
-                <div>
-                    <label style="display:block; font-size:12px; font-weight:800; color:#334155; margin-bottom:4px; text-transform:uppercase;">Branch Filter</label>
-                    <select id="partyLedgerBranchSelect" onchange="renderPartyLedger()" style="width:100%; padding:9px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-weight:700; font-size:13px; background:#fff;">
-                        <option value="all">All Branches Consolidated</option>
-                        <option value="br-chikhali">Chikhali APMC Main Yard</option>
-                        <option value="br-varvand">Varvand APMC Yard</option>
-                        <option value="br-sarola">Sarola Maruti APMC Yard</option>
-                        <option value="br-dhad">Dhad APMC Yard</option>
-                    </select>
-                </div>
-                <div>
-                    <label style="display:block; font-size:12px; font-weight:800; color:#334155; margin-bottom:4px; text-transform:uppercase;">From Date</label>
-                    <input type="date" id="partyLedgerFrom" onchange="renderPartyLedger()" style="width:100%; padding:8px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-weight:600; font-size:13px; box-sizing:border-box;">
-                </div>
-                <div>
-                    <label style="display:block; font-size:12px; font-weight:800; color:#334155; margin-bottom:4px; text-transform:uppercase;">To Date</label>
-                    <input type="date" id="partyLedgerTo" onchange="renderPartyLedger()" style="width:100%; padding:8px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-weight:600; font-size:13px; box-sizing:border-box;">
-                </div>
-            </div>
-
-            <!-- QUICK RANGE PRESETS -->
-            <div style="display:flex; gap:8px; align-items:center; padding:0 20px 16px 20px; flex-wrap:wrap;">
-                <span style="font-size:11.5px; font-weight:700; color:#64748b; text-transform:uppercase;">Quick Presets:</span>
-                <button type="button" class="btn btn-secondary btn-sm" onclick="setPartyDateRange('today')" style="font-size:11px; padding:3px 10px;">Today</button>
-                <button type="button" class="btn btn-secondary btn-sm" onclick="setPartyDateRange('yesterday')" style="font-size:11px; padding:3px 10px;">Yesterday</button>
-                <button type="button" class="btn btn-secondary btn-sm" onclick="setPartyDateRange('this_month')" style="font-size:11px; padding:3px 10px;">This Month</button>
-                <button type="button" class="btn btn-secondary btn-sm" onclick="setPartyDateRange('last_30')" style="font-size:11px; padding:3px 10px;">Last 30 Days</button>
-                <button type="button" class="btn btn-secondary btn-sm" onclick="setPartyDateRange('fy')" style="font-size:11px; padding:3px 10px;">FY 2026-27</button>
-                <button type="button" class="btn btn-secondary btn-sm" onclick="setPartyDateRange('all')" style="font-size:11px; padding:3px 10px;">All Time</button>
+            <div style="font-size:12px; color:#64748b; font-weight:700;">
+                ⚡ Real-time Double-Entry Ledger & Outstanding Due Tracking
             </div>
         </div>
 
-        <!-- PARTY PROFILE BANNER -->
-        <div id="partyProfileCard" style="display:none; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:12px; padding:16px 20px; margin-bottom:20px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
-                <div style="display:flex; align-items:center; gap:14px;">
-                    <div style="width:48px; height:48px; border-radius:12px; background:#047857; color:#fff; display:flex; align-items:center; justify-content:center; font-size:22px; font-weight:800;">
-                        <span id="partyAvatar">🌾</span>
+        <!-- ================================================================= -->
+        <!-- SUB-VIEW 1: SINGLE PARTY LEDGER STATEMENT -->
+        <!-- ================================================================= -->
+        <div id="partySubViewSingle">
+            <!-- FILTER & ACTION TOOLBAR -->
+            <div class="card" style="margin-bottom:20px; border-left: 4px solid #047857;">
+                <div class="card-header" style="flex-wrap:wrap; gap:12px; border-bottom:none; padding-bottom:0;">
+                    <div>
+                        <h2 style="font-size:18px; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:8px;">
+                            <span>📑</span> Party-Wise Ledger & Double-Entry Khata Statement
+                        </h2>
+                        <p style="font-size:12.5px; color:var(--text-muted); margin:4px 0 0 0;">
+                            Generates complete chronological ledger statement with Opening Balance, Double-Entry Vouchers, Running Balance, and 1-Click Tally XML Export.
+                        </p>
+                    </div>
+                    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                        <button class="btn btn-primary" onclick="downloadPartyLedgerTallyXml()" style="background:#047857; color:#fff; font-weight:800; font-size:13px; padding:8px 16px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; box-shadow:0 2px 4px rgba(4,120,87,0.2);">
+                            <span>📥</span> Download Tally XML
+                        </button>
+                        <button class="btn btn-secondary" onclick="downloadPartyLedgerCsv()" style="font-weight:700; font-size:13px; padding:8px 14px; border-radius:8px; display:inline-flex; align-items:center; gap:6px;">
+                            <span>📊</span> Download Excel (CSV)
+                        </button>
+                        <button class="btn btn-secondary" onclick="printPartyLedgerReport()" style="font-weight:700; font-size:13px; padding:8px 14px; border-radius:8px; display:inline-flex; align-items:center; gap:6px;">
+                            <span>🖨️</span> Print Statement
+                        </button>
+                    </div>
+                </div>
+
+                <!-- CONTROLS ROW -->
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px; padding:18px 20px 14px 20px;">
+                    <div>
+                        <label style="display:block; font-size:12px; font-weight:800; color:#334155; margin-bottom:4px; text-transform:uppercase;">Select Party (Farmer / Buyer) *</label>
+                        <select id="partyLedgerSelect" onchange="renderPartyLedger()" style="width:100%; padding:9px 12px; border:1.5px solid #047857; border-radius:8px; font-weight:700; font-size:13px; background:#fff; color:#0f172a;">
+                            <option value="">-- Choose Party --</option>
+                        </select>
                     </div>
                     <div>
-                        <div style="display:flex; align-items:center; gap:8px;">
-                            <h3 id="partyProfileName" style="margin:0; font-size:17px; font-weight:800; color:#065f46;">--</h3>
-                            <span id="partyTypeBadge" class="badge-pill badge-green" style="font-size:11px;">FARMER</span>
-                        </div>
-                        <div style="font-size:12.5px; color:#166534; margin-top:3px; display:flex; gap:16px; flex-wrap:wrap;">
-                            <span>📞 Phone: <strong id="partyProfilePhone">--</strong></span>
-                            <span>🏡 Village/Location: <strong id="partyProfileVillage">--</strong></span>
-                            <span>🏦 Bank A/C: <code id="partyProfileBank">--</code></span>
-                            <span>⚡ IFSC: <code id="partyProfileIfsc">--</code></span>
-                        </div>
+                        <label style="display:block; font-size:12px; font-weight:800; color:#334155; margin-bottom:4px; text-transform:uppercase;">Branch Filter</label>
+                        <select id="partyLedgerBranchSelect" onchange="renderPartyLedger()" style="width:100%; padding:9px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-weight:700; font-size:13px; background:#fff;">
+                            <option value="all">All Branches Consolidated</option>
+                            <option value="br-chikhali">Chikhali APMC Main Yard</option>
+                            <option value="br-varvand">Varvand APMC Yard</option>
+                            <option value="br-sarola">Sarola Maruti APMC Yard</option>
+                            <option value="br-dhad">Dhad APMC Yard</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:12px; font-weight:800; color:#334155; margin-bottom:4px; text-transform:uppercase;">From Date</label>
+                        <input type="date" id="partyLedgerFrom" onchange="renderPartyLedger()" style="width:100%; padding:8px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-weight:600; font-size:13px; box-sizing:border-box;">
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:12px; font-weight:800; color:#334155; margin-bottom:4px; text-transform:uppercase;">To Date</label>
+                        <input type="date" id="partyLedgerTo" onchange="renderPartyLedger()" style="width:100%; padding:8px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-weight:600; font-size:13px; box-sizing:border-box;">
                     </div>
                 </div>
-                <div style="text-align:right;">
-                    <div style="font-size:11.5px; color:#166534; font-weight:700; text-transform:uppercase;">Tally Ledger Name:</div>
-                    <code id="partyTallyName" style="font-size:13px; font-weight:800; color:#047857; background:#dcfce7; padding:2px 8px; border-radius:4px;">--</code>
+
+                <!-- QUICK RANGE PRESETS -->
+                <div style="display:flex; gap:8px; align-items:center; padding:0 20px 16px 20px; flex-wrap:wrap;">
+                    <span style="font-size:11.5px; font-weight:700; color:#64748b; text-transform:uppercase;">Quick Presets:</span>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="setPartyDateRange('today')" style="font-size:11px; padding:3px 10px;">Today</button>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="setPartyDateRange('yesterday')" style="font-size:11px; padding:3px 10px;">Yesterday</button>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="setPartyDateRange('this_month')" style="font-size:11px; padding:3px 10px;">This Month</button>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="setPartyDateRange('last_30')" style="font-size:11px; padding:3px 10px;">Last 30 Days</button>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="setPartyDateRange('fy')" style="font-size:11px; padding:3px 10px;">FY 2026-27</button>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="setPartyDateRange('all')" style="font-size:11px; padding:3px 10px;">All Time</button>
+                </div>
+            </div>
+
+            <!-- PARTY PROFILE BANNER -->
+            <div id="partyProfileCard" style="display:none; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:12px; padding:16px 20px; margin-bottom:16px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+                    <div style="display:flex; align-items:center; gap:14px;">
+                        <div style="width:48px; height:48px; border-radius:12px; background:#047857; color:#fff; display:flex; align-items:center; justify-content:center; font-size:22px; font-weight:800;">
+                            <span id="partyAvatar">🌾</span>
+                        </div>
+                        <div>
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <h3 id="partyProfileName" style="margin:0; font-size:17px; font-weight:800; color:#065f46;">--</h3>
+                                <span id="partyTypeBadge" class="badge-pill badge-green" style="font-size:11px;">FARMER</span>
+                            </div>
+                            <div style="font-size:12.5px; color:#166534; margin-top:3px; display:flex; gap:16px; flex-wrap:wrap;">
+                                <span>📞 Phone: <strong id="partyProfilePhone">--</strong></span>
+                                <span>🏡 Village/Location: <strong id="partyProfileVillage">--</strong></span>
+                                <span>🏦 Bank A/C: <code id="partyProfileBank">--</code></span>
+                                <span>⚡ IFSC: <code id="partyProfileIfsc">--</code></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="font-size:11.5px; color:#166534; font-weight:700; text-transform:uppercase;">Tally Ledger Name:</div>
+                        <code id="partyTallyName" style="font-size:13px; font-weight:800; color:#047857; background:#dcfce7; padding:2px 8px; border-radius:4px;">--</code>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DEDICATED REMAINING BALANCE CALLOUT BANNER -->
+            <div id="partyBalanceBanner" style="display:none; margin-bottom:20px; padding:14px 20px; border-radius:10px; font-weight:700; font-size:13.5px; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                <!-- Filled dynamically by renderPartyLedger -->
+            </div>
+
+            <!-- STATEMENT METRICS ROW -->
+            <div class="stats-grid" style="margin-bottom:20px;">
+                <div class="stat-card stat-blue">
+                    <div class="stat-icon">⚖️</div>
+                    <div class="stat-content">
+                        <span class="stat-label">Opening Balance</span>
+                        <strong class="stat-value" id="statPartyOpeningBal">₹0.00 Nil</strong>
+                        <span class="stat-help" id="statPartyOpeningSub">Prior to selected date</span>
+                    </div>
+                </div>
+                <div class="stat-card stat-green">
+                    <div class="stat-icon">📤</div>
+                    <div class="stat-content">
+                        <span class="stat-label">Total Debit (Paid / Dispatched)</span>
+                        <strong class="stat-value" style="color:#0284c7;" id="statPartyDebit">₹0.00</strong>
+                        <span class="stat-help">Payments made / Sales debited</span>
+                    </div>
+                </div>
+                <div class="stat-card stat-amber">
+                    <div class="stat-icon">📥</div>
+                    <div class="stat-content">
+                        <span class="stat-label">Total Credit (Procured / Received)</span>
+                        <strong class="stat-value" style="color:#d97706;" id="statPartyCredit">₹0.00</strong>
+                        <span class="stat-help">Purchases credited / Payments in</span>
+                    </div>
+                </div>
+                <div class="stat-card stat-purple" style="border: 2px solid #cbd5e1;">
+                    <div class="stat-icon" id="statPartyClosingIcon">💰</div>
+                    <div class="stat-content">
+                        <span class="stat-label" style="font-weight:800; color:#0f172a;">Remaining Balance / Payment Due</span>
+                        <strong class="stat-value" id="statPartyClosingBal" style="font-size:22px; font-weight:900;">₹0.00 Settled</strong>
+                        <span class="stat-help" id="statPartyClosingSub" style="font-weight:700;">As on statement end date</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STATEMENT TABLE -->
+            <div class="card" id="printableStatementCard">
+                <div class="card-header" style="flex-wrap:wrap; gap:12px;">
+                    <div>
+                        <h2 style="font-size:16px; font-weight:800; color:#0f172a;">
+                            Statement of Account: <span id="dispStatementPartyName" style="color:#047857;">Please Select Party</span>
+                        </h2>
+                        <span id="dispStatementPeriod" style="font-size:12px; color:var(--text-muted); font-weight:600;"></span>
+                    </div>
+                    <div style="font-size:12px; color:var(--text-muted); font-weight:600;">
+                        Double-Entry Rules: Credit = Procurement Payable | Debit = Settlement Cash/RTGS
+                    </div>
+                </div>
+                <div class="table-container" style="max-height: 540px; overflow-y: auto;">
+                    <table id="partyLedgerTable">
+                        <thead>
+                            <tr>
+                                <th style="width:40px;">#</th>
+                                <th style="width:95px;">Date</th>
+                                <th style="width:130px;">Branch</th>
+                                <th style="width:130px;">Voucher Type</th>
+                                <th style="width:140px;">Voucher / Ref #</th>
+                                <th>Particulars / Narration</th>
+                                <th style="text-align:right; width:120px;">Debit (₹)</th>
+                                <th style="text-align:right; width:120px;">Credit (₹)</th>
+                                <th style="text-align:right; width:150px;">Remaining Running Bal (₹)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="partyLedgerTableBody">
+                            <tr>
+                                <td colspan="9" style="text-align:center; padding:40px; color:#64748b;">
+                                    <div style="font-size:36px; margin-bottom:10px;">📑</div>
+                                    <strong style="font-size:15px; color:#334155;">Select a Party from the dropdown above to load statement</strong>
+                                    <p style="font-size:12.5px; color:#64748b; margin-top:4px;">Or switch to the "All Parties Remaining Balances Register" tab to view all party dues at once.</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                        <tfoot id="partyLedgerTableFoot" style="display:none;">
+                            <tr style="background:#f8fafc; font-weight:800; font-size:13px; border-top:2px solid #cbd5e1;">
+                                <td colspan="6" style="text-align:right; color:#334155;">PERIOD TOTALS:</td>
+                                <td style="text-align:right; color:#0284c7;" id="footPartyDebit">₹0.00</td>
+                                <td style="text-align:right; color:#d97706;" id="footPartyCredit">₹0.00</td>
+                                <td style="text-align:right; color:#0f172a;" id="footPartyClosing">₹0.00</td>
+                            </tr>
+                        </tfoot>
+                    </table>
                 </div>
             </div>
         </div>
 
-        <!-- STATEMENT METRICS ROW -->
-        <div class="stats-grid" style="margin-bottom:20px;">
-            <div class="stat-card stat-blue">
-                <div class="stat-icon">⚖️</div>
-                <div class="stat-content">
-                    <span class="stat-label">Opening Balance</span>
-                    <strong class="stat-value" id="statPartyOpeningBal">₹0.00 Nil</strong>
-                    <span class="stat-help" id="statPartyOpeningSub">Prior to selected date</span>
+        <!-- ================================================================= -->
+        <!-- SUB-VIEW 2: ALL PARTIES OUTSTANDING BALANCES REGISTER -->
+        <!-- ================================================================= -->
+        <div id="partySubViewAll" style="display:none;">
+            <!-- SUMMARY KPI CARDS -->
+            <div class="stats-grid" style="margin-bottom:20px;">
+                <div class="stat-card stat-amber" style="border-left: 4px solid #d97706;">
+                    <div class="stat-icon">⚠️</div>
+                    <div class="stat-content">
+                        <span class="stat-label">Total Payable to Farmers (देणे बाकी)</span>
+                        <strong class="stat-value" style="color:#d97706;" id="statAllFarmersPayable">₹0.00</strong>
+                        <span class="stat-help" id="statAllFarmersPendingCount">0 Farmers with pending payment</span>
+                    </div>
+                </div>
+                <div class="stat-card stat-blue" style="border-left: 4px solid #2563eb;">
+                    <div class="stat-icon">📥</div>
+                    <div class="stat-content">
+                        <span class="stat-label">Total Receivable from Buyers (येणे बाकी)</span>
+                        <strong class="stat-value" style="color:#2563eb;" id="statAllBuyersReceivable">₹0.00</strong>
+                        <span class="stat-help" id="statAllBuyersPendingCount">0 Buyers with outstanding dues</span>
+                    </div>
+                </div>
+                <div class="stat-card stat-purple">
+                    <div class="stat-icon">👥</div>
+                    <div class="stat-content">
+                        <span class="stat-label">Parties with Remaining Balance</span>
+                        <strong class="stat-value" style="color:#7c3aed;" id="statAllPartiesDue">0 Parties</strong>
+                        <span class="stat-help">Pending settlement or payment</span>
+                    </div>
+                </div>
+                <div class="stat-card stat-green">
+                    <div class="stat-icon">✅</div>
+                    <div class="stat-content">
+                        <span class="stat-label">Fully Settled Parties</span>
+                        <strong class="stat-value" style="color:#047857;" id="statAllPartiesSettled">0 Parties</strong>
+                        <span class="stat-help">Zero remaining balance</span>
+                    </div>
                 </div>
             </div>
-            <div class="stat-card stat-green">
-                <div class="stat-icon">📤</div>
-                <div class="stat-content">
-                    <span class="stat-label">Total Debit (Paid / Dispatched)</span>
-                    <strong class="stat-value" style="color:#0284c7;" id="statPartyDebit">₹0.00</strong>
-                    <span class="stat-help">Payments made / Sales debited</span>
-                </div>
-            </div>
-            <div class="stat-card stat-amber">
-                <div class="stat-icon">📥</div>
-                <div class="stat-content">
-                    <span class="stat-label">Total Credit (Procured / Received)</span>
-                    <strong class="stat-value" style="color:#d97706;" id="statPartyCredit">₹0.00</strong>
-                    <span class="stat-help">Purchases credited / Payments in</span>
-                </div>
-            </div>
-            <div class="stat-card stat-purple">
-                <div class="stat-icon">💰</div>
-                <div class="stat-content">
-                    <span class="stat-label">Net Closing Balance</span>
-                    <strong class="stat-value" id="statPartyClosingBal">₹0.00 Settled</strong>
-                    <span class="stat-help" id="statPartyClosingSub">As on statement end date</span>
-                </div>
-            </div>
-        </div>
 
-        <!-- STATEMENT TABLE -->
-        <div class="card" id="printableStatementCard">
-            <div class="card-header" style="flex-wrap:wrap; gap:12px;">
-                <div>
-                    <h2 style="font-size:16px; font-weight:800; color:#0f172a;">
-                        Statement of Account: <span id="dispStatementPartyName" style="color:#047857;">Please Select Party</span>
-                    </h2>
-                    <span id="dispStatementPeriod" style="font-size:12px; color:var(--text-muted); font-weight:600;"></span>
+            <!-- CONTROLS & FILTER TOOLBAR -->
+            <div class="card" style="margin-bottom:20px;">
+                <div class="card-header" style="flex-wrap:wrap; gap:12px;">
+                    <div>
+                        <h2 style="font-size:17px; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:8px;">
+                            <span>👥</span> Consolidated Party Balances & Outstanding Dues Register
+                        </h2>
+                        <span style="font-size:12px; color:var(--text-muted); font-weight:600;">
+                            Live overview of how much payment is balance, remaining, or settled for every party.
+                        </span>
+                    </div>
+                    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                        <button class="btn btn-secondary" onclick="downloadAllPartiesCsv()" style="font-weight:700; font-size:13px; padding:8px 14px; border-radius:8px; display:inline-flex; align-items:center; gap:6px;">
+                            <span>📊</span> Download Balances (CSV)
+                        </button>
+                    </div>
                 </div>
-                <div style="font-size:12px; color:var(--text-muted); font-weight:600;">
-                    Double-Entry Rules: Credit = Procurement Payable | Debit = Settlement Cash/RTGS
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px; padding:16px 20px;">
+                    <div>
+                        <label style="display:block; font-size:11.5px; font-weight:800; color:#334155; margin-bottom:4px; text-transform:uppercase;">Search Party / Village / Phone</label>
+                        <input type="text" id="allPartiesSearchInput" oninput="renderAllPartiesTable()" placeholder="Type farmer or buyer name..." style="width:100%; padding:9px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-weight:600; font-size:13px; box-sizing:border-box;">
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:11.5px; font-weight:800; color:#334155; margin-bottom:4px; text-transform:uppercase;">Party Type</label>
+                        <select id="allPartiesTypeFilter" onchange="renderAllPartiesTable()" style="width:100%; padding:9px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-weight:700; font-size:13px; background:#fff;">
+                            <option value="all">All Party Types (Farmers & Buyers)</option>
+                            <option value="FARMER">Farmers Only (Creditors)</option>
+                            <option value="BUYER">Buyers / Millers Only (Debtors)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:11.5px; font-weight:800; color:#334155; margin-bottom:4px; text-transform:uppercase;">Balance Status</label>
+                        <select id="allPartiesStatusFilter" onchange="renderAllPartiesTable()" style="width:100%; padding:9px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-weight:700; font-size:13px; background:#fff;">
+                            <option value="all">All (Settled + With Balance)</option>
+                            <option value="due" selected>⚠️ Only Parties with Remaining Balance</option>
+                            <option value="settled">✅ Fully Settled Parties Only</option>
+                        </select>
+                    </div>
                 </div>
             </div>
-            <div class="table-container" style="max-height: 540px; overflow-y: auto;">
-                <table id="partyLedgerTable">
-                    <thead>
-                        <tr>
-                            <th style="width:40px;">#</th>
-                            <th style="width:95px;">Date</th>
-                            <th style="width:130px;">Branch</th>
-                            <th style="width:130px;">Voucher Type</th>
-                            <th style="width:140px;">Voucher / Ref #</th>
-                            <th>Particulars / Narration</th>
-                            <th style="text-align:right; width:120px;">Debit (₹)</th>
-                            <th style="text-align:right; width:120px;">Credit (₹)</th>
-                            <th style="text-align:right; width:140px;">Running Balance (₹)</th>
-                        </tr>
-                    </thead>
-                    <tbody id="partyLedgerTableBody">
-                        <tr>
-                            <td colspan="9" style="text-align:center; padding:40px; color:#64748b;">
-                                <div style="font-size:36px; margin-bottom:10px;">📑</div>
-                                <strong style="font-size:15px; color:#334155;">Select a Party from the dropdown above to load statement</strong>
-                                <p style="font-size:12.5px; color:#64748b; margin-top:4px;">You can export any party ledger to Tally XML, Excel CSV, or print statement.</p>
-                            </td>
-                        </tr>
-                    </tbody>
-                    <tfoot id="partyLedgerTableFoot" style="display:none;">
-                        <tr style="background:#f8fafc; font-weight:800; font-size:13px; border-top:2px solid #cbd5e1;">
-                            <td colspan="6" style="text-align:right; color:#334155;">PERIOD TOTALS:</td>
-                            <td style="text-align:right; color:#0284c7;" id="footPartyDebit">₹0.00</td>
-                            <td style="text-align:right; color:#d97706;" id="footPartyCredit">₹0.00</td>
-                            <td style="text-align:right;" id="footPartyClosing">₹0.00</td>
-                        </tr>
-                    </tfoot>
-                </table>
+
+            <!-- ALL PARTIES TABLE -->
+            <div class="card">
+                <div class="table-container" style="max-height: 560px; overflow-y: auto;">
+                    <table id="allPartiesTable">
+                        <thead>
+                            <tr>
+                                <th style="width:40px;">#</th>
+                                <th style="width:200px;">Party Name</th>
+                                <th style="width:100px;">Type</th>
+                                <th style="width:150px;">Village / Location</th>
+                                <th style="width:120px;">Phone</th>
+                                <th style="text-align:right; width:130px;">Total Billed / Procured (₹)</th>
+                                <th style="text-align:right; width:130px;">Total Paid / Settled (₹)</th>
+                                <th style="text-align:right; width:150px;">Remaining Balance (₹)</th>
+                                <th style="width:150px; text-align:center;">Payment Status</th>
+                                <th style="width:110px; text-align:center;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="allPartiesTableBody">
+                            <tr>
+                                <td colspan="10" style="text-align:center; padding:30px; color:#64748b;">
+                                    Loading all party balances...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- TAB 7: DAILY INWARD PROCUREMENT REGISTER -->
+        <!-- TAB 7: DAILY INWARD PROCUREMENT REGISTER -->
     <div id="tab-daily-inward" class="tab-content">
         <!-- FILTER & ACTION TOOLBAR -->
         <div class="card" style="margin-bottom:20px; border-left: 4px solid #0284c7;">
@@ -3115,20 +3252,95 @@
             document.getElementById('statPartyDebit').textContent = `₹${periodDebit.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2})}`;
             document.getElementById('statPartyCredit').textContent = `₹${periodCredit.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2})}`;
 
+            // =================================================================
+            // PROMINENT PARTY BALANCE & REMAINING DUES STATUS
+            // =================================================================
+            const balBanner = document.getElementById('partyBalanceBanner');
             const clEl = document.getElementById('statPartyClosingBal');
-            if (clEl) {
-                if (Math.abs(closingBalance) < 0.01) {
-                    clEl.textContent = '₹0.00 Settled ✓';
-                    clEl.style.color = '#047857';
-                } else if (closingBalance > 0) {
-                    clEl.textContent = `₹${closingBalance.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2})} Dr`;
-                    clEl.style.color = '#0284c7';
+            const clSub = document.getElementById('statPartyClosingSub');
+            const clIcon = document.getElementById('statPartyClosingIcon');
+
+            const isPendingPayable = isFarmer && closingBalance < -0.01;
+            const isPendingReceivable = !isFarmer && closingBalance > 0.01;
+            const isFullySettled = Math.abs(closingBalance) < 0.01;
+
+            if (balBanner) {
+                balBanner.style.display = 'flex';
+                if (isFullySettled) {
+                    balBanner.style.background = '#dcfce7';
+                    balBanner.style.border = '1.5px solid #86efac';
+                    balBanner.style.color = '#166534';
+                    balBanner.innerHTML = `
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span style="font-size:20px;">✅</span>
+                            <span><strong>ACCOUNT STATUS: FULLY SETTLED (हिशोब पूर्ण)</strong> — All procurement purchases and dispatches have zero pending balance.</span>
+                        </div>
+                        <span class="badge-pill badge-green" style="font-size:12.5px; font-weight:900; padding:4px 12px; background:#047857; color:#fff;">₹0.00 REMAINING DUE</span>
+                    `;
+                } else if (isPendingPayable) {
+                    balBanner.style.background = '#fef2f2';
+                    balBanner.style.border = '1.5px solid #fca5a5';
+                    balBanner.style.color = '#991b1b';
+                    balBanner.innerHTML = `
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span style="font-size:20px;">⚠️</span>
+                            <span><strong>PAYMENT REMAINING TO FARMER (शेतकऱ्याला देणे बाकी):</strong> Exact unpaid balance of <strong>₹${Math.abs(closingBalance).toLocaleString('en-IN', {minimumFractionDigits:2})}</strong> awaiting cashier cash or RTGS bank transfer.</span>
+                        </div>
+                        <span class="badge-pill" style="font-size:12.5px; font-weight:900; padding:4px 12px; background:#dc2626; color:#fff; box-shadow:0 2px 4px rgba(220,38,38,0.3);">
+                            ⚠️ REMAINING DUE: ₹${Math.abs(closingBalance).toLocaleString('en-IN', {minimumFractionDigits:2})}
+                        </span>
+                    `;
+                } else if (isPendingReceivable) {
+                    balBanner.style.background = '#eff6ff';
+                    balBanner.style.border = '1.5px solid #93c5fd';
+                    balBanner.style.color = '#1e40af';
+                    balBanner.innerHTML = `
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span style="font-size:20px;">📥</span>
+                            <span><strong>PAYMENT RECEIVABLE FROM BUYER (व्यापाऱ्याकडून येणे बाकी):</strong> Outstanding sales dispatch balance of <strong>₹${Math.abs(closingBalance).toLocaleString('en-IN', {minimumFractionDigits:2})}</strong> due to company.</span>
+                        </div>
+                        <span class="badge-pill" style="font-size:12.5px; font-weight:900; padding:4px 12px; background:#2563eb; color:#fff; box-shadow:0 2px 4px rgba(37,99,235,0.3);">
+                            📥 RECEIVABLE: ₹${Math.abs(closingBalance).toLocaleString('en-IN', {minimumFractionDigits:2})}
+                        </span>
+                    `;
                 } else {
-                    clEl.textContent = `₹${Math.abs(closingBalance).toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2})} Cr`;
-                    clEl.style.color = '#d97706';
+                    balBanner.style.background = '#fefce8';
+                    balBanner.style.border = '1.5px solid #fde047';
+                    balBanner.style.color = '#854d0e';
+                    balBanner.innerHTML = `
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span style="font-size:20px;">ℹ️</span>
+                            <span><strong>ADVANCE BALANCE ON RECORD:</strong> ₹${Math.abs(closingBalance).toLocaleString('en-IN', {minimumFractionDigits:2})} ${clType} advance.</span>
+                        </div>
+                        <span class="badge-pill badge-amber" style="font-size:12.5px; font-weight:900; padding:4px 12px;">ADVANCE: ₹${Math.abs(closingBalance).toLocaleString('en-IN', {minimumFractionDigits:2})}</span>
+                    `;
                 }
             }
-            document.getElementById('statPartyClosingSub').textContent = Math.abs(closingBalance) < 0.01 ? 'Full Settlement Done' : (closingBalance > 0 ? 'Advance / Excess Paid to Farmer' : 'Payable to Farmer / Supplier');
+
+            if (clEl) {
+                if (isFullySettled) {
+                    clEl.textContent = '₹0.00 Settled ✓';
+                    clEl.style.color = '#047857';
+                    if (clSub) clSub.textContent = 'हिशोब पूर्ण (No Balance Remaining)';
+                    if (clIcon) clIcon.textContent = '✅';
+                } else if (isPendingPayable) {
+                    clEl.textContent = `₹${Math.abs(closingBalance).toLocaleString('en-IN', {minimumFractionDigits:2})} Due`;
+                    clEl.style.color = '#dc2626';
+                    if (clSub) clSub.textContent = '⚠️ देणे बाकी (Remaining Payable to Farmer)';
+                    if (clIcon) clIcon.textContent = '⚠️';
+                } else if (isPendingReceivable) {
+                    clEl.textContent = `₹${Math.abs(closingBalance).toLocaleString('en-IN', {minimumFractionDigits:2})} Due`;
+                    clEl.style.color = '#2563eb';
+                    if (clSub) clSub.textContent = '📥 येणे बाकी (Receivable from Buyer)';
+                    if (clIcon) clIcon.textContent = '📥';
+                } else {
+                    clEl.textContent = `₹${Math.abs(closingBalance).toLocaleString('en-IN', {minimumFractionDigits:2})} ${clType}`;
+                    clEl.style.color = '#d97706';
+                    if (clSub) clSub.textContent = closingBalance > 0 ? 'Advance to Farmer' : 'Advance from Buyer';
+                }
+            }
+
+            calculateAllPartiesBalances();
 
             // Render Table Rows
             const tbody = document.getElementById('partyLedgerTableBody');
@@ -3192,6 +3404,296 @@
                 document.getElementById('footPartyCredit').textContent = `₹${periodCredit.toLocaleString('en-IN', {minimumFractionDigits:2})}`;
                 document.getElementById('footPartyClosing').innerHTML = `₹${Math.abs(closingBalance).toLocaleString('en-IN', {minimumFractionDigits:2})} <span class="badge-pill ${clType === 'Dr' ? 'badge-blue' : (clType === 'Cr' ? 'badge-amber' : 'badge-green')}" style="font-size:10px; padding:1px 6px;">${clType}</span>`;
             }
+        }
+
+        
+        // =====================================================================
+        // SUB-VIEW SWITCHER & PARTY BALANCES ENGINE
+        // =====================================================================
+        let ALL_PARTIES_BALANCES_CACHE = [];
+
+        function switchPartySubView(view) {
+            const singleView = document.getElementById('partySubViewSingle');
+            const allView = document.getElementById('partySubViewAll');
+            const btnSingle = document.getElementById('btnSubPartySingle');
+            const btnAll = document.getElementById('btnSubPartyAll');
+
+            if (view === 'all') {
+                if (singleView) singleView.style.display = 'none';
+                if (allView) allView.style.display = 'block';
+                if (btnSingle) {
+                    btnSingle.classList.remove('active');
+                    btnSingle.style.background = '';
+                    btnSingle.style.color = '';
+                }
+                if (btnAll) {
+                    btnAll.classList.add('active');
+                    btnAll.style.background = '#047857';
+                    btnAll.style.color = '#fff';
+                }
+                renderAllPartiesTable();
+            } else {
+                if (singleView) singleView.style.display = 'block';
+                if (allView) allView.style.display = 'none';
+                if (btnSingle) {
+                    btnSingle.classList.add('active');
+                    btnSingle.style.background = '#047857';
+                    btnSingle.style.color = '#fff';
+                }
+                if (btnAll) {
+                    btnAll.classList.remove('active');
+                    btnAll.style.background = '';
+                    btnAll.style.color = '';
+                }
+            }
+        }
+
+        function loadSinglePartyLedger(partyId) {
+            switchPartySubView('single');
+            const pSelect = document.getElementById('partyLedgerSelect');
+            if (pSelect) {
+                pSelect.value = partyId;
+                renderPartyLedger();
+                const card = document.getElementById('printableStatementCard');
+                if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+
+        function calculateAllPartiesBalances() {
+            const bMap = {};
+            (ACCOUNTS_CACHE.branches || []).forEach(b => { bMap[b.id] = b.name; });
+
+            const parties = ACCOUNTS_CACHE.parties || [];
+            const invoices = ACCOUNTS_CACHE.invoices || [];
+            const outward = ACCOUNTS_CACHE.outward || [];
+
+            let totalPayableFarmers = 0;
+            let totalReceivableBuyers = 0;
+            let pendingFarmersCount = 0;
+            let pendingBuyersCount = 0;
+            let totalPartiesWithDue = 0;
+            let totalSettledParties = 0;
+
+            const partyRows = [];
+
+            parties.forEach(p => {
+                const pId = p.id;
+                const pName = (p.name || '').trim();
+                const isFarmer = (p.party_type || '').toUpperCase() !== 'BUYER';
+                const pType = isFarmer ? 'FARMER' : 'BUYER';
+
+                let totalCredit = 0; // Procured (Farmer) or Received (Buyer)
+                let totalDebit = 0;  // Paid (Farmer) or Dispatched/Billed (Buyer)
+                let txCount = 0;
+
+                // Match Invoices
+                invoices.forEach(inv => {
+                    const m = inv.party_id === pId || (inv.custom_farmer_name && inv.custom_farmer_name.toLowerCase() === pName.toLowerCase());
+                    if (!m) return;
+                    txCount++;
+                    const netAmt = parseFloat(inv.net_payable_amount || inv.rounded_net_payable || 0.0);
+                    totalCredit += netAmt;
+
+                    const pStat = (inv.payout_status || '').toUpperCase();
+                    if (['PAID', 'PAID_CASH', 'RTGS_COMPLETED', 'COMPLETED'].includes(pStat)) {
+                        totalDebit += netAmt;
+                    }
+                });
+
+                // Match Outward Orders
+                outward.forEach(out => {
+                    const bName = (out.buyer_name || '').trim().toLowerCase();
+                    const m = bName === pName.toLowerCase() || out.party_id === pId;
+                    if (!m) return;
+                    txCount++;
+                    const billAmt = parseFloat(out.total_bill_amount || out.gross_amount || 0.0);
+                    totalDebit += billAmt;
+
+                    const payStat = (out.payment_status || '').toUpperCase();
+                    if (['PAID', 'RECEIVED'].includes(payStat)) {
+                        totalCredit += billAmt;
+                    }
+                });
+
+                const rawBal = totalDebit - totalCredit;
+                const balAbs = Math.abs(rawBal);
+
+                let status = 'SETTLED';
+                let statusLabel = 'Fully Settled ✓';
+                let remainingPayable = 0;
+                let remainingReceivable = 0;
+
+                if (balAbs < 0.01) {
+                    status = 'SETTLED';
+                    statusLabel = 'Fully Settled ✓';
+                    totalSettledParties++;
+                } else if (!isFarmer) { // BUYER
+                    if (rawBal > 0.01) {
+                        status = 'PENDING_RECEIVABLE';
+                        statusLabel = `Due Receivable: ₹${balAbs.toLocaleString('en-IN', {minimumFractionDigits:2})}`;
+                        remainingReceivable = balAbs;
+                        totalReceivableBuyers += balAbs;
+                        pendingBuyersCount++;
+                        totalPartiesWithDue++;
+                    } else {
+                        status = 'ADVANCE';
+                        statusLabel = `Advance: ₹${balAbs.toLocaleString('en-IN', {minimumFractionDigits:2})}`;
+                    }
+                } else { // FARMER
+                    if (rawBal < -0.01) {
+                        status = 'PENDING_PAYABLE';
+                        statusLabel = `Due Payable: ₹${balAbs.toLocaleString('en-IN', {minimumFractionDigits:2})}`;
+                        remainingPayable = balAbs;
+                        totalPayableFarmers += balAbs;
+                        pendingFarmersCount++;
+                        totalPartiesWithDue++;
+                    } else {
+                        status = 'ADVANCE';
+                        statusLabel = `Advance: ₹${balAbs.toLocaleString('en-IN', {minimumFractionDigits:2})}`;
+                    }
+                }
+
+                partyRows.push({
+                    party_id: pId,
+                    party_name: pName,
+                    party_type: pType,
+                    phone: p.phone || '—',
+                    village: p.village || 'Buldhana',
+                    transaction_count: txCount,
+                    total_procured_or_billed: isFarmer ? totalCredit : totalDebit,
+                    total_paid_or_received: isFarmer ? totalDebit : totalCredit,
+                    remaining_balance: balAbs,
+                    raw_balance: rawBal,
+                    balance_type: rawBal > 0.01 ? 'Dr' : (rawBal < -0.01 ? 'Cr' : 'Nil'),
+                    status: status,
+                    status_label: statusLabel,
+                    remaining_payable: remainingPayable,
+                    remaining_receivable: remainingReceivable
+                });
+            });
+
+            partyRows.sort((a, b) => {
+                const aPending = a.status.startsWith('PENDING') ? 1 : 0;
+                const bPending = b.status.startsWith('PENDING') ? 1 : 0;
+                if (aPending !== bPending) return bPending - aPending;
+                return b.remaining_balance - a.remaining_balance;
+            });
+
+            ALL_PARTIES_BALANCES_CACHE = partyRows;
+
+            const elFarmPay = document.getElementById('statAllFarmersPayable');
+            if (elFarmPay) elFarmPay.textContent = `₹${totalPayableFarmers.toLocaleString('en-IN', {minimumFractionDigits:2})}`;
+            const elFarmCnt = document.getElementById('statAllFarmersPendingCount');
+            if (elFarmCnt) elFarmCnt.textContent = `${pendingFarmersCount} Farmers with pending payment`;
+
+            const elBuyRec = document.getElementById('statAllBuyersReceivable');
+            if (elBuyRec) elBuyRec.textContent = `₹${totalReceivableBuyers.toLocaleString('en-IN', {minimumFractionDigits:2})}`;
+            const elBuyCnt = document.getElementById('statAllBuyersPendingCount');
+            if (elBuyCnt) elBuyCnt.textContent = `${pendingBuyersCount} Buyers with outstanding dues`;
+
+            const elPartDue = document.getElementById('statAllPartiesDue');
+            if (elPartDue) elPartDue.textContent = `${totalPartiesWithDue} Parties`;
+
+            const elPartSet = document.getElementById('statAllPartiesSettled');
+            if (elPartSet) elPartSet.textContent = `${totalSettledParties} Parties`;
+
+            const elBadgeCount = document.getElementById('allPartiesDueCount');
+            if (elBadgeCount) elBadgeCount.textContent = totalPartiesWithDue;
+
+            return partyRows;
+        }
+
+        function renderAllPartiesTable() {
+            const rows = calculateAllPartiesBalances();
+            const search = (document.getElementById('allPartiesSearchInput')?.value || '').trim().toLowerCase();
+            const typeFilter = document.getElementById('allPartiesTypeFilter')?.value || 'all';
+            const statusFilter = document.getElementById('allPartiesStatusFilter')?.value || 'due';
+
+            const filtered = rows.filter(r => {
+                if (search) {
+                    const matchSearch = r.party_name.toLowerCase().includes(search) ||
+                                        r.phone.toLowerCase().includes(search) ||
+                                        r.village.toLowerCase().includes(search);
+                    if (!matchSearch) return false;
+                }
+                if (typeFilter !== 'all' && r.party_type !== typeFilter) return false;
+                if (statusFilter === 'due') {
+                    if (!r.status.startsWith('PENDING')) return false;
+                } else if (statusFilter === 'settled') {
+                    if (r.status !== 'SETTLED') return false;
+                }
+                return true;
+            });
+
+            const tbody = document.getElementById('allPartiesTableBody');
+            if (!tbody) return;
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr>
+                    <td colspan="10" style="text-align:center; padding:36px; color:#64748b;">
+                        <div style="font-size:32px; margin-bottom:8px;">✅</div>
+                        <strong style="font-size:15px; color:#334155;">No parties matching selected filters</strong>
+                        <p style="font-size:12.5px; color:#64748b; margin-top:4px;">All parties are settled or try adjusting the search and filters.</p>
+                    </td>
+                </tr>`;
+                return;
+            }
+
+            let html = '';
+            filtered.forEach((r, idx) => {
+                const isFarmer = r.party_type === 'FARMER';
+                const isSettled = r.status === 'SETTLED';
+
+                const statusBadge = isSettled ?
+                    '<span class="badge-pill badge-green" style="font-size:11px; padding:3px 8px; font-weight:800;">✓ FULLY SETTLED</span>' :
+                    (isFarmer ?
+                        '<span class="badge-pill" style="font-size:11px; padding:3px 8px; font-weight:800; background:#fee2e2; color:#b91c1c; border:1px solid #f87171;">⚠️ PAYABLE TO FARMER</span>' :
+                        '<span class="badge-pill" style="font-size:11px; padding:3px 8px; font-weight:800; background:#e0f2fe; color:#0369a1; border:1px solid #7dd3fc;">📥 DUE RECEIVABLE</span>'
+                    );
+
+                const balanceColor = isSettled ? '#047857' : (isFarmer ? '#dc2626' : '#2563eb');
+
+                html += `<tr>
+                    <td style="color:#64748b; font-size:12px;">${idx + 1}</td>
+                    <td style="font-size:13px; font-weight:800; color:#0f172a;">
+                        <a href="javascript:void(0)" onclick="loadSinglePartyLedger('${r.party_id}')" style="color:#047857; text-decoration:none; display:inline-flex; align-items:center; gap:4px;">
+                            <span>${isFarmer ? '🌾' : '🏭'}</span> ${r.party_name}
+                        </a>
+                    </td>
+                    <td>
+                        <span class="badge-pill ${isFarmer ? 'badge-green' : 'badge-blue'}" style="font-size:10.5px;">${r.party_type}</span>
+                    </td>
+                    <td style="font-size:12.5px; color:#334155;">${r.village}</td>
+                    <td style="font-size:12px; color:#475569;"><code>${r.phone}</code></td>
+                    <td style="text-align:right; font-size:13px; font-weight:700; color:#334155;">₹${r.total_procured_or_billed.toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
+                    <td style="text-align:right; font-size:13px; font-weight:700; color:#047857;">₹${r.total_paid_or_received.toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
+                    <td style="text-align:right; font-size:14px; font-weight:900; color:${balanceColor}; white-space:nowrap;">
+                        ₹${r.remaining_balance.toLocaleString('en-IN', {minimumFractionDigits:2})}
+                        <span style="font-size:10px; font-weight:700; opacity:0.8;">${r.balance_type}</span>
+                    </td>
+                    <td style="text-align:center;">${statusBadge}</td>
+                    <td style="text-align:center;">
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="loadSinglePartyLedger('${r.party_id}')" style="font-size:11.5px; padding:4px 10px; font-weight:700; border-radius:6px; color:#047857; cursor:pointer;">
+                            <span>🔍</span> Khata
+                        </button>
+                    </td>
+                </tr>`;
+            });
+
+            tbody.innerHTML = html;
+        }
+
+        function downloadAllPartiesCsv() {
+            const rows = ALL_PARTIES_BALANCES_CACHE.length > 0 ? ALL_PARTIES_BALANCES_CACHE : calculateAllPartiesBalances();
+            const csvLines = [
+                '"#","Party Name","Type","Village","Phone","Total Procured/Billed (Rs)","Total Paid/Settled (Rs)","Remaining Balance (Rs)","Balance Type","Status"'
+            ];
+            rows.forEach((r, idx) => {
+                const name = (r.party_name || '').replace(/"/g, '""');
+                const village = (r.village || '').replace(/"/g, '""');
+                csvLines.push(`${idx + 1},"${name}","${r.party_type}","${village}","${r.phone}",${r.total_procured_or_billed.toFixed(2)},${r.total_paid_or_received.toFixed(2)},${r.remaining_balance.toFixed(2)},"${r.balance_type}","${r.status_label}"`);
+            });
+            downloadFileBlob(csvLines.join('\n'), 'All_Parties_Remaining_Balances.csv', 'text/csv');
         }
 
         function downloadPartyLedgerTallyXml() {

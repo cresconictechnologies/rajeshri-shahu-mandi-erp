@@ -1476,6 +1476,143 @@ export default async function handler(req, res) {
       // -----------------------------------------------------------------------
       // REPORT TYPE 1: PARTY LEDGER
       // -----------------------------------------------------------------------
+            // ---------------------------------------------------------------------
+      // REPORT: PARTY BALANCES & OUTSTANDING REGISTER
+      // ---------------------------------------------------------------------
+      if (type === 'party_balances') {
+        const partyRows = [];
+        let totalPayableFarmers = 0;
+        let totalReceivableBuyers = 0;
+        let pendingFarmersCount = 0;
+        let pendingBuyersCount = 0;
+
+        for (const p of partiesList) {
+          const pId = p.id;
+          const pName = (p.name || '').trim();
+          const isFarmer = (p.party_type || '').toUpperCase() !== 'BUYER';
+          const pType = isFarmer ? 'FARMER' : 'BUYER';
+
+          let totalCredit = 0;
+          let totalDebit = 0;
+          let txCount = 0;
+
+          for (const inv of allInvoices) {
+            const m = inv.party_id === pId || (inv.custom_farmer_name && inv.custom_farmer_name.toLowerCase() === pName.toLowerCase());
+            if (!m) continue;
+            if (branchId !== 'all' && inv.branch_id !== branchId) continue;
+            txCount++;
+            const netAmt = parseFloat(inv.net_payable_amount || inv.rounded_net_payable || 0.0);
+            totalCredit += netAmt;
+
+            const pStat = (inv.payout_status || '').toUpperCase();
+            if (['PAID', 'PAID_CASH', 'RTGS_COMPLETED', 'COMPLETED'].includes(pStat)) {
+              totalDebit += netAmt;
+            }
+          }
+
+          for (const out of allOutward) {
+            const bName = (out.buyer_name || '').trim().toLowerCase();
+            const m = bName === pName.toLowerCase() || out.party_id === pId;
+            if (!m) continue;
+            if (branchId !== 'all' && out.branch_id !== branchId) continue;
+            txCount++;
+            const billAmt = parseFloat(out.total_bill_amount || out.gross_amount || 0.0);
+            totalDebit += billAmt;
+
+            const payStat = (out.payment_status || '').toUpperCase();
+            if (['PAID', 'RECEIVED'].includes(payStat)) {
+              totalCredit += billAmt;
+            }
+          }
+
+          const rawBal = totalDebit - totalCredit;
+          const balAbs = Math.abs(rawBal);
+
+          let status = 'SETTLED';
+          let statusLabel = 'Fully Settled ✓';
+          let remainingPayable = 0;
+          let remainingReceivable = 0;
+
+          if (balAbs < 0.01) {
+            status = 'SETTLED';
+            statusLabel = 'Fully Settled ✓';
+          } else if (!isFarmer) {
+            if (rawBal > 0.01) {
+              status = 'PENDING_RECEIVABLE';
+              statusLabel = `Due Receivable: ₹${balAbs.toFixed(2)}`;
+              remainingReceivable = balAbs;
+              totalReceivableBuyers += balAbs;
+              pendingBuyersCount++;
+            } else {
+              status = 'ADVANCE';
+              statusLabel = `Advance: ₹${balAbs.toFixed(2)}`;
+            }
+          } else {
+            if (rawBal < -0.01) {
+              status = 'PENDING_PAYABLE';
+              statusLabel = `Due Payable: ₹${balAbs.toFixed(2)}`;
+              remainingPayable = balAbs;
+              totalPayableFarmers += balAbs;
+              pendingFarmersCount++;
+            } else {
+              status = 'ADVANCE';
+              statusLabel = `Advance: ₹${balAbs.toFixed(2)}`;
+            }
+          }
+
+          partyRows.push({
+            party_id: pId,
+            party_name: pName,
+            party_type: pType,
+            phone: p.phone || '—',
+            village: p.village || 'Buldhana',
+            transaction_count: txCount,
+            total_procured_or_billed: isFarmer ? totalCredit : totalDebit,
+            total_paid_or_received: isFarmer ? totalDebit : totalCredit,
+            remaining_balance: balAbs,
+            raw_balance: rawBal,
+            balance_type: rawBal > 0.01 ? 'Dr' : (rawBal < -0.01 ? 'Cr' : 'Nil'),
+            status: status,
+            status_label: statusLabel,
+            remaining_payable: remainingPayable,
+            remaining_receivable: remainingReceivable
+          });
+        }
+
+        partyRows.sort((a, b) => {
+          const aP = a.status.startsWith('PENDING') ? 1 : 0;
+          const bP = b.status.startsWith('PENDING') ? 1 : 0;
+          if (aP !== bP) return bP - aP;
+          return b.remaining_balance - a.remaining_balance;
+        });
+
+        if (format === 'csv') {
+          const csvLines = [
+            '"#","Party Name","Type","Village","Phone","Total Procured/Billed (Rs)","Total Paid/Settled (Rs)","Remaining Balance (Rs)","Balance Type","Status"'
+          ];
+          partyRows.forEach((r, idx) => {
+            const name = (r.party_name || '').replace(/"/g, '""');
+            const village = (r.village || '').replace(/"/g, '""');
+            csvLines.push(`${idx + 1},"${name}","${r.party_type}","${village}","${r.phone}",${r.total_procured_or_billed.toFixed(2)},${r.total_paid_or_received.toFixed(2)},${r.remaining_balance.toFixed(2)},"${r.balance_type}","${r.status_label}"`);
+          });
+          res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+          res.setHeader('Content-Disposition', 'attachment; filename="All_Parties_Remaining_Balances.csv"');
+          return res.status(200).send(csvLines.join('\n'));
+        }
+
+        return res.status(200).json({
+          success: true,
+          summary: {
+            total_parties: partiesList.length,
+            total_payable_to_farmers: totalPayableFarmers,
+            total_receivable_from_buyers: totalReceivableBuyers,
+            pending_farmers_count: pendingFarmersCount,
+            pending_buyers_count: pendingBuyersCount
+          },
+          parties: partyRows
+        });
+      }
+
       if (type === 'party_ledger') {
         const party = pMap[partyId] || { id: partyId, name: req.query.party_name || 'Party', party_type: 'FARMER' };
         const pName = party.name || 'Party';

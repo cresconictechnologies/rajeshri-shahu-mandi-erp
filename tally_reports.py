@@ -238,6 +238,37 @@ def calculate_party_ledger(party: Dict[str, Any],
     closing_type = "Dr" if closing_balance > 0.001 else ("Cr" if closing_balance < -0.001 else "Nil")
     opening_type = "Dr" if opening_balance > 0.001 else ("Cr" if opening_balance < -0.001 else "Nil")
 
+    # Determine human-friendly remaining balance status
+    is_buyer = (p_type == "BUYER")
+    remaining_balance_amount = abs(closing_balance)
+    if remaining_balance_amount < 0.01:
+        balance_status = "SETTLED"
+        balance_status_text = "Fully Settled ✓ (हिशोब पूर्ण)"
+        remaining_payable = 0.0
+        remaining_receivable = 0.0
+    elif is_buyer:
+        if closing_balance > 0.001:
+            balance_status = "PENDING_RECEIVABLE"
+            balance_status_text = f"Payment Due from Buyer: Rs.{remaining_balance_amount:,.2f} (येणे बाकी)"
+            remaining_payable = 0.0
+            remaining_receivable = remaining_balance_amount
+        else:
+            balance_status = "ADVANCE_RECEIVED"
+            balance_status_text = f"Advance from Buyer: Rs.{remaining_balance_amount:,.2f}"
+            remaining_payable = 0.0
+            remaining_receivable = 0.0
+    else: # FARMER / SUPPLIER
+        if closing_balance < -0.001:
+            balance_status = "PENDING_PAYABLE"
+            balance_status_text = f"Remaining Payable to Farmer: Rs.{remaining_balance_amount:,.2f} (देणे बाकी)"
+            remaining_payable = remaining_balance_amount
+            remaining_receivable = 0.0
+        else:
+            balance_status = "ADVANCE_PAID"
+            balance_status_text = f"Advance Paid to Farmer: Rs.{remaining_balance_amount:,.2f}"
+            remaining_payable = 0.0
+            remaining_receivable = 0.0
+
     return {
         "party": party,
         "from_date": from_date,
@@ -251,8 +282,104 @@ def calculate_party_ledger(party: Dict[str, Any],
         "total_credit": total_period_credit,
         "closing_balance": abs(closing_balance),
         "closing_balance_type": closing_type,
-        "raw_closing_balance": closing_balance
+        "raw_closing_balance": closing_balance,
+        "remaining_balance": remaining_balance_amount,
+        "remaining_payable_to_farmer": remaining_payable,
+        "remaining_receivable_from_buyer": remaining_receivable,
+        "balance_status": balance_status,
+        "balance_status_text": balance_status_text
     }
+
+
+def calculate_all_party_balances(parties: List[Dict[str, Any]],
+                                 all_invoices: List[Dict[str, Any]],
+                                 all_ledgers: List[Dict[str, Any]],
+                                 all_outward: List[Dict[str, Any]],
+                                 branch_id: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Computes a consolidated Outstanding Balance Register for all parties:
+    - Total Billed / Procured Amount
+    - Total Paid / Settled Amount
+    - Remaining Balance Due
+    - Balance Status (Payable to Farmer / Receivable from Buyer / Fully Settled)
+    """
+    party_rows = []
+    total_payable_farmers = 0.0
+    total_receivable_buyers = 0.0
+    total_parties_with_pending = 0
+    total_settled_parties = 0
+
+    for p in parties:
+        ledger = calculate_party_ledger(p, all_invoices, all_ledgers, all_outward, branch_id=branch_id)
+        raw_bal = ledger["raw_closing_balance"]
+        bal_abs = ledger["closing_balance"]
+        b_type = ledger["closing_balance_type"]
+        p_type = (p.get("party_type") or "FARMER").upper()
+
+        if bal_abs < 0.01:
+            status = "SETTLED"
+            status_label = "Fully Settled ✓"
+            remaining_payable = 0.0
+            remaining_receivable = 0.0
+            total_settled_parties += 1
+        elif p_type == "BUYER":
+            if raw_bal > 0:
+                status = "PENDING_RECEIVABLE"
+                status_label = "Payment Due from Buyer (येणे बाकी)"
+                remaining_payable = 0.0
+                remaining_receivable = bal_abs
+                total_receivable_buyers += bal_abs
+                total_parties_with_pending += 1
+            else:
+                status = "ADVANCE_RECEIVED"
+                status_label = "Advance from Buyer"
+                remaining_payable = 0.0
+                remaining_receivable = 0.0
+        else: # FARMER
+            if raw_bal < 0:
+                status = "PENDING_PAYABLE"
+                status_label = "Remaining Payable to Farmer (देणे बाकी)"
+                remaining_payable = bal_abs
+                remaining_receivable = 0.0
+                total_payable_farmers += bal_abs
+                total_parties_with_pending += 1
+            else:
+                status = "ADVANCE_PAID"
+                status_label = "Advance Paid to Farmer"
+                remaining_payable = 0.0
+                remaining_receivable = 0.0
+
+        party_rows.append({
+            "party_id": p.get("id"),
+            "party_name": p.get("name"),
+            "party_type": p_type,
+            "phone": p.get("phone") or "",
+            "village": p.get("village") or "",
+            "transaction_count": len(ledger["transactions"]),
+            "total_procured_or_billed": ledger["total_credit"] if p_type == "FARMER" else ledger["total_debit"],
+            "total_paid_or_received": ledger["total_debit"] if p_type == "FARMER" else ledger["total_credit"],
+            "remaining_balance": bal_abs,
+            "balance_type": b_type,
+            "status": status,
+            "status_label": status_label,
+            "remaining_payable": remaining_payable,
+            "remaining_receivable": remaining_receivable
+        })
+
+    # Sort so parties with pending balances come first, highest balance on top
+    party_rows.sort(key=lambda r: (0 if r["status"].startswith("PENDING") else 1, -r["remaining_balance"]))
+
+    return {
+        "summary": {
+            "total_parties": len(parties),
+            "total_payable_to_farmers": total_payable_farmers,
+            "total_receivable_from_buyers": total_receivable_buyers,
+            "total_parties_with_pending": total_parties_with_pending,
+            "total_settled_parties": total_settled_parties
+        },
+        "parties": party_rows
+    }
+
 
 
 # ============================================================================

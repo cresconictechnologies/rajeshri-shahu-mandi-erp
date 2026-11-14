@@ -1821,6 +1821,56 @@ def api_report_party_ledger(
     finally:
         conn.close()
 
+@app.get("/api/accounts/reports/party-balances")
+def api_report_party_balances(
+    request: Request,
+    branch_id: Optional[str] = "all",
+    party_type: Optional[str] = "all",
+    format: Optional[str] = "json"
+):
+    import tally_reports
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM parties ORDER BY name ASC")
+        parties = [dict(r) for r in cur.fetchall()]
+
+        if party_type and party_type.lower() != "all":
+            parties = [p for p in parties if (p.get("party_type") or "").upper() == party_type.upper()]
+
+        cur.execute("SELECT * FROM purchase_invoices ORDER BY invoice_date ASC, created_at ASC")
+        invoices = [dict(r) for r in cur.fetchall()]
+
+        cur.execute("SELECT * FROM outward_orders ORDER BY order_date ASC, created_at ASC")
+        outward = [dict(r) for r in cur.fetchall()]
+
+        cur.execute("SELECT * FROM ledger_entries ORDER BY transaction_date ASC, created_at ASC")
+        ledgers = [dict(r) for r in cur.fetchall()]
+
+        balances_data = tally_reports.calculate_all_party_balances(
+            parties=parties,
+            all_invoices=invoices,
+            all_ledgers=ledgers,
+            all_outward=outward,
+            branch_id=branch_id
+        )
+
+        if format == "csv":
+            csv_lines = [
+                '"Party Name","Type","Phone","Village","Total Procured/Billed (Rs)","Total Paid/Received (Rs)","Remaining Balance (Rs)","Balance Type","Status"'
+            ]
+            for row in balances_data.get("parties", []):
+                p_name = (row.get("party_name") or "").replace('"', '""')
+                village = (row.get("village") or "").replace('"', '""')
+                csv_lines.append(f'"{p_name}","{row.get("party_type")}","{row.get("phone")}","{village}",{row.get("total_procured_or_billed", 0):.2f},{row.get("total_paid_or_received", 0):.2f},{row.get("remaining_balance", 0):.2f},"{row.get("balance_type")}","{row.get("status_label")}"')
+            csv_out = "\n".join(csv_lines)
+            return Response(content=csv_out, media_type="text/csv", headers={"Content-Disposition": 'attachment; filename="Party_Balances_Remaining.csv"'})
+
+        return JSONResponse({"success": True, **balances_data})
+    finally:
+        conn.close()
+
+
 @app.get("/api/accounts/reports/daily-inward")
 def api_report_daily_inward(
     request: Request,

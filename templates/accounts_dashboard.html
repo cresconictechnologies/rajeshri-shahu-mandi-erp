@@ -1776,10 +1776,18 @@
             document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
             const targetEl = document.getElementById(tabId);
             if (targetEl) targetEl.classList.add('active');
-            if (window.event && window.event.target) {
-                const btn = window.event.target.closest('.tab-btn');
-                if (btn) btn.classList.add('active');
+            let btn = null;
+            if (window.event && window.event.target && window.event.target.closest) {
+                btn = window.event.target.closest('.tab-btn');
             }
+            if (!btn) {
+                if (tabId === 'tab-ledgers') {
+                    btn = document.getElementById('tabBtnLedgers') || document.querySelector(".tab-btn[onclick*='tab-ledgers']");
+                } else {
+                    btn = document.querySelector(`.tab-btn[onclick*="'${tabId}'"]`);
+                }
+            }
+            if (btn) btn.classList.add('active');
             if (tabId === 'tab-ledgers') {
                 const btnParty = document.getElementById('btnLedgerSubParty');
                 if (btnParty && btnParty.classList.contains('active')) renderPartyLedger();
@@ -3636,32 +3644,15 @@ _For inquiries or bank RTGS verification, please contact Central Accounts._`;
             if (!CURRENT_PARTY_REPORT) return;
             const r = CURRENT_PARTY_REPORT;
             const pName = r.party.name || 'Party';
-            let csv = 'Date,Branch,Voucher Type,Voucher No,Particulars,Debit (Rs),Credit (Rs),Running Balance,Type
-';
-            csv += `,,Opening Balance,,,0,0,${r.opening_balance.toFixed(2)},${r.opening_balance_type}
-`;
+            let csv = "Date,Branch,Voucher Type,Voucher No,Particulars,Debit (Rs),Credit (Rs),Running Balance,Type\n";
+            csv += `,,Opening Balance,,,0,0,${r.opening_balance.toFixed(2)},${r.opening_balance_type}\n`;
             r.transactions.forEach(t => {
-                csv += `"${t.date}","${t.branch_name}","${t.voucher_type}","${t.voucher_number}","${t.particulars.replace(/"/g, '""')}",${t.debit.toFixed(2)},${t.credit.toFixed(2)},${t.running_balance.toFixed(2)},${t.balance_type}
-`;
+                csv += `"${t.date}","${t.branch_name}","${t.voucher_type}","${t.voucher_number}","${t.particulars.replace(/"/g, '""')}",${t.debit.toFixed(2)},${t.credit.toFixed(2)},${t.running_balance.toFixed(2)},${t.balance_type}\n`;
             });
-            csv += `,,PERIOD TOTALS,,,${r.total_debit.toFixed(2)},${r.total_credit.toFixed(2)},${r.closing_balance.toFixed(2)},${r.closing_balance_type}
-`;
+            csv += `,,PERIOD TOTALS,,,${r.total_debit.toFixed(2)},${r.total_credit.toFixed(2)},${r.closing_balance.toFixed(2)},${r.closing_balance_type}\n`;
 
             const cleanName = pName.replace(/[^a-zA-Z0-9]/g, '_');
             downloadFileBlob(csv, `Ledger_${cleanName}.csv`, 'text/csv');
-        }
-
-        function printPartyLedgerReport() {
-            const printContent = document.getElementById('printableStatementCard');
-            if (!printContent) {
-                window.print();
-                return;
-            }
-            const partyName = document.getElementById('partyProfileName')?.textContent || 'Party';
-            const originalTitle = document.title;
-            document.title = `Ledger_Statement_${partyName}`;
-            window.print();
-            document.title = originalTitle;
         }
 
         // =========================================================================
@@ -3923,8 +3914,7 @@ _For inquiries or bank RTGS verification, please contact Central Accounts._`;
             const pMap = {};
             (ACCOUNTS_CACHE.parties || []).forEach(p => { pMap[p.id] = p.name; });
 
-            let csv = 'Token No,Date,Branch,Farmer Name,Phone,Commodity,Grade,Bags,Moisture %,Net Wt (Qtl),Rate (Rs/Qtl),Gross (Rs),Hamali (Rs),Net Payable (Rs),Status,Payment Ref
-';
+            let csv = 'Token No,Date,Branch,Farmer Name,Phone,Commodity,Grade,Bags,Moisture %,Net Wt (Qtl),Rate (Rs/Qtl),Gross (Rs),Hamali (Rs),Net Payable (Rs),Status,Payment Ref\n';
             r.invoices.forEach(inv => {
                 const fName = inv.custom_farmer_name || pMap[inv.party_id] || 'Farmer';
                 csv += `"${inv.token_number || inv.id}","${inv.invoice_date}","${inv.branch_id}","${fName}","${inv.party_phone || ''}","${inv.commodity_name}","${inv.quality_grade || 'FAQ'}",${inv.bag_count || 0},${inv.moisture_percentage || 0},${inv.net_quintals || 0},${inv.rate_per_quintal || 0},${inv.gross_amount || 0},${inv.hamali_charge || 0},${inv.net_payable_amount || 0},"${inv.payout_status || 'PENDING'}","${inv.rtgs_utr_no || ''}"
@@ -4148,8 +4138,7 @@ _For inquiries or bank RTGS verification, please contact Central Accounts._`;
         function downloadDailyOutwardCsv() {
             if (!CURRENT_OUTWARD_REPORT || CURRENT_OUTWARD_REPORT.orders.length === 0) return;
             const r = CURRENT_OUTWARD_REPORT;
-            let csv = 'Challan No,Date,Branch,Buyer Name,Commodity,Vehicle No,Net Wt (Qtl),Net Wt (MT),Rate (Rs/Qtl),Total Bill (Rs),Status,Mode,UTR
-';
+            let csv = 'Challan No,Date,Branch,Buyer Name,Commodity,Vehicle No,Net Wt (Qtl),Net Wt (MT),Rate (Rs/Qtl),Total Bill (Rs),Status,Mode,UTR\n';
             r.orders.forEach(o => {
                 const q = parseFloat(o.net_quintals || 0.0);
                 csv += `"${o.challan_number || o.id}","${o.order_date}","${o.branch_id}","${o.buyer_name}","${o.commodity_name}","${o.vehicle_number || ''}",${q.toFixed(2)},${(q/10).toFixed(2)},${o.rate_per_quintal || 0},${o.total_bill_amount || 0},"${o.payment_status || 'PENDING'}","${o.payment_mode || ''}","${o.utr_number || ''}"

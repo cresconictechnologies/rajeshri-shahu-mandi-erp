@@ -175,6 +175,14 @@
       "destination": "/api/portal?action=commodities"
     },
     {
+      "source": "/api/accounts/reports",
+      "destination": "/api/portal?action=reports"
+    },
+    {
+      "source": "/api/accounts/reports/(.*)",
+      "destination": "/api/portal?action=reports"
+    },
+    {
       "source": "/api/accounts/data",
       "destination": "/api/portal?action=accounts_data"
     },

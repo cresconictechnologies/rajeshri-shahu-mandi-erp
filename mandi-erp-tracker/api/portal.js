@@ -34,6 +34,7 @@ export default async function handler(req, res) {
     else if (req.url.includes('/admin/settings') || req.url.includes('/settings')) action = 'settings';
     else if (req.url.includes('/admin/data')) action = 'admin_data';
     else if (req.url.includes('/accounts/data')) action = 'accounts_data';
+    else if (req.url.includes('/accounts/reports') || req.url.includes('/reports')) action = 'reports';
     else action = 'summary';
   }
 
@@ -1298,13 +1299,13 @@ export default async function handler(req, res) {
     try {
       const [ratesResp, invoicesResp, outwardResp, inspectorsResp, commoditiesResp, ledgersResp, partiesResp, branchesResp] = await Promise.all([
         fetch(`${supabaseUrl}/rest/v1/daily_commodity_rates?select=*&order=updated_at.desc&limit=100`, { headers }),
-        fetch(`${supabaseUrl}/rest/v1/purchase_invoices?select=*&order=created_at.desc&limit=200`, { headers }),
-        fetch(`${supabaseUrl}/rest/v1/outward_orders?select=*&order=created_at.desc&limit=100`, { headers }),
+        fetch(`${supabaseUrl}/rest/v1/purchase_invoices?select=*&order=invoice_date.desc,created_at.desc&limit=1000`, { headers }),
+        fetch(`${supabaseUrl}/rest/v1/outward_orders?select=*&order=order_date.desc,created_at.desc&limit=500`, { headers }),
         fetch(`${supabaseUrl}/rest/v1/inspectors?select=*&order=name.asc`, { headers }),
         fetch(`${supabaseUrl}/rest/v1/commodities?select=*&order=name.asc`, { headers }),
-        fetch(`${supabaseUrl}/rest/v1/ledger_entries?select=*&order=transaction_date.desc,created_at.desc&limit=500`, { headers }),
-        fetch(`${supabaseUrl}/rest/v1/parties?select=id,name,party_type`, { headers }),
-        fetch(`${supabaseUrl}/rest/v1/branches?select=id,name`, { headers })
+        fetch(`${supabaseUrl}/rest/v1/ledger_entries?select=*&order=transaction_date.desc,created_at.desc&limit=1000`, { headers }),
+        fetch(`${supabaseUrl}/rest/v1/parties?select=*&order=name.asc`, { headers }),
+        fetch(`${supabaseUrl}/rest/v1/branches?select=*&order=name.asc`, { headers })
       ]);
 
       const rawRates = ratesResp.ok ? await ratesResp.json() : [];
@@ -1408,6 +1409,7 @@ export default async function handler(req, res) {
         rates: rates,
         pending_overrides: pendingOverrides,
         pending_rtgs: pendingRtgs,
+        invoices: invoices,
         outward_orders: outwardOrders,
         inspectors: inspectors,
         commodities: commodities,
@@ -1421,6 +1423,846 @@ export default async function handler(req, res) {
           pending_outward_count: pendingOutwardCount
         }
       });
+    } catch (err) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
+  // =========================================================================
+  // 11. CENTRAL ACCOUNTS REPORTS & TALLY EXPORT ACTION
+  // =========================================================================
+  if (action === 'reports') {
+    try {
+      const type = req.query.type || 'daily_inward';
+      const format = req.query.format || 'json';
+      const targetDate = req.query.date || new Date().toISOString().slice(0, 10);
+      const branchId = req.query.branch_id || 'all';
+      const commodityName = req.query.commodity || 'all';
+      const partyId = req.query.party_id || '';
+      const fromDate = req.query.from_date || '';
+      const toDate = req.query.to_date || '';
+
+      const [invoicesResp, outwardResp, ledgersResp, partiesResp, branchesResp] = await Promise.all([
+        fetch(`${supabaseUrl}/rest/v1/purchase_invoices?select=*&order=invoice_date.desc,created_at.desc&limit=1000`, { headers }),
+        fetch(`${supabaseUrl}/rest/v1/outward_orders?select=*&order=order_date.desc,created_at.desc&limit=500`, { headers }),
+        fetch(`${supabaseUrl}/rest/v1/ledger_entries?select=*&order=transaction_date.desc,created_at.desc&limit=1000`, { headers }),
+        fetch(`${supabaseUrl}/rest/v1/parties?select=*&order=name.asc`, { headers }),
+        fetch(`${supabaseUrl}/rest/v1/branches?select=*&order=name.asc`, { headers })
+      ]);
+
+      const allInvoices = invoicesResp.ok ? await invoicesResp.json() : [];
+      const allOutward = outwardResp.ok ? await outwardResp.json() : [];
+      const allLedgers = ledgersResp.ok ? await ledgersResp.json() : [];
+      const partiesList = partiesResp.ok ? await partiesResp.json() : [];
+      const branchesList = branchesResp.ok ? await branchesResp.json() : [];
+
+      const pMap = {};
+      partiesList.forEach(p => { pMap[p.id] = p; });
+      const bMap = {};
+      branchesList.forEach(b => { bMap[b.id] = b.name; });
+
+      // Helper: escape XML
+      const escXml = (s) => (s == null ? '' : String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;'));
+      const tallyDate = (d) => {
+        if (!d) return new Date().toISOString().slice(0, 10).replace(/-/g, '');
+        const clean = String(d).split('T')[0].trim();
+        if (clean.includes('-')) {
+          const parts = clean.split('-');
+          return parts[0].padStart(4, '0') + parts[1].padStart(2, '0') + parts[2].padStart(2, '0');
+        }
+        return new Date().toISOString().slice(0, 10).replace(/-/g, '');
+      };
+
+      // -----------------------------------------------------------------------
+      // REPORT TYPE 1: PARTY LEDGER
+      // -----------------------------------------------------------------------
+      if (type === 'party_ledger') {
+        const party = pMap[partyId] || { id: partyId, name: req.query.party_name || 'Party', party_type: 'FARMER' };
+        const pName = party.name || 'Party';
+        const pType = party.party_type || 'FARMER';
+
+        // Gather transactions
+        const rawTxs = [];
+        for (const inv of allInvoices) {
+          const mParty = inv.party_id === partyId || (inv.custom_farmer_name && inv.custom_farmer_name.toLowerCase() === pName.toLowerCase());
+          if (!mParty) continue;
+          if (branchId !== 'all' && inv.branch_id !== branchId) continue;
+
+          const invDate = (inv.invoice_date || '').split('T')[0];
+          const netPay = parseFloat(inv.net_payable_amount || inv.rounded_net_payable || 0.0);
+          const tok = inv.token_number || inv.id || 'INV';
+          const comm = inv.commodity_name || 'Commodity';
+          const qtl = parseFloat(inv.net_quintals || 0.0);
+          const rate = parseFloat(inv.rate_per_quintal || 0.0);
+          const hamali = parseFloat(inv.hamali_charge || 0.0);
+
+          rawTxs.push({
+            date: invDate,
+            timestamp: inv.created_at || `${invDate}T10:00:00Z`,
+            voucher_type: 'Purchase Invoice',
+            voucher_number: tok,
+            branch_id: inv.branch_id,
+            branch_name: bMap[inv.branch_id] || 'Branch',
+            particulars: `Procured ${qtl.toFixed(2)} Qtl ${comm} @ Rs.${rate.toFixed(2)}/Qtl [Hamali: Rs.${hamali.toFixed(2)}]`,
+            debit: 0.0,
+            credit: netPay,
+            ref_id: inv.id,
+            status: inv.payout_status || 'PENDING'
+          });
+
+          const pStat = (inv.payout_status || '').toUpperCase();
+          if (['PAID', 'PAID_CASH', 'RTGS_COMPLETED', 'COMPLETED'].includes(pStat)) {
+            const payDate = (inv.rtgs_completed_at || inv.created_at || invDate).split('T')[0];
+            const utr = inv.rtgs_utr_no || 'CASH';
+            const mode = (inv.weighment_mode === 'RTGS' || pStat.includes('RTGS')) ? 'RTGS Bank Transfer' : 'Cash Payout';
+            rawTxs.push({
+              date: payDate,
+              timestamp: inv.rtgs_completed_at || inv.created_at || `${payDate}T16:00:00Z`,
+              voucher_type: 'Payment',
+              voucher_number: `PAY-${tok}`,
+              branch_id: inv.branch_id,
+              branch_name: bMap[inv.branch_id] || 'Branch',
+              particulars: `${mode} settlement against Token #${tok} [Ref: ${utr}]`,
+              debit: netPay,
+              credit: 0.0,
+              ref_id: `pay-${inv.id}`,
+              status: 'SETTLED'
+            });
+          }
+        }
+
+        // Outward orders for buyer
+        for (const out of allOutward) {
+          const mBuyer = (out.buyer_name && out.buyer_name.toLowerCase() === pName.toLowerCase()) || out.party_id === partyId;
+          if (!mBuyer) continue;
+          if (branchId !== 'all' && out.branch_id !== branchId) continue;
+
+          const outDate = (out.order_date || '').split('T')[0];
+          const totalBill = parseFloat(out.total_bill_amount || out.gross_amount || 0.0);
+          const chal = out.challan_number || out.id || 'OUT';
+          const comm = out.commodity_name || 'Commodity';
+          const qtl = parseFloat(out.net_quintals || 0.0);
+          const rate = parseFloat(out.rate_per_quintal || 0.0);
+
+          rawTxs.push({
+            date: outDate,
+            timestamp: out.created_at || `${outDate}T11:00:00Z`,
+            voucher_type: 'Sales Challan',
+            voucher_number: chal,
+            branch_id: out.branch_id,
+            branch_name: bMap[out.branch_id] || 'Branch',
+            particulars: `Sales dispatch of ${qtl.toFixed(2)} Qtl ${comm} @ Rs.${rate.toFixed(2)}/Qtl via Vehicle ${out.vehicle_number || 'N/A'}`,
+            debit: totalBill,
+            credit: 0.0,
+            ref_id: out.id,
+            status: out.status || 'CONFIRMED'
+          });
+
+          const payStat = (out.payment_status || '').toUpperCase();
+          if (['PAID', 'RECEIVED'].includes(payStat)) {
+            const recDate = (out.payment_received_date || outDate).split('T')[0];
+            rawTxs.push({
+              date: recDate,
+              timestamp: out.payment_received_date || out.created_at || `${recDate}T17:00:00Z`,
+              voucher_type: 'Receipt',
+              voucher_number: `REC-${chal}`,
+              branch_id: out.payment_branch_id || out.branch_id,
+              branch_name: bMap[out.payment_branch_id || out.branch_id] || 'Branch',
+              particulars: `Payment received via ${out.payment_mode || 'BANK'} [UTR: ${out.utr_number || 'N/A'}]`,
+              debit: 0.0,
+              credit: totalBill,
+              ref_id: `rec-${out.id}`,
+              status: 'RECEIVED'
+            });
+          }
+        }
+
+        rawTxs.sort((a, b) => a.date.localeCompare(b.date) || a.timestamp.localeCompare(b.timestamp));
+
+        let openingBalance = parseFloat(party.current_advance || 0.0);
+        let periodDebit = 0.0;
+        let periodCredit = 0.0;
+        const periodTxs = [];
+
+        for (const tx of rawTxs) {
+          if (fromDate && tx.date < fromDate) {
+            openingBalance += (tx.debit - tx.credit);
+          } else if (toDate && tx.date > toDate) {
+            continue;
+          } else {
+            periodTxs.push(tx);
+            periodDebit += tx.debit;
+            periodCredit += tx.credit;
+          }
+        }
+
+        let runBal = openingBalance;
+        const statementTxs = periodTxs.map(t => {
+          runBal += (t.debit - t.credit);
+          return {
+            ...t,
+            running_balance: Math.abs(runBal),
+            balance_type: runBal > 0.001 ? 'Dr' : (runBal < -0.001 ? 'Cr' : 'Nil'),
+            raw_balance: runBal
+          };
+        });
+
+        const closingBalance = runBal;
+        const reportData = {
+          party: party,
+          from_date: fromDate || null,
+          to_date: toDate || null,
+          branch_id: branchId,
+          branch_name: bMap[branchId] || 'All Branches',
+          opening_balance: Math.abs(openingBalance),
+          opening_balance_type: openingBalance > 0.001 ? 'Dr' : (openingBalance < -0.001 ? 'Cr' : 'Nil'),
+          raw_opening_balance: openingBalance,
+          transactions: statementTxs,
+          total_debit: periodDebit,
+          total_credit: periodCredit,
+          closing_balance: Math.abs(closingBalance),
+          closing_balance_type: closingBalance > 0.001 ? 'Dr' : (closingBalance < -0.001 ? 'Cr' : 'Nil'),
+          raw_closing_balance: closingBalance
+        };
+
+        if (format === 'csv') {
+          res.setHeader('Content-Type', 'text/csv');
+          res.setHeader('Content-Disposition', `attachment; filename="Ledger_${pName.replace(/[^a-zA-Z0-9]/g, '_')}.csv"`);
+          let csv = 'Date,Branch,Voucher Type,Voucher No,Particulars,Debit (Rs),Credit (Rs),Running Balance,Type\n';
+          csv += `,,Opening Balance,,,0,0,${reportData.opening_balance.toFixed(2)},${reportData.opening_balance_type}\n`;
+          for (const row of statementTxs) {
+            csv += `"${row.date}","${row.branch_name}","${row.voucher_type}","${row.voucher_number}","${row.particulars.replace(/"/g, '""')}",${row.debit.toFixed(2)},${row.credit.toFixed(2)},${row.running_balance.toFixed(2)},${row.balance_type}\n`;
+          }
+          csv += `,,CLOSING TOTALS,,,${periodDebit.toFixed(2)},${periodCredit.toFixed(2)},${reportData.closing_balance.toFixed(2)},${reportData.closing_balance_type}\n`;
+          return res.status(200).send(csv);
+        }
+
+        if (format === 'xml') {
+          res.setHeader('Content-Type', 'application/xml');
+          res.setHeader('Content-Disposition', `attachment; filename="Tally_Ledger_${pName.replace(/[^a-zA-Z0-9]/g, '_')}.xml"`);
+          const parentGroup = pType === 'FARMER' ? 'Sundry Creditors' : 'Sundry Debtors';
+
+          let xml = `<?xml version="1.0" encoding="utf-8"?>
+<ENVELOPE>
+  <HEADER>
+    <VERSION>1</VERSION>
+    <TALLYREQUEST>Import</TALLYREQUEST>
+    <TYPE>Data</TYPE>
+    <ID>All Masters and Vouchers</ID>
+  </HEADER>
+  <BODY>
+    <DESC>
+      <STATICVARIABLES>
+        <SVCURRENTCOMPANY>Rajarshi Shahu Trading Company</SVCURRENTCOMPANY>
+      </STATICVARIABLES>
+    </DESC>
+    <DATA>
+      <TALLYMESSAGE xmlns:UDF="TallyUDF">
+        <LEDGER NAME="${escXml(pName)}" ACTION="Create">
+          <NAME>${escXml(pName)}</NAME>
+          <PARENT>${escXml(parentGroup)}</PARENT>
+          <OPENINGBALANCE>${reportData.raw_opening_balance.toFixed(2)}</OPENINGBALANCE>
+          <ISBILLWISEON>Yes</ISBILLWISEON>
+          <AFFECTSSTOCK>No</AFFECTSSTOCK>
+          <LEDSTATENAME>Maharashtra</LEDSTATENAME>
+          <COUNTRYNAME>India</COUNTRYNAME>
+        </LEDGER>
+      </TALLYMESSAGE>\n`;
+
+          for (const tx of statementTxs) {
+            const vchType = tx.voucher_type.includes('Purchase') ? 'Purchase' : (tx.voucher_type.includes('Payment') ? 'Payment' : (tx.voucher_type.includes('Sales') ? 'Sales' : 'Receipt'));
+            xml += `      <TALLYMESSAGE xmlns:UDF="TallyUDF">
+        <VOUCHER VCHTYPE="${vchType}" ACTION="Create">
+          <DATE>${tallyDate(tx.date)}</DATE>
+          <VOUCHERTYPENAME>${vchType}</VOUCHERTYPENAME>
+          <VOUCHERNUMBER>${escXml(tx.voucher_number)}</VOUCHERNUMBER>
+          <PARTYLEDGERNAME>${escXml(pName)}</PARTYLEDGERNAME>
+          <PERSISTEDVIEW>Accounting Voucher View</PERSISTEDVIEW>
+          <NARRATION>${escXml(tx.particulars)}</NARRATION>\n`;
+
+            if (vchType === 'Purchase') {
+              xml += `          <ALLLEDGERENTRIES.LIST>
+            <LEDGERNAME>${escXml(pName)}</LEDGERNAME>
+            <ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE>
+            <AMOUNT>-${tx.credit.toFixed(2)}</AMOUNT>
+          </ALLLEDGERENTRIES.LIST>
+          <ALLLEDGERENTRIES.LIST>
+            <LEDGERNAME>Grain Procurement Account</LEDGERNAME>
+            <ISDEEMEDPOSITIVE>Yes</ISDEEMEDPOSITIVE>
+            <AMOUNT>${tx.credit.toFixed(2)}</AMOUNT>
+          </ALLLEDGERENTRIES.LIST>\n`;
+            } else if (vchType === 'Payment') {
+              xml += `          <ALLLEDGERENTRIES.LIST>
+            <LEDGERNAME>${escXml(pName)}</LEDGERNAME>
+            <ISDEEMEDPOSITIVE>Yes</ISDEEMEDPOSITIVE>
+            <AMOUNT>${tx.debit.toFixed(2)}</AMOUNT>
+          </ALLLEDGERENTRIES.LIST>
+          <ALLLEDGERENTRIES.LIST>
+            <LEDGERNAME>Cash / Bank Settlement Account</LEDGERNAME>
+            <ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE>
+            <AMOUNT>-${tx.debit.toFixed(2)}</AMOUNT>
+          </ALLLEDGERENTRIES.LIST>\n`;
+            } else if (vchType === 'Sales') {
+              xml += `          <ALLLEDGERENTRIES.LIST>
+            <LEDGERNAME>${escXml(pName)}</LEDGERNAME>
+            <ISDEEMEDPOSITIVE>Yes</ISDEEMEDPOSITIVE>
+            <AMOUNT>${tx.debit.toFixed(2)}</AMOUNT>
+          </ALLLEDGERENTRIES.LIST>
+          <ALLLEDGERENTRIES.LIST>
+            <LEDGERNAME>Grain Sales Account</LEDGERNAME>
+            <ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE>
+            <AMOUNT>-${tx.debit.toFixed(2)}</AMOUNT>
+          </ALLLEDGERENTRIES.LIST>\n`;
+            } else {
+              xml += `          <ALLLEDGERENTRIES.LIST>
+            <LEDGERNAME>Bank RTGS Account</LEDGERNAME>
+            <ISDEEMEDPOSITIVE>Yes</ISDEEMEDPOSITIVE>
+            <AMOUNT>${tx.credit.toFixed(2)}</AMOUNT>
+          </ALLLEDGERENTRIES.LIST>
+          <ALLLEDGERENTRIES.LIST>
+            <LEDGERNAME>${escXml(pName)}</LEDGERNAME>
+            <ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE>
+            <AMOUNT>-${tx.credit.toFixed(2)}</AMOUNT>
+          </ALLLEDGERENTRIES.LIST>\n`;
+            }
+            xml += `        </VOUCHER>
+      </TALLYMESSAGE>\n`;
+          }
+
+          xml += `    </DATA>
+  </BODY>
+</ENVELOPE>`;
+          return res.status(200).send(xml);
+        }
+
+        return res.status(200).json({ success: true, report: reportData });
+      }
+
+      // -----------------------------------------------------------------------
+      // REPORT TYPE 2: DAILY INWARD PROCUREMENT REGISTER
+      // -----------------------------------------------------------------------
+      if (type === 'daily_inward') {
+        const filteredInvoices = allInvoices.filter(inv => {
+          const invDate = (inv.invoice_date || '').split('T')[0];
+          if (targetDate && invDate !== targetDate) return false;
+          if (branchId !== 'all' && inv.branch_id !== branchId) return false;
+          if (commodityName !== 'all' && inv.commodity_name && !inv.commodity_name.toLowerCase().includes(commodityName.toLowerCase())) return false;
+          return true;
+        });
+
+        let totalBags = 0;
+        let totalNetQtl = 0.0;
+        let totalGross = 0.0;
+        let totalHamali = 0.0;
+        let totalNetPayable = 0.0;
+        let totalPaid = 0.0;
+        let totalPending = 0.0;
+
+        for (const inv of filteredInvoices) {
+          totalBags += parseInt(inv.bag_count || 0);
+          totalNetQtl += parseFloat(inv.net_quintals || 0.0);
+          const g = parseFloat(inv.gross_amount || 0.0);
+          const h = parseFloat(inv.hamali_charge || 0.0);
+          const np = parseFloat(inv.net_payable_amount || inv.rounded_net_payable || (g - h));
+          totalGross += g;
+          totalHamali += h;
+          totalNetPayable += np;
+
+          const pStat = (inv.payout_status || '').toUpperCase();
+          if (['PAID', 'PAID_CASH', 'RTGS_COMPLETED', 'COMPLETED'].includes(pStat)) {
+            totalPaid += np;
+          } else {
+            totalPending += np;
+          }
+        }
+
+        const reportSummary = {
+          date: targetDate,
+          branch_id: branchId,
+          branch_name: bMap[branchId] || 'All Branches',
+          total_lots: filteredInvoices.length,
+          total_bags: totalBags,
+          total_net_quintals: totalNetQtl,
+          total_net_mt: totalNetQtl / 10.0,
+          total_gross_amount: totalGross,
+          total_hamali_deductions: totalHamali,
+          total_net_payable: totalNetPayable,
+          total_paid: totalPaid,
+          total_pending: totalPending,
+          invoices: filteredInvoices.map(inv => ({
+            ...inv,
+            branch_name: bMap[inv.branch_id] || inv.branch_id,
+            farmer_name: inv.custom_farmer_name || (pMap[inv.party_id] ? pMap[inv.party_id].name : 'Farmer')
+          }))
+        };
+
+        if (format === 'csv') {
+          res.setHeader('Content-Type', 'text/csv');
+          res.setHeader('Content-Disposition', `attachment; filename="Inward_Register_${targetDate}_${branchId}.csv"`);
+          let csv = 'Token No,Date,Branch,Farmer Name,Phone,Commodity,Grade,Bags,Moisture %,Gross Wt (kg),Tare (kg),Net Wt (Qtl),Rate (Rs/Qtl),Gross (Rs),Hamali (Rs),Net Payable (Rs),Status,Payment Ref\n';
+          for (const inv of reportSummary.invoices) {
+            csv += `"${inv.token_number || inv.id}","${inv.invoice_date}","${inv.branch_name}","${inv.farmer_name}","${inv.party_phone || ''}","${inv.commodity_name}","${inv.quality_grade || 'FAQ'}",${inv.bag_count || 0},${inv.moisture_percentage || 0},${inv.gross_weight_kg || 0},${inv.vehicle_tare_kg || 0},${inv.net_quintals || 0},${inv.rate_per_quintal || 0},${inv.gross_amount || 0},${inv.hamali_charge || 0},${inv.net_payable_amount || 0},"${inv.payout_status || 'PENDING'}","${inv.rtgs_utr_no || ''}"\n`;
+          }
+          return res.status(200).send(csv);
+        }
+
+        if (format === 'xml') {
+          res.setHeader('Content-Type', 'application/xml');
+          res.setHeader('Content-Disposition', `attachment; filename="Tally_Inward_Purchases_${targetDate}_${branchId}.xml"`);
+          const branchLabel = bMap[branchId] || 'Central Mandi';
+
+          const farmers = [...new Set(filteredInvoices.map(i => i.farmer_name || 'Farmer'))];
+          const commodities = [...new Set(filteredInvoices.map(i => i.commodity_name || 'General Grain'))];
+
+          let xml = `<?xml version="1.0" encoding="utf-8"?>
+<ENVELOPE>
+  <HEADER>
+    <VERSION>1</VERSION>
+    <TALLYREQUEST>Import</TALLYREQUEST>
+    <TYPE>Data</TYPE>
+    <ID>Vouchers</ID>
+  </HEADER>
+  <BODY>
+    <DESC>
+      <STATICVARIABLES>
+        <SVCURRENTCOMPANY>Rajarshi Shahu Trading Company</SVCURRENTCOMPANY>
+      </STATICVARIABLES>
+    </DESC>
+    <DATA>\n`;
+
+          // Masters
+          for (const f of farmers) {
+            xml += `      <TALLYMESSAGE xmlns:UDF="TallyUDF">
+        <LEDGER NAME="${escXml(f)}" ACTION="Create">
+          <NAME>${escXml(f)}</NAME>
+          <PARENT>Sundry Creditors</PARENT>
+          <ISBILLWISEON>Yes</ISBILLWISEON>
+          <LEDSTATENAME>Maharashtra</LEDSTATENAME>
+          <COUNTRYNAME>India</COUNTRYNAME>
+        </LEDGER>
+      </TALLYMESSAGE>\n`;
+          }
+
+          for (const c of commodities) {
+            xml += `      <TALLYMESSAGE xmlns:UDF="TallyUDF">
+        <LEDGER NAME="${escXml(c)} Purchase Account" ACTION="Create">
+          <NAME>${escXml(c)} Purchase Account</NAME>
+          <PARENT>Purchase Accounts</PARENT>
+          <AFFECTSSTOCK>Yes</AFFECTSSTOCK>
+        </LEDGER>
+      </TALLYMESSAGE>\n`;
+          }
+
+          xml += `      <TALLYMESSAGE xmlns:UDF="TallyUDF">
+        <LEDGER NAME="Mandi Hamali Deduction Account" ACTION="Create">
+          <NAME>Mandi Hamali Deduction Account</NAME>
+          <PARENT>Direct Expenses</PARENT>
+        </LEDGER>
+      </TALLYMESSAGE>\n`;
+
+          // Purchase Vouchers
+          for (const inv of reportSummary.invoices) {
+            const tok = inv.token_number || inv.id || 'INV';
+            const fName = inv.farmer_name || 'Farmer';
+            const cName = inv.commodity_name || 'Commodity';
+            const gross = parseFloat(inv.gross_amount || 0.0);
+            const hamali = parseFloat(inv.hamali_charge || 0.0);
+            const netPay = parseFloat(inv.net_payable_amount || inv.rounded_net_payable || (gross - hamali));
+            const qtl = parseFloat(inv.net_quintals || 0.0);
+            const rate = parseFloat(inv.rate_per_quintal || 0.0);
+
+            xml += `      <TALLYMESSAGE xmlns:UDF="TallyUDF">
+        <VOUCHER VCHTYPE="Purchase" ACTION="Create">
+          <DATE>${tallyDate(inv.invoice_date || targetDate)}</DATE>
+          <VOUCHERTYPENAME>Purchase</VOUCHERTYPENAME>
+          <VOUCHERNUMBER>${escXml(tok)}</VOUCHERNUMBER>
+          <PARTYLEDGERNAME>${escXml(fName)}</PARTYLEDGERNAME>
+          <PERSISTEDVIEW>Accounting Voucher View</PERSISTEDVIEW>
+          <NARRATION>Procured ${qtl.toFixed(2)} Qtl ${escXml(cName)} @ Rs.${rate.toFixed(2)}/Qtl from ${escXml(fName)} at ${escXml(branchLabel)}</NARRATION>
+          <ALLLEDGERENTRIES.LIST>
+            <LEDGERNAME>${escXml(fName)}</LEDGERNAME>
+            <ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE>
+            <AMOUNT>-${netPay.toFixed(2)}</AMOUNT>
+          </ALLLEDGERENTRIES.LIST>
+          <ALLLEDGERENTRIES.LIST>
+            <LEDGERNAME>${escXml(cName)} Purchase Account</LEDGERNAME>
+            <ISDEEMEDPOSITIVE>Yes</ISDEEMEDPOSITIVE>
+            <AMOUNT>${gross.toFixed(2)}</AMOUNT>
+          </ALLLEDGERENTRIES.LIST>\n`;
+
+            if (hamali > 0.001) {
+              xml += `          <ALLLEDGERENTRIES.LIST>
+            <LEDGERNAME>Mandi Hamali Deduction Account</LEDGERNAME>
+            <ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE>
+            <AMOUNT>-${hamali.toFixed(2)}</AMOUNT>
+          </ALLLEDGERENTRIES.LIST>\n`;
+            }
+
+            xml += `        </VOUCHER>
+      </TALLYMESSAGE>\n`;
+          }
+
+          xml += `    </DATA>
+  </BODY>
+</ENVELOPE>`;
+          return res.status(200).send(xml);
+        }
+
+        return res.status(200).json({ success: true, report: reportSummary });
+      }
+
+      // -----------------------------------------------------------------------
+      // REPORT TYPE 3: DAILY OUTWARD SALES REGISTER
+      // -----------------------------------------------------------------------
+      if (type === 'daily_outward') {
+        const filteredOutward = allOutward.filter(o => {
+          const oDate = (o.order_date || '').split('T')[0];
+          if (targetDate && oDate !== targetDate) return false;
+          if (branchId !== 'all' && o.branch_id !== branchId) return false;
+          if (commodityName !== 'all' && o.commodity_name && !o.commodity_name.toLowerCase().includes(commodityName.toLowerCase())) return false;
+          return true;
+        });
+
+        let totalDispatches = filteredOutward.length;
+        let totalQtl = 0.0;
+        let totalBill = 0.0;
+        let totalReceived = 0.0;
+        let totalDue = 0.0;
+
+        for (const o of filteredOutward) {
+          totalQtl += parseFloat(o.net_quintals || 0.0);
+          const amt = parseFloat(o.total_bill_amount || o.gross_amount || 0.0);
+          totalBill += amt;
+          const pStat = (o.payment_status || '').toUpperCase();
+          if (['PAID', 'RECEIVED'].includes(pStat)) {
+            totalReceived += amt;
+          } else {
+            totalDue += amt;
+          }
+        }
+
+        const reportSummary = {
+          date: targetDate,
+          branch_id: branchId,
+          branch_name: bMap[branchId] || 'All Branches',
+          total_dispatches: totalDispatches,
+          total_net_quintals: totalQtl,
+          total_net_mt: totalQtl / 10.0,
+          total_bill_amount: totalBill,
+          total_received_amount: totalReceived,
+          total_outstanding_due: totalDue,
+          orders: filteredOutward.map(o => ({
+            ...o,
+            branch_name: bMap[o.branch_id] || o.branch_id
+          }))
+        };
+
+        if (format === 'csv') {
+          res.setHeader('Content-Type', 'text/csv');
+          res.setHeader('Content-Disposition', `attachment; filename="Outward_Register_${targetDate}_${branchId}.csv"`);
+          let csv = 'Challan No,Date,Branch,Buyer Name,Commodity,Vehicle No,Net Wt (Qtl),Net Wt (MT),Rate (Rs/Qtl),Total Bill (Rs),Payment Status,Mode,UTR\n';
+          for (const o of reportSummary.orders) {
+            const q = parseFloat(o.net_quintals || 0.0);
+            csv += `"${o.challan_number || o.id}","${o.order_date}","${o.branch_name}","${o.buyer_name}","${o.commodity_name}","${o.vehicle_number || ''}",${q.toFixed(2)},${(q / 10.0).toFixed(2)},${o.rate_per_quintal || 0},${o.total_bill_amount || 0},"${o.payment_status || 'PENDING'}","${o.payment_mode || ''}","${o.utr_number || ''}"\n`;
+          }
+          return res.status(200).send(csv);
+        }
+
+        if (format === 'xml') {
+          res.setHeader('Content-Type', 'application/xml');
+          res.setHeader('Content-Disposition', `attachment; filename="Tally_Outward_Sales_${targetDate}_${branchId}.xml"`);
+          const branchLabel = bMap[branchId] || 'Central Mandi';
+          const buyers = [...new Set(filteredOutward.map(o => o.buyer_name || 'Buyer'))];
+          const commodities = [...new Set(filteredOutward.map(o => o.commodity_name || 'General Grain'))];
+
+          let xml = `<?xml version="1.0" encoding="utf-8"?>
+<ENVELOPE>
+  <HEADER>
+    <VERSION>1</VERSION>
+    <TALLYREQUEST>Import</TALLYREQUEST>
+    <TYPE>Data</TYPE>
+    <ID>Vouchers</ID>
+  </HEADER>
+  <BODY>
+    <DESC>
+      <STATICVARIABLES>
+        <SVCURRENTCOMPANY>Rajarshi Shahu Trading Company</SVCURRENTCOMPANY>
+      </STATICVARIABLES>
+    </DESC>
+    <DATA>\n`;
+
+          for (const b of buyers) {
+            xml += `      <TALLYMESSAGE xmlns:UDF="TallyUDF">
+        <LEDGER NAME="${escXml(b)}" ACTION="Create">
+          <NAME>${escXml(b)}</NAME>
+          <PARENT>Sundry Debtors</PARENT>
+          <ISBILLWISEON>Yes</ISBILLWISEON>
+          <LEDSTATENAME>Maharashtra</LEDSTATENAME>
+          <COUNTRYNAME>India</COUNTRYNAME>
+        </LEDGER>
+      </TALLYMESSAGE>\n`;
+          }
+
+          for (const c of commodities) {
+            xml += `      <TALLYMESSAGE xmlns:UDF="TallyUDF">
+        <LEDGER NAME="${escXml(c)} Sales Account" ACTION="Create">
+          <NAME>${escXml(c)} Sales Account</NAME>
+          <PARENT>Sales Accounts</PARENT>
+          <AFFECTSSTOCK>Yes</AFFECTSSTOCK>
+        </LEDGER>
+      </TALLYMESSAGE>\n`;
+          }
+
+          for (const o of reportSummary.orders) {
+            const chal = o.challan_number || o.id || 'OUT';
+            const bName = o.buyer_name || 'Buyer';
+            const cName = o.commodity_name || 'Commodity';
+            const bill = parseFloat(o.total_bill_amount || o.gross_amount || 0.0);
+            const qtl = parseFloat(o.net_quintals || 0.0);
+            const rate = parseFloat(o.rate_per_quintal || 0.0);
+
+            xml += `      <TALLYMESSAGE xmlns:UDF="TallyUDF">
+        <VOUCHER VCHTYPE="Sales" ACTION="Create">
+          <DATE>${tallyDate(o.order_date || targetDate)}</DATE>
+          <VOUCHERTYPENAME>Sales</VOUCHERTYPENAME>
+          <VOUCHERNUMBER>${escXml(chal)}</VOUCHERNUMBER>
+          <PARTYLEDGERNAME>${escXml(bName)}</PARTYLEDGERNAME>
+          <PERSISTEDVIEW>Accounting Voucher View</PERSISTEDVIEW>
+          <NARRATION>Dispatched ${qtl.toFixed(2)} Qtl ${escXml(cName)} @ Rs.${rate.toFixed(2)}/Qtl to ${escXml(bName)} from ${escXml(branchLabel)}</NARRATION>
+          <ALLLEDGERENTRIES.LIST>
+            <LEDGERNAME>${escXml(bName)}</LEDGERNAME>
+            <ISDEEMEDPOSITIVE>Yes</ISDEEMEDPOSITIVE>
+            <AMOUNT>${bill.toFixed(2)}</AMOUNT>
+          </ALLLEDGERENTRIES.LIST>
+          <ALLLEDGERENTRIES.LIST>
+            <LEDGERNAME>${escXml(cName)} Sales Account</LEDGERNAME>
+            <ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE>
+            <AMOUNT>-${bill.toFixed(2)}</AMOUNT>
+          </ALLLEDGERENTRIES.LIST>
+        </VOUCHER>
+      </TALLYMESSAGE>\n`;
+          }
+
+          xml += `    </DATA>
+  </BODY>
+</ENVELOPE>`;
+          return res.status(200).send(xml);
+        }
+
+        return res.status(200).json({ success: true, report: reportSummary });
+      }
+
+      // -----------------------------------------------------------------------
+      // REPORT TYPE 4: CONSOLIDATED TALLY DAYBOOK IMPORT BUNDLE
+      // -----------------------------------------------------------------------
+      if (type === 'tally_daybook') {
+        const filteredInvoices = allInvoices.filter(inv => {
+          const invDate = (inv.invoice_date || '').split('T')[0];
+          if (targetDate && invDate !== targetDate) return false;
+          if (branchId !== 'all' && inv.branch_id !== branchId) return false;
+          return true;
+        });
+
+        const filteredOutward = allOutward.filter(o => {
+          const oDate = (o.order_date || '').split('T')[0];
+          if (targetDate && oDate !== targetDate) return false;
+          if (branchId !== 'all' && o.branch_id !== branchId) return false;
+          return true;
+        });
+
+        res.setHeader('Content-Type', 'application/xml');
+        res.setHeader('Content-Disposition', `attachment; filename="Tally_Daybook_Consolidated_${targetDate}_${branchId}.xml"`);
+
+        const farmers = [...new Set(filteredInvoices.map(i => i.custom_farmer_name || (pMap[i.party_id] ? pMap[i.party_id].name : 'Farmer')))];
+        const buyers = [...new Set(filteredOutward.map(o => o.buyer_name || 'Buyer'))];
+        const purComm = [...new Set(filteredInvoices.map(i => i.commodity_name || 'General Grain'))];
+        const saleComm = [...new Set(filteredOutward.map(o => o.commodity_name || 'General Grain'))];
+
+        let xml = `<?xml version="1.0" encoding="utf-8"?>
+<ENVELOPE>
+  <HEADER>
+    <VERSION>1</VERSION>
+    <TALLYREQUEST>Import</TALLYREQUEST>
+    <TYPE>Data</TYPE>
+    <ID>All Masters and Vouchers</ID>
+  </HEADER>
+  <BODY>
+    <DESC>
+      <STATICVARIABLES>
+        <SVCURRENTCOMPANY>Rajarshi Shahu Trading Company</SVCURRENTCOMPANY>
+      </STATICVARIABLES>
+    </DESC>
+    <DATA>\n`;
+
+        // Farmers
+        for (const f of farmers) {
+          xml += `      <TALLYMESSAGE xmlns:UDF="TallyUDF">
+        <LEDGER NAME="${escXml(f)}" ACTION="Create">
+          <NAME>${escXml(f)}</NAME>
+          <PARENT>Sundry Creditors</PARENT>
+          <ISBILLWISEON>Yes</ISBILLWISEON>
+          <LEDSTATENAME>Maharashtra</LEDSTATENAME>
+          <COUNTRYNAME>India</COUNTRYNAME>
+        </LEDGER>
+      </TALLYMESSAGE>\n`;
+        }
+
+        // Buyers
+        for (const b of buyers) {
+          xml += `      <TALLYMESSAGE xmlns:UDF="TallyUDF">
+        <LEDGER NAME="${escXml(b)}" ACTION="Create">
+          <NAME>${escXml(b)}</NAME>
+          <PARENT>Sundry Debtors</PARENT>
+          <ISBILLWISEON>Yes</ISBILLWISEON>
+          <LEDSTATENAME>Maharashtra</LEDSTATENAME>
+          <COUNTRYNAME>India</COUNTRYNAME>
+        </LEDGER>
+      </TALLYMESSAGE>\n`;
+        }
+
+        // Purchase accounts
+        for (const pc of purComm) {
+          xml += `      <TALLYMESSAGE xmlns:UDF="TallyUDF">
+        <LEDGER NAME="${escXml(pc)} Purchase Account" ACTION="Create">
+          <NAME>${escXml(pc)} Purchase Account</NAME>
+          <PARENT>Purchase Accounts</PARENT>
+          <AFFECTSSTOCK>Yes</AFFECTSSTOCK>
+        </LEDGER>
+      </TALLYMESSAGE>\n`;
+        }
+
+        // Sales accounts
+        for (const sc of saleComm) {
+          xml += `      <TALLYMESSAGE xmlns:UDF="TallyUDF">
+        <LEDGER NAME="${escXml(sc)} Sales Account" ACTION="Create">
+          <NAME>${escXml(sc)} Sales Account</NAME>
+          <PARENT>Sales Accounts</PARENT>
+          <AFFECTSSTOCK>Yes</AFFECTSSTOCK>
+        </LEDGER>
+      </TALLYMESSAGE>\n`;
+        }
+
+        // Hamali and Bank
+        xml += `      <TALLYMESSAGE xmlns:UDF="TallyUDF">
+        <LEDGER NAME="Mandi Hamali Deduction Account" ACTION="Create">
+          <NAME>Mandi Hamali Deduction Account</NAME>
+          <PARENT>Direct Expenses</PARENT>
+        </LEDGER>
+      </TALLYMESSAGE>
+      <TALLYMESSAGE xmlns:UDF="TallyUDF">
+        <LEDGER NAME="Bank RTGS Account" ACTION="Create">
+          <NAME>Bank RTGS Account</NAME>
+          <PARENT>Bank Accounts</PARENT>
+        </LEDGER>
+      </TALLYMESSAGE>
+      <TALLYMESSAGE xmlns:UDF="TallyUDF">
+        <LEDGER NAME="Cash-in-Hand Account" ACTION="Create">
+          <NAME>Cash-in-Hand Account</NAME>
+          <PARENT>Cash-in-Hand</PARENT>
+        </LEDGER>
+      </TALLYMESSAGE>\n`;
+
+        // Purchase Vouchers
+        for (const inv of filteredInvoices) {
+          const tok = inv.token_number || inv.id || 'INV';
+          const fName = inv.custom_farmer_name || (pMap[inv.party_id] ? pMap[inv.party_id].name : 'Farmer');
+          const cName = inv.commodity_name || 'Commodity';
+          const gross = parseFloat(inv.gross_amount || 0.0);
+          const hamali = parseFloat(inv.hamali_charge || 0.0);
+          const netPay = parseFloat(inv.net_payable_amount || inv.rounded_net_payable || (gross - hamali));
+
+          xml += `      <TALLYMESSAGE xmlns:UDF="TallyUDF">
+        <VOUCHER VCHTYPE="Purchase" ACTION="Create">
+          <DATE>${tallyDate(inv.invoice_date || targetDate)}</DATE>
+          <VOUCHERTYPENAME>Purchase</VOUCHERTYPENAME>
+          <VOUCHERNUMBER>${escXml(tok)}</VOUCHERNUMBER>
+          <PARTYLEDGERNAME>${escXml(fName)}</PARTYLEDGERNAME>
+          <PERSISTEDVIEW>Accounting Voucher View</PERSISTEDVIEW>
+          <NARRATION>Procured ${inv.net_quintals} Qtl ${escXml(cName)} from ${escXml(fName)} (Token #${escXml(tok)})</NARRATION>
+          <ALLLEDGERENTRIES.LIST>
+            <LEDGERNAME>${escXml(fName)}</LEDGERNAME>
+            <ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE>
+            <AMOUNT>-${netPay.toFixed(2)}</AMOUNT>
+          </ALLLEDGERENTRIES.LIST>
+          <ALLLEDGERENTRIES.LIST>
+            <LEDGERNAME>${escXml(cName)} Purchase Account</LEDGERNAME>
+            <ISDEEMEDPOSITIVE>Yes</ISDEEMEDPOSITIVE>
+            <AMOUNT>${gross.toFixed(2)}</AMOUNT>
+          </ALLLEDGERENTRIES.LIST>\n`;
+
+          if (hamali > 0.001) {
+            xml += `          <ALLLEDGERENTRIES.LIST>
+            <LEDGERNAME>Mandi Hamali Deduction Account</LEDGERNAME>
+            <ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE>
+            <AMOUNT>-${hamali.toFixed(2)}</AMOUNT>
+          </ALLLEDGERENTRIES.LIST>\n`;
+          }
+          xml += `        </VOUCHER>
+      </TALLYMESSAGE>\n`;
+
+          // If paid, payment voucher
+          const pStat = (inv.payout_status || '').toUpperCase();
+          if (['PAID', 'PAID_CASH', 'RTGS_COMPLETED', 'COMPLETED'].includes(pStat)) {
+            const bankAcc = (inv.weighment_mode === 'RTGS' || pStat.includes('RTGS')) ? 'Bank RTGS Account' : 'Cash-in-Hand Account';
+            xml += `      <TALLYMESSAGE xmlns:UDF="TallyUDF">
+        <VOUCHER VCHTYPE="Payment" ACTION="Create">
+          <DATE>${tallyDate(inv.rtgs_completed_at || inv.created_at || targetDate)}</DATE>
+          <VOUCHERTYPENAME>Payment</VOUCHERTYPENAME>
+          <VOUCHERNUMBER>PAY-${escXml(tok)}</VOUCHERNUMBER>
+          <PARTYLEDGERNAME>${escXml(fName)}</PARTYLEDGERNAME>
+          <PERSISTEDVIEW>Accounting Voucher View</PERSISTEDVIEW>
+          <NARRATION>Settlement against Token #${escXml(tok)} [UTR: ${escXml(inv.rtgs_utr_no || 'CASH')}]</NARRATION>
+          <ALLLEDGERENTRIES.LIST>
+            <LEDGERNAME>${escXml(fName)}</LEDGERNAME>
+            <ISDEEMEDPOSITIVE>Yes</ISDEEMEDPOSITIVE>
+            <AMOUNT>${netPay.toFixed(2)}</AMOUNT>
+          </ALLLEDGERENTRIES.LIST>
+          <ALLLEDGERENTRIES.LIST>
+            <LEDGERNAME>${escXml(bankAcc)}</LEDGERNAME>
+            <ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE>
+            <AMOUNT>-${netPay.toFixed(2)}</AMOUNT>
+          </ALLLEDGERENTRIES.LIST>
+        </VOUCHER>
+      </TALLYMESSAGE>\n`;
+          }
+        }
+
+        // Outward Sales
+        for (const o of filteredOutward) {
+          const chal = o.challan_number || o.id || 'OUT';
+          const bName = o.buyer_name || 'Buyer';
+          const cName = o.commodity_name || 'Commodity';
+          const bill = parseFloat(o.total_bill_amount || o.gross_amount || 0.0);
+
+          xml += `      <TALLYMESSAGE xmlns:UDF="TallyUDF">
+        <VOUCHER VCHTYPE="Sales" ACTION="Create">
+          <DATE>${tallyDate(o.order_date || targetDate)}</DATE>
+          <VOUCHERTYPENAME>Sales</VOUCHERTYPENAME>
+          <VOUCHERNUMBER>${escXml(chal)}</VOUCHERNUMBER>
+          <PARTYLEDGERNAME>${escXml(bName)}</PARTYLEDGERNAME>
+          <PERSISTEDVIEW>Accounting Voucher View</PERSISTEDVIEW>
+          <NARRATION>Sales dispatch of ${o.net_quintals} Qtl ${escXml(cName)} to ${escXml(bName)}</NARRATION>
+          <ALLLEDGERENTRIES.LIST>
+            <LEDGERNAME>${escXml(bName)}</LEDGERNAME>
+            <ISDEEMEDPOSITIVE>Yes</ISDEEMEDPOSITIVE>
+            <AMOUNT>${bill.toFixed(2)}</AMOUNT>
+          </ALLLEDGERENTRIES.LIST>
+          <ALLLEDGERENTRIES.LIST>
+            <LEDGERNAME>${escXml(cName)} Sales Account</LEDGERNAME>
+            <ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE>
+            <AMOUNT>-${bill.toFixed(2)}</AMOUNT>
+          </ALLLEDGERENTRIES.LIST>
+        </VOUCHER>
+      </TALLYMESSAGE>\n`;
+        }
+
+        xml += `    </DATA>
+  </BODY>
+</ENVELOPE>`;
+        return res.status(200).send(xml);
+      }
+
+      return res.status(400).json({ success: false, error: `Unknown report type: ${type}` });
     } catch (err) {
       return res.status(500).json({ success: false, error: err.message });
     }

@@ -142,13 +142,18 @@
     </div>
 
     <!-- TABS -->
+        <!-- TABS -->
     <div class="tabs">
         <button class="tab-btn active" onclick="showTab('tab-rates')">Daily Rate Corridor Master</button>
         <button class="tab-btn" id="tabBtnOverrides" onclick="showTab('tab-overrides')">⚠️ Rate & Backdated Approvals (<span id="overrideBadgeCount">{{ pending_overrides|length }}</span>)</button>
         <button class="tab-btn" id="tabBtnRtgs" onclick="showTab('tab-rtgs')">RTGS Bank Transfers (<span id="rtgsBadgeCount">{{ pending_rtgs|length }}</span>)</button>
         <button class="tab-btn" onclick="showTab('tab-outward-receivables')">🚚 Outward Receivables ({{ pending_outward_count }} Due)</button>
         <button class="tab-btn" onclick="showTab('tab-inspectors')">Quality Inspector Master</button>
-        <button class="tab-btn" onclick="showTab('tab-ledgers')">Ledger Entries & Cashbook</button>
+        <button class="tab-btn" id="tabBtnPartyLedger" onclick="showTab('tab-party-ledger')">📑 Party Ledger (Khata)</button>
+        <button class="tab-btn" id="tabBtnDailyInward" onclick="showTab('tab-daily-inward')">📥 Daily Inward Report</button>
+        <button class="tab-btn" id="tabBtnDailyOutward" onclick="showTab('tab-daily-outward')">🚚 Daily Outward Report</button>
+        <button class="tab-btn" id="tabBtnTallyHub" onclick="showTab('tab-tally-hub')" style="background:#f0fdf4; border-color:#047857; color:#047857; font-weight:800;">⚡ Tally Prime Import Hub</button>
+        <button class="tab-btn" onclick="showTab('tab-ledgers')">Journal & Cashbook</button>
     </div>
 
     <!-- TAB 1: DAILY RATE MASTER -->
@@ -531,6 +536,607 @@
     </div>
 
     <!-- TAB 4: GENERAL LEDGER & CASHBOOK -->
+    
+    <!-- TAB 6: PARTY-WISE LEDGER STATEMENT (KHATA) -->
+    <div id="tab-party-ledger" class="tab-content">
+        <!-- FILTER & ACTION TOOLBAR -->
+        <div class="card" style="margin-bottom:20px; border-left: 4px solid #047857;">
+            <div class="card-header" style="flex-wrap:wrap; gap:12px; border-bottom:none; padding-bottom:0;">
+                <div>
+                    <h2 style="font-size:18px; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:8px;">
+                        <span>📑</span> Party-Wise Ledger & Double-Entry Khata Statement
+                    </h2>
+                    <p style="font-size:12.5px; color:var(--text-muted); margin:4px 0 0 0;">
+                        Generates complete chronological ledger statement with Opening Balance, Double-Entry Vouchers, Running Balance, and 1-Click Tally XML Export.
+                    </p>
+                </div>
+                <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                    <button class="btn btn-primary" onclick="downloadPartyLedgerTallyXml()" style="background:#047857; color:#fff; font-weight:800; font-size:13px; padding:8px 16px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; box-shadow:0 2px 4px rgba(4,120,87,0.2);">
+                        <span>📥</span> Download Tally XML
+                    </button>
+                    <button class="btn btn-secondary" onclick="downloadPartyLedgerCsv()" style="font-weight:700; font-size:13px; padding:8px 14px; border-radius:8px; display:inline-flex; align-items:center; gap:6px;">
+                        <span>📊</span> Download Excel (CSV)
+                    </button>
+                    <button class="btn btn-secondary" onclick="printPartyLedgerReport()" style="font-weight:700; font-size:13px; padding:8px 14px; border-radius:8px; display:inline-flex; align-items:center; gap:6px;">
+                        <span>🖨️</span> Print Statement
+                    </button>
+                </div>
+            </div>
+
+            <!-- CONTROLS ROW -->
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px; padding:18px 20px 14px 20px;">
+                <div>
+                    <label style="display:block; font-size:12px; font-weight:800; color:#334155; margin-bottom:4px; text-transform:uppercase;">Select Party (Farmer / Buyer) *</label>
+                    <select id="partyLedgerSelect" onchange="renderPartyLedger()" style="width:100%; padding:9px 12px; border:1.5px solid #047857; border-radius:8px; font-weight:700; font-size:13px; background:#fff; color:#0f172a;">
+                        <option value="">-- Choose Party --</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="display:block; font-size:12px; font-weight:800; color:#334155; margin-bottom:4px; text-transform:uppercase;">Branch Filter</label>
+                    <select id="partyLedgerBranchSelect" onchange="renderPartyLedger()" style="width:100%; padding:9px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-weight:700; font-size:13px; background:#fff;">
+                        <option value="all">All Branches Consolidated</option>
+                        <option value="br-chikhali">Chikhali APMC Main Yard</option>
+                        <option value="br-varvand">Varvand APMC Yard</option>
+                        <option value="br-sarola">Sarola Maruti APMC Yard</option>
+                        <option value="br-dhad">Dhad APMC Yard</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="display:block; font-size:12px; font-weight:800; color:#334155; margin-bottom:4px; text-transform:uppercase;">From Date</label>
+                    <input type="date" id="partyLedgerFrom" onchange="renderPartyLedger()" style="width:100%; padding:8px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-weight:600; font-size:13px; box-sizing:border-box;">
+                </div>
+                <div>
+                    <label style="display:block; font-size:12px; font-weight:800; color:#334155; margin-bottom:4px; text-transform:uppercase;">To Date</label>
+                    <input type="date" id="partyLedgerTo" onchange="renderPartyLedger()" style="width:100%; padding:8px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-weight:600; font-size:13px; box-sizing:border-box;">
+                </div>
+            </div>
+
+            <!-- QUICK RANGE PRESETS -->
+            <div style="display:flex; gap:8px; align-items:center; padding:0 20px 16px 20px; flex-wrap:wrap;">
+                <span style="font-size:11.5px; font-weight:700; color:#64748b; text-transform:uppercase;">Quick Presets:</span>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="setPartyDateRange('today')" style="font-size:11px; padding:3px 10px;">Today</button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="setPartyDateRange('yesterday')" style="font-size:11px; padding:3px 10px;">Yesterday</button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="setPartyDateRange('this_month')" style="font-size:11px; padding:3px 10px;">This Month</button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="setPartyDateRange('last_30')" style="font-size:11px; padding:3px 10px;">Last 30 Days</button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="setPartyDateRange('fy')" style="font-size:11px; padding:3px 10px;">FY 2026-27</button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="setPartyDateRange('all')" style="font-size:11px; padding:3px 10px;">All Time</button>
+            </div>
+        </div>
+
+        <!-- PARTY PROFILE BANNER -->
+        <div id="partyProfileCard" style="display:none; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:12px; padding:16px 20px; margin-bottom:20px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+                <div style="display:flex; align-items:center; gap:14px;">
+                    <div style="width:48px; height:48px; border-radius:12px; background:#047857; color:#fff; display:flex; align-items:center; justify-content:center; font-size:22px; font-weight:800;">
+                        <span id="partyAvatar">🌾</span>
+                    </div>
+                    <div>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <h3 id="partyProfileName" style="margin:0; font-size:17px; font-weight:800; color:#065f46;">--</h3>
+                            <span id="partyTypeBadge" class="badge-pill badge-green" style="font-size:11px;">FARMER</span>
+                        </div>
+                        <div style="font-size:12.5px; color:#166534; margin-top:3px; display:flex; gap:16px; flex-wrap:wrap;">
+                            <span>📞 Phone: <strong id="partyProfilePhone">--</strong></span>
+                            <span>🏡 Village/Location: <strong id="partyProfileVillage">--</strong></span>
+                            <span>🏦 Bank A/C: <code id="partyProfileBank">--</code></span>
+                            <span>⚡ IFSC: <code id="partyProfileIfsc">--</code></span>
+                        </div>
+                    </div>
+                </div>
+                <div style="text-align:right;">
+                    <div style="font-size:11.5px; color:#166534; font-weight:700; text-transform:uppercase;">Tally Ledger Name:</div>
+                    <code id="partyTallyName" style="font-size:13px; font-weight:800; color:#047857; background:#dcfce7; padding:2px 8px; border-radius:4px;">--</code>
+                </div>
+            </div>
+        </div>
+
+        <!-- STATEMENT METRICS ROW -->
+        <div class="stats-grid" style="margin-bottom:20px;">
+            <div class="stat-card stat-blue">
+                <div class="stat-icon">⚖️</div>
+                <div class="stat-content">
+                    <span class="stat-label">Opening Balance</span>
+                    <strong class="stat-value" id="statPartyOpeningBal">₹0.00 Nil</strong>
+                    <span class="stat-help" id="statPartyOpeningSub">Prior to selected date</span>
+                </div>
+            </div>
+            <div class="stat-card stat-green">
+                <div class="stat-icon">📤</div>
+                <div class="stat-content">
+                    <span class="stat-label">Total Debit (Paid / Dispatched)</span>
+                    <strong class="stat-value" style="color:#0284c7;" id="statPartyDebit">₹0.00</strong>
+                    <span class="stat-help">Payments made / Sales debited</span>
+                </div>
+            </div>
+            <div class="stat-card stat-amber">
+                <div class="stat-icon">📥</div>
+                <div class="stat-content">
+                    <span class="stat-label">Total Credit (Procured / Received)</span>
+                    <strong class="stat-value" style="color:#d97706;" id="statPartyCredit">₹0.00</strong>
+                    <span class="stat-help">Purchases credited / Payments in</span>
+                </div>
+            </div>
+            <div class="stat-card stat-purple">
+                <div class="stat-icon">💰</div>
+                <div class="stat-content">
+                    <span class="stat-label">Net Closing Balance</span>
+                    <strong class="stat-value" id="statPartyClosingBal">₹0.00 Settled</strong>
+                    <span class="stat-help" id="statPartyClosingSub">As on statement end date</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- STATEMENT TABLE -->
+        <div class="card" id="printableStatementCard">
+            <div class="card-header" style="flex-wrap:wrap; gap:12px;">
+                <div>
+                    <h2 style="font-size:16px; font-weight:800; color:#0f172a;">
+                        Statement of Account: <span id="dispStatementPartyName" style="color:#047857;">Please Select Party</span>
+                    </h2>
+                    <span id="dispStatementPeriod" style="font-size:12px; color:var(--text-muted); font-weight:600;"></span>
+                </div>
+                <div style="font-size:12px; color:var(--text-muted); font-weight:600;">
+                    Double-Entry Rules: Credit = Procurement Payable | Debit = Settlement Cash/RTGS
+                </div>
+            </div>
+            <div class="table-container" style="max-height: 540px; overflow-y: auto;">
+                <table id="partyLedgerTable">
+                    <thead>
+                        <tr>
+                            <th style="width:40px;">#</th>
+                            <th style="width:95px;">Date</th>
+                            <th style="width:130px;">Branch</th>
+                            <th style="width:130px;">Voucher Type</th>
+                            <th style="width:140px;">Voucher / Ref #</th>
+                            <th>Particulars / Narration</th>
+                            <th style="text-align:right; width:120px;">Debit (₹)</th>
+                            <th style="text-align:right; width:120px;">Credit (₹)</th>
+                            <th style="text-align:right; width:140px;">Running Balance (₹)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="partyLedgerTableBody">
+                        <tr>
+                            <td colspan="9" style="text-align:center; padding:40px; color:#64748b;">
+                                <div style="font-size:36px; margin-bottom:10px;">📑</div>
+                                <strong style="font-size:15px; color:#334155;">Select a Party from the dropdown above to load statement</strong>
+                                <p style="font-size:12.5px; color:#64748b; margin-top:4px;">You can export any party ledger to Tally XML, Excel CSV, or print statement.</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                    <tfoot id="partyLedgerTableFoot" style="display:none;">
+                        <tr style="background:#f8fafc; font-weight:800; font-size:13px; border-top:2px solid #cbd5e1;">
+                            <td colspan="6" style="text-align:right; color:#334155;">PERIOD TOTALS:</td>
+                            <td style="text-align:right; color:#0284c7;" id="footPartyDebit">₹0.00</td>
+                            <td style="text-align:right; color:#d97706;" id="footPartyCredit">₹0.00</td>
+                            <td style="text-align:right;" id="footPartyClosing">₹0.00</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 7: DAILY INWARD PROCUREMENT REGISTER -->
+    <div id="tab-daily-inward" class="tab-content">
+        <!-- FILTER & ACTION TOOLBAR -->
+        <div class="card" style="margin-bottom:20px; border-left: 4px solid #0284c7;">
+            <div class="card-header" style="flex-wrap:wrap; gap:12px; border-bottom:none; padding-bottom:0;">
+                <div>
+                    <h2 style="font-size:18px; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:8px;">
+                        <span>📥</span> Daily Inward Procurement Register (Branch-Wise)
+                    </h2>
+                    <p style="font-size:12.5px; color:var(--text-muted); margin:4px 0 0 0;">
+                        Audited procurement lots from farmers: Gross/Tare/Net weight, Moisture %, Refraction, Hamali deduction, Net payable, and Tally Purchase Vouchers.
+                    </p>
+                </div>
+                <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                    <button class="btn btn-primary" onclick="downloadDailyInwardTallyXml()" style="background:#0284c7; color:#fff; font-weight:800; font-size:13px; padding:8px 16px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; box-shadow:0 2px 4px rgba(2,132,199,0.2);">
+                        <span>📥</span> Export Inward to Tally XML
+                    </button>
+                    <button class="btn btn-secondary" onclick="downloadDailyInwardCsv()" style="font-weight:700; font-size:13px; padding:8px 14px; border-radius:8px; display:inline-flex; align-items:center; gap:6px;">
+                        <span>📊</span> Export Excel (CSV)
+                    </button>
+                    <button class="btn btn-secondary" onclick="printDailyInwardReport()" style="font-weight:700; font-size:13px; padding:8px 14px; border-radius:8px; display:inline-flex; align-items:center; gap:6px;">
+                        <span>🖨️</span> Print Register
+                    </button>
+                </div>
+            </div>
+
+            <!-- CONTROLS ROW -->
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px; padding:18px 20px 16px 20px;">
+                <div>
+                    <label style="display:block; font-size:12px; font-weight:800; color:#334155; margin-bottom:4px; text-transform:uppercase;">Procurement Date *</label>
+                    <input type="date" id="inwardDateSelect" onchange="renderDailyInwardReport()" style="width:100%; padding:9px 12px; border:1.5px solid #0284c7; border-radius:8px; font-weight:700; font-size:13px; box-sizing:border-box;">
+                </div>
+                <div>
+                    <label style="display:block; font-size:12px; font-weight:800; color:#334155; margin-bottom:4px; text-transform:uppercase;">Branch Yard *</label>
+                    <select id="inwardBranchSelect" onchange="renderDailyInwardReport()" style="width:100%; padding:9px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-weight:700; font-size:13px; background:#fff;">
+                        <option value="all">All Branches Consolidated</option>
+                        <option value="br-chikhali">Chikhali APMC Main Yard</option>
+                        <option value="br-varvand">Varvand APMC Yard</option>
+                        <option value="br-sarola">Sarola Maruti APMC Yard</option>
+                        <option value="br-dhad">Dhad APMC Yard</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="display:block; font-size:12px; font-weight:800; color:#334155; margin-bottom:4px; text-transform:uppercase;">Commodity</label>
+                    <select id="inwardCommoditySelect" onchange="renderDailyInwardReport()" style="width:100%; padding:9px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-weight:700; font-size:13px; background:#fff;">
+                        <option value="all">All Commodities</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="display:block; font-size:12px; font-weight:800; color:#334155; margin-bottom:4px; text-transform:uppercase;">Payment Status</label>
+                    <select id="inwardStatusSelect" onchange="renderDailyInwardReport()" style="width:100%; padding:9px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-weight:700; font-size:13px; background:#fff;">
+                        <option value="all">All Statuses</option>
+                        <option value="PAID">Settled (Paid Cash / RTGS)</option>
+                        <option value="PENDING">Pending Settlement</option>
+                        <option value="RTGS_PENDING">RTGS Processing</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- KPI STATS GRID -->
+        <div class="stats-grid" style="margin-bottom:20px;">
+            <div class="stat-card stat-blue">
+                <div class="stat-icon">📦</div>
+                <div class="stat-content">
+                    <span class="stat-label">Lots Procured & Bags</span>
+                    <strong class="stat-value" id="statInwardLots">0 Lots (0 Bags)</strong>
+                    <span class="stat-help">Inward weighments recorded</span>
+                </div>
+            </div>
+            <div class="stat-card stat-green">
+                <div class="stat-icon">⚖️</div>
+                <div class="stat-content">
+                    <span class="stat-label">Net Inward Volume</span>
+                    <strong class="stat-value" style="color:#047857;" id="statInwardVolume">0.00 Qtl (0.00 MT)</strong>
+                    <span class="stat-help">Net physical stock received</span>
+                </div>
+            </div>
+            <div class="stat-card stat-amber">
+                <div class="stat-icon">💵</div>
+                <div class="stat-content">
+                    <span class="stat-label">Total Gross Outlay</span>
+                    <strong class="stat-value" style="color:#d97706;" id="statInwardGross">₹0.00</strong>
+                    <span class="stat-help" id="statInwardHamali">Hamali: ₹0.00</span>
+                </div>
+            </div>
+            <div class="stat-card stat-purple">
+                <div class="stat-icon">✅</div>
+                <div class="stat-content">
+                    <span class="stat-label">Net Farmer Payable</span>
+                    <strong class="stat-value" id="statInwardNetPayable">₹0.00</strong>
+                    <span class="stat-help" id="statInwardPaidPending">Paid: ₹0 | Due: ₹0</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- INWARD REGISTER TABLE -->
+        <div class="card" id="printableInwardCard">
+            <div class="card-header" style="flex-wrap:wrap; gap:12px;">
+                <div>
+                    <h2 style="font-size:16px; font-weight:800; color:#0f172a;">
+                        Inward Procurement Lots: <span id="dispInwardDateLabel" style="color:#0284c7;">Today</span>
+                    </h2>
+                    <span id="dispInwardBranchLabel" style="font-size:12px; color:var(--text-muted); font-weight:600;"></span>
+                </div>
+                <div style="font-size:12px; color:var(--text-muted); font-weight:600;">
+                    Tally Mapping: Debits Commodity Purchase A/c | Credits Farmer (Sundry Creditor)
+                </div>
+            </div>
+            <div class="table-container" style="max-height: 540px; overflow-y: auto;">
+                <table id="inwardReportTable">
+                    <thead>
+                        <tr>
+                            <th>Token / Slip #</th>
+                            <th>Time</th>
+                            <th>Branch</th>
+                            <th>Farmer Name</th>
+                            <th>Commodity</th>
+                            <th style="text-align:center;">Bags</th>
+                            <th style="text-align:right;">Net Wt (Qtl)</th>
+                            <th style="text-align:right;">Rate (₹/Qtl)</th>
+                            <th style="text-align:right;">Gross (₹)</th>
+                            <th style="text-align:right;">Hamali (₹)</th>
+                            <th style="text-align:right;">Net Payable (₹)</th>
+                            <th>Status & UTR</th>
+                        </tr>
+                    </thead>
+                    <tbody id="inwardReportTableBody">
+                        <tr>
+                            <td colspan="12" style="text-align:center; padding:40px; color:#64748b;">
+                                <div style="font-size:36px; margin-bottom:10px;">📥</div>
+                                <strong style="font-size:15px; color:#334155;">Loading Daily Inward Procurement Data...</strong>
+                            </td>
+                        </tr>
+                    </tbody>
+                    <tfoot id="inwardReportTableFoot">
+                        <tr style="background:#f8fafc; font-weight:800; font-size:13px; border-top:2px solid #cbd5e1;">
+                            <td colspan="5" style="text-align:right; color:#334155;">DAY TOTALS:</td>
+                            <td style="text-align:center;" id="footInwardBags">0</td>
+                            <td style="text-align:right; color:#047857;" id="footInwardQtl">0.00</td>
+                            <td></td>
+                            <td style="text-align:right; color:#0f172a;" id="footInwardGross">₹0.00</td>
+                            <td style="text-align:right; color:#dc2626;" id="footInwardHamali">₹0.00</td>
+                            <td style="text-align:right; color:#047857;" id="footInwardNet">₹0.00</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 8: DAILY OUTWARD SALES REGISTER -->
+    <div id="tab-daily-outward" class="tab-content">
+        <!-- FILTER & ACTION TOOLBAR -->
+        <div class="card" style="margin-bottom:20px; border-left: 4px solid #7c3aed;">
+            <div class="card-header" style="flex-wrap:wrap; gap:12px; border-bottom:none; padding-bottom:0;">
+                <div>
+                    <h2 style="font-size:18px; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:8px;">
+                        <span>🚚</span> Daily Outward Sales & Dispatch Register
+                    </h2>
+                    <p style="font-size:12.5px; color:var(--text-muted); margin:4px 0 0 0;">
+                        Grain sales dispatches to mills and buyers: Vehicle #, Net MT/Qtl, Billed revenue, Cash/RTGS collections, and Tally Sales Vouchers.
+                    </p>
+                </div>
+                <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                    <button class="btn btn-primary" onclick="downloadDailyOutwardTallyXml()" style="background:#7c3aed; color:#fff; font-weight:800; font-size:13px; padding:8px 16px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; box-shadow:0 2px 4px rgba(124,58,237,0.2);">
+                        <span>📥</span> Export Outward to Tally XML
+                    </button>
+                    <button class="btn btn-secondary" onclick="downloadDailyOutwardCsv()" style="font-weight:700; font-size:13px; padding:8px 14px; border-radius:8px; display:inline-flex; align-items:center; gap:6px;">
+                        <span>📊</span> Export Excel (CSV)
+                    </button>
+                    <button class="btn btn-secondary" onclick="printDailyOutwardReport()" style="font-weight:700; font-size:13px; padding:8px 14px; border-radius:8px; display:inline-flex; align-items:center; gap:6px;">
+                        <span>🖨️</span> Print Dispatches
+                    </button>
+                </div>
+            </div>
+
+            <!-- CONTROLS ROW -->
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px; padding:18px 20px 16px 20px;">
+                <div>
+                    <label style="display:block; font-size:12px; font-weight:800; color:#334155; margin-bottom:4px; text-transform:uppercase;">Dispatch Date *</label>
+                    <input type="date" id="outwardDateSelect" onchange="renderDailyOutwardReport()" style="width:100%; padding:9px 12px; border:1.5px solid #7c3aed; border-radius:8px; font-weight:700; font-size:13px; box-sizing:border-box;">
+                </div>
+                <div>
+                    <label style="display:block; font-size:12px; font-weight:800; color:#334155; margin-bottom:4px; text-transform:uppercase;">Dispatch Branch</label>
+                    <select id="outwardBranchSelect" onchange="renderDailyOutwardReport()" style="width:100%; padding:9px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-weight:700; font-size:13px; background:#fff;">
+                        <option value="all">All Branches Consolidated</option>
+                        <option value="br-chikhali">Chikhali APMC Main Yard</option>
+                        <option value="br-varvand">Varvand APMC Yard</option>
+                        <option value="br-sarola">Sarola Maruti APMC Yard</option>
+                        <option value="br-dhad">Dhad APMC Yard</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="display:block; font-size:12px; font-weight:800; color:#334155; margin-bottom:4px; text-transform:uppercase;">Commodity</label>
+                    <select id="outwardCommoditySelect" onchange="renderDailyOutwardReport()" style="width:100%; padding:9px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-weight:700; font-size:13px; background:#fff;">
+                        <option value="all">All Commodities</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="display:block; font-size:12px; font-weight:800; color:#334155; margin-bottom:4px; text-transform:uppercase;">Payment Status</label>
+                    <select id="outwardStatusSelect" onchange="renderDailyOutwardReport()" style="width:100%; padding:9px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-weight:700; font-size:13px; background:#fff;">
+                        <option value="all">All Dispatches</option>
+                        <option value="RECEIVED">Payment Received</option>
+                        <option value="PENDING">Outstanding Receivables</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- KPI STATS GRID -->
+        <div class="stats-grid" style="margin-bottom:20px;">
+            <div class="stat-card stat-blue">
+                <div class="stat-icon">🚚</div>
+                <div class="stat-content">
+                    <span class="stat-label">Total Dispatches</span>
+                    <strong class="stat-value" id="statOutwardDispatches">0 Challans</strong>
+                    <span class="stat-help">Vehicle consignments</span>
+                </div>
+            </div>
+            <div class="stat-card stat-purple">
+                <div class="stat-icon">⚖️</div>
+                <div class="stat-content">
+                    <span class="stat-label">Total Outward Volume</span>
+                    <strong class="stat-value" id="statOutwardVolume">0.00 MT</strong>
+                    <span class="stat-help" id="statOutwardQtl">0.00 Quintals</span>
+                </div>
+            </div>
+            <div class="stat-card stat-green">
+                <div class="stat-icon">💵</div>
+                <div class="stat-content">
+                    <span class="stat-label">Total Billed Revenue</span>
+                    <strong class="stat-value" style="color:#047857;" id="statOutwardTotalBilled">₹0.00</strong>
+                    <span class="stat-help">Sales invoice value</span>
+                </div>
+            </div>
+            <div class="stat-card stat-amber">
+                <div class="stat-icon">⏳</div>
+                <div class="stat-content">
+                    <span class="stat-label">Outstanding Receivables</span>
+                    <strong class="stat-value" style="color:#d97706;" id="statOutwardPendingDue">₹0.00 Due</strong>
+                    <span class="stat-help" id="statOutwardReceived">Realized: ₹0.00</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- OUTWARD REGISTER TABLE -->
+        <div class="card" id="printableOutwardCard">
+            <div class="card-header" style="flex-wrap:wrap; gap:12px;">
+                <div>
+                    <h2 style="font-size:16px; font-weight:800; color:#0f172a;">
+                        Outward Dispatches: <span id="dispOutwardDateLabel" style="color:#7c3aed;">Today</span>
+                    </h2>
+                    <span id="dispOutwardBranchLabel" style="font-size:12px; color:var(--text-muted); font-weight:600;"></span>
+                </div>
+                <div style="font-size:12px; color:var(--text-muted); font-weight:600;">
+                    Tally Mapping: Debits Buyer (Sundry Debtor) | Credits Commodity Sales Account
+                </div>
+            </div>
+            <div class="table-container" style="max-height: 540px; overflow-y: auto;">
+                <table id="outwardReportTable">
+                    <thead>
+                        <tr>
+                            <th>Challan #</th>
+                            <th>Date</th>
+                            <th>Origin Branch</th>
+                            <th>Buyer / Mill Name</th>
+                            <th>Commodity</th>
+                            <th>Vehicle #</th>
+                            <th style="text-align:right;">Net Wt (Qtl)</th>
+                            <th style="text-align:right;">Net Wt (MT)</th>
+                            <th style="text-align:right;">Rate (₹/Qtl)</th>
+                            <th style="text-align:right;">Total Bill (₹)</th>
+                            <th>Payment Status</th>
+                            <th>Mode / UTR</th>
+                        </tr>
+                    </thead>
+                    <tbody id="outwardReportTableBody">
+                        <tr>
+                            <td colspan="12" style="text-align:center; padding:40px; color:#64748b;">
+                                <div style="font-size:36px; margin-bottom:10px;">🚚</div>
+                                <strong style="font-size:15px; color:#334155;">No Outward Dispatches for Selected Date / Branch</strong>
+                            </td>
+                        </tr>
+                    </tbody>
+                    <tfoot id="outwardReportTableFoot">
+                        <tr style="background:#f8fafc; font-weight:800; font-size:13px; border-top:2px solid #cbd5e1;">
+                            <td colspan="6" style="text-align:right; color:#334155;">TOTALS:</td>
+                            <td style="text-align:right; color:#7c3aed;" id="footOutwardQtl">0.00</td>
+                            <td style="text-align:right; color:#7c3aed;" id="footOutwardMt">0.00</td>
+                            <td></td>
+                            <td style="text-align:right; color:#047857;" id="footOutwardBill">₹0.00</td>
+                            <td colspan="2"></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 9: TALLY PRIME IMPORT & DAYBOOK SYNC HUB -->
+    <div id="tab-tally-hub" class="tab-content">
+        <!-- HEADER NOTICE -->
+        <div style="background:linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); border:1.5px solid #a7f3d0; border-radius:14px; padding:20px 24px; margin-bottom:22px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
+            <div>
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <span style="font-size:28px;">⚡</span>
+                    <div>
+                        <h2 style="margin:0; font-size:20px; font-weight:800; color:#065f46;">
+                            Tally Prime & ERP 9 Automated XML Sync Hub
+                        </h2>
+                        <p style="margin:4px 0 0 0; font-size:13px; color:#047857; font-weight:600;">
+                            Direct 1-click XML export compatible with Gateway of Tally > Import Data > Vouchers / Masters. No manual data entry required!
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div>
+                <span class="badge-pill badge-green" style="font-size:12px; padding:6px 14px;">Tally Prime 1.0 to 4.1+ Compliant</span>
+            </div>
+        </div>
+
+        <!-- 3 CENTRAL ACTION CARDS -->
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:20px; margin-bottom:24px;">
+            <!-- CARD 1: COMPLETE DAILY DAYBOOK XML PACKAGE -->
+            <div class="card" style="border-top:4px solid #047857; display:flex; flex-direction:column; justify-content:space-between;">
+                <div>
+                    <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
+                        <div style="width:40px; height:40px; border-radius:10px; background:#dcfce7; display:flex; align-items:center; justify-content:center; font-size:20px;">
+                            📅
+                        </div>
+                        <div>
+                            <h3 style="margin:0; font-size:16px; font-weight:800; color:#0f172a;">1-Click Complete Daily Daybook</h3>
+                            <span style="font-size:12px; color:var(--text-muted);">Masters + Purchases + Sales + Cash/Bank Payments</span>
+                        </div>
+                    </div>
+                    <p style="font-size:12.5px; color:#475569; line-height:1.5;">
+                        Downloads a single consolidated XML file containing all transactions for the day: farmer inward purchases, sales to mills, and cashier payouts. If any party is new, Tally creates the ledger master automatically!
+                    </p>
+
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:16px 0;">
+                        <div>
+                            <label style="display:block; font-size:11.5px; font-weight:800; color:#334155; margin-bottom:3px; text-transform:uppercase;">Select Date</label>
+                            <input type="date" id="tallyDaybookDate" style="width:100%; padding:8px 10px; border:1.5px solid #cbd5e1; border-radius:6px; font-size:12.5px; font-weight:700; box-sizing:border-box;">
+                        </div>
+                        <div>
+                            <label style="display:block; font-size:11.5px; font-weight:800; color:#334155; margin-bottom:3px; text-transform:uppercase;">Select Branch</label>
+                            <select id="tallyDaybookBranch" style="width:100%; padding:8px 10px; border:1.5px solid #cbd5e1; border-radius:6px; font-size:12.5px; font-weight:700; background:#fff; box-sizing:border-box;">
+                                <option value="all">All Branches Consolidated</option>
+                                <option value="br-chikhali">Chikhali Main Yard</option>
+                                <option value="br-varvand">Varvand Yard</option>
+                                <option value="br-sarola">Sarola Maruti Yard</option>
+                                <option value="br-dhad">Dhad Yard</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <button class="btn btn-primary" onclick="downloadConsolidatedTallyDaybookXml()" style="width:100%; background:#047857; color:#fff; font-weight:800; font-size:14px; padding:12px; border-radius:8px; display:flex; justify-content:center; align-items:center; gap:8px; box-shadow:0 2px 4px rgba(4,120,87,0.2);">
+                    <span>⚡</span> Download Consolidated Daily Tally XML
+                </button>
+            </div>
+
+            <!-- CARD 2: PARTY & ACCOUNT MASTERS SETUP -->
+            <div class="card" style="border-top:4px solid #0284c7; display:flex; flex-direction:column; justify-content:space-between;">
+                <div>
+                    <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
+                        <div style="width:40px; height:40px; border-radius:10px; background:#e0f2fe; display:flex; align-items:center; justify-content:center; font-size:20px;">
+                            📋
+                        </div>
+                        <div>
+                            <h3 style="margin:0; font-size:16px; font-weight:800; color:#0f172a;">All Party & Account Masters XML</h3>
+                            <span style="font-size:12px; color:var(--text-muted);">Initial Company Setup / Ledger Directory</span>
+                        </div>
+                    </div>
+                    <p style="font-size:12.5px; color:#475569; line-height:1.5;">
+                        Export all 47+ Farmer Ledgers (Sundry Creditors), Buyer Ledgers (Sundry Debtors), Commodity Purchase & Sales accounts, Hamali expense, and Branch Cash drawers in one master import file.
+                    </p>
+                    <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px; margin:16px 0; font-size:12px; color:#334155;">
+                        <div style="font-weight:700; color:#0284c7; margin-bottom:4px;">Includes Pre-Configured Accounting Groups:</div>
+                        • Farmers under <code>Sundry Creditors</code> (Bill-wise ON)<br>
+                        • Millers under <code>Sundry Debtors</code> (Bill-wise ON)<br>
+                        • Grain Accounts under <code>Purchase / Sales Accounts</code><br>
+                        • Mandi Hamali under <code>Direct Expenses</code>
+                    </div>
+                </div>
+
+                <button class="btn btn-primary" onclick="downloadAllMastersTallyXml()" style="width:100%; background:#0284c7; color:#fff; font-weight:800; font-size:14px; padding:12px; border-radius:8px; display:flex; justify-content:center; align-items:center; gap:8px; box-shadow:0 2px 4px rgba(2,132,199,0.2);">
+                    <span>📋</span> Download All Ledger Masters XML
+                </button>
+            </div>
+
+            <!-- CARD 3: TALLY IMPORT CHEAT SHEET -->
+            <div class="card" style="border-top:4px solid #f59e0b; display:flex; flex-direction:column; justify-content:space-between;">
+                <div>
+                    <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
+                        <div style="width:40px; height:40px; border-radius:10px; background:#fef3c7; display:flex; align-items:center; justify-content:center; font-size:20px;">
+                            📖
+                        </div>
+                        <div>
+                            <h3 style="margin:0; font-size:16px; font-weight:800; color:#0f172a;">How to Import in Tally Prime</h3>
+                            <span style="font-size:12px; color:var(--text-muted);">Step-by-step 30-second instructions</span>
+                        </div>
+                    </div>
+                    <ol style="margin:10px 0 0 16px; padding:0; font-size:12.5px; color:#334155; line-height:1.6;">
+                        <li>Open your Company in <strong>Tally Prime</strong> or <strong>Tally ERP 9</strong>.</li>
+                        <li>Press <kbd style="background:#e2e8f0; padding:1px 6px; border-radius:4px; font-weight:700;">Alt + O</kbd> (Import menu) from Gateway of Tally.</li>
+                        <li>Select <strong>Transactions</strong> (or <strong>Masters</strong>).</li>
+                        <li>Choose file format: <strong>XML</strong>.</li>
+                        <li>Paste or browse to the downloaded <code>.xml</code> file.</li>
+                        <li>Press <kbd style="background:#e2e8f0; padding:1px 6px; border-radius:4px; font-weight:700;">Enter</kbd>. Tally will import all vouchers instantly!</li>
+                    </ol>
+                </div>
+                <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:8px; padding:10px 12px; margin-top:14px; font-size:11.5px; color:#991b1b;">
+                    💡 <em>Pro-Tip:</em> If Tally reports duplicate entries, select <code>Combine / Ignore Duplicates</code> in import behavior options.
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="tab-ledgers" class="tab-content">
         <div class="card">
             <div class="card-header">
@@ -1350,5 +1956,1497 @@
             });
         }
     </script>
+
+    <script>
+        const ACCOUNTS_CACHE = {
+            rates: [],
+            invoices: [],
+            outward: [],
+            ledgers: [],
+            parties: [],
+            branches: [],
+            commodities: [],
+            inspectors: []
+        };
+
+        async function loadAccountsTemplateData() {
+            try {
+                const res = await fetch('/api/accounts/data');
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.commodities) ACCOUNTS_CACHE.commodities = data.commodities;
+                    if (data.rates) ACCOUNTS_CACHE.rates = data.rates;
+                    if (data.inspectors) ACCOUNTS_CACHE.inspectors = data.inspectors;
+                    if (data.invoices) ACCOUNTS_CACHE.invoices = data.invoices;
+                    if (data.outward_orders) ACCOUNTS_CACHE.outward = data.outward_orders;
+                    if (data.ledgers) ACCOUNTS_CACHE.ledgers = data.ledgers;
+                    if (data.parties) ACCOUNTS_CACHE.parties = data.parties;
+                    if (data.branches) ACCOUNTS_CACHE.branches = data.branches;
+                }
+            } catch (err) {
+                console.warn('Failed loading accounts data API:', err);
+            }
+            initReportsHub();
+        }
+
+        window.addEventListener('DOMContentLoaded', loadAccountsTemplateData);
+    </script>
+<script>
+        // =========================================================================
+        // CENTRAL ACCOUNTS: PARTY LEDGER, INWARD, OUTWARD & TALLY SYNC ENGINE
+        // =========================================================================
+
+        function escapeXmlStr(s) {
+            if (s === null || s === undefined) return '';
+            return String(s)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&apos;');
+        }
+
+        function formatTallyDateStr(d) {
+            if (!d) return new Date().toISOString().slice(0, 10).replace(/-/g, '');
+            const clean = String(d).split('T')[0].trim();
+            if (clean.includes('-')) {
+                const parts = clean.split('-');
+                if (parts.length === 3) return parts[0].padStart(4, '0') + parts[1].padStart(2, '0') + parts[2].padStart(2, '0');
+            } else if (clean.includes('/')) {
+                const parts = clean.split('/');
+                if (parts.length === 3) return parts[2].padStart(4, '0') + parts[1].padStart(2, '0') + parts[0].padStart(2, '0');
+            }
+            return new Date().toISOString().slice(0, 10).replace(/-/g, '');
+        }
+
+        function downloadFileBlob(content, filename, mimeType) {
+            const blob = new Blob([content], { type: mimeType || 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(url), 2000);
+        }
+
+        function initReportsHub() {
+            // Populate party dropdown
+            const pSelect = document.getElementById('partyLedgerSelect');
+            if (pSelect) {
+                const currentVal = pSelect.value;
+                pSelect.innerHTML = '<option value="">-- Choose Party (Farmer / Buyer / Account) --</option>';
+
+                const farmerGroup = document.createElement('optgroup');
+                farmerGroup.label = '🌾 Farmers / Mandi Suppliers (Sundry Creditors)';
+
+                const buyerGroup = document.createElement('optgroup');
+                buyerGroup.label = '🏭 Millers / Buyers / Traders (Sundry Debtors)';
+
+                const seenParties = new Set();
+
+                // 1. From ACCOUNTS_CACHE.parties
+                const parties = ACCOUNTS_CACHE.parties || [];
+                parties.forEach(p => {
+                    const opt = document.createElement('option');
+                    opt.value = p.id;
+                    const villageTxt = p.village ? ` [${p.village}]` : '';
+                    const phoneTxt = p.phone ? ` (${p.phone})` : '';
+                    opt.textContent = `${p.name}${villageTxt}${phoneTxt}`;
+                    opt.dataset.type = p.party_type || 'FARMER';
+                    opt.dataset.name = p.name;
+                    seenParties.add((p.name || '').toLowerCase().trim());
+                    if ((p.party_type || '').toUpperCase() === 'BUYER') {
+                        buyerGroup.appendChild(opt);
+                    } else {
+                        farmerGroup.appendChild(opt);
+                    }
+                });
+
+                // 2. Scan invoices for any custom farmer names
+                (ACCOUNTS_CACHE.invoices || []).forEach(inv => {
+                    const fName = (inv.custom_farmer_name || '').trim();
+                    if (fName && !seenParties.has(fName.toLowerCase())) {
+                        seenParties.add(fName.toLowerCase());
+                        const opt = document.createElement('option');
+                        opt.value = inv.party_id || `party-${fName.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+                        opt.textContent = `${fName} (Inward Farmer)`;
+                        opt.dataset.type = 'FARMER';
+                        opt.dataset.name = fName;
+                        farmerGroup.appendChild(opt);
+                    }
+                });
+
+                // 3. Scan outward orders for unique buyers
+                (ACCOUNTS_CACHE.outward || []).forEach(out => {
+                    const bName = (out.buyer_name || '').trim();
+                    if (bName && !seenParties.has(bName.toLowerCase())) {
+                        seenParties.add(bName.toLowerCase());
+                        const opt = document.createElement('option');
+                        opt.value = out.party_id || `buyer-${bName.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+                        opt.textContent = `${bName} (Outward Miller)`;
+                        opt.dataset.type = 'BUYER';
+                        opt.dataset.name = bName;
+                        buyerGroup.appendChild(opt);
+                    }
+                });
+
+                if (farmerGroup.children.length > 0) pSelect.appendChild(farmerGroup);
+                if (buyerGroup.children.length > 0) pSelect.appendChild(buyerGroup);
+
+                if (currentVal) pSelect.value = currentVal;
+                else if (parties.length > 0) {
+                    pSelect.value = parties[0].id;
+                }
+            }
+
+            // Populate branch selectors
+            const branches = ACCOUNTS_CACHE.branches || [
+                { id: 'br-chikhali', name: 'Chikhali APMC Main Yard' },
+                { id: 'br-varvand', name: 'Varvand APMC Yard' },
+                { id: 'br-sarola', name: 'Sarola Maruti APMC Yard' },
+                { id: 'br-dhad', name: 'Dhad APMC Yard' }
+            ];
+
+            ['partyLedgerBranchSelect', 'inwardBranchSelect', 'outwardBranchSelect', 'tallyDaybookBranch'].forEach(selId => {
+                const el = document.getElementById(selId);
+                if (!el) return;
+                const prev = el.value || 'all';
+                el.innerHTML = '<option value="all">All Branches Consolidated</option>';
+                branches.forEach(b => {
+                    const opt = document.createElement('option');
+                    opt.value = b.id;
+                    opt.textContent = b.name;
+                    el.appendChild(opt);
+                });
+                el.value = prev;
+            });
+
+            // Populate commodity selectors
+            const commodities = ACCOUNTS_CACHE.commodities || [];
+            ['inwardCommoditySelect', 'outwardCommoditySelect'].forEach(selId => {
+                const el = document.getElementById(selId);
+                if (!el) return;
+                const prev = el.value || 'all';
+                el.innerHTML = '<option value="all">All Commodities</option>';
+                commodities.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c.name;
+                    opt.textContent = c.name;
+                    el.appendChild(opt);
+                });
+                el.value = prev;
+            });
+
+            // Default dates
+            const todayStr = new Date().toISOString().slice(0, 10);
+            const d = new Date();
+            const firstDayOfMonth = new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
+
+            const inwDate = document.getElementById('inwardDateSelect');
+            if (inwDate && !inwDate.value) inwDate.value = todayStr;
+
+            const outDate = document.getElementById('outwardDateSelect');
+            if (outDate && !outDate.value) outDate.value = todayStr;
+
+            const tDayDate = document.getElementById('tallyDaybookDate');
+            if (tDayDate && !tDayDate.value) tDayDate.value = todayStr;
+
+            const pFrom = document.getElementById('partyLedgerFrom');
+            if (pFrom && !pFrom.value) pFrom.value = firstDayOfMonth;
+
+            const pTo = document.getElementById('partyLedgerTo');
+            if (pTo && !pTo.value) pTo.value = todayStr;
+
+            // Render all 3 report tabs
+            renderPartyLedger();
+            renderDailyInwardReport();
+            renderDailyOutwardReport();
+        }
+
+        function setPartyDateRange(preset) {
+            const today = new Date();
+            const todayStr = today.toISOString().slice(0, 10);
+            const pFrom = document.getElementById('partyLedgerFrom');
+            const pTo = document.getElementById('partyLedgerTo');
+            if (!pFrom || !pTo) return;
+
+            pTo.value = todayStr;
+
+            if (preset === 'today') {
+                pFrom.value = todayStr;
+            } else if (preset === 'yesterday') {
+                const y = new Date(today);
+                y.setDate(y.getDate() - 1);
+                const yStr = y.toISOString().slice(0, 10);
+                pFrom.value = yStr;
+                pTo.value = yStr;
+            } else if (preset === 'this_month') {
+                pFrom.value = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0, 10);
+            } else if (preset === 'last_30') {
+                const l30 = new Date(today);
+                l30.setDate(l30.getDate() - 30);
+                pFrom.value = l30.toISOString().slice(0, 10);
+            } else if (preset === 'fy') {
+                pFrom.value = '2026-04-01';
+                pTo.value = '2027-03-31';
+            } else if (preset === 'all') {
+                pFrom.value = '';
+                pTo.value = '';
+            }
+
+            renderPartyLedger();
+        }
+
+        let CURRENT_PARTY_REPORT = null;
+
+        function renderPartyLedger() {
+            const pSelect = document.getElementById('partyLedgerSelect');
+            const pId = pSelect ? pSelect.value : '';
+            if (!pId) return;
+
+            const selectedOpt = pSelect.options[pSelect.selectedIndex];
+            const pName = selectedOpt ? (selectedOpt.dataset.name || selectedOpt.textContent.split(' [')[0].split(' (')[0].trim()) : 'Party';
+            const optType = selectedOpt ? selectedOpt.dataset.type : 'FARMER';
+
+            const party = (ACCOUNTS_CACHE.parties || []).find(p => p.id === pId) || {
+                id: pId,
+                name: pName,
+                party_type: optType,
+                phone: '',
+                village: 'Chikhali',
+                bank_name: 'State Bank of India',
+                bank_account_no: '—',
+                bank_ifsc: '—'
+            };
+
+            const branchId = document.getElementById('partyLedgerBranchSelect')?.value || 'all';
+            const fromDate = document.getElementById('partyLedgerFrom')?.value || '';
+            const toDate = document.getElementById('partyLedgerTo')?.value || '';
+
+            // Update Profile Banner
+            const profCard = document.getElementById('partyProfileCard');
+            if (profCard) profCard.style.display = 'block';
+
+            const isFarmer = (party.party_type || '').toUpperCase() !== 'BUYER';
+            document.getElementById('partyAvatar').textContent = isFarmer ? '🌾' : '🏭';
+            document.getElementById('partyProfileName').textContent = party.name || pName;
+            const badge = document.getElementById('partyTypeBadge');
+            if (badge) {
+                badge.textContent = isFarmer ? 'FARMER / SUNDRY CREDITOR' : 'MILLER / SUNDRY DEBTOR';
+                badge.className = isFarmer ? 'badge-pill badge-green' : 'badge-pill badge-blue';
+            }
+            document.getElementById('partyProfilePhone').textContent = party.phone || 'Not Registered';
+            document.getElementById('partyProfileVillage').textContent = party.village || 'Buldhana Mandi Zone';
+            document.getElementById('partyProfileBank').textContent = party.bank_account_no || 'RTGS Master Verified';
+            document.getElementById('partyProfileIfsc').textContent = party.bank_ifsc || 'SBIN0000354';
+            document.getElementById('partyTallyName').textContent = party.name || pName;
+
+            document.getElementById('dispStatementPartyName').textContent = `${party.name || pName} (${isFarmer ? 'Sundry Creditor' : 'Sundry Debtor'})`;
+            document.getElementById('dispStatementPeriod').textContent = `Period: ${fromDate || 'Commencement'} to ${toDate || 'Today'} • ${branchId === 'all' ? 'All Branches' : branchId}`;
+
+            const bMap = {};
+            (ACCOUNTS_CACHE.branches || []).forEach(b => { bMap[b.id] = b.name; });
+
+            const rawTxs = [];
+
+            // Invoices (Farmer procurement)
+            (ACCOUNTS_CACHE.invoices || []).forEach(inv => {
+                const m = inv.party_id === pId || (inv.custom_farmer_name && inv.custom_farmer_name.toLowerCase() === pName.toLowerCase());
+                if (!m) return;
+                if (branchId !== 'all' && inv.branch_id !== branchId) return;
+
+                const invDate = (inv.invoice_date || '').split('T')[0];
+                const netPay = parseFloat(inv.net_payable_amount || inv.rounded_net_payable || 0.0);
+                const gross = parseFloat(inv.gross_amount || 0.0);
+                const hamali = parseFloat(inv.hamali_charge || 0.0);
+                const tok = inv.token_number || inv.id || 'INV';
+                const comm = inv.commodity_name || 'Commodity';
+                const qtl = parseFloat(inv.net_quintals || 0.0);
+                const rate = parseFloat(inv.rate_per_quintal || 0.0);
+
+                rawTxs.push({
+                    date: invDate,
+                    timestamp: inv.created_at || `${invDate}T10:00:00Z`,
+                    voucher_type: 'Purchase Invoice',
+                    voucher_badge_class: 'badge-green',
+                    voucher_number: tok,
+                    branch_id: inv.branch_id,
+                    branch_name: bMap[inv.branch_id] || (inv.branch_id === 'br-chikhali' ? 'Chikhali Main' : 'Yard'),
+                    particulars: `Procured ${qtl.toFixed(2)} Qtl ${comm} @ ₹${rate.toLocaleString('en-IN')}/Qtl [Bags: ${inv.bag_count || 0}, Hamali: ₹${hamali.toFixed(2)}]`,
+                    debit: 0.0,
+                    credit: netPay,
+                    ref_id: inv.id,
+                    status: inv.payout_status || 'PENDING'
+                });
+
+                const pStat = (inv.payout_status || '').toUpperCase();
+                if (['PAID', 'PAID_CASH', 'RTGS_COMPLETED', 'COMPLETED'].includes(pStat)) {
+                    const payDate = (inv.rtgs_completed_at || inv.created_at || invDate).split('T')[0];
+                    const utr = inv.rtgs_utr_no || 'CASH';
+                    const mode = (inv.weighment_mode === 'RTGS' || pStat.includes('RTGS')) ? 'RTGS Bank Transfer' : 'Cash Payout';
+                    rawTxs.push({
+                        date: payDate,
+                        timestamp: inv.rtgs_completed_at || inv.created_at || `${payDate}T16:00:00Z`,
+                        voucher_type: 'Payment Voucher',
+                        voucher_badge_class: 'badge-blue',
+                        voucher_number: `PAY-${tok}`,
+                        branch_id: inv.branch_id,
+                        branch_name: bMap[inv.branch_id] || 'Yard',
+                        particulars: `${mode} settlement against Token #${tok} [Ref: ${utr}]`,
+                        debit: netPay,
+                        credit: 0.0,
+                        ref_id: `pay-${inv.id}`,
+                        status: 'SETTLED'
+                    });
+                }
+            });
+
+            // Outward orders (Buyer sales)
+            (ACCOUNTS_CACHE.outward || []).forEach(out => {
+                const m = (out.buyer_name && out.buyer_name.toLowerCase() === pName.toLowerCase()) || out.party_id === pId;
+                if (!m) return;
+                if (branchId !== 'all' && out.branch_id !== branchId) return;
+
+                const outDate = (out.order_date || '').split('T')[0];
+                const totalBill = parseFloat(out.total_bill_amount || out.gross_amount || 0.0);
+                const chal = out.challan_number || out.id || 'OUT';
+                const comm = out.commodity_name || 'Commodity';
+                const qtl = parseFloat(out.net_quintals || 0.0);
+                const rate = parseFloat(out.rate_per_quintal || 0.0);
+
+                rawTxs.push({
+                    date: outDate,
+                    timestamp: out.created_at || `${outDate}T11:00:00Z`,
+                    voucher_type: 'Sales Challan',
+                    voucher_badge_class: 'badge-purple',
+                    voucher_number: chal,
+                    branch_id: out.branch_id,
+                    branch_name: bMap[out.branch_id] || 'Yard',
+                    particulars: `Sales dispatch of ${qtl.toFixed(2)} Qtl ${comm} @ ₹${rate.toLocaleString('en-IN')}/Qtl via Vehicle ${out.vehicle_number || 'N/A'}`,
+                    debit: totalBill,
+                    credit: 0.0,
+                    ref_id: out.id,
+                    status: out.status || 'CONFIRMED'
+                });
+
+                const payStat = (out.payment_status || '').toUpperCase();
+                if (['PAID', 'RECEIVED'].includes(payStat)) {
+                    const recDate = (out.payment_received_date || outDate).split('T')[0];
+                    rawTxs.push({
+                        date: recDate,
+                        timestamp: out.payment_received_date || out.created_at || `${recDate}T17:00:00Z`,
+                        voucher_type: 'Receipt Voucher',
+                        voucher_badge_class: 'badge-green',
+                        voucher_number: `REC-${chal}`,
+                        branch_id: out.payment_branch_id || out.branch_id,
+                        branch_name: bMap[out.payment_branch_id || out.branch_id] || 'Yard',
+                        particulars: `Payment received via ${out.payment_mode || 'BANK'} [UTR: ${out.utr_number || 'N/A'}]`,
+                        debit: 0.0,
+                        credit: totalBill,
+                        ref_id: `rec-${out.id}`,
+                        status: 'RECEIVED'
+                    });
+                }
+            });
+
+            rawTxs.sort((a, b) => a.date.localeCompare(b.date) || a.timestamp.localeCompare(b.timestamp));
+
+            let openingBalance = parseFloat(party.current_advance || 0.0);
+            let periodDebit = 0.0;
+            let periodCredit = 0.0;
+            const periodTxs = [];
+
+            for (const tx of rawTxs) {
+                if (fromDate && tx.date < fromDate) {
+                    openingBalance += (tx.debit - tx.credit);
+                } else if (toDate && tx.date > toDate) {
+                    continue;
+                } else {
+                    periodTxs.push(tx);
+                    periodDebit += tx.debit;
+                    periodCredit += tx.credit;
+                }
+            }
+
+            let runBal = openingBalance;
+            const statementTxs = periodTxs.map(t => {
+                runBal += (t.debit - t.credit);
+                return {
+                    ...t,
+                    running_balance: Math.abs(runBal),
+                    balance_type: runBal > 0.001 ? 'Dr' : (runBal < -0.001 ? 'Cr' : 'Nil'),
+                    raw_balance: runBal
+                };
+            });
+
+            const closingBalance = runBal;
+            const opType = openingBalance > 0.001 ? 'Dr' : (openingBalance < -0.001 ? 'Cr' : 'Nil');
+            const clType = closingBalance > 0.001 ? 'Dr' : (closingBalance < -0.001 ? 'Cr' : 'Nil');
+
+            CURRENT_PARTY_REPORT = {
+                party: party,
+                from_date: fromDate,
+                to_date: toDate,
+                branch_id: branchId,
+                opening_balance: Math.abs(openingBalance),
+                opening_balance_type: opType,
+                raw_opening_balance: openingBalance,
+                transactions: statementTxs,
+                total_debit: periodDebit,
+                total_credit: periodCredit,
+                closing_balance: Math.abs(closingBalance),
+                closing_balance_type: clType,
+                raw_closing_balance: closingBalance
+            };
+
+            // Update KPI Stats Cards
+            document.getElementById('statPartyOpeningBal').textContent = `₹${Math.abs(openingBalance).toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2})} ${opType}`;
+            document.getElementById('statPartyOpeningSub').textContent = opType === 'Dr' ? 'Advance Receivable' : (opType === 'Cr' ? 'Opening Payable' : 'Zero Opening Balance');
+
+            document.getElementById('statPartyDebit').textContent = `₹${periodDebit.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2})}`;
+            document.getElementById('statPartyCredit').textContent = `₹${periodCredit.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2})}`;
+
+            const clEl = document.getElementById('statPartyClosingBal');
+            if (clEl) {
+                if (Math.abs(closingBalance) < 0.01) {
+                    clEl.textContent = '₹0.00 Settled ✓';
+                    clEl.style.color = '#047857';
+                } else if (closingBalance > 0) {
+                    clEl.textContent = `₹${closingBalance.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2})} Dr`;
+                    clEl.style.color = '#0284c7';
+                } else {
+                    clEl.textContent = `₹${Math.abs(closingBalance).toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2})} Cr`;
+                    clEl.style.color = '#d97706';
+                }
+            }
+            document.getElementById('statPartyClosingSub').textContent = Math.abs(closingBalance) < 0.01 ? 'Full Settlement Done' : (closingBalance > 0 ? 'Advance / Excess Paid to Farmer' : 'Payable to Farmer / Supplier');
+
+            // Render Table Rows
+            const tbody = document.getElementById('partyLedgerTableBody');
+            const tfoot = document.getElementById('partyLedgerTableFoot');
+
+            if (statementTxs.length === 0 && Math.abs(openingBalance) < 0.01) {
+                tbody.innerHTML = `<tr>
+                    <td colspan="9" style="text-align:center; padding:32px; color:#64748b;">
+                        <div style="font-size:28px; margin-bottom:6px;">📖</div>
+                        <strong style="font-size:14px; color:#334155;">No transactions recorded for ${party.name} in selected date range.</strong>
+                    </td>
+                </tr>`;
+                if (tfoot) tfoot.style.display = 'none';
+                return;
+            }
+
+            let html = '';
+            html += `<tr style="background:#f8fafc; font-style:italic;">
+                <td style="color:#64748b;">—</td>
+                <td style="font-weight:700; color:#334155;">${fromDate || 'Opening'}</td>
+                <td colspan="3"><strong style="color:#0284c7;">OPENING BALANCE BROUGHT FORWARD</strong></td>
+                <td style="color:#64748b;">Cumulative net balance prior to period start</td>
+                <td style="text-align:right; font-weight:700; color:#64748b;">—</td>
+                <td style="text-align:right; font-weight:700; color:#64748b;">—</td>
+                <td style="text-align:right; font-weight:800; color:#0f172a;">₹${Math.abs(openingBalance).toLocaleString('en-IN', {minimumFractionDigits:2})} <span class="badge-pill ${opType === 'Dr' ? 'badge-blue' : (opType === 'Cr' ? 'badge-amber' : 'badge-green')}" style="font-size:10px; padding:1px 6px;">${opType}</span></td>
+            </tr>`;
+
+            statementTxs.forEach((tx, idx) => {
+                const balClass = tx.balance_type === 'Dr' ? 'badge-blue' : (tx.balance_type === 'Cr' ? 'badge-amber' : 'badge-green');
+                const vchBadge = tx.voucher_type.includes('Purchase') ? 'background:#dcfce7; color:#166534;' : (
+                    tx.voucher_type.includes('Payment') ? 'background:#e0f2fe; color:#0369a1;' : (
+                        tx.voucher_type.includes('Sales') ? 'background:#ede9fe; color:#6b21a8;' : 'background:#fef3c7; color:#92400e;'
+                    )
+                );
+
+                html += `<tr>
+                    <td style="color:#64748b; font-size:12px;">${idx + 1}</td>
+                    <td style="font-size:12.5px; font-weight:600; color:#0f172a; white-space:nowrap;">${tx.date}</td>
+                    <td style="font-size:12px; font-weight:600; color:#334155;">${tx.branch_name}</td>
+                    <td>
+                        <span style="font-size:11px; font-weight:700; padding:2px 8px; border-radius:6px; ${vchBadge} display:inline-block; white-space:nowrap;">
+                            ${tx.voucher_type}
+                        </span>
+                    </td>
+                    <td><code style="font-size:12px; font-weight:700; color:#0369a1;">${tx.voucher_number}</code></td>
+                    <td style="font-size:12.5px; color:#334155;">${tx.particulars}</td>
+                    <td style="text-align:right; font-size:13px; font-weight:700; color:#0284c7;">${tx.debit > 0 ? '₹' + tx.debit.toLocaleString('en-IN', {minimumFractionDigits:2}) : '—'}</td>
+                    <td style="text-align:right; font-size:13px; font-weight:700; color:#d97706;">${tx.credit > 0 ? '₹' + tx.credit.toLocaleString('en-IN', {minimumFractionDigits:2}) : '—'}</td>
+                    <td style="text-align:right; font-size:13px; font-weight:800; color:#0f172a; white-space:nowrap;">
+                        ₹${tx.running_balance.toLocaleString('en-IN', {minimumFractionDigits:2})}
+                        <span class="badge-pill ${balClass}" style="font-size:10px; padding:1px 6px; margin-left:4px;">${tx.balance_type}</span>
+                    </td>
+                </tr>`;
+            });
+
+            tbody.innerHTML = html;
+
+            if (tfoot) {
+                tfoot.style.display = 'table-footer-group';
+                document.getElementById('footPartyDebit').textContent = `₹${periodDebit.toLocaleString('en-IN', {minimumFractionDigits:2})}`;
+                document.getElementById('footPartyCredit').textContent = `₹${periodCredit.toLocaleString('en-IN', {minimumFractionDigits:2})}`;
+                document.getElementById('footPartyClosing').innerHTML = `₹${Math.abs(closingBalance).toLocaleString('en-IN', {minimumFractionDigits:2})} <span class="badge-pill ${clType === 'Dr' ? 'badge-blue' : (clType === 'Cr' ? 'badge-amber' : 'badge-green')}" style="font-size:10px; padding:1px 6px;">${clType}</span>`;
+            }
+        }
+
+        function downloadPartyLedgerTallyXml() {
+            if (!CURRENT_PARTY_REPORT) {
+                alert('Please select a party first.');
+                return;
+            }
+            const r = CURRENT_PARTY_REPORT;
+            const pName = r.party.name || 'Party';
+            const isFarmer = (r.party.party_type || '').toUpperCase() !== 'BUYER';
+            const parentGroup = isFarmer ? 'Sundry Creditors' : 'Sundry Debtors';
+
+            let xml = `<?xml version="1.0" encoding="utf-8"?>
+<ENVELOPE>
+  <HEADER>
+    <VERSION>1</VERSION>
+    <TALLYREQUEST>Import</TALLYREQUEST>
+    <TYPE>Data</TYPE>
+    <ID>All Masters and Vouchers</ID>
+  </HEADER>
+  <BODY>
+    <DESC>
+      <STATICVARIABLES>
+        <SVCURRENTCOMPANY>Rajarshi Shahu Trading Company</SVCURRENTCOMPANY>
+      </STATICVARIABLES>
+    </DESC>
+    <DATA>
+      <TALLYMESSAGE xmlns:UDF="TallyUDF">
+        <LEDGER NAME="${escapeXmlStr(pName)}" ACTION="Create">
+          <NAME>${escapeXmlStr(pName)}</NAME>
+          <PARENT>${escapeXmlStr(parentGroup)}</PARENT>
+          <OPENINGBALANCE>${r.raw_opening_balance.toFixed(2)}</OPENINGBALANCE>
+          <ISBILLWISEON>Yes</ISBILLWISEON>
+          <AFFECTSSTOCK>No</AFFECTSSTOCK>
+          <LEDSTATENAME>Maharashtra</LEDSTATENAME>
+          <COUNTRYNAME>India</COUNTRYNAME>
+        </LEDGER>
+      </TALLYMESSAGE>
+`;
+
+            r.transactions.forEach(tx => {
+                const vchType = tx.voucher_type.includes('Purchase') ? 'Purchase' : (
+                    tx.voucher_type.includes('Payment') ? 'Payment' : (
+                        tx.voucher_type.includes('Sales') ? 'Sales' : 'Receipt'
+                    )
+                );
+
+                xml += `      <TALLYMESSAGE xmlns:UDF="TallyUDF">
+        <VOUCHER VCHTYPE="${vchType}" ACTION="Create">
+          <DATE>${formatTallyDateStr(tx.date)}</DATE>
+          <VOUCHERTYPENAME>${vchType}</VOUCHERTYPENAME>
+          <VOUCHERNUMBER>${escapeXmlStr(tx.voucher_number)}</VOUCHERNUMBER>
+          <PARTYLEDGERNAME>${escapeXmlStr(pName)}</PARTYLEDGERNAME>
+          <PERSISTEDVIEW>Accounting Voucher View</PERSISTEDVIEW>
+          <NARRATION>${escapeXmlStr(tx.particulars)}</NARRATION>
+`;
+
+                if (vchType === 'Purchase') {
+                    xml += `          <ALLLEDGERENTRIES.LIST>
+            <LEDGERNAME>${escapeXmlStr(pName)}</LEDGERNAME>
+            <ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE>
+            <AMOUNT>-${tx.credit.toFixed(2)}</AMOUNT>
+          </ALLLEDGERENTRIES.LIST>
+          <ALLLEDGERENTRIES.LIST>
+            <LEDGERNAME>Grain Procurement Account</LEDGERNAME>
+            <ISDEEMEDPOSITIVE>Yes</ISDEEMEDPOSITIVE>
+            <AMOUNT>${tx.credit.toFixed(2)}</AMOUNT>
+          </ALLLEDGERENTRIES.LIST>
+`;
+                } else if (vchType === 'Payment') {
+                    xml += `          <ALLLEDGERENTRIES.LIST>
+            <LEDGERNAME>${escapeXmlStr(pName)}</LEDGERNAME>
+            <ISDEEMEDPOSITIVE>Yes</ISDEEMEDPOSITIVE>
+            <AMOUNT>${tx.debit.toFixed(2)}</AMOUNT>
+          </ALLLEDGERENTRIES.LIST>
+          <ALLLEDGERENTRIES.LIST>
+            <LEDGERNAME>Cash / Bank Settlement Account</LEDGERNAME>
+            <ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE>
+            <AMOUNT>-${tx.debit.toFixed(2)}</AMOUNT>
+          </ALLLEDGERENTRIES.LIST>
+`;
+                } else if (vchType === 'Sales') {
+                    xml += `          <ALLLEDGERENTRIES.LIST>
+            <LEDGERNAME>${escapeXmlStr(pName)}</LEDGERNAME>
+            <ISDEEMEDPOSITIVE>Yes</ISDEEMEDPOSITIVE>
+            <AMOUNT>${tx.debit.toFixed(2)}</AMOUNT>
+          </ALLLEDGERENTRIES.LIST>
+          <ALLLEDGERENTRIES.LIST>
+            <LEDGERNAME>Grain Sales Account</LEDGERNAME>
+            <ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE>
+            <AMOUNT>-${tx.debit.toFixed(2)}</AMOUNT>
+          </ALLLEDGERENTRIES.LIST>
+`;
+                } else {
+                    xml += `          <ALLLEDGERENTRIES.LIST>
+            <LEDGERNAME>Bank RTGS Account</LEDGERNAME>
+            <ISDEEMEDPOSITIVE>Yes</ISDEEMEDPOSITIVE>
+            <AMOUNT>${tx.credit.toFixed(2)}</AMOUNT>
+          </ALLLEDGERENTRIES.LIST>
+          <ALLLEDGERENTRIES.LIST>
+            <LEDGERNAME>${escapeXmlStr(pName)}</LEDGERNAME>
+            <ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE>
+            <AMOUNT>-${tx.credit.toFixed(2)}</AMOUNT>
+          </ALLLEDGERENTRIES.LIST>
+`;
+                }
+
+                xml += `        </VOUCHER>
+      </TALLYMESSAGE>
+`;
+            });
+
+            xml += `    </DATA>
+  </BODY>
+</ENVELOPE>`;
+
+            const cleanName = pName.replace(/[^a-zA-Z0-9]/g, '_');
+            downloadFileBlob(xml, `Tally_Ledger_${cleanName}.xml`, 'application/xml');
+        }
+
+        function downloadPartyLedgerCsv() {
+            if (!CURRENT_PARTY_REPORT) return;
+            const r = CURRENT_PARTY_REPORT;
+            const pName = r.party.name || 'Party';
+            let csv = 'Date,Branch,Voucher Type,Voucher No,Particulars,Debit (Rs),Credit (Rs),Running Balance,Type
+';
+            csv += `,,Opening Balance,,,0,0,${r.opening_balance.toFixed(2)},${r.opening_balance_type}
+`;
+            r.transactions.forEach(t => {
+                csv += `"${t.date}","${t.branch_name}","${t.voucher_type}","${t.voucher_number}","${t.particulars.replace(/"/g, '""')}",${t.debit.toFixed(2)},${t.credit.toFixed(2)},${t.running_balance.toFixed(2)},${t.balance_type}
+`;
+            });
+            csv += `,,PERIOD TOTALS,,,${r.total_debit.toFixed(2)},${r.total_credit.toFixed(2)},${r.closing_balance.toFixed(2)},${r.closing_balance_type}
+`;
+
+            const cleanName = pName.replace(/[^a-zA-Z0-9]/g, '_');
+            downloadFileBlob(csv, `Ledger_${cleanName}.csv`, 'text/csv');
+        }
+
+        function printPartyLedgerReport() {
+            const printContent = document.getElementById('printableStatementCard');
+            if (!printContent) {
+                window.print();
+                return;
+            }
+            const partyName = document.getElementById('partyProfileName')?.textContent || 'Party';
+            const originalTitle = document.title;
+            document.title = `Ledger_Statement_${partyName}`;
+            window.print();
+            document.title = originalTitle;
+        }
+
+        // =========================================================================
+        // DAILY INWARD PROCUREMENT REPORT
+        // =========================================================================
+
+        let CURRENT_INWARD_REPORT = null;
+
+        function renderDailyInwardReport() {
+            const targetDate = document.getElementById('inwardDateSelect')?.value || '';
+            const branchId = document.getElementById('inwardBranchSelect')?.value || 'all';
+            const commFilter = document.getElementById('inwardCommoditySelect')?.value || 'all';
+            const statusFilter = document.getElementById('inwardStatusSelect')?.value || 'all';
+
+            const bMap = {};
+            (ACCOUNTS_CACHE.branches || []).forEach(b => { bMap[b.id] = b.name; });
+
+            const pMap = {};
+            (ACCOUNTS_CACHE.parties || []).forEach(p => { pMap[p.id] = p.name; });
+
+            const filteredInvoices = (ACCOUNTS_CACHE.invoices || []).filter(inv => {
+                const iDate = (inv.invoice_date || '').split('T')[0];
+                if (targetDate && iDate !== targetDate) return false;
+                if (branchId !== 'all' && inv.branch_id !== branchId) return false;
+                if (commFilter !== 'all' && inv.commodity_name && !inv.commodity_name.toLowerCase().includes(commFilter.toLowerCase())) return false;
+                if (statusFilter !== 'all') {
+                    const pStat = (inv.payout_status || '').toUpperCase();
+                    if (statusFilter === 'PAID' && !['PAID', 'PAID_CASH', 'RTGS_COMPLETED', 'COMPLETED'].includes(pStat)) return false;
+                    if (statusFilter === 'PENDING' && ['PAID', 'PAID_CASH', 'RTGS_COMPLETED', 'COMPLETED'].includes(pStat)) return false;
+                    if (statusFilter === 'RTGS_PENDING' && pStat !== 'RTGS_PENDING') return false;
+                }
+                return true;
+            });
+
+            let totalBags = 0;
+            let totalQtl = 0.0;
+            let totalGross = 0.0;
+            let totalHamali = 0.0;
+            let totalNet = 0.0;
+            let totalPaid = 0.0;
+            let totalPending = 0.0;
+
+            filteredInvoices.forEach(inv => {
+                totalBags += parseInt(inv.bag_count || 0);
+                totalQtl += parseFloat(inv.net_quintals || 0.0);
+                const g = parseFloat(inv.gross_amount || 0.0);
+                const h = parseFloat(inv.hamali_charge || 0.0);
+                const np = parseFloat(inv.net_payable_amount || inv.rounded_net_payable || (g - h));
+                totalGross += g;
+                totalHamali += h;
+                totalNet += np;
+
+                const pStat = (inv.payout_status || '').toUpperCase();
+                if (['PAID', 'PAID_CASH', 'RTGS_COMPLETED', 'COMPLETED'].includes(pStat)) {
+                    totalPaid += np;
+                } else {
+                    totalPending += np;
+                }
+            });
+
+            CURRENT_INWARD_REPORT = {
+                date: targetDate,
+                branch_id: branchId,
+                branch_label: bMap[branchId] || (branchId === 'all' ? 'All Branches Consolidated' : branchId),
+                invoices: filteredInvoices,
+                total_lots: filteredInvoices.length,
+                total_bags: totalBags,
+                total_net_quintals: totalQtl,
+                total_gross: totalGross,
+                total_hamali: totalHamali,
+                total_net: totalNet,
+                total_paid: totalPaid,
+                total_pending: totalPending
+            };
+
+            document.getElementById('statInwardLots').textContent = `${filteredInvoices.length} Lots (${totalBags} Bags)`;
+            document.getElementById('statInwardVolume').textContent = `${totalQtl.toFixed(2)} Qtl (${(totalQtl/10).toFixed(2)} MT)`;
+            document.getElementById('statInwardGross').textContent = `₹${totalGross.toLocaleString('en-IN', {minimumFractionDigits:2})}`;
+            document.getElementById('statInwardHamali').textContent = `Hamali Deductions: ₹${totalHamali.toLocaleString('en-IN', {minimumFractionDigits:2})}`;
+            document.getElementById('statInwardNetPayable').textContent = `₹${totalNet.toLocaleString('en-IN', {minimumFractionDigits:2})}`;
+            document.getElementById('statInwardPaidPending').textContent = `Paid: ₹${totalPaid.toLocaleString('en-IN')} | Due: ₹${totalPending.toLocaleString('en-IN')}`;
+
+            document.getElementById('dispInwardDateLabel').textContent = targetDate || 'All Dates';
+            document.getElementById('dispInwardBranchLabel').textContent = `Yard: ${CURRENT_INWARD_REPORT.branch_label}`;
+
+            const tbody = document.getElementById('inwardReportTableBody');
+            if (filteredInvoices.length === 0) {
+                tbody.innerHTML = `<tr>
+                    <td colspan="12" style="text-align:center; padding:36px; color:#64748b;">
+                        <div style="font-size:32px; margin-bottom:6px;">📥</div>
+                        <strong style="font-size:14px; color:#334155;">No Inward Procurement Records for ${targetDate || 'Selected Filters'}</strong>
+                    </td>
+                </tr>`;
+                return;
+            }
+
+            let html = '';
+            filteredInvoices.forEach(inv => {
+                const fName = inv.custom_farmer_name || pMap[inv.party_id] || 'Farmer';
+                const bName = bMap[inv.branch_id] || (inv.branch_id === 'br-chikhali' ? 'Chikhali' : 'Yard');
+                const pStat = (inv.payout_status || 'PENDING').toUpperCase();
+                const isPaid = ['PAID', 'PAID_CASH', 'RTGS_COMPLETED', 'COMPLETED'].includes(pStat);
+                const g = parseFloat(inv.gross_amount || 0.0);
+                const h = parseFloat(inv.hamali_charge || 0.0);
+                const np = parseFloat(inv.net_payable_amount || inv.rounded_net_payable || (g - h));
+                const timeStr = (inv.created_at || '').split('T')[1]?.slice(0, 5) || '10:00';
+
+                html += `<tr>
+                    <td><code style="font-size:12px; font-weight:800; color:#0284c7;">${inv.token_number || inv.id}</code></td>
+                    <td style="font-size:12px; color:#64748b; white-space:nowrap;">${timeStr}</td>
+                    <td style="font-size:12px; font-weight:600;">${bName}</td>
+                    <td><strong style="color:#0f172a;">${fName}</strong></td>
+                    <td>
+                        <span style="font-weight:700; color:#047857;">${inv.commodity_name}</span>
+                        <span style="font-size:11px; color:#64748b;">(${inv.quality_grade || 'FAQ'})</span>
+                    </td>
+                    <td style="text-align:center; font-weight:700;">${inv.bag_count || 0}</td>
+                    <td style="text-align:right; font-weight:800; color:#047857;">${parseFloat(inv.net_quintals || 0).toFixed(2)}</td>
+                    <td style="text-align:right; font-weight:600;">₹${parseFloat(inv.rate_per_quintal || 0).toLocaleString('en-IN')}</td>
+                    <td style="text-align:right; font-weight:600;">₹${g.toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
+                    <td style="text-align:right; color:#dc2626;">${h > 0 ? '-₹' + h.toFixed(2) : '—'}</td>
+                    <td style="text-align:right; font-weight:800; color:#047857;">₹${np.toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
+                    <td>
+                        <span class="badge-pill ${isPaid ? 'badge-green' : 'badge-amber'}" style="font-size:11px; padding:2px 8px;">
+                            ${isPaid ? 'PAID ✓' : 'PENDING'}
+                        </span>
+                        ${inv.rtgs_utr_no ? `<br><code style="font-size:10px; color:#0369a1;">${inv.rtgs_utr_no}</code>` : ''}
+                    </td>
+                </tr>`;
+            });
+
+            tbody.innerHTML = html;
+
+            document.getElementById('footInwardBags').textContent = totalBags;
+            document.getElementById('footInwardQtl').textContent = `${totalQtl.toFixed(2)} Qtl`;
+            document.getElementById('footInwardGross').textContent = `₹${totalGross.toLocaleString('en-IN', {minimumFractionDigits:2})}`;
+            document.getElementById('footInwardHamali').textContent = `-₹${totalHamali.toLocaleString('en-IN', {minimumFractionDigits:2})}`;
+            document.getElementById('footInwardNet').textContent = `₹${totalNet.toLocaleString('en-IN', {minimumFractionDigits:2})}`;
+        }
+
+        function downloadDailyInwardTallyXml() {
+            if (!CURRENT_INWARD_REPORT || CURRENT_INWARD_REPORT.invoices.length === 0) {
+                alert('No inward records found for the selected filters.');
+                return;
+            }
+            const r = CURRENT_INWARD_REPORT;
+            const targetDate = r.date || new Date().toISOString().slice(0, 10);
+            const branchLabel = r.branch_label;
+
+            const pMap = {};
+            (ACCOUNTS_CACHE.parties || []).forEach(p => { pMap[p.id] = p.name; });
+
+            const farmers = [...new Set(r.invoices.map(i => i.custom_farmer_name || pMap[i.party_id] || 'Farmer'))];
+            const commodities = [...new Set(r.invoices.map(i => i.commodity_name || 'General Grain'))];
+
+            let xml = `<?xml version="1.0" encoding="utf-8"?>
+<ENVELOPE>
+  <HEADER>
+    <VERSION>1</VERSION>
+    <TALLYREQUEST>Import</TALLYREQUEST>
+    <TYPE>Data</TYPE>
+    <ID>Vouchers</ID>
+  </HEADER>
+  <BODY>
+    <DESC>
+      <STATICVARIABLES>
+        <SVCURRENTCOMPANY>Rajarshi Shahu Trading Company</SVCURRENTCOMPANY>
+      </STATICVARIABLES>
+    </DESC>
+    <DATA>
+`;
+
+            farmers.forEach(f => {
+                xml += `      <TALLYMESSAGE xmlns:UDF="TallyUDF">
+        <LEDGER NAME="${escapeXmlStr(f)}" ACTION="Create">
+          <NAME>${escapeXmlStr(f)}</NAME>
+          <PARENT>Sundry Creditors</PARENT>
+          <ISBILLWISEON>Yes</ISBILLWISEON>
+          <LEDSTATENAME>Maharashtra</LEDSTATENAME>
+          <COUNTRYNAME>India</COUNTRYNAME>
+        </LEDGER>
+      </TALLYMESSAGE>
+`;
+            });
+
+            commodities.forEach(c => {
+                xml += `      <TALLYMESSAGE xmlns:UDF="TallyUDF">
+        <LEDGER NAME="${escapeXmlStr(c)} Purchase Account" ACTION="Create">
+          <NAME>${escapeXmlStr(c)} Purchase Account</NAME>
+          <PARENT>Purchase Accounts</PARENT>
+          <AFFECTSSTOCK>Yes</AFFECTSSTOCK>
+        </LEDGER>
+      </TALLYMESSAGE>
+`;
+            });
+
+            xml += `      <TALLYMESSAGE xmlns:UDF="TallyUDF">
+        <LEDGER NAME="Mandi Hamali Deduction Account" ACTION="Create">
+          <NAME>Mandi Hamali Deduction Account</NAME>
+          <PARENT>Direct Expenses</PARENT>
+        </LEDGER>
+      </TALLYMESSAGE>
+`;
+
+            r.invoices.forEach(inv => {
+                const fName = inv.custom_farmer_name || pMap[inv.party_id] || 'Farmer';
+                const cName = inv.commodity_name || 'Commodity';
+                const gross = parseFloat(inv.gross_amount || 0.0);
+                const hamali = parseFloat(inv.hamali_charge || 0.0);
+                const netPay = parseFloat(inv.net_payable_amount || inv.rounded_net_payable || (gross - hamali));
+                const tok = inv.token_number || inv.id || 'INV';
+                const qtl = parseFloat(inv.net_quintals || 0.0);
+                const rate = parseFloat(inv.rate_per_quintal || 0.0);
+
+                xml += `      <TALLYMESSAGE xmlns:UDF="TallyUDF">
+        <VOUCHER VCHTYPE="Purchase" ACTION="Create">
+          <DATE>${formatTallyDateStr(inv.invoice_date || targetDate)}</DATE>
+          <VOUCHERTYPENAME>Purchase</VOUCHERTYPENAME>
+          <VOUCHERNUMBER>${escapeXmlStr(tok)}</VOUCHERNUMBER>
+          <PARTYLEDGERNAME>${escapeXmlStr(fName)}</PARTYLEDGERNAME>
+          <PERSISTEDVIEW>Accounting Voucher View</PERSISTEDVIEW>
+          <NARRATION>Procured ${qtl.toFixed(2)} Qtl ${escapeXmlStr(cName)} @ Rs.${rate.toFixed(2)}/Qtl from ${escapeXmlStr(fName)} at ${escapeXmlStr(branchLabel)}</NARRATION>
+          <ALLLEDGERENTRIES.LIST>
+            <LEDGERNAME>${escapeXmlStr(fName)}</LEDGERNAME>
+            <ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE>
+            <AMOUNT>-${netPay.toFixed(2)}</AMOUNT>
+          </ALLLEDGERENTRIES.LIST>
+          <ALLLEDGERENTRIES.LIST>
+            <LEDGERNAME>${escapeXmlStr(cName)} Purchase Account</LEDGERNAME>
+            <ISDEEMEDPOSITIVE>Yes</ISDEEMEDPOSITIVE>
+            <AMOUNT>${gross.toFixed(2)}</AMOUNT>
+          </ALLLEDGERENTRIES.LIST>
+`;
+
+                if (hamali > 0.001) {
+                    xml += `          <ALLLEDGERENTRIES.LIST>
+            <LEDGERNAME>Mandi Hamali Deduction Account</LEDGERNAME>
+            <ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE>
+            <AMOUNT>-${hamali.toFixed(2)}</AMOUNT>
+          </ALLLEDGERENTRIES.LIST>
+`;
+                }
+
+                xml += `        </VOUCHER>
+      </TALLYMESSAGE>
+`;
+            });
+
+            xml += `    </DATA>
+  </BODY>
+</ENVELOPE>`;
+
+            downloadFileBlob(xml, `Tally_Inward_Purchases_${targetDate}.xml`, 'application/xml');
+        }
+
+        function downloadDailyInwardCsv() {
+            if (!CURRENT_INWARD_REPORT || CURRENT_INWARD_REPORT.invoices.length === 0) return;
+            const r = CURRENT_INWARD_REPORT;
+            const pMap = {};
+            (ACCOUNTS_CACHE.parties || []).forEach(p => { pMap[p.id] = p.name; });
+
+            let csv = 'Token No,Date,Branch,Farmer Name,Phone,Commodity,Grade,Bags,Moisture %,Net Wt (Qtl),Rate (Rs/Qtl),Gross (Rs),Hamali (Rs),Net Payable (Rs),Status,Payment Ref
+';
+            r.invoices.forEach(inv => {
+                const fName = inv.custom_farmer_name || pMap[inv.party_id] || 'Farmer';
+                csv += `"${inv.token_number || inv.id}","${inv.invoice_date}","${inv.branch_id}","${fName}","${inv.party_phone || ''}","${inv.commodity_name}","${inv.quality_grade || 'FAQ'}",${inv.bag_count || 0},${inv.moisture_percentage || 0},${inv.net_quintals || 0},${inv.rate_per_quintal || 0},${inv.gross_amount || 0},${inv.hamali_charge || 0},${inv.net_payable_amount || 0},"${inv.payout_status || 'PENDING'}","${inv.rtgs_utr_no || ''}"
+`;
+            });
+
+            downloadFileBlob(csv, `Inward_Register_${r.date || 'Export'}.csv`, 'text/csv');
+        }
+
+        function printDailyInwardReport() {
+            const orig = document.title;
+            document.title = `Inward_Procurement_Register_${CURRENT_INWARD_REPORT?.date || ''}`;
+            window.print();
+            document.title = orig;
+        }
+
+        // =========================================================================
+        // DAILY OUTWARD SALES REPORT
+        // =========================================================================
+
+        let CURRENT_OUTWARD_REPORT = null;
+
+        function renderDailyOutwardReport() {
+            const targetDate = document.getElementById('outwardDateSelect')?.value || '';
+            const branchId = document.getElementById('outwardBranchSelect')?.value || 'all';
+            const commFilter = document.getElementById('outwardCommoditySelect')?.value || 'all';
+            const statusFilter = document.getElementById('outwardStatusSelect')?.value || 'all';
+
+            const bMap = {};
+            (ACCOUNTS_CACHE.branches || []).forEach(b => { bMap[b.id] = b.name; });
+
+            const filteredOrders = (ACCOUNTS_CACHE.outward || []).filter(o => {
+                const oDate = (o.order_date || '').split('T')[0];
+                if (targetDate && oDate !== targetDate) return false;
+                if (branchId !== 'all' && o.branch_id !== branchId) return false;
+                if (commFilter !== 'all' && o.commodity_name && !o.commodity_name.toLowerCase().includes(commFilter.toLowerCase())) return false;
+                if (statusFilter !== 'all') {
+                    const pStat = (o.payment_status || '').toUpperCase();
+                    if (statusFilter === 'RECEIVED' && !['PAID', 'RECEIVED'].includes(pStat)) return false;
+                    if (statusFilter === 'PENDING' && ['PAID', 'RECEIVED'].includes(pStat)) return false;
+                }
+                return true;
+            });
+
+            let totalQtl = 0.0;
+            let totalBill = 0.0;
+            let totalReceived = 0.0;
+            let totalDue = 0.0;
+
+            filteredOrders.forEach(o => {
+                totalQtl += parseFloat(o.net_quintals || 0.0);
+                const amt = parseFloat(o.total_bill_amount || o.gross_amount || 0.0);
+                totalBill += amt;
+                const pStat = (o.payment_status || '').toUpperCase();
+                if (['PAID', 'RECEIVED'].includes(pStat)) {
+                    totalReceived += amt;
+                } else {
+                    totalDue += amt;
+                }
+            });
+
+            CURRENT_OUTWARD_REPORT = {
+                date: targetDate,
+                branch_id: branchId,
+                branch_label: bMap[branchId] || (branchId === 'all' ? 'All Branches Consolidated' : branchId),
+                orders: filteredOrders,
+                total_dispatches: filteredOrders.length,
+                total_net_quintals: totalQtl,
+                total_bill: totalBill,
+                total_received: totalReceived,
+                total_due: totalDue
+            };
+
+            document.getElementById('statOutwardDispatches').textContent = `${filteredOrders.length} Challans`;
+            document.getElementById('statOutwardVolume').textContent = `${(totalQtl/10).toFixed(2)} MT`;
+            document.getElementById('statOutwardQtl').textContent = `${totalQtl.toFixed(2)} Quintals`;
+            document.getElementById('statOutwardTotalBilled').textContent = `₹${totalBill.toLocaleString('en-IN', {minimumFractionDigits:2})}`;
+            document.getElementById('statOutwardPendingDue').textContent = `₹${totalDue.toLocaleString('en-IN', {minimumFractionDigits:2})} Due`;
+            document.getElementById('statOutwardReceived').textContent = `Collected: ₹${totalReceived.toLocaleString('en-IN', {minimumFractionDigits:2})}`;
+
+            document.getElementById('dispOutwardDateLabel').textContent = targetDate || 'All Dates';
+            document.getElementById('dispOutwardBranchLabel').textContent = `Yard: ${CURRENT_OUTWARD_REPORT.branch_label}`;
+
+            const tbody = document.getElementById('outwardReportTableBody');
+            if (filteredOrders.length === 0) {
+                tbody.innerHTML = `<tr>
+                    <td colspan="12" style="text-align:center; padding:36px; color:#64748b;">
+                        <div style="font-size:32px; margin-bottom:6px;">🚚</div>
+                        <strong style="font-size:14px; color:#334155;">No Outward Sales Dispatches recorded for ${targetDate || 'Selected Filters'}</strong>
+                    </td>
+                </tr>`;
+                return;
+            }
+
+            let html = '';
+            filteredOrders.forEach(o => {
+                const bName = bMap[o.branch_id] || 'Yard';
+                const q = parseFloat(o.net_quintals || 0.0);
+                const bill = parseFloat(o.total_bill_amount || o.gross_amount || 0.0);
+                const pStat = (o.payment_status || 'PENDING').toUpperCase();
+                const isPaid = ['PAID', 'RECEIVED'].includes(pStat);
+
+                html += `<tr>
+                    <td><code style="font-size:12px; font-weight:800; color:#7c3aed;">${o.challan_number || o.id}</code></td>
+                    <td style="font-size:12.5px; white-space:nowrap;">${o.order_date || ''}</td>
+                    <td style="font-size:12px; font-weight:600;">${bName}</td>
+                    <td><strong style="color:#0f172a;">${o.buyer_name || 'Buyer'}</strong></td>
+                    <td><span style="font-weight:700; color:#047857;">${o.commodity_name}</span></td>
+                    <td><code style="font-size:11.5px; font-weight:700;">${o.vehicle_number || '—'}</code></td>
+                    <td style="text-align:right; font-weight:700; color:#7c3aed;">${q.toFixed(2)}</td>
+                    <td style="text-align:right; font-weight:700; color:#7c3aed;">${(q/10).toFixed(2)}</td>
+                    <td style="text-align:right; font-weight:600;">₹${parseFloat(o.rate_per_quintal || 0).toLocaleString('en-IN')}</td>
+                    <td style="text-align:right; font-weight:800; color:#047857;">₹${bill.toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
+                    <td>
+                        <span class="badge-pill ${isPaid ? 'badge-green' : 'badge-amber'}" style="font-size:11px; padding:2px 8px;">
+                            ${isPaid ? 'RECEIVED ✓' : 'OUTSTANDING'}
+                        </span>
+                    </td>
+                    <td style="font-size:11.5px; color:#64748b;">${o.payment_mode || '—'} ${o.utr_number ? `<br><code>${o.utr_number}</code>` : ''}</td>
+                </tr>`;
+            });
+
+            tbody.innerHTML = html;
+
+            document.getElementById('footOutwardQtl').textContent = `${totalQtl.toFixed(2)} Qtl`;
+            document.getElementById('footOutwardMt').textContent = `${(totalQtl/10).toFixed(2)} MT`;
+            document.getElementById('footOutwardBill').textContent = `₹${totalBill.toLocaleString('en-IN', {minimumFractionDigits:2})}`;
+        }
+
+        function downloadDailyOutwardTallyXml() {
+            if (!CURRENT_OUTWARD_REPORT || CURRENT_OUTWARD_REPORT.orders.length === 0) {
+                alert('No outward dispatches found for the selected filters.');
+                return;
+            }
+            const r = CURRENT_OUTWARD_REPORT;
+            const targetDate = r.date || new Date().toISOString().slice(0, 10);
+            const branchLabel = r.branch_label;
+
+            const buyers = [...new Set(r.orders.map(o => o.buyer_name || 'Buyer'))];
+            const commodities = [...new Set(r.orders.map(o => o.commodity_name || 'General Grain'))];
+
+            let xml = `<?xml version="1.0" encoding="utf-8"?>
+<ENVELOPE>
+  <HEADER>
+    <VERSION>1</VERSION>
+    <TALLYREQUEST>Import</TALLYREQUEST>
+    <TYPE>Data</TYPE>
+    <ID>Vouchers</ID>
+  </HEADER>
+  <BODY>
+    <DESC>
+      <STATICVARIABLES>
+        <SVCURRENTCOMPANY>Rajarshi Shahu Trading Company</SVCURRENTCOMPANY>
+      </STATICVARIABLES>
+    </DESC>
+    <DATA>
+`;
+
+            buyers.forEach(b => {
+                xml += `      <TALLYMESSAGE xmlns:UDF="TallyUDF">
+        <LEDGER NAME="${escapeXmlStr(b)}" ACTION="Create">
+          <NAME>${escapeXmlStr(b)}</NAME>
+          <PARENT>Sundry Debtors</PARENT>
+          <ISBILLWISEON>Yes</ISBILLWISEON>
+          <LEDSTATENAME>Maharashtra</LEDSTATENAME>
+          <COUNTRYNAME>India</COUNTRYNAME>
+        </LEDGER>
+      </TALLYMESSAGE>
+`;
+            });
+
+            commodities.forEach(c => {
+                xml += `      <TALLYMESSAGE xmlns:UDF="TallyUDF">
+        <LEDGER NAME="${escapeXmlStr(c)} Sales Account" ACTION="Create">
+          <NAME>${escapeXmlStr(c)} Sales Account</NAME>
+          <PARENT>Sales Accounts</PARENT>
+          <AFFECTSSTOCK>Yes</AFFECTSSTOCK>
+        </LEDGER>
+      </TALLYMESSAGE>
+`;
+            });
+
+            r.orders.forEach(o => {
+                const chal = o.challan_number || o.id || 'OUT';
+                const bName = o.buyer_name || 'Buyer';
+                const cName = o.commodity_name || 'Commodity';
+                const bill = parseFloat(o.total_bill_amount || o.gross_amount || 0.0);
+                const qtl = parseFloat(o.net_quintals || 0.0);
+                const rate = parseFloat(o.rate_per_quintal || 0.0);
+
+                xml += `      <TALLYMESSAGE xmlns:UDF="TallyUDF">
+        <VOUCHER VCHTYPE="Sales" ACTION="Create">
+          <DATE>${formatTallyDateStr(o.order_date || targetDate)}</DATE>
+          <VOUCHERTYPENAME>Sales</VOUCHERTYPENAME>
+          <VOUCHERNUMBER>${escapeXmlStr(chal)}</VOUCHERNUMBER>
+          <PARTYLEDGERNAME>${escapeXmlStr(bName)}</PARTYLEDGERNAME>
+          <PERSISTEDVIEW>Accounting Voucher View</PERSISTEDVIEW>
+          <NARRATION>Sales dispatch of ${qtl.toFixed(2)} Qtl ${escapeXmlStr(cName)} @ Rs.${rate.toFixed(2)}/Qtl to ${escapeXmlStr(bName)} from ${escapeXmlStr(branchLabel)}</NARRATION>
+          <ALLLEDGERENTRIES.LIST>
+            <LEDGERNAME>${escapeXmlStr(bName)}</LEDGERNAME>
+            <ISDEEMEDPOSITIVE>Yes</ISDEEMEDPOSITIVE>
+            <AMOUNT>${bill.toFixed(2)}</AMOUNT>
+          </ALLLEDGERENTRIES.LIST>
+          <ALLLEDGERENTRIES.LIST>
+            <LEDGERNAME>${escapeXmlStr(cName)} Sales Account</LEDGERNAME>
+            <ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE>
+            <AMOUNT>-${bill.toFixed(2)}</AMOUNT>
+          </ALLLEDGERENTRIES.LIST>
+        </VOUCHER>
+      </TALLYMESSAGE>
+`;
+            });
+
+            xml += `    </DATA>
+  </BODY>
+</ENVELOPE>`;
+
+            downloadFileBlob(xml, `Tally_Outward_Sales_${targetDate}.xml`, 'application/xml');
+        }
+
+        function downloadDailyOutwardCsv() {
+            if (!CURRENT_OUTWARD_REPORT || CURRENT_OUTWARD_REPORT.orders.length === 0) return;
+            const r = CURRENT_OUTWARD_REPORT;
+            let csv = 'Challan No,Date,Branch,Buyer Name,Commodity,Vehicle No,Net Wt (Qtl),Net Wt (MT),Rate (Rs/Qtl),Total Bill (Rs),Status,Mode,UTR
+';
+            r.orders.forEach(o => {
+                const q = parseFloat(o.net_quintals || 0.0);
+                csv += `"${o.challan_number || o.id}","${o.order_date}","${o.branch_id}","${o.buyer_name}","${o.commodity_name}","${o.vehicle_number || ''}",${q.toFixed(2)},${(q/10).toFixed(2)},${o.rate_per_quintal || 0},${o.total_bill_amount || 0},"${o.payment_status || 'PENDING'}","${o.payment_mode || ''}","${o.utr_number || ''}"
+`;
+            });
+            downloadFileBlob(csv, `Outward_Register_${r.date || 'Export'}.csv`, 'text/csv');
+        }
+
+        function printDailyOutwardReport() {
+            const orig = document.title;
+            document.title = `Outward_Sales_Register_${CURRENT_OUTWARD_REPORT?.date || ''}`;
+            window.print();
+            document.title = orig;
+        }
+
+        // =========================================================================
+        // TALLY PRIME DAYBOOK & MASTERS XML BUNDLE
+        // =========================================================================
+
+        function downloadConsolidatedTallyDaybookXml() {
+            const targetDate = document.getElementById('tallyDaybookDate')?.value || new Date().toISOString().slice(0, 10);
+            const branchId = document.getElementById('tallyDaybookBranch')?.value || 'all';
+
+            const bMap = {};
+            (ACCOUNTS_CACHE.branches || []).forEach(b => { bMap[b.id] = b.name; });
+
+            const pMap = {};
+            (ACCOUNTS_CACHE.parties || []).forEach(p => { pMap[p.id] = p.name; });
+
+            const filteredInvoices = (ACCOUNTS_CACHE.invoices || []).filter(inv => {
+                const iDate = (inv.invoice_date || '').split('T')[0];
+                if (targetDate && iDate !== targetDate) return false;
+                if (branchId !== 'all' && inv.branch_id !== branchId) return false;
+                return true;
+            });
+
+            const filteredOrders = (ACCOUNTS_CACHE.outward || []).filter(o => {
+                const oDate = (o.order_date || '').split('T')[0];
+                if (targetDate && oDate !== targetDate) return false;
+                if (branchId !== 'all' && o.branch_id !== branchId) return false;
+                return true;
+            });
+
+            if (filteredInvoices.length === 0 && filteredOrders.length === 0) {
+                alert(`No transactions found for date ${targetDate} (${branchId}). Try selecting a date with inward or outward activity.`);
+                return;
+            }
+
+            const farmers = [...new Set(filteredInvoices.map(i => i.custom_farmer_name || pMap[i.party_id] || 'Farmer'))];
+            const buyers = [...new Set(filteredOrders.map(o => o.buyer_name || 'Buyer'))];
+            const purComm = [...new Set(filteredInvoices.map(i => i.commodity_name || 'General Grain'))];
+            const saleComm = [...new Set(filteredOrders.map(o => o.commodity_name || 'General Grain'))];
+
+            let xml = `<?xml version="1.0" encoding="utf-8"?>
+<ENVELOPE>
+  <HEADER>
+    <VERSION>1</VERSION>
+    <TALLYREQUEST>Import</TALLYREQUEST>
+    <TYPE>Data</TYPE>
+    <ID>All Masters and Vouchers</ID>
+  </HEADER>
+  <BODY>
+    <DESC>
+      <STATICVARIABLES>
+        <SVCURRENTCOMPANY>Rajarshi Shahu Trading Company</SVCURRENTCOMPANY>
+      </STATICVARIABLES>
+    </DESC>
+    <DATA>
+`;
+
+            farmers.forEach(f => {
+                xml += `      <TALLYMESSAGE xmlns:UDF="TallyUDF">
+        <LEDGER NAME="${escapeXmlStr(f)}" ACTION="Create">
+          <NAME>${escapeXmlStr(f)}</NAME>
+          <PARENT>Sundry Creditors</PARENT>
+          <ISBILLWISEON>Yes</ISBILLWISEON>
+          <LEDSTATENAME>Maharashtra</LEDSTATENAME>
+          <COUNTRYNAME>India</COUNTRYNAME>
+        </LEDGER>
+      </TALLYMESSAGE>
+`;
+            });
+
+            buyers.forEach(b => {
+                xml += `      <TALLYMESSAGE xmlns:UDF="TallyUDF">
+        <LEDGER NAME="${escapeXmlStr(b)}" ACTION="Create">
+          <NAME>${escapeXmlStr(b)}</NAME>
+          <PARENT>Sundry Debtors</PARENT>
+          <ISBILLWISEON>Yes</ISBILLWISEON>
+          <LEDSTATENAME>Maharashtra</LEDSTATENAME>
+          <COUNTRYNAME>India</COUNTRYNAME>
+        </LEDGER>
+      </TALLYMESSAGE>
+`;
+            });
+
+            purComm.forEach(c => {
+                xml += `      <TALLYMESSAGE xmlns:UDF="TallyUDF">
+        <LEDGER NAME="${escapeXmlStr(c)} Purchase Account" ACTION="Create">
+          <NAME>${escapeXmlStr(c)} Purchase Account</NAME>
+          <PARENT>Purchase Accounts</PARENT>
+          <AFFECTSSTOCK>Yes</AFFECTSSTOCK>
+        </LEDGER>
+      </TALLYMESSAGE>
+`;
+            });
+
+            saleComm.forEach(c => {
+                xml += `      <TALLYMESSAGE xmlns:UDF="TallyUDF">
+        <LEDGER NAME="${escapeXmlStr(c)} Sales Account" ACTION="Create">
+          <NAME>${escapeXmlStr(c)} Sales Account</NAME>
+          <PARENT>Sales Accounts</PARENT>
+          <AFFECTSSTOCK>Yes</AFFECTSSTOCK>
+        </LEDGER>
+      </TALLYMESSAGE>
+`;
+            });
+
+            xml += `      <TALLYMESSAGE xmlns:UDF="TallyUDF">
+        <LEDGER NAME="Mandi Hamali Deduction Account" ACTION="Create">
+          <NAME>Mandi Hamali Deduction Account</NAME>
+          <PARENT>Direct Expenses</PARENT>
+        </LEDGER>
+      </TALLYMESSAGE>
+      <TALLYMESSAGE xmlns:UDF="TallyUDF">
+        <LEDGER NAME="Bank RTGS Account" ACTION="Create">
+          <NAME>Bank RTGS Account</NAME>
+          <PARENT>Bank Accounts</PARENT>
+        </LEDGER>
+      </TALLYMESSAGE>
+      <TALLYMESSAGE xmlns:UDF="TallyUDF">
+        <LEDGER NAME="Cash-in-Hand Account" ACTION="Create">
+          <NAME>Cash-in-Hand Account</NAME>
+          <PARENT>Cash-in-Hand</PARENT>
+        </LEDGER>
+      </TALLYMESSAGE>
+`;
+
+            filteredInvoices.forEach(inv => {
+                const fName = inv.custom_farmer_name || pMap[inv.party_id] || 'Farmer';
+                const cName = inv.commodity_name || 'Commodity';
+                const gross = parseFloat(inv.gross_amount || 0.0);
+                const hamali = parseFloat(inv.hamali_charge || 0.0);
+                const netPay = parseFloat(inv.net_payable_amount || inv.rounded_net_payable || (gross - hamali));
+                const tok = inv.token_number || inv.id || 'INV';
+                const qtl = parseFloat(inv.net_quintals || 0.0);
+                const rate = parseFloat(inv.rate_per_quintal || 0.0);
+
+                xml += `      <TALLYMESSAGE xmlns:UDF="TallyUDF">
+        <VOUCHER VCHTYPE="Purchase" ACTION="Create">
+          <DATE>${formatTallyDateStr(inv.invoice_date || targetDate)}</DATE>
+          <VOUCHERTYPENAME>Purchase</VOUCHERTYPENAME>
+          <VOUCHERNUMBER>${escapeXmlStr(tok)}</VOUCHERNUMBER>
+          <PARTYLEDGERNAME>${escapeXmlStr(fName)}</PARTYLEDGERNAME>
+          <PERSISTEDVIEW>Accounting Voucher View</PERSISTEDVIEW>
+          <NARRATION>Procured ${qtl.toFixed(2)} Qtl ${escapeXmlStr(cName)} @ Rs.${rate.toFixed(2)}/Qtl from ${escapeXmlStr(fName)} (Bags: ${inv.bag_count || 0})</NARRATION>
+          <ALLLEDGERENTRIES.LIST>
+            <LEDGERNAME>${escapeXmlStr(fName)}</LEDGERNAME>
+            <ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE>
+            <AMOUNT>-${netPay.toFixed(2)}</AMOUNT>
+          </ALLLEDGERENTRIES.LIST>
+          <ALLLEDGERENTRIES.LIST>
+            <LEDGERNAME>${escapeXmlStr(cName)} Purchase Account</LEDGERNAME>
+            <ISDEEMEDPOSITIVE>Yes</ISDEEMEDPOSITIVE>
+            <AMOUNT>${gross.toFixed(2)}</AMOUNT>
+          </ALLLEDGERENTRIES.LIST>
+`;
+
+                if (hamali > 0.001) {
+                    xml += `          <ALLLEDGERENTRIES.LIST>
+            <LEDGERNAME>Mandi Hamali Deduction Account</LEDGERNAME>
+            <ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE>
+            <AMOUNT>-${hamali.toFixed(2)}</AMOUNT>
+          </ALLLEDGERENTRIES.LIST>
+`;
+                }
+
+                xml += `        </VOUCHER>
+      </TALLYMESSAGE>
+`;
+
+                const pStat = (inv.payout_status || '').toUpperCase();
+                if (['PAID', 'PAID_CASH', 'RTGS_COMPLETED', 'COMPLETED'].includes(pStat)) {
+                    const bankAcc = (inv.weighment_mode === 'RTGS' || pStat.includes('RTGS')) ? 'Bank RTGS Account' : 'Cash-in-Hand Account';
+                    xml += `      <TALLYMESSAGE xmlns:UDF="TallyUDF">
+        <VOUCHER VCHTYPE="Payment" ACTION="Create">
+          <DATE>${formatTallyDateStr(inv.rtgs_completed_at || inv.created_at || targetDate)}</DATE>
+          <VOUCHERTYPENAME>Payment</VOUCHERTYPENAME>
+          <VOUCHERNUMBER>PAY-${escapeXmlStr(tok)}</VOUCHERNUMBER>
+          <PARTYLEDGERNAME>${escapeXmlStr(fName)}</PARTYLEDGERNAME>
+          <PERSISTEDVIEW>Accounting Voucher View</PERSISTEDVIEW>
+          <NARRATION>Settlement against Token #${escapeXmlStr(tok)} [UTR: ${escapeXmlStr(inv.rtgs_utr_no || 'CASH')}]</NARRATION>
+          <ALLLEDGERENTRIES.LIST>
+            <LEDGERNAME>${escapeXmlStr(fName)}</LEDGERNAME>
+            <ISDEEMEDPOSITIVE>Yes</ISDEEMEDPOSITIVE>
+            <AMOUNT>${netPay.toFixed(2)}</AMOUNT>
+          </ALLLEDGERENTRIES.LIST>
+          <ALLLEDGERENTRIES.LIST>
+            <LEDGERNAME>${escapeXmlStr(bankAcc)}</LEDGERNAME>
+            <ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE>
+            <AMOUNT>-${netPay.toFixed(2)}</AMOUNT>
+          </ALLLEDGERENTRIES.LIST>
+        </VOUCHER>
+      </TALLYMESSAGE>
+`;
+                }
+            });
+
+            filteredOrders.forEach(o => {
+                const chal = o.challan_number || o.id || 'OUT';
+                const bName = o.buyer_name || 'Buyer';
+                const cName = o.commodity_name || 'Commodity';
+                const bill = parseFloat(o.total_bill_amount || o.gross_amount || 0.0);
+
+                xml += `      <TALLYMESSAGE xmlns:UDF="TallyUDF">
+        <VOUCHER VCHTYPE="Sales" ACTION="Create">
+          <DATE>${formatTallyDateStr(o.order_date || targetDate)}</DATE>
+          <VOUCHERTYPENAME>Sales</VOUCHERTYPENAME>
+          <VOUCHERNUMBER>${escapeXmlStr(chal)}</VOUCHERNUMBER>
+          <PARTYLEDGERNAME>${escapeXmlStr(bName)}</PARTYLEDGERNAME>
+          <PERSISTEDVIEW>Accounting Voucher View</PERSISTEDVIEW>
+          <NARRATION>Sales dispatch of ${o.net_quintals} Qtl ${escapeXmlStr(cName)} to ${escapeXmlStr(bName)}</NARRATION>
+          <ALLLEDGERENTRIES.LIST>
+            <LEDGERNAME>${escapeXmlStr(bName)}</LEDGERNAME>
+            <ISDEEMEDPOSITIVE>Yes</ISDEEMEDPOSITIVE>
+            <AMOUNT>${bill.toFixed(2)}</AMOUNT>
+          </ALLLEDGERENTRIES.LIST>
+          <ALLLEDGERENTRIES.LIST>
+            <LEDGERNAME>${escapeXmlStr(cName)} Sales Account</LEDGERNAME>
+            <ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE>
+            <AMOUNT>-${bill.toFixed(2)}</AMOUNT>
+          </ALLLEDGERENTRIES.LIST>
+        </VOUCHER>
+      </TALLYMESSAGE>
+`;
+            });
+
+            xml += `    </DATA>
+  </BODY>
+</ENVELOPE>`;
+
+            downloadFileBlob(xml, `Tally_Daybook_Consolidated_${targetDate}.xml`, 'application/xml');
+        }
+
+        function downloadAllMastersTallyXml() {
+            const parties = ACCOUNTS_CACHE.parties || [];
+            const commodities = ACCOUNTS_CACHE.commodities || [];
+
+            let xml = `<?xml version="1.0" encoding="utf-8"?>
+<ENVELOPE>
+  <HEADER>
+    <VERSION>1</VERSION>
+    <TALLYREQUEST>Import</TALLYREQUEST>
+    <TYPE>Data</TYPE>
+    <ID>All Masters</ID>
+  </HEADER>
+  <BODY>
+    <DESC>
+      <STATICVARIABLES>
+        <SVCURRENTCOMPANY>Rajarshi Shahu Trading Company</SVCURRENTCOMPANY>
+      </STATICVARIABLES>
+    </DESC>
+    <DATA>
+`;
+
+            parties.forEach(p => {
+                const isFarmer = (p.party_type || '').toUpperCase() !== 'BUYER';
+                const parent = isFarmer ? 'Sundry Creditors' : 'Sundry Debtors';
+                xml += `      <TALLYMESSAGE xmlns:UDF="TallyUDF">
+        <LEDGER NAME="${escapeXmlStr(p.name)}" ACTION="Create">
+          <NAME>${escapeXmlStr(p.name)}</NAME>
+          <PARENT>${parent}</PARENT>
+          <OPENINGBALANCE>${parseFloat(p.current_advance || 0).toFixed(2)}</OPENINGBALANCE>
+          <ISBILLWISEON>Yes</ISBILLWISEON>
+          <AFFECTSSTOCK>No</AFFECTSSTOCK>
+          <LEDSTATENAME>Maharashtra</LEDSTATENAME>
+          <COUNTRYNAME>India</COUNTRYNAME>
+        </LEDGER>
+      </TALLYMESSAGE>
+`;
+            });
+
+            commodities.forEach(c => {
+                xml += `      <TALLYMESSAGE xmlns:UDF="TallyUDF">
+        <LEDGER NAME="${escapeXmlStr(c.name)} Purchase Account" ACTION="Create">
+          <NAME>${escapeXmlStr(c.name)} Purchase Account</NAME>
+          <PARENT>Purchase Accounts</PARENT>
+          <AFFECTSSTOCK>Yes</AFFECTSSTOCK>
+        </LEDGER>
+      </TALLYMESSAGE>
+      <TALLYMESSAGE xmlns:UDF="TallyUDF">
+        <LEDGER NAME="${escapeXmlStr(c.name)} Sales Account" ACTION="Create">
+          <NAME>${escapeXmlStr(c.name)} Sales Account</NAME>
+          <PARENT>Sales Accounts</PARENT>
+          <AFFECTSSTOCK>Yes</AFFECTSSTOCK>
+        </LEDGER>
+      </TALLYMESSAGE>
+`;
+            });
+
+            xml += `      <TALLYMESSAGE xmlns:UDF="TallyUDF">
+        <LEDGER NAME="Mandi Hamali Deduction Account" ACTION="Create">
+          <NAME>Mandi Hamali Deduction Account</NAME>
+          <PARENT>Direct Expenses</PARENT>
+        </LEDGER>
+      </TALLYMESSAGE>
+      <TALLYMESSAGE xmlns:UDF="TallyUDF">
+        <LEDGER NAME="Bank RTGS Account" ACTION="Create">
+          <NAME>Bank RTGS Account</NAME>
+          <PARENT>Bank Accounts</PARENT>
+        </LEDGER>
+      </TALLYMESSAGE>
+      <TALLYMESSAGE xmlns:UDF="TallyUDF">
+        <LEDGER NAME="Cash-in-Hand Account" ACTION="Create">
+          <NAME>Cash-in-Hand Account</NAME>
+          <PARENT>Cash-in-Hand</PARENT>
+        </LEDGER>
+      </TALLYMESSAGE>
+    </DATA>
+  </BODY>
+</ENVELOPE>`;
+
+            downloadFileBlob(xml, 'Tally_All_Ledger_Masters.xml', 'application/xml');
+        }
+</script>
 </body>
 </html>

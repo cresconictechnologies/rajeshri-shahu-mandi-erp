@@ -27,7 +27,7 @@ import asyncio
 import httpx
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, Form, Depends, UploadFile, File, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, FileResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 logger = logging.getLogger("mandi_erp")
@@ -162,6 +162,20 @@ def get_tracker_pwa_app():
         with open(pwa_file, "r", encoding="utf-8") as f:
             return HTMLResponse(f.read())
     raise HTTPException(status_code=404, detail="Inspector app.html not found")
+
+@app.get("/accounts", response_class=HTMLResponse, include_in_schema=False)
+@app.get("/accounts.html", response_class=HTMLResponse, include_in_schema=False)
+def get_tracker_accounts_app():
+    """Serves the Central Accounts portal with Ledger, Inward/Outward, and Tally XML sync directly at /accounts."""
+    accounts_file = os.path.join(TRACKER_DIR, "accounts.html")
+    if os.path.exists(accounts_file):
+        with open(accounts_file, "r", encoding="utf-8") as f:
+            return HTMLResponse(f.read())
+    dash_file = os.path.join(TEMPLATES_DIR, "accounts_dashboard.html")
+    if os.path.exists(dash_file):
+        with open(dash_file, "r", encoding="utf-8") as f:
+            return HTMLResponse(f.read())
+    raise HTTPException(status_code=404, detail="Accounts portal page not found")
 
 TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
@@ -1666,6 +1680,325 @@ def accounts_dashboard_view(request: Request, target_date: Optional[str] = None)
             "logged_in_user": logged_in_user
         }
     )
+
+@app.get("/api/accounts/data")
+def api_accounts_get_data(request: Request):
+    """Central Accounts API providing full procurement, rates, outward, and ledger datasets."""
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        today_str = date.today().isoformat()
+        cur.execute("SELECT * FROM daily_commodity_rates ORDER BY (rate_date = ?) DESC, updated_at DESC", (today_str,))
+        rates = [dict(r) for r in cur.fetchall()]
+
+        cur.execute("SELECT * FROM purchase_invoices ORDER BY invoice_date DESC, created_at DESC LIMIT 1000")
+        invoices = [dict(r) for r in cur.fetchall()]
+
+        cur.execute("SELECT * FROM outward_orders ORDER BY order_date DESC, created_at DESC LIMIT 500")
+        outward_orders = [dict(r) for r in cur.fetchall()]
+
+        cur.execute("""
+            SELECT i.id, i.name, i.designation, i.phone, i.is_active, i.branch_id,
+                   b.name as branch_name, b.branch_code,
+                   COALESCE(u.username, i.id) as username
+            FROM inspectors i
+            LEFT JOIN branches b ON i.branch_id = b.id
+            LEFT JOIN users u ON u.id = i.id OR u.username = i.id
+            ORDER BY b.name ASC, i.name ASC
+        """)
+        inspectors = [dict(r) for r in cur.fetchall()]
+
+        cur.execute("SELECT * FROM commodities WHERE is_active=1 ORDER BY name ASC")
+        commodities = [dict(r) for r in cur.fetchall()]
+
+        cur.execute("""
+            SELECT l.*, b.name as branch_name, pt.name as party_name
+            FROM ledger_entries l
+            LEFT JOIN branches b ON l.branch_id = b.id
+            LEFT JOIN parties pt ON l.party_id = pt.id
+            ORDER BY l.transaction_date DESC, l.created_at DESC LIMIT 1000
+        """)
+        ledgers = [dict(r) for r in cur.fetchall()]
+
+        cur.execute("SELECT * FROM parties ORDER BY name ASC")
+        parties = [dict(r) for r in cur.fetchall()]
+
+        cur.execute("SELECT * FROM branches ORDER BY name ASC")
+        branches = [dict(r) for r in cur.fetchall()]
+
+        pending_overrides = [inv for inv in invoices if inv.get("rate_override_status") == "PENDING" or inv.get("is_backdated")]
+        pending_rtgs = [inv for inv in invoices if inv.get("weighment_mode") == "RTGS" and inv.get("payout_status") != "PAID"]
+
+        total_outward_billed = sum(float(o.get("total_bill_amount") or 0.0) for o in outward_orders)
+        total_outward_received = sum(float(o.get("total_bill_amount") or 0.0) for o in outward_orders if o.get("payment_status") == "RECEIVED")
+        total_outward_pending = total_outward_billed - total_outward_received
+        pending_outward_count = sum(1 for o in outward_orders if o.get("payment_status") != "RECEIVED")
+
+        return JSONResponse({
+            "success": True,
+            "rates": rates,
+            "pending_overrides": pending_overrides,
+            "pending_rtgs": pending_rtgs,
+            "invoices": invoices,
+            "outward_orders": outward_orders,
+            "inspectors": inspectors,
+            "commodities": commodities,
+            "ledgers": ledgers,
+            "parties": parties,
+            "branches": branches,
+            "metrics": {
+                "total_outward_billed": total_outward_billed,
+                "total_outward_received": total_outward_received,
+                "total_outward_pending": total_outward_pending,
+                "pending_outward_count": pending_outward_count
+            }
+        })
+    finally:
+        conn.close()
+
+@app.get("/api/accounts/reports/party-ledger")
+def api_report_party_ledger(
+    request: Request,
+    party_id: str,
+    from_date: Optional[str] = None,
+    to_date: Optional[str] = None,
+    branch_id: Optional[str] = "all",
+    format: Optional[str] = "json"
+):
+    import tally_reports
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM parties WHERE id=? OR name=?", (party_id, party_id))
+        p_row = cur.fetchone()
+        if not p_row:
+            party = {"id": party_id, "name": party_id, "party_type": "FARMER"}
+        else:
+            party = dict(p_row)
+
+        cur.execute("SELECT * FROM purchase_invoices ORDER BY invoice_date ASC, created_at ASC")
+        invoices = [dict(r) for r in cur.fetchall()]
+
+        cur.execute("SELECT * FROM outward_orders ORDER BY order_date ASC, created_at ASC")
+        outward = [dict(r) for r in cur.fetchall()]
+
+        cur.execute("SELECT * FROM ledger_entries ORDER BY transaction_date ASC, created_at ASC")
+        ledgers = [dict(r) for r in cur.fetchall()]
+
+        cur.execute("SELECT id, name FROM branches")
+        b_rows = cur.fetchall()
+        b_map = {r["id"]: r["name"] for r in b_rows}
+
+        report = tally_reports.calculate_party_ledger(
+            party=party,
+            all_invoices=invoices,
+            all_ledgers=ledgers,
+            all_outward=outward,
+            from_date=from_date,
+            to_date=to_date,
+            branch_id=branch_id
+        )
+
+        p_name = party.get("name") or "Party"
+        clean_name = re.sub(r"[^a-zA-Z0-9]", "_", p_name)
+
+        if format == "csv":
+            csv_lines = ["Date,Branch,Voucher Type,Voucher No,Particulars,Debit (Rs),Credit (Rs),Running Balance,Type"]
+            csv_lines.append(f",,Opening Balance,,,0,0,{report['opening_balance']:.2f},{report['opening_balance_type']}")
+            for tx in report["transactions"]:
+                b_name = b_map.get(tx.get("branch_id"), tx.get("branch_id") or "Branch")
+                part = tx.get("particulars", "").replace('"', '""')
+                csv_lines.append(f'"{tx["date"]}","{b_name}","{tx["voucher_type"]}","{tx["voucher_number"]}","{part}",{tx["debit"]:.2f},{tx["credit"]:.2f},{tx["running_balance"]:.2f},{tx["balance_type"]}')
+            csv_lines.append(f",,CLOSING TOTALS,,,{report['total_debit']:.2f},{report['total_credit']:.2f},{report['closing_balance']:.2f},{report['closing_balance_type']}")
+            csv_out = "\n".join(csv_lines)
+            return Response(content=csv_out, media_type="text/csv", headers={"Content-Disposition": f'attachment; filename="Ledger_{clean_name}.csv"'})
+
+        if format == "xml":
+            xml_str = tally_reports.export_party_ledger_tally_xml(report)
+            return Response(content=xml_str, media_type="application/xml", headers={"Content-Disposition": f'attachment; filename="Tally_Ledger_{clean_name}.xml"'})
+
+        return JSONResponse({"success": True, "report": report})
+    finally:
+        conn.close()
+
+@app.get("/api/accounts/reports/daily-inward")
+def api_report_daily_inward(
+    request: Request,
+    date: Optional[str] = None,
+    branch_id: Optional[str] = "all",
+    commodity_name: Optional[str] = "all",
+    format: Optional[str] = "json"
+):
+    import tally_reports
+    target_date = date or datetime.now().strftime("%Y-%m-%d")
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        query = "SELECT * FROM purchase_invoices WHERE 1=1"
+        params = []
+        if target_date:
+            query += " AND invoice_date=?"
+            params.append(target_date)
+        if branch_id and branch_id != "all":
+            query += " AND branch_id=?"
+            params.append(branch_id)
+        if commodity_name and commodity_name != "all":
+            query += " AND commodity_name LIKE ?"
+            params.append(f"%{commodity_name}%")
+        query += " ORDER BY invoice_date DESC, created_at DESC"
+
+        cur.execute(query, tuple(params))
+        invoices = [dict(r) for r in cur.fetchall()]
+
+        cur.execute("SELECT id, name FROM branches")
+        b_map = {r["id"]: r["name"] for r in cur.fetchall()}
+
+        branch_label = b_map.get(branch_id, "All Branches") if branch_id != "all" else "All Branches Consolidated"
+
+        total_bags = sum(int(i.get("bag_count") or 0) for i in invoices)
+        total_qtl = sum(float(i.get("net_quintals") or 0.0) for i in invoices)
+        total_gross = sum(float(i.get("gross_amount") or 0.0) for i in invoices)
+        total_hamali = sum(float(i.get("hamali_charge") or 0.0) for i in invoices)
+        total_net = sum(float(i.get("net_payable_amount") or i.get("rounded_net_payable") or 0.0) for i in invoices)
+
+        report_summary = {
+            "date": target_date,
+            "branch_id": branch_id,
+            "branch_name": branch_label,
+            "total_lots": len(invoices),
+            "total_bags": total_bags,
+            "total_net_quintals": total_qtl,
+            "total_net_mt": total_qtl / 10.0,
+            "total_gross_amount": total_gross,
+            "total_hamali_deductions": total_hamali,
+            "total_net_payable": total_net,
+            "invoices": [{**inv, "branch_name": b_map.get(inv.get("branch_id"), inv.get("branch_id"))} for inv in invoices]
+        }
+
+        if format == "csv":
+            csv_lines = ["Token No,Date,Branch,Farmer Name,Phone,Commodity,Grade,Bags,Moisture %,Gross Wt (kg),Tare (kg),Net Wt (Qtl),Rate (Rs/Qtl),Gross (Rs),Hamali (Rs),Net Payable (Rs),Status,Payment Ref"]
+            for inv in report_summary["invoices"]:
+                f_name = inv.get("custom_farmer_name") or inv.get("party_name") or "Farmer"
+                csv_lines.append(f'"{inv.get("token_number") or inv.get("id")}","{inv.get("invoice_date")}","{inv.get("branch_name")}","{f_name}","{inv.get("party_phone") or ""}","{inv.get("commodity_name")}","{inv.get("quality_grade") or "FAQ"}",{inv.get("bag_count") or 0},{inv.get("moisture_percentage") or 0},{inv.get("gross_weight_kg") or 0},{inv.get("vehicle_tare_kg") or 0},{inv.get("net_quintals") or 0},{inv.get("rate_per_quintal") or 0},{inv.get("gross_amount") or 0},{inv.get("hamali_charge") or 0},{inv.get("net_payable_amount") or 0},"{inv.get("payout_status") or "PENDING"}","{inv.get("rtgs_utr_no") or ""}"')
+            return Response(content="\n".join(csv_lines), media_type="text/csv", headers={"Content-Disposition": f'attachment; filename="Inward_Register_{target_date}_{branch_id}.csv"'})
+
+        if format == "xml":
+            xml_str = tally_reports.export_daily_inward_tally_xml(invoices, target_date, branch_label)
+            return Response(content=xml_str, media_type="application/xml", headers={"Content-Disposition": f'attachment; filename="Tally_Inward_{target_date}_{branch_id}.xml"'})
+
+        return JSONResponse({"success": True, "report": report_summary})
+    finally:
+        conn.close()
+
+@app.get("/api/accounts/reports/daily-outward")
+def api_report_daily_outward(
+    request: Request,
+    date: Optional[str] = None,
+    branch_id: Optional[str] = "all",
+    commodity_name: Optional[str] = "all",
+    format: Optional[str] = "json"
+):
+    import tally_reports
+    target_date = date or datetime.now().strftime("%Y-%m-%d")
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        query = "SELECT * FROM outward_orders WHERE 1=1"
+        params = []
+        if target_date:
+            query += " AND order_date=?"
+            params.append(target_date)
+        if branch_id and branch_id != "all":
+            query += " AND branch_id=?"
+            params.append(branch_id)
+        if commodity_name and commodity_name != "all":
+            query += " AND commodity_name LIKE ?"
+            params.append(f"%{commodity_name}%")
+        query += " ORDER BY order_date DESC, created_at DESC"
+
+        cur.execute(query, tuple(params))
+        orders = [dict(r) for r in cur.fetchall()]
+
+        cur.execute("SELECT id, name FROM branches")
+        b_map = {r["id"]: r["name"] for r in cur.fetchall()}
+        branch_label = b_map.get(branch_id, "All Branches") if branch_id != "all" else "All Branches Consolidated"
+
+        total_qtl = sum(float(o.get("net_quintals") or 0.0) for o in orders)
+        total_bill = sum(float(o.get("total_bill_amount") or o.get("gross_amount") or 0.0) for o in orders)
+        total_received = sum(float(o.get("total_bill_amount") or 0.0) for o in orders if o.get("payment_status") == "RECEIVED")
+        total_due = total_bill - total_received
+
+        report_summary = {
+            "date": target_date,
+            "branch_id": branch_id,
+            "branch_name": branch_label,
+            "total_dispatches": len(orders),
+            "total_net_quintals": total_qtl,
+            "total_net_mt": total_qtl / 10.0,
+            "total_bill_amount": total_bill,
+            "total_received_amount": total_received,
+            "total_outstanding_due": total_due,
+            "orders": [{**o, "branch_name": b_map.get(o.get("branch_id"), o.get("branch_id"))} for o in orders]
+        }
+
+        if format == "csv":
+            csv_lines = ["Challan No,Date,Branch,Buyer Name,Commodity,Vehicle No,Net Wt (Qtl),Net Wt (MT),Rate (Rs/Qtl),Total Bill (Rs),Payment Status,Mode,UTR"]
+            for o in report_summary["orders"]:
+                q = float(o.get("net_quintals") or 0.0)
+                csv_lines.append(f'"{o.get("challan_number") or o.get("id")}","{o.get("order_date")}","{o.get("branch_name")}","{o.get("buyer_name")}","{o.get("commodity_name")}","{o.get("vehicle_number") or ""}",{q:.2f},{(q/10.0):.2f},{o.get("rate_per_quintal") or 0},{o.get("total_bill_amount") or 0},"{o.get("payment_status") or "PENDING"}","{o.get("payment_mode") or ""}","{o.get("utr_number") or ""}"')
+            return Response(content="\n".join(csv_lines), media_type="text/csv", headers={"Content-Disposition": f'attachment; filename="Outward_Register_{target_date}_{branch_id}.csv"'})
+
+        if format == "xml":
+            xml_str = tally_reports.export_daily_outward_tally_xml(orders, target_date, branch_label)
+            return Response(content=xml_str, media_type="application/xml", headers={"Content-Disposition": f'attachment; filename="Tally_Outward_{target_date}_{branch_id}.xml"'})
+
+        return JSONResponse({"success": True, "report": report_summary})
+    finally:
+        conn.close()
+
+@app.get("/api/accounts/reports/tally-daybook")
+def api_report_tally_daybook(
+    request: Request,
+    date: Optional[str] = None,
+    branch_id: Optional[str] = "all"
+):
+    import tally_reports
+    target_date = date or datetime.now().strftime("%Y-%m-%d")
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT id, name FROM branches")
+        b_map = {r["id"]: r["name"] for r in cur.fetchall()}
+        branch_label = b_map.get(branch_id, "All Branches") if branch_id != "all" else "All Branches Consolidated"
+
+        inv_q = "SELECT * FROM purchase_invoices WHERE invoice_date=?"
+        inv_p = [target_date]
+        if branch_id and branch_id != "all":
+            inv_q += " AND branch_id=?"
+            inv_p.append(branch_id)
+        cur.execute(inv_q, tuple(inv_p))
+        invoices = [dict(r) for r in cur.fetchall()]
+
+        out_q = "SELECT * FROM outward_orders WHERE order_date=?"
+        out_p = [target_date]
+        if branch_id and branch_id != "all":
+            out_q += " AND branch_id=?"
+            out_p.append(branch_id)
+        cur.execute(out_q, tuple(out_p))
+        orders = [dict(r) for r in cur.fetchall()]
+
+        led_q = "SELECT * FROM ledger_entries WHERE transaction_date=?"
+        led_p = [target_date]
+        if branch_id and branch_id != "all":
+            led_q += " AND branch_id=?"
+            led_p.append(branch_id)
+        cur.execute(led_q, tuple(led_p))
+        ledgers = [dict(r) for r in cur.fetchall()]
+
+        xml_str = tally_reports.export_consolidated_tally_daybook_xml(invoices, orders, ledgers, target_date, branch_label)
+        return Response(content=xml_str, media_type="application/xml", headers={"Content-Disposition": f'attachment; filename="Tally_Daybook_{target_date}_{branch_id}.xml"'})
+    finally:
+        conn.close()
 
 @app.post("/api/accounts/rates")
 def api_accounts_set_rate(

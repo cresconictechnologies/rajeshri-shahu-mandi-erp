@@ -2046,6 +2046,188 @@ def api_report_daily_outward(
     finally:
         conn.close()
 
+@app.get("/api/accounts/reports/general-ledger")
+def api_report_general_ledger(
+    request: Request,
+    branch_id: Optional[str] = "all",
+    format: Optional[str] = "json"
+):
+    import report_exports
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        query = "SELECT * FROM ledger_entries WHERE 1=1"
+        params = []
+        if branch_id and branch_id != "all":
+            query += " AND branch_id=?"
+            params.append(branch_id)
+        query += " ORDER BY transaction_date DESC, created_at DESC"
+        cur.execute(query, tuple(params))
+        ledgers = [dict(r) for r in cur.fetchall()]
+
+        cur.execute("SELECT id, name FROM branches")
+        b_map = {r["id"]: r["name"] for r in cur.fetchall()}
+        branch_label = b_map.get(branch_id, "All Branches") if branch_id != "all" else "All Branches Consolidated"
+
+        for l in ledgers:
+            l["branch_name"] = b_map.get(l.get("branch_id"), l.get("branch_id"))
+
+        if format == "csv":
+            csv_lines = ['"Date","Branch","Voucher Type","Voucher No","Account Name","Debit (Rs)","Credit (Rs)","Narration"']
+            for l in ledgers:
+                narr = (l.get("narration") or "").replace('"', '""')
+                csv_lines.append(f'"{l.get("transaction_date")}","{l.get("branch_name")}","{l.get("voucher_type")}","{l.get("voucher_id")}","{l.get("account_name")}",{float(l.get("debit_amount") or 0):.2f},{float(l.get("credit_amount") or 0):.2f},"{narr}"')
+            return Response(content="\n".join(csv_lines), media_type="text/csv", headers={"Content-Disposition": 'attachment; filename="General_Ledger.csv"'})
+
+        if format == "pdf":
+            pdf_bytes = report_exports.generate_general_ledger_pdf(ledgers, branch_label)
+            return Response(content=pdf_bytes, media_type="application/pdf", headers={"Content-Disposition": 'attachment; filename="General_Ledger.pdf"'})
+
+        if format in ["xlsx", "xls"]:
+            xlsx_bytes = report_exports.generate_general_ledger_xlsx(ledgers, branch_label)
+            return Response(content=xlsx_bytes, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": 'attachment; filename="General_Ledger.xlsx"'})
+
+        return JSONResponse({"success": True, "ledgers": ledgers})
+    finally:
+        conn.close()
+
+@app.get("/api/accounts/reports/cashbook")
+def api_report_cashbook(
+    request: Request,
+    branch_id: Optional[str] = "all",
+    target_date: Optional[str] = None,
+    format: Optional[str] = "json"
+):
+    import report_exports
+    if not target_date:
+        target_date = date.today().isoformat()
+
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT id, name FROM branches")
+        b_map = {r["id"]: r["name"] for r in cur.fetchall()}
+        branch_label = b_map.get(branch_id, "All Branches") if branch_id != "all" else "All Branches Consolidated"
+
+        # Check daily cash drawer if exists
+        drawer_query = "SELECT * FROM branch_daily_cash_drawers WHERE record_date=?"
+        drawer_params = [target_date]
+        if branch_id and branch_id != "all":
+            drawer_query += " AND branch_id=?"
+            drawer_params.append(branch_id)
+        cur.execute(drawer_query, tuple(drawer_params))
+        drawers = [dict(r) for r in cur.fetchall()]
+        opening_cash = sum(float(d.get("opening_float") or 0.0) for d in drawers)
+
+        # Get cashier payouts for target_date where payout_mode='CASH'
+        payouts_query = """
+            SELECT cp.*, pi.token_no, pt.name as party_name, pi.net_payable_amount
+            FROM cashier_payouts cp
+            LEFT JOIN purchase_invoices pi ON cp.invoice_id = pi.id
+            LEFT JOIN parties pt ON cp.party_id = pt.id
+            WHERE date(cp.created_at) = ? AND cp.payout_mode = 'CASH'
+        """
+        payouts_params = [target_date]
+        if branch_id and branch_id != "all":
+            payouts_query += " AND cp.branch_id=?"
+            payouts_params.append(branch_id)
+        cur.execute(payouts_query, tuple(payouts_params))
+        cash_payouts = [dict(r) for r in cur.fetchall()]
+
+        # Also get outward orders cash receipts
+        outward_query = """
+            SELECT o.*, pt.name as party_name
+            FROM outward_orders o
+            LEFT JOIN parties pt ON o.buyer_party_id = pt.id
+            WHERE o.order_date = ? AND o.payment_mode = 'CASH' AND o.payment_status = 'PAID'
+        """
+        outward_params = [target_date]
+        if branch_id and branch_id != "all":
+            outward_query += " AND o.branch_id=?"
+            outward_params.append(branch_id)
+        cur.execute(outward_query, tuple(outward_params))
+        cash_inflows_raw = [dict(r) for r in cur.fetchall()]
+
+        entries = []
+        for inf in cash_inflows_raw:
+            amt = float(inf.get("total_bill_amount") or 0.0)
+            entries.append({
+                "date": inf.get("order_date"),
+                "type": "CASH_INFLOW",
+                "voucher_id": inf.get("dispatch_order_no") or inf.get("id"),
+                "party_name": inf.get("party_name") or "Outward Buyer",
+                "inflow": amt,
+                "outflow": 0.0,
+                "narration": f"Cash sale receipt from {inf.get('party_name', 'Buyer')}"
+            })
+
+        for p in cash_payouts:
+            amt = float(p.get("amount_paid") or p.get("net_payable_amount") or 0.0)
+            entries.append({
+                "date": str(p.get("created_at") or target_date)[:10],
+                "type": "CASH_PAYOUT",
+                "voucher_id": p.get("token_no") or p.get("invoice_id") or p.get("id"),
+                "party_name": p.get("party_name") or "Farmer Payout",
+                "inflow": 0.0,
+                "outflow": amt,
+                "narration": f"Cash payout to farmer {p.get('party_name', '')} (Token #{p.get('token_no', '')})"
+            })
+
+        cur.execute("""
+            SELECT l.*, pt.name as party_name
+            FROM ledger_entries l
+            LEFT JOIN parties pt ON l.party_id = pt.id
+            WHERE l.transaction_date = ? AND (l.account_name LIKE '%Cash%' OR l.voucher_type = 'PAYMENT' OR l.voucher_type = 'RECEIPT')
+        """, (target_date,))
+        cash_ledgers = [dict(r) for r in cur.fetchall()]
+        for cl in cash_ledgers:
+            deb = float(cl.get("debit_amount") or 0.0)
+            cred = float(cl.get("credit_amount") or 0.0)
+            if deb > 0 or cred > 0:
+                entries.append({
+                    "date": cl.get("transaction_date"),
+                    "type": cl.get("voucher_type") or "JOURNAL",
+                    "voucher_id": cl.get("voucher_id") or cl.get("id"),
+                    "party_name": cl.get("party_name") or cl.get("account_name"),
+                    "inflow": deb if "Cash" in cl.get("account_name", "") else 0.0,
+                    "outflow": cred if "Cash" in cl.get("account_name", "") else 0.0,
+                    "narration": cl.get("narration") or ""
+                })
+
+        total_inflow = sum(e["inflow"] for e in entries)
+        total_outflow = sum(e["outflow"] for e in entries)
+        closing_cash = opening_cash + total_inflow - total_outflow
+
+        cashbook_data = {
+            "record_date": target_date,
+            "branch_id": branch_id,
+            "branch_name": branch_label,
+            "opening_cash": opening_cash,
+            "total_inflow": total_inflow,
+            "total_outflow": total_outflow,
+            "closing_cash": closing_cash,
+            "entries": entries
+        }
+
+        if format == "csv":
+            csv_lines = ['"Date","Type","Voucher No","Party / Account","Inflow (Rs)","Outflow (Rs)","Narration"']
+            for e in entries:
+                narr = (e.get("narration") or "").replace('"', '""')
+                csv_lines.append(f'"{e.get("date")}","{e.get("type")}","{e.get("voucher_id")}","{e.get("party_name")}",{e.get("inflow", 0):.2f},{e.get("outflow", 0):.2f},"{narr}"')
+            return Response(content="\n".join(csv_lines), media_type="text/csv", headers={"Content-Disposition": f'attachment; filename="Cashbook_{target_date}.csv"'})
+
+        if format == "pdf":
+            pdf_bytes = report_exports.generate_daily_cashbook_pdf(cashbook_data, branch_label)
+            return Response(content=pdf_bytes, media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="Cashbook_{target_date}.pdf"'})
+
+        if format in ["xlsx", "xls"]:
+            xlsx_bytes = report_exports.generate_daily_cashbook_xlsx(cashbook_data, branch_label)
+            return Response(content=xlsx_bytes, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": f'attachment; filename="Cashbook_{target_date}.xlsx"'})
+
+        return JSONResponse({"success": True, "cashbook": cashbook_data})
+    finally:
+        conn.close()
+
 @app.get("/api/accounts/reports/tally-daybook")
 def api_report_tally_daybook(
     request: Request,

@@ -1613,6 +1613,73 @@ export default async function handler(req, res) {
         });
       }
 
+      // ---------------------------------------------------------------------
+      if (type === 'cashbook') {
+        const targetDate = req.query.date || new Date().toISOString().split('T')[0];
+        let openingCash = 0;
+        const entries = [];
+
+        for (const out of allOutward) {
+          if (branchId !== 'all' && out.branch_id !== branchId) continue;
+          if (out.order_date === targetDate && (out.payment_mode === 'CASH' || out.payment_status === 'PAID')) {
+            const amt = parseFloat(out.total_bill_amount || 0);
+            entries.push({
+              date: out.order_date,
+              type: 'CASH_INFLOW',
+              voucher_id: out.dispatch_order_no || out.id,
+              party_name: out.buyer_name || 'Buyer',
+              inflow: amt,
+              outflow: 0,
+              narration: `Cash sale receipt from ${out.buyer_name || 'Buyer'}`
+            });
+          }
+        }
+
+        for (const inv of allInvoices) {
+          if (branchId !== 'all' && inv.branch_id !== branchId) continue;
+          const iDate = (inv.invoice_date || '').slice(0, 10);
+          if (iDate === targetDate && (inv.weighment_mode === 'CASH' || inv.payout_status === 'PAID')) {
+            const amt = parseFloat(inv.net_payable_amount || inv.rounded_net_payable || 0);
+            entries.push({
+              date: iDate,
+              type: 'CASH_PAYOUT',
+              voucher_id: inv.token_no || inv.id,
+              party_name: inv.farmer_name || inv.custom_farmer_name || 'Farmer',
+              inflow: 0,
+              outflow: amt,
+              narration: `Farmer cash payout for token #${inv.token_no || ''}`
+            });
+          }
+        }
+
+        const totalInflow = entries.reduce((s, e) => s + e.inflow, 0);
+        const totalOutflow = entries.reduce((s, e) => s + e.outflow, 0);
+        const closingCash = openingCash + totalInflow - totalOutflow;
+
+        if (format === 'csv') {
+          let csv = '"Date","Type","Voucher No","Party / Account","Inflow (Rs)","Outflow (Rs)","Narration"\n';
+          entries.forEach(e => {
+            csv += `"${e.date}","${e.type}","${e.voucher_id}","${(e.party_name || '').replace(/"/g, '""')}",${e.inflow.toFixed(2)},${e.outflow.toFixed(2)},"${(e.narration || '').replace(/"/g, '""')}"\n`;
+          });
+          res.setHeader('Content-Type', 'text/csv');
+          res.setHeader('Content-Disposition', `attachment; filename="Cashbook_${targetDate}.csv"`);
+          return res.status(200).send(csv);
+        }
+
+        return res.status(200).json({
+          success: true,
+          cashbook: {
+            record_date: targetDate,
+            branch_id: branchId,
+            opening_cash: openingCash,
+            total_inflow: totalInflow,
+            total_outflow: totalOutflow,
+            closing_cash: closingCash,
+            entries
+          }
+        });
+      }
+
       if (type === 'party_ledger') {
         const party = pMap[partyId] || { id: partyId, name: req.query.party_name || 'Party', party_type: 'FARMER' };
         const pName = party.name || 'Party';

@@ -939,3 +939,367 @@ def generate_daily_outward_xlsx(orders: List[Dict[str, Any]], target_date: str, 
     buf = io.BytesIO()
     wb.save(buf)
     return buf.getvalue()
+
+
+# ============================================================================
+# 6. GENERAL LEDGER & AUDIT REGISTER -> PDF & EXCEL
+# ============================================================================
+def generate_general_ledger_pdf(ledgers: List[Dict[str, Any]], branch_name: str = "All Branches") -> bytes:
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=10*mm, rightMargin=10*mm, topMargin=10*mm, bottomMargin=10*mm)
+    styles = get_base_styles()
+    story = []
+
+    story.append(Paragraph("RAJARSHI SHAHU TRADING COMPANY", styles['MandiTitle']))
+    story.append(Paragraph(f"GENERAL LEDGER & CASHBOOK AUDIT REGISTER | Branch: <b>{branch_name}</b>", styles['ReportHeading']))
+    story.append(Paragraph(f"Generated as on: <b>{datetime.now().strftime('%d-%m-%Y %H:%M')}</b>", styles['MandiSubtitle']))
+    story.append(HRFlowable(width="100%", thickness=1, color=PRIMARY_GREEN, spaceBefore=4, spaceAfter=8))
+
+    total_debit = sum(float(l.get("debit_amount") or 0.0) for l in ledgers)
+    total_credit = sum(float(l.get("credit_amount") or 0.0) for l in ledgers)
+    diff = abs(total_debit - total_credit)
+    status_label = "BALANCED (Diff: Rs.0.00)" if diff < 0.01 else f"UNBALANCED (Diff: Rs.{diff:,.2f})"
+
+    kpis = [
+        [
+            Paragraph(f"<b>Total Entries:</b> {len(ledgers)}", styles['MetaLabel']),
+            Paragraph(f"<b>Total Debits:</b> Rs.{total_debit:,.2f}", styles['MetaLabel']),
+            Paragraph(f"<b>Total Credits:</b> Rs.{total_credit:,.2f}", styles['MetaLabel']),
+            Paragraph(f"<b>Trial Balance:</b> {status_label}", styles['MetaLabel']),
+        ]
+    ]
+    t_k = Table(kpis, colWidths=[65*mm, 70*mm, 70*mm, 72*mm])
+    t_k.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), LIGHT_GREEN),
+        ('BOX', (0, 0), (-1, -1), 1, PRIMARY_GREEN),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+    ]))
+    story.append(t_k)
+    story.append(Spacer(1, 4*mm))
+
+    headers = [
+        Paragraph("<b>#</b>", styles['CellTextBold']),
+        Paragraph("<b>Date</b>", styles['CellTextBold']),
+        Paragraph("<b>Branch</b>", styles['CellTextBold']),
+        Paragraph("<b>Voucher Type</b>", styles['CellTextBold']),
+        Paragraph("<b>Voucher / Token #</b>", styles['CellTextBold']),
+        Paragraph("<b>Account Name</b>", styles['CellTextBold']),
+        Paragraph("<b>Debit (Rs)</b>", styles['CellNumBold']),
+        Paragraph("<b>Credit (Rs)</b>", styles['CellNumBold']),
+        Paragraph("<b>Narration</b>", styles['CellTextBold']),
+    ]
+    rows = [headers]
+
+    for idx, l in enumerate(ledgers, 1):
+        deb = float(l.get("debit_amount") or 0.0)
+        cred = float(l.get("credit_amount") or 0.0)
+        rows.append([
+            Paragraph(str(idx), styles['CellText']),
+            Paragraph(str(l.get("transaction_date") or "")[:10], styles['CellText']),
+            Paragraph(str(l.get("branch_name") or l.get("branch_id") or "")[:15], styles['CellText']),
+            Paragraph(str(l.get("voucher_type") or "JOURNAL"), styles['CellText']),
+            Paragraph(str(l.get("voucher_id") or l.get("id") or ""), styles['CellTextBold']),
+            Paragraph(str(l.get("account_name") or "Account")[:25], styles['CellTextBold']),
+            Paragraph(f"{deb:,.2f}" if deb > 0 else "-", styles['CellNum']),
+            Paragraph(f"{cred:,.2f}" if cred > 0 else "-", styles['CellNum']),
+            Paragraph(str(l.get("narration") or "")[:50], styles['CellText']),
+        ])
+
+    rows.append([
+        Paragraph("", styles['CellText']),
+        Paragraph("<b>TOTALS</b>", styles['CellTextBold']),
+        Paragraph("", styles['CellText']),
+        Paragraph("", styles['CellText']),
+        Paragraph("", styles['CellText']),
+        Paragraph("Grand Totals", styles['CellTextBold']),
+        Paragraph(f"<b>Rs.{total_debit:,.2f}</b>", styles['CellNumBold']),
+        Paragraph(f"<b>Rs.{total_credit:,.2f}</b>", styles['CellNumBold']),
+        Paragraph(status_label, styles['CellTextBold']),
+    ])
+
+    t = Table(rows, colWidths=[8*mm, 20*mm, 25*mm, 25*mm, 25*mm, 45*mm, 25*mm, 25*mm, 79*mm], repeatRows=1)
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), PRIMARY_GREEN),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('BOX', (0, 0), (-1, -1), 1, BORDER_COLOR),
+        ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
+        ('TOPPADDING', (0, 0), (-1, -1), 2.5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2.5),
+        ('BACKGROUND', (0, -1), (-1, -1), LIGHT_GREEN),
+        ('LINEABOVE', (0, -1), (-1, -1), 1.5, PRIMARY_GREEN),
+    ]))
+    story.append(t)
+    doc.build(story)
+    return buf.getvalue()
+
+
+def generate_general_ledger_xlsx(ledgers: List[Dict[str, Any]], branch_name: str = "All Branches") -> bytes:
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "General Ledger"
+    ws.views.sheetView[0].showGridLines = True
+
+    header_fill = PatternFill(start_color="047857", end_color="047857", fill_type="solid")
+    total_fill = PatternFill(start_color="DCFCE7", end_color="DCFCE7", fill_type="solid")
+    white_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+    bold_font = Font(name="Calibri", size=11, bold=True, color="000000")
+    normal_font = Font(name="Calibri", size=10, color="000000")
+    thin_border = Border(
+        left=Side(style='thin', color='CBD5E1'),
+        right=Side(style='thin', color='CBD5E1'),
+        top=Side(style='thin', color='CBD5E1'),
+        bottom=Side(style='thin', color='CBD5E1')
+    )
+
+    ws.merge_cells("A1:I1")
+    title_cell = ws["A1"]
+    title_cell.value = "RAJARSHI SHAHU TRADING COMPANY - GENERAL LEDGER & AUDIT REGISTER"
+    title_cell.font = Font(name="Calibri", size=14, bold=True, color="047857")
+    title_cell.alignment = Alignment(horizontal="center", vertical="center")
+
+    ws.merge_cells("A2:I2")
+    sub_cell = ws["A2"]
+    sub_cell.value = f"Branch: {branch_name} | Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')}"
+    sub_cell.font = Font(name="Calibri", size=10, italic=True, color="475569")
+    sub_cell.alignment = Alignment(horizontal="center", vertical="center")
+
+    headers = ["#", "Date", "Branch", "Voucher Type", "Voucher / Token #", "Account Name", "Debit (₹)", "Credit (₹)", "Narration"]
+    row_num = 3
+    for idx, h in enumerate(headers, 1):
+        c = ws.cell(row=row_num, column=idx, value=h)
+        c.fill = header_fill
+        c.font = white_font
+        c.border = thin_border
+        c.alignment = Alignment(horizontal="center" if idx <= 5 else ("right" if idx in [7, 8] else "left"))
+
+    total_debit = 0.0
+    total_credit = 0.0
+
+    for idx, l in enumerate(ledgers, 1):
+        row_num += 1
+        deb = float(l.get("debit_amount") or 0.0)
+        cred = float(l.get("credit_amount") or 0.0)
+        total_debit += deb
+        total_credit += cred
+        ws.append([
+            idx,
+            str(l.get("transaction_date") or ""),
+            str(l.get("branch_name") or l.get("branch_id") or branch_name),
+            str(l.get("voucher_type") or "JOURNAL"),
+            str(l.get("voucher_id") or l.get("id") or ""),
+            str(l.get("account_name") or ""),
+            deb if deb > 0 else None,
+            cred if cred > 0 else None,
+            str(l.get("narration") or "")
+        ])
+        for col_idx in range(1, len(headers) + 1):
+            cell = ws.cell(row=row_num, column=col_idx)
+            cell.font = normal_font
+            cell.border = thin_border
+            if col_idx in [7, 8]:
+                cell.number_format = '₹#,##0.00'
+
+    row_num += 1
+    ws.append(["", "TOTALS", "", "", "", "Grand Totals", total_debit, total_credit, "Balanced ✓" if abs(total_debit - total_credit) < 0.01 else f"Diff: Rs.{abs(total_debit - total_credit):,.2f}"])
+    for col_idx in range(1, len(headers) + 1):
+        cell = ws.cell(row=row_num, column=col_idx)
+        cell.fill = total_fill
+        cell.font = bold_font
+        cell.border = thin_border
+        if col_idx in [7, 8]:
+            cell.number_format = '₹#,##0.00'
+
+    for col in ws.columns:
+        max_len = max(len(str(cell.value or '')) for cell in col)
+        ws.column_dimensions[get_column_letter(col[0].column)].width = max(max_len + 3, 11)
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+# ============================================================================
+# 7. DAILY CASHBOOK (रोकडवही) & DAYBOOK -> PDF & EXCEL
+# ============================================================================
+def generate_daily_cashbook_pdf(cashbook: Dict[str, Any], branch_name: str = "All Branches") -> bytes:
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=10*mm, rightMargin=10*mm, topMargin=10*mm, bottomMargin=10*mm)
+    styles = get_base_styles()
+    story = []
+
+    story.append(Paragraph("RAJARSHI SHAHU TRADING COMPANY", styles['MandiTitle']))
+    target_date = cashbook.get("record_date") or datetime.now().strftime("%Y-%m-%d")
+    story.append(Paragraph(f"DAILY CASHBOOK (रोकडवही) & DAYBOOK REGISTER | Date: <b>{target_date}</b> | Branch: <b>{branch_name}</b>", styles['ReportHeading']))
+    story.append(Paragraph(f"Generated as on: <b>{datetime.now().strftime('%d-%m-%Y %H:%M')}</b>", styles['MandiSubtitle']))
+    story.append(HRFlowable(width="100%", thickness=1, color=PRIMARY_GREEN, spaceBefore=4, spaceAfter=8))
+
+    opening_cash = float(cashbook.get("opening_cash") or 0.0)
+    total_inflow = float(cashbook.get("total_inflow") or 0.0)
+    total_outflow = float(cashbook.get("total_outflow") or 0.0)
+    closing_cash = float(cashbook.get("closing_cash") or (opening_cash + total_inflow - total_outflow))
+
+    kpis = [
+        [
+            Paragraph(f"<b>Opening Cash:</b> Rs.{opening_cash:,.2f}", styles['MetaLabel']),
+            Paragraph(f"<b>Total Inflow (जमा):</b> Rs.{total_inflow:,.2f}", styles['MetaLabel']),
+            Paragraph(f"<b>Total Outflow (नावे):</b> Rs.{total_outflow:,.2f}", styles['MetaLabel']),
+            Paragraph(f"<b>Closing Cash in Hand:</b> Rs.{closing_cash:,.2f}", styles['MetaLabel']),
+        ]
+    ]
+    t_k = Table(kpis, colWidths=[65*mm, 70*mm, 70*mm, 72*mm])
+    t_k.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), LIGHT_GREEN),
+        ('BOX', (0, 0), (-1, -1), 1, PRIMARY_GREEN),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+    ]))
+    story.append(t_k)
+    story.append(Spacer(1, 4*mm))
+
+    entries = cashbook.get("entries") or []
+    headers = [
+        Paragraph("<b>#</b>", styles['CellTextBold']),
+        Paragraph("<b>Date / Time</b>", styles['CellTextBold']),
+        Paragraph("<b>Type</b>", styles['CellTextBold']),
+        Paragraph("<b>Voucher #</b>", styles['CellTextBold']),
+        Paragraph("<b>Account / Party Name</b>", styles['CellTextBold']),
+        Paragraph("<b>Cash Inflow (जमा)</b>", styles['CellNumBold']),
+        Paragraph("<b>Cash Outflow (नावे)</b>", styles['CellNumBold']),
+        Paragraph("<b>Running Cash (Rs)</b>", styles['CellNumBold']),
+        Paragraph("<b>Narration</b>", styles['CellTextBold']),
+    ]
+    rows = [headers]
+
+    curr_bal = opening_cash
+    for idx, e in enumerate(entries, 1):
+        inflow = float(e.get("inflow") or 0.0)
+        outflow = float(e.get("outflow") or 0.0)
+        curr_bal += (inflow - outflow)
+        rows.append([
+            Paragraph(str(idx), styles['CellText']),
+            Paragraph(str(e.get("date") or target_date)[:16], styles['CellText']),
+            Paragraph(str(e.get("type") or "CASH"), styles['CellTextBold']),
+            Paragraph(str(e.get("voucher_id") or ""), styles['CellTextBold']),
+            Paragraph(str(e.get("party_name") or e.get("account_name") or "Cash Counter")[:25], styles['CellTextBold']),
+            Paragraph(f"{inflow:,.2f}" if inflow > 0 else "-", styles['CellNum']),
+            Paragraph(f"{outflow:,.2f}" if outflow > 0 else "-", styles['CellNum']),
+            Paragraph(f"{curr_bal:,.2f}", styles['CellNumBold']),
+            Paragraph(str(e.get("narration") or "")[:50], styles['CellText']),
+        ])
+
+    rows.append([
+        Paragraph("", styles['CellText']),
+        Paragraph("<b>TOTALS</b>", styles['CellTextBold']),
+        Paragraph("", styles['CellText']),
+        Paragraph("", styles['CellText']),
+        Paragraph("Grand Summary", styles['CellTextBold']),
+        Paragraph(f"<b>Rs.{total_inflow:,.2f}</b>", styles['CellNumBold']),
+        Paragraph(f"<b>Rs.{total_outflow:,.2f}</b>", styles['CellNumBold']),
+        Paragraph(f"<b>Rs.{closing_cash:,.2f}</b>", styles['CellNumBold']),
+        Paragraph("Closing Cash in Hand", styles['CellTextBold']),
+    ])
+
+    t = Table(rows, colWidths=[8*mm, 25*mm, 20*mm, 25*mm, 45*mm, 25*mm, 25*mm, 26*mm, 78*mm], repeatRows=1)
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), PRIMARY_GREEN),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('BOX', (0, 0), (-1, -1), 1, BORDER_COLOR),
+        ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
+        ('TOPPADDING', (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ('BACKGROUND', (0, -1), (-1, -1), LIGHT_GREEN),
+        ('LINEABOVE', (0, -1), (-1, -1), 1.5, PRIMARY_GREEN),
+    ]))
+    story.append(t)
+    doc.build(story)
+    return buf.getvalue()
+
+
+def generate_daily_cashbook_xlsx(cashbook: Dict[str, Any], branch_name: str = "All Branches") -> bytes:
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Daily Cashbook"
+    ws.views.sheetView[0].showGridLines = True
+
+    header_fill = PatternFill(start_color="047857", end_color="047857", fill_type="solid")
+    total_fill = PatternFill(start_color="DCFCE7", end_color="DCFCE7", fill_type="solid")
+    white_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+    bold_font = Font(name="Calibri", size=11, bold=True, color="000000")
+    normal_font = Font(name="Calibri", size=10, color="000000")
+    thin_border = Border(
+        left=Side(style='thin', color='CBD5E1'),
+        right=Side(style='thin', color='CBD5E1'),
+        top=Side(style='thin', color='CBD5E1'),
+        bottom=Side(style='thin', color='CBD5E1')
+    )
+
+    ws.merge_cells("A1:I1")
+    title_cell = ws["A1"]
+    title_cell.value = "RAJARSHI SHAHU TRADING COMPANY - DAILY CASHBOOK (रोकडवही) & DAYBOOK"
+    title_cell.font = Font(name="Calibri", size=14, bold=True, color="047857")
+    title_cell.alignment = Alignment(horizontal="center", vertical="center")
+
+    target_date = cashbook.get("record_date") or datetime.now().strftime("%Y-%m-%d")
+    ws.merge_cells("A2:I2")
+    sub_cell = ws["A2"]
+    sub_cell.value = f"Date: {target_date} | Branch: {branch_name} | Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')}"
+    sub_cell.font = Font(name="Calibri", size=10, italic=True, color="475569")
+    sub_cell.alignment = Alignment(horizontal="center", vertical="center")
+
+    opening_cash = float(cashbook.get("opening_cash") or 0.0)
+    total_inflow = float(cashbook.get("total_inflow") or 0.0)
+    total_outflow = float(cashbook.get("total_outflow") or 0.0)
+    closing_cash = float(cashbook.get("closing_cash") or (opening_cash + total_inflow - total_outflow))
+
+    headers = ["#", "Date / Time", "Type", "Voucher #", "Account / Party Name", "Cash Inflow (₹)", "Cash Outflow (₹)", "Running Cash (₹)", "Narration"]
+    row_num = 4
+    for idx, h in enumerate(headers, 1):
+        c = ws.cell(row=row_num, column=idx, value=h)
+        c.fill = header_fill
+        c.font = white_font
+        c.border = thin_border
+        c.alignment = Alignment(horizontal="center" if idx <= 4 else ("right" if idx in [6, 7, 8] else "left"))
+
+    curr_bal = opening_cash
+    entries = cashbook.get("entries") or []
+    for idx, e in enumerate(entries, 1):
+        row_num += 1
+        inflow = float(e.get("inflow") or 0.0)
+        outflow = float(e.get("outflow") or 0.0)
+        curr_bal += (inflow - outflow)
+        ws.append([
+            idx,
+            str(e.get("date") or target_date),
+            str(e.get("type") or "CASH"),
+            str(e.get("voucher_id") or ""),
+            str(e.get("party_name") or e.get("account_name") or "Cash Counter"),
+            inflow if inflow > 0 else None,
+            outflow if outflow > 0 else None,
+            curr_bal,
+            str(e.get("narration") or "")
+        ])
+        for col_idx in range(1, len(headers) + 1):
+            cell = ws.cell(row=row_num, column=col_idx)
+            cell.font = normal_font
+            cell.border = thin_border
+            if col_idx in [6, 7, 8]:
+                cell.number_format = '₹#,##0.00'
+
+    row_num += 1
+    ws.append(["", "TOTALS", "", "", "Grand Totals", total_inflow, total_outflow, closing_cash, "Closing Cash in Hand ✓"])
+    for col_idx in range(1, len(headers) + 1):
+        cell = ws.cell(row=row_num, column=col_idx)
+        cell.fill = total_fill
+        cell.font = bold_font
+        cell.border = thin_border
+        if col_idx in [6, 7, 8]:
+            cell.number_format = '₹#,##0.00'
+
+    for col in ws.columns:
+        max_len = max(len(str(cell.value or '')) for cell in col)
+        ws.column_dimensions[get_column_letter(col[0].column)].width = max(max_len + 3, 11)
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()

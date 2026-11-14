@@ -183,11 +183,11 @@
         <button class="tab-btn" id="tabBtnRtgs" onclick="showTab('tab-rtgs')">RTGS Bank Transfers (<span id="rtgsBadgeCount">{{ pending_rtgs|length }}</span>)</button>
         <button class="tab-btn" onclick="showTab('tab-outward-receivables')">🚚 Outward Receivables ({{ pending_outward_count }} Due)</button>
         <button class="tab-btn" onclick="showTab('tab-inspectors')">Quality Inspector Master</button>
-        <button class="tab-btn" id="tabBtnPartyLedger" onclick="showTab('tab-party-ledger')">📑 Party Ledger (Khata)</button>
+        <button class="tab-btn" id="tabBtnPartyLedger" onclick="showTab('tab-ledgers'); switchLedgersSection('party-khata');">📑 Party Ledger (Khata)</button>
         <button class="tab-btn" id="tabBtnDailyInward" onclick="showTab('tab-daily-inward')">📥 Daily Inward Report</button>
         <button class="tab-btn" id="tabBtnDailyOutward" onclick="showTab('tab-daily-outward')">🚚 Daily Outward Report</button>
         <button class="tab-btn" id="tabBtnTallyHub" onclick="showTab('tab-tally-hub')" style="background:#f0fdf4; border-color:#047857; color:#047857; font-weight:800;">⚡ Tally Prime Import Hub</button>
-        <button class="tab-btn" onclick="showTab('tab-ledgers')">Journal & Cashbook</button>
+        <button class="tab-btn" id="tabBtnLedgers" onclick="showTab('tab-ledgers')">📚 Ledger Entries & Cashbook</button>
     </div>
 
     <!-- TAB 1: DAILY RATE MASTER -->
@@ -573,336 +573,10 @@
     
     <!-- TAB 6: PARTY-WISE LEDGER STATEMENT (KHATA) -->
     <!-- TAB: PARTY-WISE LEDGER & ALL PARTIES BALANCES REGISTER -->
-    <div id="tab-party-ledger" class="tab-content">
-        <!-- SUB-VIEW SWITCHER -->
-        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:16px; border-bottom:1.5px solid #e2e8f0; padding-bottom:12px;">
-            <div style="display:flex; gap:8px; align-items:center;">
-                <button type="button" class="btn btn-secondary active" id="btnSubPartySingle" onclick="switchPartySubView('single')" style="font-weight:800; font-size:13px; padding:9px 18px; border-radius:8px; display:inline-flex; align-items:center; gap:6px;">
-                    <span>📑</span> Single Party Khata Statement
-                </button>
-                <button type="button" class="btn btn-secondary" id="btnSubPartyAll" onclick="switchPartySubView('all')" style="font-weight:800; font-size:13px; padding:9px 18px; border-radius:8px; display:inline-flex; align-items:center; gap:6px;">
-                    <span>👥</span> All Parties Remaining Balances Register (<span id="allPartiesDueCount" style="color:#dc2626; font-weight:800;">0</span> Pending)
-                </button>
-            </div>
-            <div style="font-size:12px; color:#64748b; font-weight:700;">
-                ⚡ Real-time Double-Entry Ledger & Outstanding Due Tracking
-            </div>
-        </div>
+        <!-- TAB: PARTY LEDGER ALIAS (DELEGATES TO UNIFIED LEDGER ENTRIES & CASHBOOK) -->
+    <div id="tab-party-ledger" class="tab-content" style="display:none;"></div>
 
-        <!-- ================================================================= -->
-        <!-- SUB-VIEW 1: SINGLE PARTY LEDGER STATEMENT -->
-        <!-- ================================================================= -->
-        <div id="partySubViewSingle">
-            <!-- FILTER & ACTION TOOLBAR -->
-            <div class="card" style="margin-bottom:20px; border-left: 4px solid #047857;">
-                <div class="card-header" style="flex-wrap:wrap; gap:12px; border-bottom:none; padding-bottom:0;">
-                    <div>
-                        <h2 style="font-size:18px; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:8px;">
-                            <span>📑</span> Party-Wise Ledger & Double-Entry Khata Statement
-                        </h2>
-                        <p style="font-size:12.5px; color:var(--text-muted); margin:4px 0 0 0;">
-                            Generates complete chronological ledger statement with Opening Balance, Double-Entry Vouchers, Running Balance, and 1-Click Tally XML Export.
-                        </p>
-                    </div>
-                    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-                        <button class="btn btn-primary" onclick="downloadPartyLedgerTallyXml()" style="background:#047857; color:#fff; font-weight:800; font-size:12.5px; padding:7px 14px; border-radius:8px; display:inline-flex; align-items:center; gap:5px; box-shadow:0 2px 4px rgba(4,120,87,0.2);">
-                            <span>📥</span> Tally XML
-                        </button>
-                        <button class="btn btn-secondary" onclick="downloadPartyLedgerPdf()" style="font-weight:800; font-size:12.5px; padding:7px 12px; border-radius:8px; display:inline-flex; align-items:center; gap:5px; color:#dc2626; border-color:#fca5a5; background:#fef2f2;">
-                            <span>📄</span> PDF
-                        </button>
-                        <button class="btn btn-secondary" onclick="downloadPartyLedgerXlsx()" style="font-weight:800; font-size:12.5px; padding:7px 12px; border-radius:8px; display:inline-flex; align-items:center; gap:5px; color:#166534; border-color:#86efac; background:#f0fdf4;">
-                            <span>📊</span> Excel (.xlsx)
-                        </button>
-                        <button class="btn btn-secondary" onclick="sharePartyLedgerWhatsApp()" style="background:#25D366; color:#fff; font-weight:800; font-size:12.5px; padding:7px 14px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; border:none; box-shadow:0 2px 4px rgba(37,211,102,0.3);">
-                            <span>💬</span> WhatsApp
-                        </button>
-                        <button class="btn btn-secondary" onclick="printPartyLedgerReport()" style="font-weight:700; font-size:12.5px; padding:7px 12px; border-radius:8px; display:inline-flex; align-items:center; gap:5px;">
-                            <span>🖨️</span> Print
-                        </button>
-                    </div>
-                </div>
-
-                <!-- CONTROLS ROW -->
-                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px; padding:18px 20px 14px 20px;">
-                    <div>
-                        <label style="display:block; font-size:12px; font-weight:800; color:#334155; margin-bottom:4px; text-transform:uppercase;">Select Party (Farmer / Buyer) *</label>
-                        <select id="partyLedgerSelect" onchange="renderPartyLedger()" style="width:100%; padding:9px 12px; border:1.5px solid #047857; border-radius:8px; font-weight:700; font-size:13px; background:#fff; color:#0f172a;">
-                            <option value="">-- Choose Party --</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label style="display:block; font-size:12px; font-weight:800; color:#334155; margin-bottom:4px; text-transform:uppercase;">Branch Filter</label>
-                        <select id="partyLedgerBranchSelect" onchange="renderPartyLedger()" style="width:100%; padding:9px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-weight:700; font-size:13px; background:#fff;">
-                            <option value="all">All Branches Consolidated</option>
-                            <option value="br-chikhali">Chikhali APMC Main Yard</option>
-                            <option value="br-varvand">Varvand APMC Yard</option>
-                            <option value="br-sarola">Sarola Maruti APMC Yard</option>
-                            <option value="br-dhad">Dhad APMC Yard</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label style="display:block; font-size:12px; font-weight:800; color:#334155; margin-bottom:4px; text-transform:uppercase;">From Date</label>
-                        <input type="date" id="partyLedgerFrom" onchange="renderPartyLedger()" style="width:100%; padding:8px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-weight:600; font-size:13px; box-sizing:border-box;">
-                    </div>
-                    <div>
-                        <label style="display:block; font-size:12px; font-weight:800; color:#334155; margin-bottom:4px; text-transform:uppercase;">To Date</label>
-                        <input type="date" id="partyLedgerTo" onchange="renderPartyLedger()" style="width:100%; padding:8px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-weight:600; font-size:13px; box-sizing:border-box;">
-                    </div>
-                </div>
-
-                <!-- QUICK RANGE PRESETS -->
-                <div style="display:flex; gap:8px; align-items:center; padding:0 20px 16px 20px; flex-wrap:wrap;">
-                    <span style="font-size:11.5px; font-weight:700; color:#64748b; text-transform:uppercase;">Quick Presets:</span>
-                    <button type="button" class="btn btn-secondary btn-sm" onclick="setPartyDateRange('today')" style="font-size:11px; padding:3px 10px;">Today</button>
-                    <button type="button" class="btn btn-secondary btn-sm" onclick="setPartyDateRange('yesterday')" style="font-size:11px; padding:3px 10px;">Yesterday</button>
-                    <button type="button" class="btn btn-secondary btn-sm" onclick="setPartyDateRange('this_month')" style="font-size:11px; padding:3px 10px;">This Month</button>
-                    <button type="button" class="btn btn-secondary btn-sm" onclick="setPartyDateRange('last_30')" style="font-size:11px; padding:3px 10px;">Last 30 Days</button>
-                    <button type="button" class="btn btn-secondary btn-sm" onclick="setPartyDateRange('fy')" style="font-size:11px; padding:3px 10px;">FY 2026-27</button>
-                    <button type="button" class="btn btn-secondary btn-sm" onclick="setPartyDateRange('all')" style="font-size:11px; padding:3px 10px;">All Time</button>
-                </div>
-            </div>
-
-            <!-- PARTY PROFILE BANNER -->
-            <div id="partyProfileCard" style="display:none; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:12px; padding:16px 20px; margin-bottom:16px;">
-                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
-                    <div style="display:flex; align-items:center; gap:14px;">
-                        <div style="width:48px; height:48px; border-radius:12px; background:#047857; color:#fff; display:flex; align-items:center; justify-content:center; font-size:22px; font-weight:800;">
-                            <span id="partyAvatar">🌾</span>
-                        </div>
-                        <div>
-                            <div style="display:flex; align-items:center; gap:8px;">
-                                <h3 id="partyProfileName" style="margin:0; font-size:17px; font-weight:800; color:#065f46;">--</h3>
-                                <span id="partyTypeBadge" class="badge-pill badge-green" style="font-size:11px;">FARMER</span>
-                            </div>
-                            <div style="font-size:12.5px; color:#166534; margin-top:3px; display:flex; gap:16px; flex-wrap:wrap;">
-                                <span>📞 Phone: <strong id="partyProfilePhone">--</strong></span>
-                                <span>🏡 Village/Location: <strong id="partyProfileVillage">--</strong></span>
-                                <span>🏦 Bank A/C: <code id="partyProfileBank">--</code></span>
-                                <span>⚡ IFSC: <code id="partyProfileIfsc">--</code></span>
-                            </div>
-                        </div>
-                    </div>
-                    <div style="text-align:right;">
-                        <div style="font-size:11.5px; color:#166534; font-weight:700; text-transform:uppercase;">Tally Ledger Name:</div>
-                        <code id="partyTallyName" style="font-size:13px; font-weight:800; color:#047857; background:#dcfce7; padding:2px 8px; border-radius:4px;">--</code>
-                    </div>
-                </div>
-            </div>
-
-            <!-- DEDICATED REMAINING BALANCE CALLOUT BANNER -->
-            <div id="partyBalanceBanner" style="display:none; margin-bottom:20px; padding:14px 20px; border-radius:10px; font-weight:700; font-size:13.5px; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-                <!-- Filled dynamically by renderPartyLedger -->
-            </div>
-
-            <!-- STATEMENT METRICS ROW -->
-            <div class="stats-grid" style="margin-bottom:20px;">
-                <div class="stat-card stat-blue">
-                    <div class="stat-icon">⚖️</div>
-                    <div class="stat-content">
-                        <span class="stat-label">Opening Balance</span>
-                        <strong class="stat-value" id="statPartyOpeningBal">₹0.00 Nil</strong>
-                        <span class="stat-help" id="statPartyOpeningSub">Prior to selected date</span>
-                    </div>
-                </div>
-                <div class="stat-card stat-green">
-                    <div class="stat-icon">📤</div>
-                    <div class="stat-content">
-                        <span class="stat-label">Total Debit (Paid / Dispatched)</span>
-                        <strong class="stat-value" style="color:#0284c7;" id="statPartyDebit">₹0.00</strong>
-                        <span class="stat-help">Payments made / Sales debited</span>
-                    </div>
-                </div>
-                <div class="stat-card stat-amber">
-                    <div class="stat-icon">📥</div>
-                    <div class="stat-content">
-                        <span class="stat-label">Total Credit (Procured / Received)</span>
-                        <strong class="stat-value" style="color:#d97706;" id="statPartyCredit">₹0.00</strong>
-                        <span class="stat-help">Purchases credited / Payments in</span>
-                    </div>
-                </div>
-                <div class="stat-card stat-purple" style="border: 2px solid #cbd5e1;">
-                    <div class="stat-icon" id="statPartyClosingIcon">💰</div>
-                    <div class="stat-content">
-                        <span class="stat-label" style="font-weight:800; color:#0f172a;">Remaining Balance / Payment Due</span>
-                        <strong class="stat-value" id="statPartyClosingBal" style="font-size:22px; font-weight:900;">₹0.00 Settled</strong>
-                        <span class="stat-help" id="statPartyClosingSub" style="font-weight:700;">As on statement end date</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- STATEMENT TABLE -->
-            <div class="card" id="printableStatementCard">
-                <div class="card-header" style="flex-wrap:wrap; gap:12px;">
-                    <div>
-                        <h2 style="font-size:16px; font-weight:800; color:#0f172a;">
-                            Statement of Account: <span id="dispStatementPartyName" style="color:#047857;">Please Select Party</span>
-                        </h2>
-                        <span id="dispStatementPeriod" style="font-size:12px; color:var(--text-muted); font-weight:600;"></span>
-                    </div>
-                    <div style="font-size:12px; color:var(--text-muted); font-weight:600;">
-                        Double-Entry Rules: Credit = Procurement Payable | Debit = Settlement Cash/RTGS
-                    </div>
-                </div>
-                <div class="table-container" style="max-height: 540px; overflow-y: auto;">
-                    <table id="partyLedgerTable">
-                        <thead>
-                            <tr>
-                                <th style="width:40px;">#</th>
-                                <th style="width:95px;">Date</th>
-                                <th style="width:130px;">Branch</th>
-                                <th style="width:130px;">Voucher Type</th>
-                                <th style="width:140px;">Voucher / Ref #</th>
-                                <th>Particulars / Narration</th>
-                                <th style="text-align:right; width:120px;">Debit (₹)</th>
-                                <th style="text-align:right; width:120px;">Credit (₹)</th>
-                                <th style="text-align:right; width:150px;">Remaining Running Bal (₹)</th>
-                            </tr>
-                        </thead>
-                        <tbody id="partyLedgerTableBody">
-                            <tr>
-                                <td colspan="9" style="text-align:center; padding:40px; color:#64748b;">
-                                    <div style="font-size:36px; margin-bottom:10px;">📑</div>
-                                    <strong style="font-size:15px; color:#334155;">Select a Party from the dropdown above to load statement</strong>
-                                    <p style="font-size:12.5px; color:#64748b; margin-top:4px;">Or switch to the "All Parties Remaining Balances Register" tab to view all party dues at once.</p>
-                                </td>
-                            </tr>
-                        </tbody>
-                        <tfoot id="partyLedgerTableFoot" style="display:none;">
-                            <tr style="background:#f8fafc; font-weight:800; font-size:13px; border-top:2px solid #cbd5e1;">
-                                <td colspan="6" style="text-align:right; color:#334155;">PERIOD TOTALS:</td>
-                                <td style="text-align:right; color:#0284c7;" id="footPartyDebit">₹0.00</td>
-                                <td style="text-align:right; color:#d97706;" id="footPartyCredit">₹0.00</td>
-                                <td style="text-align:right; color:#0f172a;" id="footPartyClosing">₹0.00</td>
-                            </tr>
-                        </tfoot>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <!-- ================================================================= -->
-        <!-- SUB-VIEW 2: ALL PARTIES OUTSTANDING BALANCES REGISTER -->
-        <!-- ================================================================= -->
-        <div id="partySubViewAll" style="display:none;">
-            <!-- SUMMARY KPI CARDS -->
-            <div class="stats-grid" style="margin-bottom:20px;">
-                <div class="stat-card stat-amber" style="border-left: 4px solid #d97706;">
-                    <div class="stat-icon">⚠️</div>
-                    <div class="stat-content">
-                        <span class="stat-label">Total Payable to Farmers (देणे बाकी)</span>
-                        <strong class="stat-value" style="color:#d97706;" id="statAllFarmersPayable">₹0.00</strong>
-                        <span class="stat-help" id="statAllFarmersPendingCount">0 Farmers with pending payment</span>
-                    </div>
-                </div>
-                <div class="stat-card stat-blue" style="border-left: 4px solid #2563eb;">
-                    <div class="stat-icon">📥</div>
-                    <div class="stat-content">
-                        <span class="stat-label">Total Receivable from Buyers (येणे बाकी)</span>
-                        <strong class="stat-value" style="color:#2563eb;" id="statAllBuyersReceivable">₹0.00</strong>
-                        <span class="stat-help" id="statAllBuyersPendingCount">0 Buyers with outstanding dues</span>
-                    </div>
-                </div>
-                <div class="stat-card stat-purple">
-                    <div class="stat-icon">👥</div>
-                    <div class="stat-content">
-                        <span class="stat-label">Parties with Remaining Balance</span>
-                        <strong class="stat-value" style="color:#7c3aed;" id="statAllPartiesDue">0 Parties</strong>
-                        <span class="stat-help">Pending settlement or payment</span>
-                    </div>
-                </div>
-                <div class="stat-card stat-green">
-                    <div class="stat-icon">✅</div>
-                    <div class="stat-content">
-                        <span class="stat-label">Fully Settled Parties</span>
-                        <strong class="stat-value" style="color:#047857;" id="statAllPartiesSettled">0 Parties</strong>
-                        <span class="stat-help">Zero remaining balance</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- CONTROLS & FILTER TOOLBAR -->
-            <div class="card" style="margin-bottom:20px;">
-                <div class="card-header" style="flex-wrap:wrap; gap:12px;">
-                    <div>
-                        <h2 style="font-size:17px; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:8px;">
-                            <span>👥</span> Consolidated Party Balances & Outstanding Dues Register
-                        </h2>
-                        <span style="font-size:12px; color:var(--text-muted); font-weight:600;">
-                            Live overview of how much payment is balance, remaining, or settled for every party.
-                        </span>
-                    </div>
-                    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-                        <button class="btn btn-secondary" onclick="downloadAllPartiesPdf()" style="font-weight:800; font-size:12.5px; padding:7px 12px; border-radius:8px; display:inline-flex; align-items:center; gap:5px; color:#dc2626; border-color:#fca5a5; background:#fef2f2;">
-                            <span>📄</span> PDF
-                        </button>
-                        <button class="btn btn-secondary" onclick="downloadAllPartiesXlsx()" style="font-weight:800; font-size:12.5px; padding:7px 12px; border-radius:8px; display:inline-flex; align-items:center; gap:5px; color:#166534; border-color:#86efac; background:#f0fdf4;">
-                            <span>📊</span> Excel (.xlsx)
-                        </button>
-                        <button class="btn btn-secondary" onclick="shareAllPartiesWhatsApp()" style="background:#25D366; color:#fff; font-weight:800; font-size:12.5px; padding:7px 14px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; border:none; box-shadow:0 2px 4px rgba(37,211,102,0.3);">
-                            <span>💬</span> WhatsApp
-                        </button>
-                        <button class="btn btn-secondary" onclick="printAllPartiesReport()" style="font-weight:700; font-size:12.5px; padding:7px 12px; border-radius:8px; display:inline-flex; align-items:center; gap:5px;">
-                            <span>🖨️</span> Print
-                        </button>
-                    </div>
-                </div>
-                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px; padding:16px 20px;">
-                    <div>
-                        <label style="display:block; font-size:11.5px; font-weight:800; color:#334155; margin-bottom:4px; text-transform:uppercase;">Search Party / Village / Phone</label>
-                        <input type="text" id="allPartiesSearchInput" oninput="renderAllPartiesTable()" placeholder="Type farmer or buyer name..." style="width:100%; padding:9px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-weight:600; font-size:13px; box-sizing:border-box;">
-                    </div>
-                    <div>
-                        <label style="display:block; font-size:11.5px; font-weight:800; color:#334155; margin-bottom:4px; text-transform:uppercase;">Party Type</label>
-                        <select id="allPartiesTypeFilter" onchange="renderAllPartiesTable()" style="width:100%; padding:9px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-weight:700; font-size:13px; background:#fff;">
-                            <option value="all">All Party Types (Farmers & Buyers)</option>
-                            <option value="FARMER">Farmers Only (Creditors)</option>
-                            <option value="BUYER">Buyers / Millers Only (Debtors)</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label style="display:block; font-size:11.5px; font-weight:800; color:#334155; margin-bottom:4px; text-transform:uppercase;">Balance Status</label>
-                        <select id="allPartiesStatusFilter" onchange="renderAllPartiesTable()" style="width:100%; padding:9px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-weight:700; font-size:13px; background:#fff;">
-                            <option value="all">All (Settled + With Balance)</option>
-                            <option value="due" selected>⚠️ Only Parties with Remaining Balance</option>
-                            <option value="settled">✅ Fully Settled Parties Only</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
-
-            <!-- ALL PARTIES TABLE -->
-            <div class="card">
-                <div class="table-container" style="max-height: 560px; overflow-y: auto;">
-                    <table id="allPartiesTable">
-                        <thead>
-                            <tr>
-                                <th style="width:40px;">#</th>
-                                <th style="width:200px;">Party Name</th>
-                                <th style="width:100px;">Type</th>
-                                <th style="width:150px;">Village / Location</th>
-                                <th style="width:120px;">Phone</th>
-                                <th style="text-align:right; width:130px;">Total Billed / Procured (₹)</th>
-                                <th style="text-align:right; width:130px;">Total Paid / Settled (₹)</th>
-                                <th style="text-align:right; width:150px;">Remaining Balance (₹)</th>
-                                <th style="width:150px; text-align:center;">Payment Status</th>
-                                <th style="width:110px; text-align:center;">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody id="allPartiesTableBody">
-                            <tr>
-                                <td colspan="10" style="text-align:center; padding:30px; color:#64748b;">
-                                    Loading all party balances...
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-
-        <!-- TAB 7: DAILY INWARD PROCUREMENT REGISTER -->
+<!-- TAB 7: DAILY INWARD PROCUREMENT REGISTER -->
     <div id="tab-daily-inward" class="tab-content">
         <!-- FILTER & ACTION TOOLBAR -->
         <div class="card" style="margin-bottom:20px; border-left: 4px solid #0284c7;">
@@ -1335,10 +1009,477 @@
         </div>
     </div>
 
+        <!-- TAB 9: MASTER LEDGER ENTRIES, PARTY KHATA, CASHBOOK & DAYBOOK (SSOT) -->
     <div id="tab-ledgers" class="tab-content">
-        <div class="card">
+        <!-- SUB-VIEW SWITCHER FOR LEDGER ENTRIES & CASHBOOK -->
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:20px; border-bottom:2px solid #e2e8f0; padding-bottom:14px; background:#f8fafc; padding:14px 18px; border-radius:12px; border:1px solid #e2e8f0;">
+            <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                <button type="button" class="btn btn-secondary active" id="btnLedgerSubParty" onclick="switchLedgersSection('party-khata')" style="font-weight:800; font-size:13px; padding:10px 18px; border-radius:8px; display:inline-flex; align-items:center; gap:6px;">
+                    <span>📑</span> Party Ledger & Dues (खातावही)
+                </button>
+                <button type="button" class="btn btn-secondary" id="btnLedgerSubBalances" onclick="switchLedgersSection('party-balances')" style="font-weight:800; font-size:13px; padding:10px 18px; border-radius:8px; display:inline-flex; align-items:center; gap:6px;">
+                    <span>👥</span> All Parties Remaining Balances (<span id="ledgerPartiesDueCount" style="color:#dc2626; font-weight:800;">0</span> Pending)
+                </button>
+                <button type="button" class="btn btn-secondary" id="btnLedgerSubCashbook" onclick="switchLedgersSection('cashbook')" style="font-weight:800; font-size:13px; padding:10px 18px; border-radius:8px; display:inline-flex; align-items:center; gap:6px;">
+                    <span>💵</span> Daily Cashbook (रोकडवही)
+                </button>
+                <button type="button" class="btn btn-secondary" id="btnLedgerSubGeneral" onclick="switchLedgersSection('general-ledger')" style="font-weight:800; font-size:13px; padding:10px 18px; border-radius:8px; display:inline-flex; align-items:center; gap:6px;">
+                    <span>📖</span> General Ledger Register
+                </button>
+            </div>
+            <div style="font-size:12px; color:#475569; font-weight:700;">
+                ⚡ Double-Entry SSOT • Balance & Dues • PDF • Excel • WhatsApp • Direct Print
+            </div>
+        </div>
+
+<div id="partySubViewSingle">
+            <!-- FILTER & ACTION TOOLBAR -->
+            <div class="card" style="margin-bottom:20px; border-left: 4px solid #047857;">
+                <div class="card-header" style="flex-wrap:wrap; gap:12px; border-bottom:none; padding-bottom:0;">
+                    <div>
+                        <h2 style="font-size:18px; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:8px;">
+                            <span>📑</span> Party-Wise Ledger & Double-Entry Khata Statement
+                        </h2>
+                        <p style="font-size:12.5px; color:var(--text-muted); margin:4px 0 0 0;">
+                            Generates complete chronological ledger statement with Opening Balance, Double-Entry Vouchers, Running Balance, and 1-Click Tally XML Export.
+                        </p>
+                    </div>
+                    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                        <button class="btn btn-primary" onclick="downloadPartyLedgerTallyXml()" style="background:#047857; color:#fff; font-weight:800; font-size:12.5px; padding:7px 14px; border-radius:8px; display:inline-flex; align-items:center; gap:5px; box-shadow:0 2px 4px rgba(4,120,87,0.2);">
+                            <span>📥</span> Tally XML
+                        </button>
+                        <button class="btn btn-secondary" onclick="downloadPartyLedgerPdf()" style="font-weight:800; font-size:12.5px; padding:7px 12px; border-radius:8px; display:inline-flex; align-items:center; gap:5px; color:#dc2626; border-color:#fca5a5; background:#fef2f2;">
+                            <span>📄</span> PDF
+                        </button>
+                        <button class="btn btn-secondary" onclick="downloadPartyLedgerXlsx()" style="font-weight:800; font-size:12.5px; padding:7px 12px; border-radius:8px; display:inline-flex; align-items:center; gap:5px; color:#166534; border-color:#86efac; background:#f0fdf4;">
+                            <span>📊</span> Excel (.xlsx)
+                        </button>
+                        <button class="btn btn-secondary" onclick="sharePartyLedgerWhatsApp()" style="background:#25D366; color:#fff; font-weight:800; font-size:12.5px; padding:7px 14px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; border:none; box-shadow:0 2px 4px rgba(37,211,102,0.3);">
+                            <span>💬</span> WhatsApp
+                        </button>
+                        <button class="btn btn-secondary" onclick="printPartyLedgerReport()" style="font-weight:700; font-size:12.5px; padding:7px 12px; border-radius:8px; display:inline-flex; align-items:center; gap:5px;">
+                            <span>🖨️</span> Print
+                        </button>
+                    </div>
+                </div>
+
+                <!-- CONTROLS ROW -->
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px; padding:18px 20px 14px 20px;">
+                    <div>
+                        <label style="display:block; font-size:12px; font-weight:800; color:#334155; margin-bottom:4px; text-transform:uppercase;">Select Party (Farmer / Buyer) *</label>
+                        <select id="partyLedgerSelect" onchange="renderPartyLedger()" style="width:100%; padding:9px 12px; border:1.5px solid #047857; border-radius:8px; font-weight:700; font-size:13px; background:#fff; color:#0f172a;">
+                            <option value="">-- Choose Party --</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:12px; font-weight:800; color:#334155; margin-bottom:4px; text-transform:uppercase;">Branch Filter</label>
+                        <select id="partyLedgerBranchSelect" onchange="renderPartyLedger()" style="width:100%; padding:9px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-weight:700; font-size:13px; background:#fff;">
+                            <option value="all">All Branches Consolidated</option>
+                            <option value="br-chikhali">Chikhali APMC Main Yard</option>
+                            <option value="br-varvand">Varvand APMC Yard</option>
+                            <option value="br-sarola">Sarola Maruti APMC Yard</option>
+                            <option value="br-dhad">Dhad APMC Yard</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:12px; font-weight:800; color:#334155; margin-bottom:4px; text-transform:uppercase;">From Date</label>
+                        <input type="date" id="partyLedgerFrom" onchange="renderPartyLedger()" style="width:100%; padding:8px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-weight:600; font-size:13px; box-sizing:border-box;">
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:12px; font-weight:800; color:#334155; margin-bottom:4px; text-transform:uppercase;">To Date</label>
+                        <input type="date" id="partyLedgerTo" onchange="renderPartyLedger()" style="width:100%; padding:8px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-weight:600; font-size:13px; box-sizing:border-box;">
+                    </div>
+                </div>
+
+                <!-- QUICK RANGE PRESETS -->
+                <div style="display:flex; gap:8px; align-items:center; padding:0 20px 16px 20px; flex-wrap:wrap;">
+                    <span style="font-size:11.5px; font-weight:700; color:#64748b; text-transform:uppercase;">Quick Presets:</span>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="setPartyDateRange('today')" style="font-size:11px; padding:3px 10px;">Today</button>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="setPartyDateRange('yesterday')" style="font-size:11px; padding:3px 10px;">Yesterday</button>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="setPartyDateRange('this_month')" style="font-size:11px; padding:3px 10px;">This Month</button>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="setPartyDateRange('last_30')" style="font-size:11px; padding:3px 10px;">Last 30 Days</button>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="setPartyDateRange('fy')" style="font-size:11px; padding:3px 10px;">FY 2026-27</button>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="setPartyDateRange('all')" style="font-size:11px; padding:3px 10px;">All Time</button>
+                </div>
+            </div>
+
+            <!-- PARTY PROFILE BANNER -->
+            <div id="partyProfileCard" style="display:none; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:12px; padding:16px 20px; margin-bottom:16px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+                    <div style="display:flex; align-items:center; gap:14px;">
+                        <div style="width:48px; height:48px; border-radius:12px; background:#047857; color:#fff; display:flex; align-items:center; justify-content:center; font-size:22px; font-weight:800;">
+                            <span id="partyAvatar">🌾</span>
+                        </div>
+                        <div>
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <h3 id="partyProfileName" style="margin:0; font-size:17px; font-weight:800; color:#065f46;">--</h3>
+                                <span id="partyTypeBadge" class="badge-pill badge-green" style="font-size:11px;">FARMER</span>
+                            </div>
+                            <div style="font-size:12.5px; color:#166534; margin-top:3px; display:flex; gap:16px; flex-wrap:wrap;">
+                                <span>📞 Phone: <strong id="partyProfilePhone">--</strong></span>
+                                <span>🏡 Village/Location: <strong id="partyProfileVillage">--</strong></span>
+                                <span>🏦 Bank A/C: <code id="partyProfileBank">--</code></span>
+                                <span>⚡ IFSC: <code id="partyProfileIfsc">--</code></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="font-size:11.5px; color:#166534; font-weight:700; text-transform:uppercase;">Tally Ledger Name:</div>
+                        <code id="partyTallyName" style="font-size:13px; font-weight:800; color:#047857; background:#dcfce7; padding:2px 8px; border-radius:4px;">--</code>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DEDICATED REMAINING BALANCE CALLOUT BANNER -->
+            <div id="partyBalanceBanner" style="display:none; margin-bottom:20px; padding:14px 20px; border-radius:10px; font-weight:700; font-size:13.5px; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                <!-- Filled dynamically by renderPartyLedger -->
+            </div>
+
+            <!-- STATEMENT METRICS ROW -->
+            <div class="stats-grid" style="margin-bottom:20px;">
+                <div class="stat-card stat-blue">
+                    <div class="stat-icon">⚖️</div>
+                    <div class="stat-content">
+                        <span class="stat-label">Opening Balance</span>
+                        <strong class="stat-value" id="statPartyOpeningBal">₹0.00 Nil</strong>
+                        <span class="stat-help" id="statPartyOpeningSub">Prior to selected date</span>
+                    </div>
+                </div>
+                <div class="stat-card stat-green">
+                    <div class="stat-icon">📤</div>
+                    <div class="stat-content">
+                        <span class="stat-label">Total Debit (Paid / Dispatched)</span>
+                        <strong class="stat-value" style="color:#0284c7;" id="statPartyDebit">₹0.00</strong>
+                        <span class="stat-help">Payments made / Sales debited</span>
+                    </div>
+                </div>
+                <div class="stat-card stat-amber">
+                    <div class="stat-icon">📥</div>
+                    <div class="stat-content">
+                        <span class="stat-label">Total Credit (Procured / Received)</span>
+                        <strong class="stat-value" style="color:#d97706;" id="statPartyCredit">₹0.00</strong>
+                        <span class="stat-help">Purchases credited / Payments in</span>
+                    </div>
+                </div>
+                <div class="stat-card stat-purple" style="border: 2px solid #cbd5e1;">
+                    <div class="stat-icon" id="statPartyClosingIcon">💰</div>
+                    <div class="stat-content">
+                        <span class="stat-label" style="font-weight:800; color:#0f172a;">Remaining Balance / Payment Due</span>
+                        <strong class="stat-value" id="statPartyClosingBal" style="font-size:22px; font-weight:900;">₹0.00 Settled</strong>
+                        <span class="stat-help" id="statPartyClosingSub" style="font-weight:700;">As on statement end date</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STATEMENT TABLE -->
+            <div class="card" id="printableStatementCard">
+                <div class="card-header" style="flex-wrap:wrap; gap:12px;">
+                    <div>
+                        <h2 style="font-size:16px; font-weight:800; color:#0f172a;">
+                            Statement of Account: <span id="dispStatementPartyName" style="color:#047857;">Please Select Party</span>
+                        </h2>
+                        <span id="dispStatementPeriod" style="font-size:12px; color:var(--text-muted); font-weight:600;"></span>
+                    </div>
+                    <div style="font-size:12px; color:var(--text-muted); font-weight:600;">
+                        Double-Entry Rules: Credit = Procurement Payable | Debit = Settlement Cash/RTGS
+                    </div>
+                </div>
+                <div class="table-container" style="max-height: 540px; overflow-y: auto;">
+                    <table id="partyLedgerTable">
+                        <thead>
+                            <tr>
+                                <th style="width:40px;">#</th>
+                                <th style="width:95px;">Date</th>
+                                <th style="width:130px;">Branch</th>
+                                <th style="width:130px;">Voucher Type</th>
+                                <th style="width:140px;">Voucher / Ref #</th>
+                                <th>Particulars / Narration</th>
+                                <th style="text-align:right; width:120px;">Debit (₹)</th>
+                                <th style="text-align:right; width:120px;">Credit (₹)</th>
+                                <th style="text-align:right; width:150px;">Remaining Running Bal (₹)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="partyLedgerTableBody">
+                            <tr>
+                                <td colspan="9" style="text-align:center; padding:40px; color:#64748b;">
+                                    <div style="font-size:36px; margin-bottom:10px;">📑</div>
+                                    <strong style="font-size:15px; color:#334155;">Select a Party from the dropdown above to load statement</strong>
+                                    <p style="font-size:12.5px; color:#64748b; margin-top:4px;">Or switch to the "All Parties Remaining Balances Register" tab to view all party dues at once.</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                        <tfoot id="partyLedgerTableFoot" style="display:none;">
+                            <tr style="background:#f8fafc; font-weight:800; font-size:13px; border-top:2px solid #cbd5e1;">
+                                <td colspan="6" style="text-align:right; color:#334155;">PERIOD TOTALS:</td>
+                                <td style="text-align:right; color:#0284c7;" id="footPartyDebit">₹0.00</td>
+                                <td style="text-align:right; color:#d97706;" id="footPartyCredit">₹0.00</td>
+                                <td style="text-align:right; color:#0f172a;" id="footPartyClosing">₹0.00</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================================================================= -->
+        <!-- SUB-VIEW 2: ALL PARTIES OUTSTANDING BALANCES REGISTER -->
+
+<div id="partySubViewAll" style="display:none;">
+            <!-- SUMMARY KPI CARDS -->
+            <div class="stats-grid" style="margin-bottom:20px;">
+                <div class="stat-card stat-amber" style="border-left: 4px solid #d97706;">
+                    <div class="stat-icon">⚠️</div>
+                    <div class="stat-content">
+                        <span class="stat-label">Total Payable to Farmers (देणे बाकी)</span>
+                        <strong class="stat-value" style="color:#d97706;" id="statAllFarmersPayable">₹0.00</strong>
+                        <span class="stat-help" id="statAllFarmersPendingCount">0 Farmers with pending payment</span>
+                    </div>
+                </div>
+                <div class="stat-card stat-blue" style="border-left: 4px solid #2563eb;">
+                    <div class="stat-icon">📥</div>
+                    <div class="stat-content">
+                        <span class="stat-label">Total Receivable from Buyers (येणे बाकी)</span>
+                        <strong class="stat-value" style="color:#2563eb;" id="statAllBuyersReceivable">₹0.00</strong>
+                        <span class="stat-help" id="statAllBuyersPendingCount">0 Buyers with outstanding dues</span>
+                    </div>
+                </div>
+                <div class="stat-card stat-purple">
+                    <div class="stat-icon">👥</div>
+                    <div class="stat-content">
+                        <span class="stat-label">Parties with Remaining Balance</span>
+                        <strong class="stat-value" style="color:#7c3aed;" id="statAllPartiesDue">0 Parties</strong>
+                        <span class="stat-help">Pending settlement or payment</span>
+                    </div>
+                </div>
+                <div class="stat-card stat-green">
+                    <div class="stat-icon">✅</div>
+                    <div class="stat-content">
+                        <span class="stat-label">Fully Settled Parties</span>
+                        <strong class="stat-value" style="color:#047857;" id="statAllPartiesSettled">0 Parties</strong>
+                        <span class="stat-help">Zero remaining balance</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CONTROLS & FILTER TOOLBAR -->
+            <div class="card" style="margin-bottom:20px;">
+                <div class="card-header" style="flex-wrap:wrap; gap:12px;">
+                    <div>
+                        <h2 style="font-size:17px; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:8px;">
+                            <span>👥</span> Consolidated Party Balances & Outstanding Dues Register
+                        </h2>
+                        <span style="font-size:12px; color:var(--text-muted); font-weight:600;">
+                            Live overview of how much payment is balance, remaining, or settled for every party.
+                        </span>
+                    </div>
+                    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                        <button class="btn btn-secondary" onclick="downloadAllPartiesPdf()" style="font-weight:800; font-size:12.5px; padding:7px 12px; border-radius:8px; display:inline-flex; align-items:center; gap:5px; color:#dc2626; border-color:#fca5a5; background:#fef2f2;">
+                            <span>📄</span> PDF
+                        </button>
+                        <button class="btn btn-secondary" onclick="downloadAllPartiesXlsx()" style="font-weight:800; font-size:12.5px; padding:7px 12px; border-radius:8px; display:inline-flex; align-items:center; gap:5px; color:#166534; border-color:#86efac; background:#f0fdf4;">
+                            <span>📊</span> Excel (.xlsx)
+                        </button>
+                        <button class="btn btn-secondary" onclick="shareAllPartiesWhatsApp()" style="background:#25D366; color:#fff; font-weight:800; font-size:12.5px; padding:7px 14px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; border:none; box-shadow:0 2px 4px rgba(37,211,102,0.3);">
+                            <span>💬</span> WhatsApp
+                        </button>
+                        <button class="btn btn-secondary" onclick="printAllPartiesReport()" style="font-weight:700; font-size:12.5px; padding:7px 12px; border-radius:8px; display:inline-flex; align-items:center; gap:5px;">
+                            <span>🖨️</span> Print
+                        </button>
+                    </div>
+                </div>
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px; padding:16px 20px;">
+                    <div>
+                        <label style="display:block; font-size:11.5px; font-weight:800; color:#334155; margin-bottom:4px; text-transform:uppercase;">Search Party / Village / Phone</label>
+                        <input type="text" id="allPartiesSearchInput" oninput="renderAllPartiesTable()" placeholder="Type farmer or buyer name..." style="width:100%; padding:9px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-weight:600; font-size:13px; box-sizing:border-box;">
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:11.5px; font-weight:800; color:#334155; margin-bottom:4px; text-transform:uppercase;">Party Type</label>
+                        <select id="allPartiesTypeFilter" onchange="renderAllPartiesTable()" style="width:100%; padding:9px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-weight:700; font-size:13px; background:#fff;">
+                            <option value="all">All Party Types (Farmers & Buyers)</option>
+                            <option value="FARMER">Farmers Only (Creditors)</option>
+                            <option value="BUYER">Buyers / Millers Only (Debtors)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:11.5px; font-weight:800; color:#334155; margin-bottom:4px; text-transform:uppercase;">Balance Status</label>
+                        <select id="allPartiesStatusFilter" onchange="renderAllPartiesTable()" style="width:100%; padding:9px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-weight:700; font-size:13px; background:#fff;">
+                            <option value="all">All (Settled + With Balance)</option>
+                            <option value="due" selected>⚠️ Only Parties with Remaining Balance</option>
+                            <option value="settled">✅ Fully Settled Parties Only</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ALL PARTIES TABLE -->
+            <div class="card">
+                <div class="table-container" style="max-height: 560px; overflow-y: auto;">
+                    <table id="allPartiesTable">
+                        <thead>
+                            <tr>
+                                <th style="width:40px;">#</th>
+                                <th style="width:200px;">Party Name</th>
+                                <th style="width:100px;">Type</th>
+                                <th style="width:150px;">Village / Location</th>
+                                <th style="width:120px;">Phone</th>
+                                <th style="text-align:right; width:130px;">Total Billed / Procured (₹)</th>
+                                <th style="text-align:right; width:130px;">Total Paid / Settled (₹)</th>
+                                <th style="text-align:right; width:150px;">Remaining Balance (₹)</th>
+                                <th style="width:150px; text-align:center;">Payment Status</th>
+                                <th style="width:110px; text-align:center;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="allPartiesTableBody">
+                            <tr>
+                                <td colspan="10" style="text-align:center; padding:30px; color:#64748b;">
+                                    Loading all party balances...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- ================================================================= -->
+        <!-- SUB-SECTION 3: DAILY CASHBOOK (रोकडवही) & DAYBOOK -->
+        <!-- ================================================================= -->
+        <div id="ledgerSubViewCashbook" style="display:none;">
+            <!-- CASHBOOK METRICS ROW -->
+            <div class="stats-grid" style="margin-bottom:20px;">
+                <div class="stat-card stat-blue">
+                    <div class="stat-icon">💵</div>
+                    <div class="stat-content">
+                        <span class="stat-label">Opening Cash Float</span>
+                        <strong class="stat-value" id="statCashbookOpening">₹0.00</strong>
+                        <span class="stat-help">Drawer opening cash balance</span>
+                    </div>
+                </div>
+                <div class="stat-card stat-green">
+                    <div class="stat-icon">📥</div>
+                    <div class="stat-content">
+                        <span class="stat-label">Total Cash Inflow (जमा)</span>
+                        <strong class="stat-value" style="color:#047857;" id="statCashbookInflow">₹0.00</strong>
+                        <span class="stat-help">Outward sales cash collections</span>
+                    </div>
+                </div>
+                <div class="stat-card stat-amber">
+                    <div class="stat-icon">📤</div>
+                    <div class="stat-content">
+                        <span class="stat-label">Total Cash Outflow (नावे)</span>
+                        <strong class="stat-value" style="color:#dc2626;" id="statCashbookOutflow">₹0.00</strong>
+                        <span class="stat-help">Farmer cash payouts & petty expenses</span>
+                    </div>
+                </div>
+                <div class="stat-card stat-purple">
+                    <div class="stat-icon">🏦</div>
+                    <div class="stat-content">
+                        <span class="stat-label">Closing Cash in Hand</span>
+                        <strong class="stat-value" style="color:#065f46;" id="statCashbookClosing">₹0.00</strong>
+                        <span class="stat-help">Opening + Inflows - Outflows</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header" style="flex-wrap:wrap; gap:12px;">
+                    <div>
+                        <h2 style="font-size:18px; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:8px;">
+                            <span>💵</span> Daily Mandi Cashbook (रोकडवही) & Cash Counter Register
+                        </h2>
+                        <p style="font-size:12px; color:var(--text-muted); margin-top:2px;">
+                            Authoritative daily cash ledger recording cash counter receipts, farmer cash payouts, and closing physical balance.
+                        </p>
+                    </div>
+                    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                        <select id="cashbookBranchFilter" onchange="renderCashbookTable()" style="padding:6px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-weight:700; font-size:13px; background:#fff;">
+                            <option value="all">All Branches Consolidated</option>
+                            <option value="br-chikhali" selected>Chikhali APMC Main Yard</option>
+                            <option value="br-varvand">Varvand APMC Yard</option>
+                            <option value="br-sarola">Sarola Maruti APMC Yard</option>
+                            <option value="br-dhad">Dhad APMC Yard</option>
+                        </select>
+                        <input type="date" id="cashbookDateInput" onchange="renderCashbookTable()" style="padding:6px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-size:13px; background:#fff;">
+                        <button type="button" class="btn btn-secondary" onclick="downloadCashbookTallyXml()" style="font-weight:700; font-size:12px; padding:6px 12px; background:#f0fdf4; border-color:#047857; color:#047857;" title="Export Cashbook to Tally XML">
+                            <span>📥</span> Tally XML
+                        </button>
+                        <button type="button" class="btn btn-secondary" onclick="downloadCashbookPdf()" style="font-weight:700; font-size:12px; padding:6px 12px;" title="Export Official PDF">
+                            <span>📄</span> PDF
+                        </button>
+                        <button type="button" class="btn btn-secondary" onclick="downloadCashbookXlsx()" style="font-weight:700; font-size:12px; padding:6px 12px;" title="Export Excel (.xlsx)">
+                            <span>📊</span> Excel (.xlsx)
+                        </button>
+                        <button type="button" class="btn btn-secondary" onclick="shareCashbookWhatsApp()" style="font-weight:700; font-size:12px; padding:6px 12px; background:#ecfdf5; border-color:#059669; color:#059669;" title="Share Cashbook Summary via WhatsApp">
+                            <span>💬</span> WhatsApp
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="printCashbookReport()" style="font-weight:700; font-size:12px; padding:6px 12px;" title="Print in software directly">
+                            <span>🖨️</span> Print Cashbook
+                        </button>
+                    </div>
+                </div>
+                <div class="table-container" style="max-height: 560px; overflow-y: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Date / Time</th>
+                                <th>Type</th>
+                                <th>Voucher #</th>
+                                <th>Account / Party Name</th>
+                                <th style="text-align:right;">Cash Inflow (जमा) (₹)</th>
+                                <th style="text-align:right;">Cash Outflow (नावे) (₹)</th>
+                                <th style="text-align:right;">Running Cash (₹)</th>
+                                <th>Narration</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cashbookTableBody">
+                            <tr>
+                                <td colspan="9" style="text-align:center; padding:32px; color:#64748b;">
+                                    <div style="font-size:32px; margin-bottom:8px;">💵</div>
+                                    <strong style="font-size:14px; color:#334155;">Loading Daily Cashbook...</strong>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+
+
+        <!-- ================================================================= -->
+        <!-- SUB-SECTION 4: CONSOLIDATED GENERAL LEDGER & AUDIT REGISTER -->
+        <!-- ================================================================= -->
+        <div id="ledgerSubViewGeneral" style="display:none;">
+<div class="card">
             <div class="card-header">
                 <h2><span>📑</span> Consolidated General Ledger Entries</h2>
+                <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                    <select id="ledgerBranchFilter" onchange="filterLedgers()" style="padding:6px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-weight:700; font-size:13px; background:#fff;">
+                        <option value="all">All Branches Consolidated</option>
+                        <option value="br-chikhali" selected>Chikhali APMC Main Yard</option>
+                        <option value="br-varvand">Varvand APMC Yard</option>
+                        <option value="br-sarola">Sarola Maruti APMC Yard</option>
+                        <option value="br-dhad">Dhad APMC Yard</option>
+                    </select>
+                    <input type="text" id="ledgerSearchInput" onkeyup="filterLedgers()" placeholder="Search farmer, token..." style="padding:6px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-size:13px; width:180px; background:#fff;">
+                    <button type="button" class="btn btn-secondary" onclick="downloadConsolidatedTallyDaybookXml()" style="font-weight:700; font-size:12px; padding:6px 12px; background:#f0fdf4; border-color:#047857; color:#047857;" title="Export General Ledger to Tally XML">
+                        <span>📥</span> Tally XML
+                    </button>
+                    <button type="button" class="btn btn-secondary" onclick="downloadGeneralLedgerPdf()" style="font-weight:700; font-size:12px; padding:6px 12px;" title="Export Official PDF">
+                        <span>📄</span> PDF
+                    </button>
+                    <button type="button" class="btn btn-secondary" onclick="downloadGeneralLedgerXlsx()" style="font-weight:700; font-size:12px; padding:6px 12px;" title="Export Excel (.xlsx)">
+                        <span>📊</span> Excel (.xlsx)
+                    </button>
+                    <button type="button" class="btn btn-secondary" onclick="shareGeneralLedgerWhatsApp()" style="font-weight:700; font-size:12px; padding:6px 12px; background:#ecfdf5; border-color:#059669; color:#059669;" title="Share Trial Balance via WhatsApp">
+                        <span>💬</span> WhatsApp
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="printGeneralLedgerReport()" style="font-weight:700; font-size:12px; padding:6px 12px;" title="Print in software directly">
+                        <span>🖨️</span> Print Ledger
+                    </button>
+                </div>
             </div>
             <table>
                 <thead>
@@ -1369,9 +1510,11 @@
                 </tbody>
             </table>
         </div>
+        </div>
+
     </div>
 
-    <!-- TAB 5: OUTWARD RECEIVABLES & PAYMENT SETTLEMENT DESK -->
+<!-- TAB 5: OUTWARD RECEIVABLES & PAYMENT SETTLEMENT DESK -->
     <div id="tab-outward-receivables" class="tab-content">
         <!-- METRICS ROW -->
         <div class="stats-grid" style="margin-bottom:20px;">
@@ -1624,6 +1767,11 @@
 
     <script>
         function showTab(tabId) {
+            if (tabId === 'tab-party-ledger') {
+                showTab('tab-ledgers');
+                switchLedgersSection('party-khata');
+                return;
+            }
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
             const targetEl = document.getElementById(tabId);
@@ -1631,6 +1779,10 @@
             if (window.event && window.event.target) {
                 const btn = window.event.target.closest('.tab-btn');
                 if (btn) btn.classList.add('active');
+            }
+            if (tabId === 'tab-ledgers') {
+                const btnParty = document.getElementById('btnLedgerSubParty');
+                if (btnParty && btnParty.classList.contains('active')) renderPartyLedger();
             }
         }
 
@@ -2767,43 +2919,16 @@
         let ALL_PARTIES_BALANCES_CACHE = [];
 
         function switchPartySubView(view) {
-            const singleView = document.getElementById('partySubViewSingle');
-            const allView = document.getElementById('partySubViewAll');
-            const btnSingle = document.getElementById('btnSubPartySingle');
-            const btnAll = document.getElementById('btnSubPartyAll');
-
             if (view === 'all') {
-                if (singleView) singleView.style.display = 'none';
-                if (allView) allView.style.display = 'block';
-                if (btnSingle) {
-                    btnSingle.classList.remove('active');
-                    btnSingle.style.background = '';
-                    btnSingle.style.color = '';
-                }
-                if (btnAll) {
-                    btnAll.classList.add('active');
-                    btnAll.style.background = '#047857';
-                    btnAll.style.color = '#fff';
-                }
-                renderAllPartiesTable();
+                switchLedgersSection('party-balances');
             } else {
-                if (singleView) singleView.style.display = 'block';
-                if (allView) allView.style.display = 'none';
-                if (btnSingle) {
-                    btnSingle.classList.add('active');
-                    btnSingle.style.background = '#047857';
-                    btnSingle.style.color = '#fff';
-                }
-                if (btnAll) {
-                    btnAll.classList.remove('active');
-                    btnAll.style.background = '';
-                    btnAll.style.color = '';
-                }
+                switchLedgersSection('party-khata');
             }
         }
 
         function loadSinglePartyLedger(partyId) {
-            switchPartySubView('single');
+            showTab('tab-ledgers');
+            switchLedgersSection('party-khata');
             const pSelect = document.getElementById('partyLedgerSelect');
             if (pSelect) {
                 pSelect.value = partyId;
@@ -4349,7 +4474,284 @@ _For inquiries or bank RTGS verification, please contact Central Accounts._`;
 
             downloadFileBlob(xml, 'Tally_All_Ledger_Masters.xml', 'application/xml');
         }
-</script>
+
+        // =========================================================================
+        // UNIFIED LEDGER ENTRIES & CASHBOOK CONTROLLER
+        // =========================================================================
+        function switchLedgersSection(section) {
+            const singleView = document.getElementById('partySubViewSingle');
+            const allView = document.getElementById('partySubViewAll');
+            const cashbookView = document.getElementById('ledgerSubViewCashbook');
+            const generalView = document.getElementById('ledgerSubViewGeneral');
+
+            const btnParty = document.getElementById('btnLedgerSubParty');
+            const btnBalances = document.getElementById('btnLedgerSubBalances');
+            const btnCashbook = document.getElementById('btnLedgerSubCashbook');
+            const btnGeneral = document.getElementById('btnLedgerSubGeneral');
+
+            [singleView, allView, cashbookView, generalView].forEach(v => { if (v) v.style.display = 'none'; });
+            [btnParty, btnBalances, btnCashbook, btnGeneral].forEach(b => {
+                if (b) {
+                    b.classList.remove('active');
+                    b.style.background = '';
+                    b.style.color = '';
+                }
+            });
+
+            if (section === 'party-khata') {
+                if (singleView) singleView.style.display = 'block';
+                if (btnParty) {
+                    btnParty.classList.add('active');
+                    btnParty.style.background = '#047857';
+                    btnParty.style.color = '#fff';
+                }
+                renderPartyLedger();
+            } else if (section === 'party-balances') {
+                if (allView) allView.style.display = 'block';
+                if (btnBalances) {
+                    btnBalances.classList.add('active');
+                    btnBalances.style.background = '#047857';
+                    btnBalances.style.color = '#fff';
+                }
+                renderAllPartiesTable();
+            } else if (section === 'cashbook') {
+                if (cashbookView) cashbookView.style.display = 'block';
+                if (btnCashbook) {
+                    btnCashbook.classList.add('active');
+                    btnCashbook.style.background = '#047857';
+                    btnCashbook.style.color = '#fff';
+                }
+                renderCashbookTable();
+            } else { // general-ledger
+                if (generalView) generalView.style.display = 'block';
+                if (btnGeneral) {
+                    btnGeneral.classList.add('active');
+                    btnGeneral.style.background = '#047857';
+                    btnGeneral.style.color = '#fff';
+                }
+                filterLedgers();
+            }
+        }
+
+        function downloadGeneralLedgerPdf() {
+            const branchId = document.getElementById('ledgerBranchFilter')?.value || 'all';
+            window.location.href = `/api/accounts/reports/general-ledger?branch_id=${branchId}&format=pdf`;
+        }
+
+        function downloadGeneralLedgerXlsx() {
+            const branchId = document.getElementById('ledgerBranchFilter')?.value || 'all';
+            window.location.href = `/api/accounts/reports/general-ledger?branch_id=${branchId}&format=xlsx`;
+        }
+
+        function shareGeneralLedgerWhatsApp() {
+            const branchEl = document.getElementById('ledgerBranchFilter');
+            const branchName = branchEl ? branchEl.options[branchEl.selectedIndex].text : 'All Branches Consolidated';
+            const debits = document.getElementById('statLedgerDebits')?.innerText || '₹0.00';
+            const credits = document.getElementById('statLedgerCredits')?.innerText || '₹0.00';
+            const count = document.getElementById('statLedgerCount')?.innerText || '0';
+            const status = document.getElementById('statLedgerBalance')?.innerText || 'BALANCED';
+
+            const msg = `🌾 *RAJARSHI SHAHU TRADING CO. - GENERAL LEDGER AUDIT* 🌾
+` +
+                        `📍 *Branch:* ${branchName}
+` +
+                        `📅 *Date:* ${new Date().toLocaleDateString('en-IN')}
+` +
+                        `📖 *Total Journal Vouchers:* ${count}
+` +
+                        `📥 *Total Procurement Debits:* ${debits}
+` +
+                        `📤 *Total Payment Credits:* ${credits}
+` +
+                        `⚖️ *Trial Balance:* ${status}
+
+` +
+                        `_System Generated Double-Entry Audit Statement_`;
+            window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+        }
+
+        function printGeneralLedgerReport() {
+            const branchId = document.getElementById('ledgerBranchFilter')?.value || 'all';
+            openPdfModal(`/api/accounts/reports/general-ledger?branch_id=${branchId}&format=pdf`, `General_Ledger_${branchId}.pdf`);
+        }
+
+        function renderCashbookTable() {
+            const branchFilter = document.getElementById('cashbookBranchFilter')?.value || 'all';
+            const dateInput = document.getElementById('cashbookDateInput');
+            if (dateInput && !dateInput.value) {
+                dateInput.value = new Date().toISOString().split('T')[0];
+            }
+            const targetDate = dateInput ? dateInput.value : new Date().toISOString().split('T')[0];
+
+            const invoices = ACCOUNTS_CACHE.invoices || [];
+            const outward = ACCOUNTS_CACHE.outward || [];
+            const ledgers = ACCOUNTS_CACHE.ledgers || [];
+
+            let openingCash = 0.0;
+            const entries = [];
+
+            outward.forEach(o => {
+                if (branchFilter !== 'all' && o.branch_id !== branchFilter) return;
+                const oDate = (o.order_date || '').slice(0, 10);
+                if (oDate === targetDate && (o.payment_mode === 'CASH' || o.payment_status === 'PAID')) {
+                    const amt = parseFloat(o.total_bill_amount) || 0.0;
+                    entries.push({
+                        time: o.order_date,
+                        type: 'CASH_INFLOW',
+                        voucher_id: o.dispatch_order_no || o.id,
+                        party_name: o.buyer_name || 'Buyer',
+                        inflow: amt,
+                        outflow: 0.0,
+                        narration: `Cash sale receipt from ${o.buyer_name || 'Buyer'}`
+                    });
+                }
+            });
+
+            invoices.forEach(inv => {
+                if (branchFilter !== 'all' && inv.branch_id !== branchFilter) return;
+                const iDate = (inv.invoice_date || '').slice(0, 10);
+                if (iDate === targetDate && (inv.weighment_mode === 'CASH' || inv.payout_status === 'PAID')) {
+                    const amt = parseFloat(inv.net_payable_amount || inv.rounded_net_payable) || 0.0;
+                    entries.push({
+                        time: iDate,
+                        type: 'CASH_PAYOUT',
+                        voucher_id: inv.token_no || inv.id,
+                        party_name: inv.farmer_name || inv.custom_farmer_name || 'Farmer',
+                        inflow: 0.0,
+                        outflow: amt,
+                        narration: `Cash payout for token #${inv.token_no || inv.id} (${inv.farmer_name || inv.custom_farmer_name || ''})`
+                    });
+                }
+            });
+
+            ledgers.forEach(l => {
+                if (branchFilter !== 'all' && l.branch_id !== branchFilter) return;
+                const lDate = (l.transaction_date || '').slice(0, 10);
+                if (lDate === targetDate && (l.account_name || '').toLowerCase().includes('cash')) {
+                    const deb = parseFloat(l.debit_amount) || 0.0;
+                    const cred = parseFloat(l.credit_amount) || 0.0;
+                    if (deb > 0 || cred > 0) {
+                        entries.push({
+                            time: lDate,
+                            type: l.voucher_type || 'JOURNAL',
+                            voucher_id: l.voucher_id || l.id,
+                            party_name: l.party_name || l.account_name,
+                            inflow: deb,
+                            outflow: cred,
+                            narration: l.narration || ''
+                        });
+                    }
+                }
+            });
+
+            let totalInflow = 0.0;
+            let totalOutflow = 0.0;
+            entries.forEach(e => {
+                totalInflow += e.inflow;
+                totalOutflow += e.outflow;
+            });
+            const closingCash = openingCash + totalInflow - totalOutflow;
+
+            const statOpening = document.getElementById('statCashbookOpening');
+            const statInflow = document.getElementById('statCashbookInflow');
+            const statOutflow = document.getElementById('statCashbookOutflow');
+            const statClosing = document.getElementById('statCashbookClosing');
+
+            if (statOpening) statOpening.innerText = '₹' + openingCash.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            if (statInflow) statInflow.innerText = '₹' + totalInflow.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            if (statOutflow) statOutflow.innerText = '₹' + totalOutflow.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            if (statClosing) statClosing.innerText = '₹' + closingCash.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+            const tbody = document.getElementById('cashbookTableBody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            if (entries.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="9" style="text-align:center; padding:32px; color:#64748b;">
+                            <div style="font-size:32px; margin-bottom:8px;">💵</div>
+                            <strong style="font-size:14px; color:#334155;">No Cash Transactions for ${targetDate}</strong>
+                            <p style="font-size:12px; margin-top:4px;">Cash sales from Outward and Cashier Payouts to farmers on this date will appear here automatically.</p>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            let runningCash = openingCash;
+            entries.forEach((e, idx) => {
+                runningCash += (e.inflow - e.outflow);
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${idx + 1}</td>
+                    <td><strong>${e.time}</strong></td>
+                    <td><span class="badge-pill ${e.inflow > 0 ? 'badge-green' : 'badge-amber'}">${e.type}</span></td>
+                    <td><code>${e.voucher_id}</code></td>
+                    <td><strong>${escapeHtml(e.party_name)}</strong></td>
+                    <td style="text-align:right; font-weight:700; color:#047857;">${e.inflow > 0 ? '₹' + e.inflow.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '—'}</td>
+                    <td style="text-align:right; font-weight:700; color:#dc2626;">${e.outflow > 0 ? '₹' + e.outflow.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '—'}</td>
+                    <td style="text-align:right; font-weight:800; color:#0f172a;">₹${runningCash.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                    <td style="font-size:12px; color:#475569;">${escapeHtml(e.narration)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function downloadCashbookTallyXml() {
+            const branchId = document.getElementById('cashbookBranchFilter')?.value || 'all';
+            const dateVal = document.getElementById('cashbookDateInput')?.value || new Date().toISOString().split('T')[0];
+            window.location.href = `/api/accounts/reports/tally-daybook?branch_id=${branchId}&date=${dateVal}`;
+        }
+
+        function downloadCashbookPdf() {
+            const branchId = document.getElementById('cashbookBranchFilter')?.value || 'all';
+            const dateVal = document.getElementById('cashbookDateInput')?.value || new Date().toISOString().split('T')[0];
+            window.location.href = `/api/accounts/reports/cashbook?branch_id=${branchId}&target_date=${dateVal}&format=pdf`;
+        }
+
+        function downloadCashbookXlsx() {
+            const branchId = document.getElementById('cashbookBranchFilter')?.value || 'all';
+            const dateVal = document.getElementById('cashbookDateInput')?.value || new Date().toISOString().split('T')[0];
+            window.location.href = `/api/accounts/reports/cashbook?branch_id=${branchId}&target_date=${dateVal}&format=xlsx`;
+        }
+
+        function shareCashbookWhatsApp() {
+            const dateVal = document.getElementById('cashbookDateInput')?.value || new Date().toISOString().split('T')[0];
+            const branchEl = document.getElementById('cashbookBranchFilter');
+            const branchName = branchEl ? branchEl.options[branchEl.selectedIndex].text : 'All Branches';
+            const opening = document.getElementById('statCashbookOpening')?.innerText || '₹0.00';
+            const inflow = document.getElementById('statCashbookInflow')?.innerText || '₹0.00';
+            const outflow = document.getElementById('statCashbookOutflow')?.innerText || '₹0.00';
+            const closing = document.getElementById('statCashbookClosing')?.innerText || '₹0.00';
+
+            const msg = `🌾 *RAJARSHI SHAHU TRADING CO. - DAILY CASHBOOK (रोकडवही)* 🌾
+` +
+                        `📍 *Branch:* ${branchName}
+` +
+                        `📅 *Date:* ${dateVal}
+
+` +
+                        `💵 *Opening Cash-in-Hand:* ${opening}
+` +
+                        `📥 *Total Cash Inflows (जमा):* ${inflow}
+` +
+                        `📤 *Total Cash Outflows (नावे):* ${outflow}
+` +
+                        `✅ *Closing Cash-in-Hand (शिल्लक):* ${closing}
+
+` +
+                        `_Daily Mandi Cash Counter Reconciliation_`;
+            window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+        }
+
+        function printCashbookReport() {
+            const branchId = document.getElementById('cashbookBranchFilter')?.value || 'all';
+            const dateVal = document.getElementById('cashbookDateInput')?.value || new Date().toISOString().split('T')[0];
+            openPdfModal(`/api/accounts/reports/cashbook?branch_id=${branchId}&target_date=${dateVal}&format=pdf`, `Daily_Cashbook_${dateVal}.pdf`);
+        }
+
+    </script>
 
     <!-- ================================================================= -->
     <!-- IN-SOFTWARE PDF PREVIEW & DIRECT PRINT MODAL -->

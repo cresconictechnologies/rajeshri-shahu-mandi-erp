@@ -26,6 +26,26 @@ static/uploads/
 
 
 prerequisites/
-*.zip*.exe
+*.zip
+
+# Local test & verification scripts
+scratch/
+browser_audit.py
+browser_verify_logged_in.py
+check_complete_login.py
+check_local_users.py
+check_login_details.py
+run_playwright_verification.py
+*.exe
 prerequisites/
 *.zip
+
+# Local test & verification scripts
+scratch/
+browser_audit.py
+browser_verify_logged_in.py
+check_complete_login.py
+check_local_users.py
+check_login_details.py
+run_playwright_verification.py
+

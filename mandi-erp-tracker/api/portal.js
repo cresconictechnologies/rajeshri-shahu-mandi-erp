@@ -1433,11 +1433,23 @@ export default async function handler(req, res) {
   // =========================================================================
   if (action === 'reports') {
     try {
-      const type = req.query.type || 'daily_inward';
-      const format = req.query.format || 'json';
-      const targetDate = req.query.date || new Date().toISOString().slice(0, 10);
+      let type = req.query.type || '';
+      if (!type) {
+        const urlClean = (req.url || '').split('?')[0];
+        const segments = urlClean.split('/').filter(Boolean);
+        const lastSeg = segments[segments.length - 1];
+        if (lastSeg && lastSeg !== 'reports' && lastSeg !== 'portal') {
+          type = lastSeg;
+        }
+      }
+      if (!type) type = 'daily_inward';
+      type = type.toLowerCase().replace(/-/g, '_');
+
+      const format = (req.query.format || 'json').toLowerCase();
+      const isPrintOrPdf = ['pdf', 'html', 'print'].includes(format);
+      const targetDate = req.query.date || req.query.target_date || new Date().toISOString().slice(0, 10);
       const branchId = req.query.branch_id || 'all';
-      const commodityName = req.query.commodity || 'all';
+      const commodityName = req.query.commodity || req.query.commodity_name || 'all';
       const partyId = req.query.party_id || '';
       const fromDate = req.query.from_date || '';
       const toDate = req.query.to_date || '';
@@ -1461,8 +1473,7 @@ export default async function handler(req, res) {
       const bMap = {};
       branchesList.forEach(b => { bMap[b.id] = b.name; });
 
-      // Helper: escape XML
-      const escXml = (s) => (s == null ? '' : String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;'));
+      const esc = (s) => (s == null ? '' : String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;'));
       const tallyDate = (d) => {
         if (!d) return new Date().toISOString().slice(0, 10).replace(/-/g, '');
         const clean = String(d).split('T')[0].trim();
@@ -1474,11 +1485,8 @@ export default async function handler(req, res) {
       };
 
       // -----------------------------------------------------------------------
-      // REPORT TYPE 1: PARTY LEDGER
+      // 1. ALL PARTIES BALANCES & OUTSTANDING REGISTER
       // -----------------------------------------------------------------------
-            // ---------------------------------------------------------------------
-      // REPORT: PARTY BALANCES & OUTSTANDING REGISTER
-      // ---------------------------------------------------------------------
       if (type === 'party_balances') {
         const partyRows = [];
         let totalPayableFarmers = 0;
@@ -1600,6 +1608,129 @@ export default async function handler(req, res) {
           return res.status(200).send(csvLines.join('\n'));
         }
 
+        if (isPrintOrPdf) {
+          let rowsHtml = '';
+          if (partyRows.length === 0) {
+            rowsHtml = '<tr><td colspan="11" class="empty-msg">No party accounts found.</td></tr>';
+          } else {
+            partyRows.forEach((r, idx) => {
+              const isDue = r.status.startsWith('PENDING');
+              const balColor = r.balance_type === 'Dr' ? '#047857' : (r.balance_type === 'Cr' ? '#b91c1c' : '#64748b');
+              rowsHtml += `
+                <tr>
+                  <td class="center">${idx + 1}</td>
+                  <td style="font-weight:700;">${esc(r.party_name)}</td>
+                  <td class="center">${esc(r.party_type)}</td>
+                  <td>${esc(r.village)}</td>
+                  <td>${esc(r.phone)}</td>
+                  <td class="num">${r.transaction_count}</td>
+                  <td class="num">₹${r.total_procured_or_billed.toFixed(2)}</td>
+                  <td class="num">₹${r.total_paid_or_received.toFixed(2)}</td>
+                  <td class="num" style="font-weight:800; color:${balColor};">₹${r.remaining_balance.toFixed(2)}</td>
+                  <td class="center" style="font-weight:800; color:${balColor};">${esc(r.balance_type)}</td>
+                  <td class="center"><span style="display:inline-block; padding:1px 6px; border-radius:3px; font-size:8px; font-weight:800; background:${isDue ? '#fee2e2' : '#dcfce7'}; color:${isDue ? '#991b1b' : '#166534'};">${esc(r.status_label)}</span></td>
+                </tr>
+              `;
+            });
+          }
+
+          const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>All Parties Balances Register — Rajarshi Shahu Mandi</title>
+  <style>
+    @page { size: A4 landscape; margin: 8mm 8mm 8mm 8mm; }
+    * { box-sizing: border-box; }
+    body { font-family: Arial, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #0f172a; background: #fff; margin: 0; padding: 10px 12px; font-size: 10px; line-height: 1.35; }
+    .no-print-bar { display: flex; justify-content: space-between; align-items: center; background: #047857; color: #fff; padding: 8px 14px; border-radius: 6px; margin-bottom: 10px; }
+    .no-print-bar button { background: #fff; color: #047857; font-weight: 800; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+    .company-header { border-bottom: 2px solid #047857; padding-bottom: 6px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: flex-start; }
+    .company-name { font-size: 16px; font-weight: 900; color: #065f46; margin: 0; text-transform: uppercase; }
+    .company-marathi { font-size: 12px; font-weight: 800; color: #1e293b; margin-top: 1px; }
+    .company-details { font-size: 9px; color: #475569; margin-top: 2px; }
+    .summary-strip { background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 6px; padding: 6px 10px; margin-bottom: 10px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; font-size: 9.5px; }
+    .summary-item strong { color: #0f172a; font-weight: 800; }
+    table.trans-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+    table.trans-table th { background: #047857; color: #fff; font-weight: 800; font-size: 8.5px; text-transform: uppercase; padding: 5px 4px; border: 1px solid #065f46; text-align: left; }
+    table.trans-table th.num, table.trans-table td.num { text-align: right; }
+    table.trans-table th.center, table.trans-table td.center { text-align: center; }
+    table.trans-table td { padding: 4px 4px; border: 1px solid #cbd5e1; font-size: 8.5px; }
+    table.trans-table tbody tr:nth-child(even) { background: #f8fafc; }
+    table.trans-table tfoot td { background: #e2e8f0; font-weight: 800; border-top: 2px solid #047857; font-size: 9px; }
+    .empty-msg { text-align: center; padding: 24px; color: #64748b; font-style: italic; font-size: 11px; }
+    .signatures-row { margin-top: 16px; display: flex; justify-content: space-between; padding-top: 12px; page-break-inside: avoid; }
+    .sig-block { text-align: center; width: 170px; border-top: 1px dashed #64748b; padding-top: 4px; font-size: 8.5px; color: #334155; font-weight: 700; }
+    @media print {
+      .no-print-bar { display: none !important; }
+      body { padding: 0 !important; font-size: 8.5pt !important; }
+      .summary-strip { background: #f8fafc !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      table.trans-table th { background: #047857 !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      table.trans-table tfoot td { background: #e2e8f0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+  <div class="no-print-bar">
+    <div style="font-weight:700; font-size:12px;">📄 All Parties Remaining Balances Register (${esc(bMap[branchId] || 'All Branches')})</div>
+    <button onclick="window.print()">🖨️ Print Register Now (Ctrl+P)</button>
+  </div>
+
+  <div class="company-header">
+    <div>
+      <div class="company-name">RAJARSHI SHAHU TRADING COMPANY</div>
+      <div class="company-marathi">राजर्षी शाहू ट्रेडिंग कंपनी • सर्व पार्टी येणे/देणे बाकी नोंदवही</div>
+      <div class="company-details">APMC Market Yard, Buldhana District, Maharashtra • APMC Lic: APMC/CHK/2024/098 • GSTIN: 27AABCR1234F1Z8</div>
+    </div>
+    <div style="text-align:right;">
+      <span style="display:inline-block; background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; font-weight:800; padding:2px 8px; border-radius:4px; font-size:10px;">PARTY BALANCES REGISTER</span>
+      <div style="font-size:9px; color:#64748b; margin-top:3px;">
+        <strong>As on Date:</strong> ${new Date().toLocaleDateString('en-IN')} &nbsp;|&nbsp; <strong>Branch:</strong> ${esc(bMap[branchId] || 'All Branches Consolidated')}
+      </div>
+    </div>
+  </div>
+
+  <div class="summary-strip">
+    <div class="summary-item">Total Parties: <strong>${partyRows.length}</strong></div>
+    <div class="summary-item">Total Farmer Dues Payable: <strong style="color:#b91c1c;">₹${totalPayableFarmers.toFixed(2)}</strong> (${pendingFarmersCount} pending)</div>
+    <div class="summary-item">Total Buyer Dues Receivable: <strong style="color:#0f766e;">₹${totalReceivableBuyers.toFixed(2)}</strong> (${pendingBuyersCount} pending)</div>
+    <div class="summary-item">Net Mandi Position: <strong>₹${Math.abs(totalReceivableBuyers - totalPayableFarmers).toFixed(2)} ${totalReceivableBuyers >= totalPayableFarmers ? 'Net Receivable' : 'Net Payable'}</strong></div>
+  </div>
+
+  <table class="trans-table">
+    <thead>
+      <tr>
+        <th class="center" style="width:25px;">#</th>
+        <th>Party / Trader Name</th>
+        <th class="center" style="width:55px;">Type</th>
+        <th style="width:80px;">Village</th>
+        <th style="width:75px;">Phone</th>
+        <th class="num" style="width:35px;">Txs</th>
+        <th class="num" style="width:80px;">Procured/Billed (₹)</th>
+        <th class="num" style="width:80px;">Paid/Settled (₹)</th>
+        <th class="num" style="width:85px;">Balance (₹)</th>
+        <th class="center" style="width:40px;">Type</th>
+        <th class="center" style="width:110px;">Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rowsHtml}
+    </tbody>
+  </table>
+
+  <div class="signatures-row">
+    <div class="sig-block">Prepared By / Accountant<br><span style="font-size:7.5px; font-weight:normal; color:#64748b;">(हिशोब तपासणीस)</span></div>
+    <div class="sig-block">Auditor / Accounts Head<br><span style="font-size:7.5px; font-weight:normal; color:#64748b;">(लेखापरीक्षक)</span></div>
+    <div class="sig-block">Branch Manager / Authorized Signatory<br><span style="font-size:7.5px; font-weight:normal; color:#64748b;">(शाखा प्रमुख)</span></div>
+  </div>
+</body>
+</html>`;
+
+          res.setHeader('Content-Type', 'text/html; charset=utf-8');
+          res.setHeader('Content-Disposition', 'inline; filename="All_Parties_Remaining_Balances.html"');
+          return res.status(200).send(html);
+        }
+
         return res.status(200).json({
           success: true,
           summary: {
@@ -1613,9 +1744,10 @@ export default async function handler(req, res) {
         });
       }
 
-      // ---------------------------------------------------------------------
+      // -----------------------------------------------------------------------
+      // 2. DAILY MANDI CASHBOOK (रोकडवही)
+      // -----------------------------------------------------------------------
       if (type === 'cashbook') {
-        const targetDate = req.query.date || new Date().toISOString().split('T')[0];
         let openingCash = 0;
         const entries = [];
 
@@ -1666,6 +1798,132 @@ export default async function handler(req, res) {
           return res.status(200).send(csv);
         }
 
+        if (isPrintOrPdf) {
+          let rowsHtml = '';
+          if (entries.length === 0) {
+            rowsHtml = `<tr><td colspan="8" class="empty-msg">सदर तारखेसाठी कोणतीही रोकड नोंद आढळली नाही / No cash transactions recorded for ${esc(targetDate)} at ${esc(bMap[branchId] || 'All Branches')}.</td></tr>`;
+          } else {
+            entries.forEach((e, idx) => {
+              const inStr = e.inflow > 0 ? `₹${e.inflow.toFixed(2)}` : '—';
+              const outStr = e.outflow > 0 ? `₹${e.outflow.toFixed(2)}` : '—';
+              const isIn = e.type === 'CASH_INFLOW';
+              rowsHtml += `
+                <tr>
+                  <td class="center">${idx + 1}</td>
+                  <td>${esc(e.date)}</td>
+                  <td class="center"><span style="display:inline-block; padding:1px 5px; border-radius:3px; font-size:8px; font-weight:800; background:${isIn ? '#dbeafe' : '#fee2e2'}; color:${isIn ? '#1e40af' : '#991b1b'};">${isIn ? 'INFLOW / आवक' : 'PAYOUT / जावक'}</span></td>
+                  <td style="font-family:monospace; font-weight:700;">${esc(e.voucher_id)}</td>
+                  <td style="font-weight:700;">${esc(e.party_name)}</td>
+                  <td class="num" style="color:#0f766e; font-weight:700;">${inStr}</td>
+                  <td class="num" style="color:#b91c1c; font-weight:700;">${outStr}</td>
+                  <td>${esc(e.narration)}</td>
+                </tr>
+              `;
+            });
+          }
+
+          const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Daily Mandi Cashbook — ${esc(targetDate)}</title>
+  <style>
+    @page { size: A4 landscape; margin: 8mm 8mm 8mm 8mm; }
+    * { box-sizing: border-box; }
+    body { font-family: Arial, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #0f172a; background: #fff; margin: 0; padding: 10px 12px; font-size: 10px; line-height: 1.35; }
+    .no-print-bar { display: flex; justify-content: space-between; align-items: center; background: #047857; color: #fff; padding: 8px 14px; border-radius: 6px; margin-bottom: 10px; }
+    .no-print-bar button { background: #fff; color: #047857; font-weight: 800; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+    .company-header { border-bottom: 2px solid #047857; padding-bottom: 6px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: flex-start; }
+    .company-name { font-size: 16px; font-weight: 900; color: #065f46; margin: 0; text-transform: uppercase; }
+    .company-marathi { font-size: 12px; font-weight: 800; color: #1e293b; margin-top: 1px; }
+    .company-details { font-size: 9px; color: #475569; margin-top: 2px; }
+    .summary-strip { background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 6px; padding: 6px 10px; margin-bottom: 10px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; font-size: 9.5px; }
+    .summary-item strong { color: #0f172a; font-weight: 800; }
+    table.trans-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+    table.trans-table th { background: #047857; color: #fff; font-weight: 800; font-size: 8.5px; text-transform: uppercase; padding: 5px 4px; border: 1px solid #065f46; text-align: left; }
+    table.trans-table th.num, table.trans-table td.num { text-align: right; }
+    table.trans-table th.center, table.trans-table td.center { text-align: center; }
+    table.trans-table td { padding: 4px 4px; border: 1px solid #cbd5e1; font-size: 8.5px; }
+    table.trans-table tbody tr:nth-child(even) { background: #f8fafc; }
+    table.trans-table tfoot td { background: #e2e8f0; font-weight: 800; border-top: 2px solid #047857; font-size: 9px; }
+    .empty-msg { text-align: center; padding: 24px; color: #64748b; font-style: italic; font-size: 11px; }
+    .signatures-row { margin-top: 16px; display: flex; justify-content: space-between; padding-top: 12px; page-break-inside: avoid; }
+    .sig-block { text-align: center; width: 170px; border-top: 1px dashed #64748b; padding-top: 4px; font-size: 8.5px; color: #334155; font-weight: 700; }
+    @media print {
+      .no-print-bar { display: none !important; }
+      body { padding: 0 !important; font-size: 8.5pt !important; }
+      .summary-strip { background: #f8fafc !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      table.trans-table th { background: #047857 !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      table.trans-table tfoot td { background: #e2e8f0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+  <div class="no-print-bar">
+    <div style="font-weight:700; font-size:12px;">📄 Daily Mandi Cashbook (रोकडवही): ${esc(targetDate)} (${esc(bMap[branchId] || 'All Branches')})</div>
+    <button onclick="window.print()">🖨️ Print Cashbook Now (Ctrl+P)</button>
+  </div>
+
+  <div class="company-header">
+    <div>
+      <div class="company-name">RAJARSHI SHAHU TRADING COMPANY</div>
+      <div class="company-marathi">राजर्षी शाहू ट्रेडिंग कंपनी • दैनिक रोकड नोंदवही (कॅशबुक)</div>
+      <div class="company-details">APMC Market Yard, Buldhana District, Maharashtra • APMC Lic: APMC/CHK/2024/098 • GSTIN: 27AABCR1234F1Z8</div>
+    </div>
+    <div style="text-align:right;">
+      <span style="display:inline-block; background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; font-weight:800; padding:2px 8px; border-radius:4px; font-size:10px;">DAILY CASHBOOK</span>
+      <div style="font-size:9px; color:#64748b; margin-top:3px;">
+        <strong>Date:</strong> ${esc(targetDate)} &nbsp;|&nbsp; <strong>Branch:</strong> ${esc(bMap[branchId] || 'All Branches Consolidated')}
+      </div>
+    </div>
+  </div>
+
+  <div class="summary-strip">
+    <div class="summary-item">Opening Cash: <strong>₹${openingCash.toFixed(2)}</strong></div>
+    <div class="summary-item">Total Cash Receipts: <strong style="color:#0f766e;">₹${totalInflow.toFixed(2)}</strong></div>
+    <div class="summary-item">Total Cash Payouts: <strong style="color:#b91c1c;">₹${totalOutflow.toFixed(2)}</strong></div>
+    <div class="summary-item">Closing Cash in Hand: <strong style="color:#047857; font-size:10.5px;">₹${closingCash.toFixed(2)}</strong></div>
+  </div>
+
+  <table class="trans-table">
+    <thead>
+      <tr>
+        <th class="center" style="width:25px;">#</th>
+        <th style="width:75px;">Date</th>
+        <th class="center" style="width:90px;">Flow Type</th>
+        <th style="width:85px;">Voucher No</th>
+        <th style="width:130px;">Party / Account Name</th>
+        <th class="num" style="width:85px;">Cash Inflow (₹)</th>
+        <th class="num" style="width:85px;">Cash Outflow (₹)</th>
+        <th>Narration / Purpose</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rowsHtml}
+    </tbody>
+    <tfoot>
+      <tr>
+        <td colspan="5" style="text-align:right;">DAY CASH TOTALS:</td>
+        <td class="num">₹${totalInflow.toFixed(2)}</td>
+        <td class="num">₹${totalOutflow.toFixed(2)}</td>
+        <td style="font-weight:800;">CLOSING CASH: ₹${closingCash.toFixed(2)}</td>
+      </tr>
+    </tfoot>
+  </table>
+
+  <div class="signatures-row">
+    <div class="sig-block">Cashier / Accountant<br><span style="font-size:7.5px; font-weight:normal; color:#64748b;">(रोकडपाल)</span></div>
+    <div class="sig-block">Cash Verified By<br><span style="font-size:7.5px; font-weight:normal; color:#64748b;">(तपासणी अधिकारी)</span></div>
+    <div class="sig-block">Branch Manager / Authorized Signatory<br><span style="font-size:7.5px; font-weight:normal; color:#64748b;">(शाखा प्रमुख)</span></div>
+  </div>
+</body>
+</html>`;
+
+          res.setHeader('Content-Type', 'text/html; charset=utf-8');
+          res.setHeader('Content-Disposition', `inline; filename="Cashbook_${targetDate}.html"`);
+          return res.status(200).send(html);
+        }
+
         return res.status(200).json({
           success: true,
           cashbook: {
@@ -1680,12 +1938,14 @@ export default async function handler(req, res) {
         });
       }
 
+      // -----------------------------------------------------------------------
+      // 3. PARTY LEDGER & KHATA STATEMENT
+      // -----------------------------------------------------------------------
       if (type === 'party_ledger') {
         const party = pMap[partyId] || { id: partyId, name: req.query.party_name || 'Party', party_type: 'FARMER' };
         const pName = party.name || 'Party';
         const pType = party.party_type || 'FARMER';
 
-        // Gather transactions
         const rawTxs = [];
         for (const inv of allInvoices) {
           const mParty = inv.party_id === partyId || (inv.custom_farmer_name && inv.custom_farmer_name.toLowerCase() === pName.toLowerCase());
@@ -1735,7 +1995,6 @@ export default async function handler(req, res) {
           }
         }
 
-        // Outward orders for buyer
         for (const out of allOutward) {
           const mBuyer = (out.buyer_name && out.buyer_name.toLowerCase() === pName.toLowerCase()) || out.party_id === partyId;
           if (!mBuyer) continue;
@@ -1939,11 +2198,178 @@ export default async function handler(req, res) {
           return res.status(200).send(xml);
         }
 
+        if (isPrintOrPdf) {
+          const pTypeLabel = pType === 'BUYER' ? 'Buyer / Mill Account (व्यापारी)' : 'Farmer / Supplier Account (शेतकरी)';
+          const balDue = reportData.closing_balance.toFixed(2);
+          const isBalDue = reportData.closing_balance > 0.01;
+          const statusText = pType === 'BUYER' 
+            ? (reportData.raw_closing_balance > 0.01 ? `Due Receivable from Buyer: ₹${balDue}` : (reportData.raw_closing_balance < -0.01 ? `Advance from Buyer: ₹${balDue}` : 'Fully Settled ✓'))
+            : (reportData.raw_closing_balance < -0.01 ? `Due Payable to Farmer: ₹${balDue}` : (reportData.raw_closing_balance > 0.01 ? `Advance to Farmer: ₹${balDue}` : 'Fully Settled ✓'));
+
+          let rowsHtml = `
+            <tr style="background:#f1f5f9; font-weight:700;">
+              <td>${esc(reportData.from_date || '—')}</td>
+              <td>${esc(reportData.branch_name)}</td>
+              <td>Opening Balance</td>
+              <td>—</td>
+              <td>Balance Brought Forward</td>
+              <td class="num">—</td>
+              <td class="num">—</td>
+              <td class="num">₹${reportData.opening_balance.toFixed(2)}</td>
+              <td class="center">${esc(reportData.opening_balance_type)}</td>
+            </tr>
+          `;
+
+          if (statementTxs.length === 0) {
+            rowsHtml += `<tr><td colspan="9" class="empty-msg">No transactions recorded for this period.</td></tr>`;
+          } else {
+            statementTxs.forEach((t) => {
+              const debitStr = t.debit > 0 ? `₹${t.debit.toFixed(2)}` : '—';
+              const creditStr = t.credit > 0 ? `₹${t.credit.toFixed(2)}` : '—';
+              rowsHtml += `
+                <tr>
+                  <td>${esc(t.date)}</td>
+                  <td>${esc(t.branch_name)}</td>
+                  <td>${esc(t.voucher_type)}</td>
+                  <td style="font-family:monospace; font-weight:700;">${esc(t.voucher_number)}</td>
+                  <td>${esc(t.particulars)}</td>
+                  <td class="num" style="color:#0f766e; font-weight:700;">${debitStr}</td>
+                  <td class="num" style="color:#b45309; font-weight:700;">${creditStr}</td>
+                  <td class="num" style="font-weight:800;">₹${t.running_balance.toFixed(2)}</td>
+                  <td class="center"><span style="font-weight:800; color:${t.balance_type === 'Dr' ? '#047857' : (t.balance_type === 'Cr' ? '#b91c1c' : '#64748b')}">${esc(t.balance_type)}</span></td>
+                </tr>
+              `;
+            });
+          }
+
+          const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Khata Statement — ${esc(pName)}</title>
+  <style>
+    @page { size: A4 portrait; margin: 10mm 10mm 10mm 10mm; }
+    * { box-sizing: border-box; }
+    body { font-family: Arial, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #0f172a; background: #fff; margin: 0; padding: 12px 14px; font-size: 10.5px; line-height: 1.35; }
+    .no-print-bar { display: flex; justify-content: space-between; align-items: center; background: #047857; color: #fff; padding: 8px 14px; border-radius: 6px; margin-bottom: 12px; }
+    .no-print-bar button { background: #fff; color: #047857; font-weight: 800; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+    .company-header { border-bottom: 2px solid #047857; padding-bottom: 6px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: flex-start; }
+    .company-name { font-size: 17px; font-weight: 900; color: #065f46; margin: 0; text-transform: uppercase; }
+    .company-marathi { font-size: 12.5px; font-weight: 800; color: #1e293b; margin-top: 1px; }
+    .company-details { font-size: 9px; color: #475569; margin-top: 2px; }
+    .party-box { background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 6px; padding: 8px 12px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+    .party-name { font-size: 15px; font-weight: 900; color: #0f172a; }
+    .party-sub { font-size: 9.5px; color: #475569; margin-top: 2px; }
+    .party-balance-box { text-align: right; }
+    .party-balance-label { font-size: 8.5px; font-weight: 700; color: #64748b; text-transform: uppercase; }
+    .party-balance-val { font-size: 15px; font-weight: 900; color: #047857; }
+    .party-balance-val.due { color: #b91c1c; }
+    table.trans-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+    table.trans-table th { background: #047857; color: #fff; font-weight: 800; font-size: 9px; text-transform: uppercase; padding: 5px 6px; border: 1px solid #065f46; text-align: left; }
+    table.trans-table th.num, table.trans-table td.num { text-align: right; }
+    table.trans-table th.center, table.trans-table td.center { text-align: center; }
+    table.trans-table td { padding: 4px 6px; border: 1px solid #cbd5e1; font-size: 9px; }
+    table.trans-table tbody tr:nth-child(even) { background: #f8fafc; }
+    table.trans-table tfoot td { background: #e2e8f0; font-weight: 800; border-top: 2px solid #047857; font-size: 9.5px; }
+    .empty-msg { text-align: center; padding: 20px; color: #64748b; font-style: italic; }
+    .signatures-row { margin-top: 20px; display: flex; justify-content: space-between; padding-top: 14px; page-break-inside: avoid; }
+    .sig-block { text-align: center; width: 170px; border-top: 1px dashed #64748b; padding-top: 4px; font-size: 8.5px; color: #334155; font-weight: 700; }
+    @media print {
+      .no-print-bar { display: none !important; }
+      body { padding: 0 !important; font-size: 9pt !important; }
+      .party-box { background: #f8fafc !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      table.trans-table th { background: #047857 !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      table.trans-table tfoot td { background: #e2e8f0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+  <div class="no-print-bar">
+    <div style="font-weight:700; font-size:12px;">📄 Party Khata Statement: ${esc(pName)}</div>
+    <button onclick="window.print()">🖨️ Print Statement Now (Ctrl+P)</button>
+  </div>
+
+  <div class="company-header">
+    <div>
+      <div class="company-name">RAJARSHI SHAHU TRADING COMPANY</div>
+      <div class="company-marathi">राजर्षी शाहू ट्रेडिंग कंपनी • अधिकृत धान्य खरेदी व विक्री केंद्र</div>
+      <div class="company-details">
+        APMC Market Yard, Buldhana District, Maharashtra • APMC Lic: APMC/CHK/2024/098<br>
+        GSTIN: 27AABCR1234F1Z8 • Phone: 9822000000 • Email: accounts@rajarshishahu.com
+      </div>
+    </div>
+    <div style="text-align:right;">
+      <span style="display:inline-block; background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; font-weight:800; padding:2px 8px; border-radius:4px; font-size:10px;">PARTY KHATA STATEMENT</span>
+      <div style="font-size:9px; color:#64748b; margin-top:3px;">
+        <strong>Date:</strong> ${new Date().toLocaleDateString('en-IN')}<br>
+        <strong>Branch:</strong> ${esc(reportData.branch_name)}
+      </div>
+    </div>
+  </div>
+
+  <div class="party-box">
+    <div>
+      <div class="party-name">${esc(pName)}</div>
+      <div class="party-sub">
+        <strong>Type:</strong> ${esc(pTypeLabel)} &nbsp;|&nbsp;
+        <strong>Village:</strong> ${esc(party.village || 'Buldhana')} &nbsp;|&nbsp;
+        <strong>Phone:</strong> ${esc(party.phone || '—')} &nbsp;|&nbsp;
+        <strong>Period:</strong> ${esc(reportData.from_date || 'Start')} to ${esc(reportData.to_date || 'Today')}
+      </div>
+    </div>
+    <div class="party-balance-box">
+      <div class="party-balance-label">Current Account Balance</div>
+      <div class="party-balance-val ${isBalDue ? 'due' : ''}">₹${balDue} ${esc(reportData.closing_balance_type)}</div>
+      <div style="font-size:8.5px; font-weight:700; color:${isBalDue ? '#b91c1c' : '#047857'}; margin-top:1px;">${esc(statusText)}</div>
+    </div>
+  </div>
+
+  <table class="trans-table">
+    <thead>
+      <tr>
+        <th style="width:75px;">Date</th>
+        <th style="width:90px;">Branch</th>
+        <th style="width:95px;">Voucher Type</th>
+        <th style="width:85px;">Voucher No</th>
+        <th>Particulars / Crop Description</th>
+        <th class="num" style="width:75px;">Debit (₹)</th>
+        <th class="num" style="width:75px;">Credit (₹)</th>
+        <th class="num" style="width:85px;">Balance (₹)</th>
+        <th class="center" style="width:45px;">Type</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rowsHtml}
+    </tbody>
+    <tfoot>
+      <tr>
+        <td colspan="5" style="text-align:right;">PERIOD TRANSACTION TOTALS:</td>
+        <td class="num">₹${periodDebit.toFixed(2)}</td>
+        <td class="num">₹${periodCredit.toFixed(2)}</td>
+        <td class="num">₹${reportData.closing_balance.toFixed(2)}</td>
+        <td class="center">${esc(reportData.closing_balance_type)}</td>
+      </tr>
+    </tfoot>
+  </table>
+
+  <div class="signatures-row">
+    <div class="sig-block">Prepared By / Accountant<br><span style="font-size:7.5px; font-weight:normal; color:#64748b;">(हिशोब तपासणीस)</span></div>
+    <div class="sig-block">Party / Farmer Signature<br><span style="font-size:7.5px; font-weight:normal; color:#64748b;">(शेतकरी / व्यापारी स्वाक्षरी)</span></div>
+    <div class="sig-block">Authorized Signatory<br><span style="font-size:7.5px; font-weight:normal; color:#64748b;">(राजर्षी शाहू ट्रेडिंग कंपनी)</span></div>
+  </div>
+</body>
+</html>`;
+
+          res.setHeader('Content-Type', 'text/html; charset=utf-8');
+          res.setHeader('Content-Disposition', `inline; filename="Ledger_${pName.replace(/[^a-zA-Z0-9]/g, '_')}.html"`);
+          return res.status(200).send(html);
+        }
+
         return res.status(200).json({ success: true, report: reportData });
       }
 
       // -----------------------------------------------------------------------
-      // REPORT TYPE 2: DAILY INWARD PROCUREMENT REGISTER
+      // 4. DAILY INWARD PROCUREMENT REGISTER
       // -----------------------------------------------------------------------
       if (type === 'daily_inward') {
         const filteredInvoices = allInvoices.filter(inv => {
@@ -2014,7 +2440,6 @@ export default async function handler(req, res) {
           res.setHeader('Content-Type', 'application/xml');
           res.setHeader('Content-Disposition', `attachment; filename="Tally_Inward_Purchases_${targetDate}_${branchId}.xml"`);
           const branchLabel = bMap[branchId] || 'Central Mandi';
-
           const farmers = [...new Set(filteredInvoices.map(i => i.farmer_name || 'Farmer'))];
           const commodities = [...new Set(filteredInvoices.map(i => i.commodity_name || 'General Grain'))];
 
@@ -2034,7 +2459,6 @@ export default async function handler(req, res) {
     </DESC>
     <DATA>\n`;
 
-          // Masters
           for (const f of farmers) {
             xml += `      <TALLYMESSAGE xmlns:UDF="TallyUDF">
         <LEDGER NAME="${escXml(f)}" ACTION="Create">
@@ -2064,7 +2488,6 @@ export default async function handler(req, res) {
         </LEDGER>
       </TALLYMESSAGE>\n`;
 
-          // Purchase Vouchers
           for (const inv of reportSummary.invoices) {
             const tok = inv.token_number || inv.id || 'INV';
             const fName = inv.farmer_name || 'Farmer';
@@ -2112,11 +2535,166 @@ export default async function handler(req, res) {
           return res.status(200).send(xml);
         }
 
+        if (isPrintOrPdf) {
+          let rowsHtml = '';
+          if (reportSummary.invoices.length === 0) {
+            rowsHtml = `<tr><td colspan="16" class="empty-msg">सदर तारखेसाठी कोणतीही आवक नोंद आढळली नाही / No inward procurement lots recorded for date ${esc(targetDate)} at ${esc(reportSummary.branch_name)}.</td></tr>`;
+          } else {
+            reportSummary.invoices.forEach((inv, idx) => {
+              const qtl = parseFloat(inv.net_quintals || 0);
+              const rate = parseFloat(inv.rate_per_quintal || 0);
+              const gross = parseFloat(inv.gross_amount || 0);
+              const hamali = parseFloat(inv.hamali_charge || 0);
+              const net = parseFloat(inv.net_payable_amount || inv.rounded_net_payable || (gross - hamali));
+              const pStat = (inv.payout_status || 'PENDING').toUpperCase();
+              const isPaid = ['PAID', 'PAID_CASH', 'RTGS_COMPLETED', 'COMPLETED'].includes(pStat);
+              rowsHtml += `
+                <tr>
+                  <td class="center">${idx + 1}</td>
+                  <td style="font-family:monospace; font-weight:700;">${esc(inv.token_number || inv.id)}</td>
+                  <td>${esc(inv.invoice_date || targetDate)}</td>
+                  <td>${esc(inv.branch_name)}</td>
+                  <td style="font-weight:700;">${esc(inv.farmer_name)}</td>
+                  <td>${esc(inv.party_phone || '—')}</td>
+                  <td>${esc(inv.commodity_name || 'Soybean')}</td>
+                  <td class="center">${esc(inv.quality_grade || 'FAQ')}</td>
+                  <td class="num">${inv.bag_count || 0}</td>
+                  <td class="num">${qtl.toFixed(2)}</td>
+                  <td class="num">₹${rate.toFixed(2)}</td>
+                  <td class="num">₹${gross.toFixed(2)}</td>
+                  <td class="num">₹${hamali.toFixed(2)}</td>
+                  <td class="num" style="font-weight:800; color:#0f766e;">₹${net.toFixed(2)}</td>
+                  <td class="center"><span style="display:inline-block; padding:1px 5px; border-radius:3px; font-size:8px; font-weight:800; background:${isPaid ? '#dcfce7' : '#fef3c7'}; color:${isPaid ? '#166534' : '#92400e'};">${isPaid ? 'PAID' : 'PENDING'}</span></td>
+                  <td style="font-size:8.5px; font-family:monospace;">${esc(inv.rtgs_utr_no || (isPaid ? 'CASH' : '—'))}</td>
+                </tr>
+              `;
+            });
+          }
+
+          const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Daily Inward Register — ${esc(targetDate)}</title>
+  <style>
+    @page { size: A4 landscape; margin: 8mm 8mm 8mm 8mm; }
+    * { box-sizing: border-box; }
+    body { font-family: Arial, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #0f172a; background: #fff; margin: 0; padding: 10px 12px; font-size: 10px; line-height: 1.35; }
+    .no-print-bar { display: flex; justify-content: space-between; align-items: center; background: #047857; color: #fff; padding: 8px 14px; border-radius: 6px; margin-bottom: 10px; }
+    .no-print-bar button { background: #fff; color: #047857; font-weight: 800; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+    .company-header { border-bottom: 2px solid #047857; padding-bottom: 6px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: flex-start; }
+    .company-name { font-size: 16px; font-weight: 900; color: #065f46; margin: 0; text-transform: uppercase; }
+    .company-marathi { font-size: 12px; font-weight: 800; color: #1e293b; margin-top: 1px; }
+    .company-details { font-size: 9px; color: #475569; margin-top: 2px; }
+    .summary-strip { background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 6px; padding: 6px 10px; margin-bottom: 10px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; font-size: 9.5px; }
+    .summary-item strong { color: #0f172a; font-weight: 800; }
+    table.trans-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+    table.trans-table th { background: #047857; color: #fff; font-weight: 800; font-size: 8.5px; text-transform: uppercase; padding: 5px 4px; border: 1px solid #065f46; text-align: left; }
+    table.trans-table th.num, table.trans-table td.num { text-align: right; }
+    table.trans-table th.center, table.trans-table td.center { text-align: center; }
+    table.trans-table td { padding: 4px 4px; border: 1px solid #cbd5e1; font-size: 8.5px; }
+    table.trans-table tbody tr:nth-child(even) { background: #f8fafc; }
+    table.trans-table tfoot td { background: #e2e8f0; font-weight: 800; border-top: 2px solid #047857; font-size: 9px; }
+    .empty-msg { text-align: center; padding: 24px; color: #64748b; font-style: italic; font-size: 11px; }
+    .signatures-row { margin-top: 16px; display: flex; justify-content: space-between; padding-top: 12px; page-break-inside: avoid; }
+    .sig-block { text-align: center; width: 170px; border-top: 1px dashed #64748b; padding-top: 4px; font-size: 8.5px; color: #334155; font-weight: 700; }
+    @media print {
+      .no-print-bar { display: none !important; }
+      body { padding: 0 !important; font-size: 8.5pt !important; }
+      .summary-strip { background: #f8fafc !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      table.trans-table th { background: #047857 !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      table.trans-table tfoot td { background: #e2e8f0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+  <div class="no-print-bar">
+    <div style="font-weight:700; font-size:12px;">📄 Daily Inward Procurement Register: ${esc(targetDate)} (${esc(reportSummary.branch_name)})</div>
+    <button onclick="window.print()">🖨️ Print Register Now (Ctrl+P)</button>
+  </div>
+
+  <div class="company-header">
+    <div>
+      <div class="company-name">RAJARSHI SHAHU TRADING COMPANY</div>
+      <div class="company-marathi">राजर्षी शाहू ट्रेडिंग कंपनी • दैनिक आवक नोंदवही (धान्य खरेदी)</div>
+      <div class="company-details">APMC Market Yard, Buldhana District, Maharashtra • APMC Lic: APMC/CHK/2024/098 • GSTIN: 27AABCR1234F1Z8</div>
+    </div>
+    <div style="text-align:right;">
+      <span style="display:inline-block; background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; font-weight:800; padding:2px 8px; border-radius:4px; font-size:10px;">DAILY INWARD REGISTER</span>
+      <div style="font-size:9px; color:#64748b; margin-top:3px;">
+        <strong>Date:</strong> ${esc(targetDate)} &nbsp;|&nbsp; <strong>Branch:</strong> ${esc(reportSummary.branch_name)}
+      </div>
+    </div>
+  </div>
+
+  <div class="summary-strip">
+    <div class="summary-item">Total Lots: <strong>${reportSummary.total_lots}</strong></div>
+    <div class="summary-item">Total Bags: <strong>${reportSummary.total_bags}</strong></div>
+    <div class="summary-item">Net Weight: <strong>${reportSummary.total_net_quintals.toFixed(2)} Qtl</strong> (${reportSummary.total_net_mt.toFixed(2)} MT)</div>
+    <div class="summary-item">Gross Outlay: <strong>₹${reportSummary.total_gross_amount.toFixed(2)}</strong></div>
+    <div class="summary-item">Hamali Ded.: <strong>₹${reportSummary.total_hamali_deductions.toFixed(2)}</strong></div>
+    <div class="summary-item">Net Payable: <strong style="color:#0f766e;">₹${reportSummary.total_net_payable.toFixed(2)}</strong></div>
+    <div class="summary-item">Paid: <strong style="color:#166534;">₹${reportSummary.total_paid.toFixed(2)}</strong></div>
+    <div class="summary-item">Pending: <strong style="color:#b91c1c;">₹${reportSummary.total_pending.toFixed(2)}</strong></div>
+  </div>
+
+  <table class="trans-table">
+    <thead>
+      <tr>
+        <th class="center" style="width:25px;">#</th>
+        <th style="width:70px;">Token/Inv</th>
+        <th style="width:65px;">Date</th>
+        <th style="width:80px;">Branch</th>
+        <th>Farmer Name</th>
+        <th style="width:70px;">Mobile</th>
+        <th style="width:65px;">Commodity</th>
+        <th class="center" style="width:35px;">Grade</th>
+        <th class="num" style="width:35px;">Bags</th>
+        <th class="num" style="width:50px;">Net Qtl</th>
+        <th class="num" style="width:55px;">Rate (₹)</th>
+        <th class="num" style="width:65px;">Gross (₹)</th>
+        <th class="num" style="width:50px;">Hamali</th>
+        <th class="num" style="width:70px;">Net (₹)</th>
+        <th class="center" style="width:55px;">Status</th>
+        <th style="width:75px;">Payment Ref</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rowsHtml}
+    </tbody>
+    <tfoot>
+      <tr>
+        <td colspan="8" style="text-align:right;">DAY TOTALS:</td>
+        <td class="num">${reportSummary.total_bags}</td>
+        <td class="num">${reportSummary.total_net_quintals.toFixed(2)}</td>
+        <td class="num">—</td>
+        <td class="num">₹${reportSummary.total_gross_amount.toFixed(2)}</td>
+        <td class="num">₹${reportSummary.total_hamali_deductions.toFixed(2)}</td>
+        <td class="num">₹${reportSummary.total_net_payable.toFixed(2)}</td>
+        <td class="center">${reportSummary.total_pending > 0.01 ? 'DUE PENDING' : 'SETTLED'}</td>
+        <td>—</td>
+      </tr>
+    </tfoot>
+  </table>
+
+  <div class="signatures-row">
+    <div class="sig-block">Prepared By / Accountant<br><span style="font-size:7.5px; font-weight:normal; color:#64748b;">(हिशोब तपासणीस)</span></div>
+    <div class="sig-block">Weighbridge Operator<br><span style="font-size:7.5px; font-weight:normal; color:#64748b;">(वजन काटा प्रमुख)</span></div>
+    <div class="sig-block">Branch Manager / Authorized Signatory<br><span style="font-size:7.5px; font-weight:normal; color:#64748b;">(शाखा प्रमुख)</span></div>
+  </div>
+</body>
+</html>`;
+
+          res.setHeader('Content-Type', 'text/html; charset=utf-8');
+          res.setHeader('Content-Disposition', `inline; filename="Inward_Register_${targetDate}_${branchId}.html"`);
+          return res.status(200).send(html);
+        }
+
         return res.status(200).json({ success: true, report: reportSummary });
       }
 
       // -----------------------------------------------------------------------
-      // REPORT TYPE 3: DAILY OUTWARD SALES REGISTER
+      // 5. DAILY OUTWARD SALES REGISTER
       // -----------------------------------------------------------------------
       if (type === 'daily_outward') {
         const filteredOutward = allOutward.filter(o => {
@@ -2253,11 +2831,314 @@ export default async function handler(req, res) {
           return res.status(200).send(xml);
         }
 
+        if (isPrintOrPdf) {
+          let rowsHtml = '';
+          if (reportSummary.orders.length === 0) {
+            rowsHtml = `<tr><td colspan="14" class="empty-msg">सदर तारखेसाठी कोणतीही जावक नोंद आढळली नाही / No outward sales dispatches recorded for date ${esc(targetDate)} at ${esc(reportSummary.branch_name)}.</td></tr>`;
+          } else {
+            reportSummary.orders.forEach((o, idx) => {
+              const q = parseFloat(o.net_quintals || 0.0);
+              const rate = parseFloat(o.rate_per_quintal || 0.0);
+              const bill = parseFloat(o.total_bill_amount || o.gross_amount || 0.0);
+              const pStat = (o.payment_status || 'PENDING').toUpperCase();
+              const isPaid = ['PAID', 'RECEIVED'].includes(pStat);
+              rowsHtml += `
+                <tr>
+                  <td class="center">${idx + 1}</td>
+                  <td style="font-family:monospace; font-weight:700;">${esc(o.challan_number || o.id)}</td>
+                  <td>${esc(o.order_date || targetDate)}</td>
+                  <td>${esc(o.branch_name)}</td>
+                  <td style="font-weight:700;">${esc(o.buyer_name)}</td>
+                  <td>${esc(o.commodity_name || 'Soybean')}</td>
+                  <td style="font-family:monospace;">${esc(o.vehicle_number || '—')}</td>
+                  <td class="num">${q.toFixed(2)}</td>
+                  <td class="num">${(q / 10.0).toFixed(2)}</td>
+                  <td class="num">₹${rate.toFixed(2)}</td>
+                  <td class="num" style="font-weight:800; color:#0f766e;">₹${bill.toFixed(2)}</td>
+                  <td class="center"><span style="display:inline-block; padding:1px 5px; border-radius:3px; font-size:8px; font-weight:800; background:${isPaid ? '#dcfce7' : '#fee2e2'}; color:${isPaid ? '#166534' : '#991b1b'};">${esc(pStat)}</span></td>
+                  <td class="center">${esc(o.payment_mode || '—')}</td>
+                  <td style="font-size:8.5px; font-family:monospace;">${esc(o.utr_number || '—')}</td>
+                </tr>
+              `;
+            });
+          }
+
+          const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Daily Outward Register — ${esc(targetDate)}</title>
+  <style>
+    @page { size: A4 landscape; margin: 8mm 8mm 8mm 8mm; }
+    * { box-sizing: border-box; }
+    body { font-family: Arial, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #0f172a; background: #fff; margin: 0; padding: 10px 12px; font-size: 10px; line-height: 1.35; }
+    .no-print-bar { display: flex; justify-content: space-between; align-items: center; background: #047857; color: #fff; padding: 8px 14px; border-radius: 6px; margin-bottom: 10px; }
+    .no-print-bar button { background: #fff; color: #047857; font-weight: 800; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+    .company-header { border-bottom: 2px solid #047857; padding-bottom: 6px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: flex-start; }
+    .company-name { font-size: 16px; font-weight: 900; color: #065f46; margin: 0; text-transform: uppercase; }
+    .company-marathi { font-size: 12px; font-weight: 800; color: #1e293b; margin-top: 1px; }
+    .company-details { font-size: 9px; color: #475569; margin-top: 2px; }
+    .summary-strip { background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 6px; padding: 6px 10px; margin-bottom: 10px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; font-size: 9.5px; }
+    .summary-item strong { color: #0f172a; font-weight: 800; }
+    table.trans-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+    table.trans-table th { background: #047857; color: #fff; font-weight: 800; font-size: 8.5px; text-transform: uppercase; padding: 5px 4px; border: 1px solid #065f46; text-align: left; }
+    table.trans-table th.num, table.trans-table td.num { text-align: right; }
+    table.trans-table th.center, table.trans-table td.center { text-align: center; }
+    table.trans-table td { padding: 4px 4px; border: 1px solid #cbd5e1; font-size: 8.5px; }
+    table.trans-table tbody tr:nth-child(even) { background: #f8fafc; }
+    table.trans-table tfoot td { background: #e2e8f0; font-weight: 800; border-top: 2px solid #047857; font-size: 9px; }
+    .empty-msg { text-align: center; padding: 24px; color: #64748b; font-style: italic; font-size: 11px; }
+    .signatures-row { margin-top: 16px; display: flex; justify-content: space-between; padding-top: 12px; page-break-inside: avoid; }
+    .sig-block { text-align: center; width: 170px; border-top: 1px dashed #64748b; padding-top: 4px; font-size: 8.5px; color: #334155; font-weight: 700; }
+    @media print {
+      .no-print-bar { display: none !important; }
+      body { padding: 0 !important; font-size: 8.5pt !important; }
+      .summary-strip { background: #f8fafc !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      table.trans-table th { background: #047857 !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      table.trans-table tfoot td { background: #e2e8f0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+  <div class="no-print-bar">
+    <div style="font-weight:700; font-size:12px;">📄 Daily Outward Sales Register: ${esc(targetDate)} (${esc(reportSummary.branch_name)})</div>
+    <button onclick="window.print()">🖨️ Print Register Now (Ctrl+P)</button>
+  </div>
+
+  <div class="company-header">
+    <div>
+      <div class="company-name">RAJARSHI SHAHU TRADING COMPANY</div>
+      <div class="company-marathi">राजर्षी शाहू ट्रेडिंग कंपनी • दैनिक जावक नोंदवही (धान्य विक्री व मिल डिस्पॅच)</div>
+      <div class="company-details">APMC Market Yard, Buldhana District, Maharashtra • APMC Lic: APMC/CHK/2024/098 • GSTIN: 27AABCR1234F1Z8</div>
+    </div>
+    <div style="text-align:right;">
+      <span style="display:inline-block; background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; font-weight:800; padding:2px 8px; border-radius:4px; font-size:10px;">DAILY OUTWARD REGISTER</span>
+      <div style="font-size:9px; color:#64748b; margin-top:3px;">
+        <strong>Date:</strong> ${esc(targetDate)} &nbsp;|&nbsp; <strong>Branch:</strong> ${esc(reportSummary.branch_name)}
+      </div>
+    </div>
+  </div>
+
+  <div class="summary-strip">
+    <div class="summary-item">Total Dispatches: <strong>${reportSummary.total_dispatches} Trucks</strong></div>
+    <div class="summary-item">Net Weight: <strong>${reportSummary.total_net_quintals.toFixed(2)} Qtl</strong> (${reportSummary.total_net_mt.toFixed(2)} MT)</div>
+    <div class="summary-item">Total Bill Amount: <strong style="color:#0f766e;">₹${reportSummary.total_bill_amount.toFixed(2)}</strong></div>
+    <div class="summary-item">Payment Received: <strong style="color:#166534;">₹${reportSummary.total_received_amount.toFixed(2)}</strong></div>
+    <div class="summary-item">Balance Due: <strong style="color:#b91c1c;">₹${reportSummary.total_outstanding_due.toFixed(2)}</strong></div>
+  </div>
+
+  <table class="trans-table">
+    <thead>
+      <tr>
+        <th class="center" style="width:25px;">#</th>
+        <th style="width:75px;">Challan No</th>
+        <th style="width:65px;">Date</th>
+        <th style="width:80px;">Branch</th>
+        <th>Buyer / Mill Name</th>
+        <th style="width:65px;">Commodity</th>
+        <th style="width:75px;">Vehicle No</th>
+        <th class="num" style="width:55px;">Net Qtl</th>
+        <th class="num" style="width:45px;">Net MT</th>
+        <th class="num" style="width:55px;">Rate (₹)</th>
+        <th class="num" style="width:75px;">Total Bill (₹)</th>
+        <th class="center" style="width:55px;">Payment</th>
+        <th class="center" style="width:45px;">Mode</th>
+        <th style="width:75px;">UTR / Ref</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rowsHtml}
+    </tbody>
+    <tfoot>
+      <tr>
+        <td colspan="7" style="text-align:right;">DAY OUTWARD TOTALS:</td>
+        <td class="num">${reportSummary.total_net_quintals.toFixed(2)}</td>
+        <td class="num">${reportSummary.total_net_mt.toFixed(2)}</td>
+        <td class="num">—</td>
+        <td class="num">₹${reportSummary.total_bill_amount.toFixed(2)}</td>
+        <td class="center">${reportSummary.total_outstanding_due > 0.01 ? 'DUE PENDING' : 'SETTLED'}</td>
+        <td colspan="2">Received: ₹${reportSummary.total_received_amount.toFixed(2)}</td>
+      </tr>
+    </tfoot>
+  </table>
+
+  <div class="signatures-row">
+    <div class="sig-block">Prepared By / Dispatch Clerk<br><span style="font-size:7.5px; font-weight:normal; color:#64748b;">(जावक लिपिक)</span></div>
+    <div class="sig-block">Weighbridge In-Charge<br><span style="font-size:7.5px; font-weight:normal; color:#64748b;">(वजन काटा प्रमुख)</span></div>
+    <div class="sig-block">Branch Manager / Authorized Signatory<br><span style="font-size:7.5px; font-weight:normal; color:#64748b;">(शाखा प्रमुख)</span></div>
+  </div>
+</body>
+</html>`;
+
+          res.setHeader('Content-Type', 'text/html; charset=utf-8');
+          res.setHeader('Content-Disposition', `inline; filename="Outward_Register_${targetDate}_${branchId}.html"`);
+          return res.status(200).send(html);
+        }
+
         return res.status(200).json({ success: true, report: reportSummary });
       }
 
       // -----------------------------------------------------------------------
-      // REPORT TYPE 4: CONSOLIDATED TALLY DAYBOOK IMPORT BUNDLE
+      // 6. CONSOLIDATED GENERAL LEDGER REGISTER
+      // -----------------------------------------------------------------------
+      if (type === 'general_ledger') {
+        const filteredLedgers = allLedgers.filter(l => {
+          if (branchId !== 'all' && l.branch_id !== branchId) return false;
+          return true;
+        });
+
+        let totalDebit = 0;
+        let totalCredit = 0;
+        filteredLedgers.forEach(l => {
+          totalDebit += parseFloat(l.debit_amount || 0);
+          totalCredit += parseFloat(l.credit_amount || 0);
+        });
+
+        if (format === 'csv') {
+          let csv = '"Date","Branch","Voucher Type","Voucher No","Account Name","Debit (Rs)","Credit (Rs)","Narration"\n';
+          filteredLedgers.forEach(l => {
+            const bName = bMap[l.branch_id] || l.branch_id;
+            const narr = (l.narration || '').replace(/"/g, '""');
+            csv += `"${l.transaction_date}","${bName}","${l.voucher_type}","${l.voucher_id}","${l.account_name}",${parseFloat(l.debit_amount || 0).toFixed(2)},${parseFloat(l.credit_amount || 0).toFixed(2)},"${narr}"\n`;
+          });
+          res.setHeader('Content-Type', 'text/csv');
+          res.setHeader('Content-Disposition', 'attachment; filename="General_Ledger.csv"');
+          return res.status(200).send(csv);
+        }
+
+        if (isPrintOrPdf) {
+          let rowsHtml = '';
+          if (filteredLedgers.length === 0) {
+            rowsHtml = `<tr><td colspan="8" class="empty-msg">No general ledger entries found for ${esc(bMap[branchId] || 'All Branches')}.</td></tr>`;
+          } else {
+            filteredLedgers.forEach((l, idx) => {
+              const bName = bMap[l.branch_id] || l.branch_id;
+              const d = parseFloat(l.debit_amount || 0);
+              const c = parseFloat(l.credit_amount || 0);
+              rowsHtml += `
+                <tr>
+                  <td class="center">${idx + 1}</td>
+                  <td>${esc(l.transaction_date)}</td>
+                  <td>${esc(bName)}</td>
+                  <td>${esc(l.voucher_type)}</td>
+                  <td style="font-family:monospace; font-weight:700;">${esc(l.voucher_id)}</td>
+                  <td style="font-weight:700;">${esc(l.account_name)}</td>
+                  <td class="num" style="color:#0f766e; font-weight:700;">${d > 0 ? '₹' + d.toFixed(2) : '—'}</td>
+                  <td class="num" style="color:#b91c1c; font-weight:700;">${c > 0 ? '₹' + c.toFixed(2) : '—'}</td>
+                  <td>${esc(l.narration || '—')}</td>
+                </tr>
+              `;
+            });
+          }
+
+          const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>General Ledger Register — Rajarshi Shahu Mandi</title>
+  <style>
+    @page { size: A4 landscape; margin: 8mm 8mm 8mm 8mm; }
+    * { box-sizing: border-box; }
+    body { font-family: Arial, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #0f172a; background: #fff; margin: 0; padding: 10px 12px; font-size: 10px; line-height: 1.35; }
+    .no-print-bar { display: flex; justify-content: space-between; align-items: center; background: #047857; color: #fff; padding: 8px 14px; border-radius: 6px; margin-bottom: 10px; }
+    .no-print-bar button { background: #fff; color: #047857; font-weight: 800; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+    .company-header { border-bottom: 2px solid #047857; padding-bottom: 6px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: flex-start; }
+    .company-name { font-size: 16px; font-weight: 900; color: #065f46; margin: 0; text-transform: uppercase; }
+    .company-marathi { font-size: 12px; font-weight: 800; color: #1e293b; margin-top: 1px; }
+    .company-details { font-size: 9px; color: #475569; margin-top: 2px; }
+    .summary-strip { background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 6px; padding: 6px 10px; margin-bottom: 10px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; font-size: 9.5px; }
+    .summary-item strong { color: #0f172a; font-weight: 800; }
+    table.trans-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+    table.trans-table th { background: #047857; color: #fff; font-weight: 800; font-size: 8.5px; text-transform: uppercase; padding: 5px 4px; border: 1px solid #065f46; text-align: left; }
+    table.trans-table th.num, table.trans-table td.num { text-align: right; }
+    table.trans-table th.center, table.trans-table td.center { text-align: center; }
+    table.trans-table td { padding: 4px 4px; border: 1px solid #cbd5e1; font-size: 8.5px; }
+    table.trans-table tbody tr:nth-child(even) { background: #f8fafc; }
+    table.trans-table tfoot td { background: #e2e8f0; font-weight: 800; border-top: 2px solid #047857; font-size: 9px; }
+    .empty-msg { text-align: center; padding: 24px; color: #64748b; font-style: italic; font-size: 11px; }
+    .signatures-row { margin-top: 16px; display: flex; justify-content: space-between; padding-top: 12px; page-break-inside: avoid; }
+    .sig-block { text-align: center; width: 170px; border-top: 1px dashed #64748b; padding-top: 4px; font-size: 8.5px; color: #334155; font-weight: 700; }
+    @media print {
+      .no-print-bar { display: none !important; }
+      body { padding: 0 !important; font-size: 8.5pt !important; }
+      .summary-strip { background: #f8fafc !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      table.trans-table th { background: #047857 !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      table.trans-table tfoot td { background: #e2e8f0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+  <div class="no-print-bar">
+    <div style="font-weight:700; font-size:12px;">📄 Consolidated General Ledger: ${esc(bMap[branchId] || 'All Branches')}</div>
+    <button onclick="window.print()">🖨️ Print Ledger Now (Ctrl+P)</button>
+  </div>
+
+  <div class="company-header">
+    <div>
+      <div class="company-name">RAJARSHI SHAHU TRADING COMPANY</div>
+      <div class="company-marathi">राजर्षी शाहू ट्रेडिंग कंपनी • एकत्रित खतावणी नोंदवही</div>
+      <div class="company-details">APMC Market Yard, Buldhana District, Maharashtra • APMC Lic: APMC/CHK/2024/098 • GSTIN: 27AABCR1234F1Z8</div>
+    </div>
+    <div style="text-align:right;">
+      <span style="display:inline-block; background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; font-weight:800; padding:2px 8px; border-radius:4px; font-size:10px;">GENERAL LEDGER</span>
+      <div style="font-size:9px; color:#64748b; margin-top:3px;">
+        <strong>Branch:</strong> ${esc(bMap[branchId] || 'All Branches Consolidated')}
+      </div>
+    </div>
+  </div>
+
+  <div class="summary-strip">
+    <div class="summary-item">Total Entries: <strong>${filteredLedgers.length}</strong></div>
+    <div class="summary-item">Total Debits: <strong style="color:#0f766e;">₹${totalDebit.toFixed(2)}</strong></div>
+    <div class="summary-item">Total Credits: <strong style="color:#b91c1c;">₹${totalCredit.toFixed(2)}</strong></div>
+    <div class="summary-item">Trial Balance Difference: <strong>₹${Math.abs(totalDebit - totalCredit).toFixed(2)}</strong></div>
+  </div>
+
+  <table class="trans-table">
+    <thead>
+      <tr>
+        <th class="center" style="width:25px;">#</th>
+        <th style="width:75px;">Date</th>
+        <th style="width:85px;">Branch</th>
+        <th style="width:90px;">Voucher Type</th>
+        <th style="width:85px;">Voucher No</th>
+        <th style="width:130px;">Account Name</th>
+        <th class="num" style="width:80px;">Debit (₹)</th>
+        <th class="num" style="width:80px;">Credit (₹)</th>
+        <th>Narration / Particulars</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rowsHtml}
+    </tbody>
+    <tfoot>
+      <tr>
+        <td colspan="6" style="text-align:right;">LEDGER TOTALS:</td>
+        <td class="num">₹${totalDebit.toFixed(2)}</td>
+        <td class="num">₹${totalCredit.toFixed(2)}</td>
+        <td style="font-weight:800;">Diff: ₹${Math.abs(totalDebit - totalCredit).toFixed(2)}</td>
+      </tr>
+    </tfoot>
+  </table>
+
+  <div class="signatures-row">
+    <div class="sig-block">Prepared By / Accountant<br><span style="font-size:7.5px; font-weight:normal; color:#64748b;">(हिशोब तपासणीस)</span></div>
+    <div class="sig-block">Auditor / Accounts Head<br><span style="font-size:7.5px; font-weight:normal; color:#64748b;">(लेखापरीक्षक)</span></div>
+    <div class="sig-block">Branch Manager / Authorized Signatory<br><span style="font-size:7.5px; font-weight:normal; color:#64748b;">(शाखा प्रमुख)</span></div>
+  </div>
+</body>
+</html>`;
+
+          res.setHeader('Content-Type', 'text/html; charset=utf-8');
+          res.setHeader('Content-Disposition', 'inline; filename="General_Ledger.html"');
+          return res.status(200).send(html);
+        }
+
+        return res.status(200).json({ success: true, ledgers: filteredLedgers });
+      }
+
+      // -----------------------------------------------------------------------
+      // 7. CONSOLIDATED TALLY DAYBOOK IMPORT BUNDLE
       // -----------------------------------------------------------------------
       if (type === 'tally_daybook') {
         const filteredInvoices = allInvoices.filter(inv => {
@@ -2298,7 +3179,6 @@ export default async function handler(req, res) {
     </DESC>
     <DATA>\n`;
 
-        // Farmers
         for (const f of farmers) {
           xml += `      <TALLYMESSAGE xmlns:UDF="TallyUDF">
         <LEDGER NAME="${escXml(f)}" ACTION="Create">
@@ -2311,7 +3191,6 @@ export default async function handler(req, res) {
       </TALLYMESSAGE>\n`;
         }
 
-        // Buyers
         for (const b of buyers) {
           xml += `      <TALLYMESSAGE xmlns:UDF="TallyUDF">
         <LEDGER NAME="${escXml(b)}" ACTION="Create">
@@ -2324,7 +3203,6 @@ export default async function handler(req, res) {
       </TALLYMESSAGE>\n`;
         }
 
-        // Purchase accounts
         for (const pc of purComm) {
           xml += `      <TALLYMESSAGE xmlns:UDF="TallyUDF">
         <LEDGER NAME="${escXml(pc)} Purchase Account" ACTION="Create">
@@ -2335,7 +3213,6 @@ export default async function handler(req, res) {
       </TALLYMESSAGE>\n`;
         }
 
-        // Sales accounts
         for (const sc of saleComm) {
           xml += `      <TALLYMESSAGE xmlns:UDF="TallyUDF">
         <LEDGER NAME="${escXml(sc)} Sales Account" ACTION="Create">
@@ -2346,7 +3223,6 @@ export default async function handler(req, res) {
       </TALLYMESSAGE>\n`;
         }
 
-        // Hamali and Bank
         xml += `      <TALLYMESSAGE xmlns:UDF="TallyUDF">
         <LEDGER NAME="Mandi Hamali Deduction Account" ACTION="Create">
           <NAME>Mandi Hamali Deduction Account</NAME>
@@ -2366,7 +3242,6 @@ export default async function handler(req, res) {
         </LEDGER>
       </TALLYMESSAGE>\n`;
 
-        // Purchase Vouchers
         for (const inv of filteredInvoices) {
           const tok = inv.token_number || inv.id || 'INV';
           const fName = inv.custom_farmer_name || (pMap[inv.party_id] ? pMap[inv.party_id].name : 'Farmer');
@@ -2404,7 +3279,6 @@ export default async function handler(req, res) {
           xml += `        </VOUCHER>
       </TALLYMESSAGE>\n`;
 
-          // If paid, payment voucher
           const pStat = (inv.payout_status || '').toUpperCase();
           if (['PAID', 'PAID_CASH', 'RTGS_COMPLETED', 'COMPLETED'].includes(pStat)) {
             const bankAcc = (inv.weighment_mode === 'RTGS' || pStat.includes('RTGS')) ? 'Bank RTGS Account' : 'Cash-in-Hand Account';
@@ -2431,7 +3305,6 @@ export default async function handler(req, res) {
           }
         }
 
-        // Outward Sales
         for (const o of filteredOutward) {
           const chal = o.challan_number || o.id || 'OUT';
           const bName = o.buyer_name || 'Buyer';

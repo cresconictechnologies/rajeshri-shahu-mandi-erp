@@ -1,1 +1,6 @@
-.vercel
+.git
+node_modules
+*.zip
+*.apk
+*.exe
+*.dll

@@ -3403,8 +3403,10 @@ _For inquiries or bank RTGS verification, please contact Central Accounts._`;
         let CURRENT_MODAL_PDF_URL = '';
         let CURRENT_MODAL_TYPE = 'party_ledger';
         let CURRENT_MODAL_TITLE = '';
+        let AUTO_TRIGGER_PRINT = false;
 
-        function openPdfModal(url, title, subtitle, modalType) {
+        function openPdfModal(url, title, subtitle, modalType, autoPrint = true) {
+            AUTO_TRIGGER_PRINT = !!autoPrint;
             CURRENT_MODAL_PDF_URL = url;
             CURRENT_MODAL_TYPE = modalType || 'party_ledger';
             CURRENT_MODAL_TITLE = title || 'Document';
@@ -3444,6 +3446,12 @@ _For inquiries or bank RTGS verification, please contact Central Accounts._`;
         function onPdfIframeLoaded() {
             const spinner = document.getElementById('pdfLoadingSpinner');
             if (spinner) spinner.style.display = 'none';
+            if (AUTO_TRIGGER_PRINT) {
+                AUTO_TRIGGER_PRINT = false;
+                setTimeout(() => {
+                    triggerIframePrint();
+                }, 350);
+            }
         }
 
         function triggerIframePrint() {
@@ -3465,12 +3473,8 @@ _For inquiries or bank RTGS verification, please contact Central Accounts._`;
 
         function downloadCurrentModalPdf() {
             if (CURRENT_MODAL_PDF_URL) {
-                const a = document.createElement('a');
-                a.href = CURRENT_MODAL_PDF_URL;
-                a.download = (CURRENT_MODAL_TITLE || 'Document').replace(/[^a-zA-Z0-9_-]/g, '_') + '.pdf';
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
+                const win = window.open(CURRENT_MODAL_PDF_URL, '_blank');
+                if (win) win.focus();
             }
         }
 
@@ -3924,12 +3928,7 @@ _For inquiries or bank RTGS verification, please contact Central Accounts._`;
             downloadFileBlob(csv, `Inward_Register_${r.date || 'Export'}.csv`, 'text/csv');
         }
 
-        function printDailyInwardReport() {
-            const orig = document.title;
-            document.title = `Inward_Procurement_Register_${CURRENT_INWARD_REPORT?.date || ''}`;
-            window.print();
-            document.title = orig;
-        }
+        // duplicate printDailyInwardReport removed (using openPdfModal version)
 
         // =========================================================================
         // DAILY OUTWARD SALES REPORT
@@ -4147,12 +4146,7 @@ _For inquiries or bank RTGS verification, please contact Central Accounts._`;
             downloadFileBlob(csv, `Outward_Register_${r.date || 'Export'}.csv`, 'text/csv');
         }
 
-        function printDailyOutwardReport() {
-            const orig = document.title;
-            document.title = `Outward_Sales_Register_${CURRENT_OUTWARD_REPORT?.date || ''}`;
-            window.print();
-            document.title = orig;
-        }
+        // duplicate printDailyOutwardReport removed (using openPdfModal version)
 
         // =========================================================================
         // TALLY PRIME DAYBOOK & MASTERS XML BUNDLE

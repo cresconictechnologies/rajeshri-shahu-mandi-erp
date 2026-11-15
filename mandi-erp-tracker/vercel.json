@@ -179,8 +179,12 @@
       "destination": "/api/portal?action=reports"
     },
     {
-      "source": "/api/accounts/reports/(.*)",
-      "destination": "/api/portal?action=reports"
+      "source": "/api/accounts/reports/:type",
+      "destination": "/api/portal?action=reports&type=:type"
+    },
+    {
+      "source": "/api/reports/:type",
+      "destination": "/api/portal?action=reports&type=:type"
     },
     {
       "source": "/api/accounts/data",

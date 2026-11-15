@@ -1820,7 +1820,7 @@ def api_report_party_ledger(
         if format == "pdf":
             import report_exports
             pdf_bytes = report_exports.generate_party_ledger_pdf(report)
-            return Response(content=pdf_bytes, media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="Ledger_{clean_name}.pdf"'})
+            return Response(content=pdf_bytes, media_type="application/pdf", headers={"Content-Disposition": f'inline; filename="Ledger_{clean_name}.pdf"'})
 
         if format in ["xlsx", "xls"]:
             import report_exports
@@ -1879,7 +1879,7 @@ def api_report_party_balances(
         if format == "pdf":
             import report_exports
             pdf_bytes = report_exports.generate_party_balances_pdf(balances_data)
-            return Response(content=pdf_bytes, media_type="application/pdf", headers={"Content-Disposition": 'attachment; filename="Party_Balances.pdf"'})
+            return Response(content=pdf_bytes, media_type="application/pdf", headers={"Content-Disposition": 'inline; filename="Party_Balances.pdf"'})
 
         if format in ["xlsx", "xls"]:
             import report_exports
@@ -1959,7 +1959,7 @@ def api_report_daily_inward(
         if format == "pdf":
             import report_exports
             pdf_bytes = report_exports.generate_daily_inward_pdf(invoices, target_date, branch_label)
-            return Response(content=pdf_bytes, media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="Inward_Register_{target_date}_{branch_id}.pdf"'})
+            return Response(content=pdf_bytes, media_type="application/pdf", headers={"Content-Disposition": f'inline; filename="Inward_Register_{target_date}_{branch_id}.pdf"'})
 
         if format in ["xlsx", "xls"]:
             import report_exports
@@ -2035,7 +2035,7 @@ def api_report_daily_outward(
         if format == "pdf":
             import report_exports
             pdf_bytes = report_exports.generate_daily_outward_pdf(orders, target_date, branch_label)
-            return Response(content=pdf_bytes, media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="Outward_Register_{target_date}_{branch_id}.pdf"'})
+            return Response(content=pdf_bytes, media_type="application/pdf", headers={"Content-Disposition": f'inline; filename="Outward_Register_{target_date}_{branch_id}.pdf"'})
 
         if format in ["xlsx", "xls"]:
             import report_exports
@@ -2081,7 +2081,7 @@ def api_report_general_ledger(
 
         if format == "pdf":
             pdf_bytes = report_exports.generate_general_ledger_pdf(ledgers, branch_label)
-            return Response(content=pdf_bytes, media_type="application/pdf", headers={"Content-Disposition": 'attachment; filename="General_Ledger.pdf"'})
+            return Response(content=pdf_bytes, media_type="application/pdf", headers={"Content-Disposition": 'inline; filename="General_Ledger.pdf"'})
 
         if format in ["xlsx", "xls"]:
             xlsx_bytes = report_exports.generate_general_ledger_xlsx(ledgers, branch_label)
@@ -2218,7 +2218,7 @@ def api_report_cashbook(
 
         if format == "pdf":
             pdf_bytes = report_exports.generate_daily_cashbook_pdf(cashbook_data, branch_label)
-            return Response(content=pdf_bytes, media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="Cashbook_{target_date}.pdf"'})
+            return Response(content=pdf_bytes, media_type="application/pdf", headers={"Content-Disposition": f'inline; filename="Cashbook_{target_date}.pdf"'})
 
         if format in ["xlsx", "xls"]:
             xlsx_bytes = report_exports.generate_daily_cashbook_xlsx(cashbook_data, branch_label)

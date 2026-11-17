@@ -284,14 +284,39 @@ export default async function handler(req, res) {
         const weighmentMode = (body.weighment_mode || 'CASH').toUpperCase();
         const payoutStatus = weighmentMode === 'CASH' ? 'PAID' : (body.payout_status || 'PENDING');
 
-        // Store party_name locally for ledger narration (not sent to Supabase)
+        // Store party details and ensure party exists in parties table to satisfy FK constraint
+        const partyId = body.party_id || `party-${Date.now()}`;
         const partyNameLocal = body.party_name || 'Farmer';
+        const partyPhoneLocal = body.party_phone || '9999999999';
+        const partyTypeLocal = (body.party_type || 'FARMER').toUpperCase();
+
+        try {
+          await fetch(`${supabaseUrl}/rest/v1/parties`, {
+            method: 'POST',
+            headers: { ...headers, 'Prefer': 'resolution=ignore-duplicates' },
+            body: JSON.stringify({
+              id: partyId,
+              name: partyNameLocal,
+              phone: partyPhoneLocal,
+              party_type: partyTypeLocal,
+              home_branch_id: branchId,
+              village: body.village || null,
+              bank_name: body.rtgs_bank_name || null,
+              bank_account_no: body.rtgs_account_no || null,
+              bank_ifsc: body.rtgs_ifsc_code || null,
+              created_at: now.toISOString(),
+              updated_at: now.toISOString()
+            })
+          });
+        } catch (pErr) {
+          console.warn('Party auto-ensure warning:', pErr);
+        }
 
         const invoicePayload = {
           id: invoiceId,
           branch_id: branchId,
           token_number: tokenNumber,
-          party_id: body.party_id || `farmer-${Date.now()}`,
+          party_id: partyId,
           commodity_name: body.commodity_name || 'Soyabean (Yellow)',
           hsn_code: body.hsn_code || (String(body.commodity_name || '').toLowerCase().includes('chickpea') ? '0713' : '1201'),
           quality_grade: body.quality_grade || 'Standard Grade',

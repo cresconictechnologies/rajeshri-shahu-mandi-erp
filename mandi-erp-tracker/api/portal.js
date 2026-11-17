@@ -293,7 +293,7 @@ export default async function handler(req, res) {
           token_number: tokenNumber,
           party_id: body.party_id || `farmer-${Date.now()}`,
           commodity_name: body.commodity_name || 'Soyabean (Yellow)',
-          hsn_code: body.hsn_code || null,
+          hsn_code: body.hsn_code || (String(body.commodity_name || '').toLowerCase().includes('chickpea') ? '0713' : '1201'),
           quality_grade: body.quality_grade || 'Standard Grade',
           vehicle_number: body.vehicle_number || null,
           weighment_mode: weighmentMode,

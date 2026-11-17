@@ -374,6 +374,25 @@ export default async function handler(req, res) {
         });
 
         if (!resp.ok) return res.status(resp.status).json({ success: false, error: await resp.text() });
+
+        // Auto-mark associated QC ticket as COMPLETED so it immediately disappears from pending cashier desk
+        const usedTicket = invoicePayload.qc_ticket_no || body.qc_ticket_no || body.ticket_no;
+        if (usedTicket) {
+          try {
+            await fetch(`${supabaseUrl}/rest/v1/quality_inspections?ticket_no=eq.${encodeURIComponent(usedTicket)}`, {
+              method: 'PATCH',
+              headers,
+              body: JSON.stringify({
+                status: 'COMPLETED',
+                invoice_id: invoiceId,
+                token_number: tokenNumber,
+                updated_at: now.toISOString()
+              })
+            });
+          } catch (qcErr) {
+            console.warn('QC Ticket completion update warning:', qcErr);
+          }
+        }
         
         // Auto-post double-entry journal records to Supabase ledger_entries
         try {
@@ -1174,7 +1193,13 @@ export default async function handler(req, res) {
           if (chkResp.ok) {
             const rows = await chkResp.json();
             if (Array.isArray(rows) && rows.length > 0) {
-              return res.status(400).json({ success: false, error: `Cannot delete QC Ticket #${ticketNo} because it has already been invoiced and settled.` });
+              // If already linked to an invoice, mark status as COMPLETED so it is dismissed cleanly from pending desk
+              await fetch(`${supabaseUrl}/rest/v1/quality_inspections?ticket_no=eq.${encodeURIComponent(ticketNo)}`, {
+                method: 'PATCH',
+                headers,
+                body: JSON.stringify({ status: 'COMPLETED', updated_at: new Date().toISOString() })
+              });
+              return res.status(200).json({ success: true, message: `QC Ticket #${ticketNo} marked as COMPLETED.` });
             }
           }
         } catch (_) {}

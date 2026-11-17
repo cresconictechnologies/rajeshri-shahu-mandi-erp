@@ -1058,6 +1058,9 @@
             }
 
             inspections.forEach(q => {
+                const meterImg = q.meter_photo_path || q.moisture_meter_photo || q.photo_path || q.image_path;
+                const grainImg = q.grain_photo_path || q.grain_sample_photo || q.lot_photo_path;
+
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td style="padding:10px 8px;">
@@ -1067,20 +1070,20 @@
                     <td style="padding:10px 8px;"><strong>📍 ${q.branch_name || q.branch_id}</strong></td>
                     <td style="padding:10px 8px;">
                         <strong>${q.farmer_name}</strong><br>
-                        <span style="font-size:11px; color:#475569;">${q.vehicle_number || 'Direct Trolley'}</span>
+                        <span style="font-size:11px; color:#475569;">${q.vehicle_number || q.vehicle_no || 'Direct Trolley'}</span>
                     </td>
                     <td style="padding:10px 8px;">${q.commodity_name}</td>
                     <td style="text-align:center; padding:10px 8px;">
-                        ${q.moisture_meter_photo ? `<img src="${q.moisture_meter_photo}" style="width:40px; height:40px; object-fit:cover; border-radius:6px; cursor:pointer; border:1px solid #cbd5e1;" onclick="openPhotoZoom('${q.moisture_meter_photo}', 'Moisture Meter - ${q.ticket_no}')">` : '<span style="color:#94a3b8;">—</span>'}
+                        ${meterImg ? `<img src="${meterImg}" style="width:40px; height:40px; object-fit:cover; border-radius:6px; cursor:pointer; border:1px solid #cbd5e1;" onclick="openPhotoZoom('${meterImg}', 'Moisture Meter - ${q.ticket_no}')">` : '<span style="color:#94a3b8;">—</span>'}
                     </td>
                     <td style="text-align:center; padding:10px 8px;">
-                        ${q.grain_sample_photo ? `<img src="${q.grain_sample_photo}" style="width:40px; height:40px; object-fit:cover; border-radius:6px; cursor:pointer; border:1px solid #cbd5e1;" onclick="openPhotoZoom('${q.grain_sample_photo}', 'Grain Sample - ${q.ticket_no}')">` : '<span style="color:#94a3b8;">—</span>'}
+                        ${grainImg ? `<img src="${grainImg}" style="width:40px; height:40px; object-fit:cover; border-radius:6px; cursor:pointer; border:1px solid #cbd5e1;" onclick="openPhotoZoom('${grainImg}', 'Grain Sample - ${q.ticket_no}')">` : '<span style="color:#94a3b8;">—</span>'}
                     </td>
                     <td style="text-align:center; padding:10px 8px;">
                         <span style="font-size:11px; font-weight:700; color:#047857;">✓ Assayed</span>
                     </td>
                     <td style="padding:10px 8px;">
-                        <span class="badge-pill badge-green">${q.quality_grade || 'FAQ_GRADE_1'}</span>
+                        <span class="badge-pill badge-green">${q.quality_grade || q.faq_grade || q.grade_label || 'FAQ_GRADE_1'}</span>
                     </td>
                     <td style="padding:10px 8px;">
                         <span class="badge-pill ${q.status === 'LINKED' || q.status === 'COMPLETED' ? 'badge-green' : 'badge-amber'}">

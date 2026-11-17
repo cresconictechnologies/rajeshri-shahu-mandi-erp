@@ -1817,6 +1817,13 @@ export default async function handler(req, res) {
       const branchMap = {};
       branches.forEach(b => { branchMap[b.id] = b.name; });
 
+      // Map inspections by ticket_no and id for linking photos to invoices
+      const qcMap = {};
+      for (const q of (Array.isArray(inspections) ? inspections : [])) {
+        if (q.ticket_no) qcMap[q.ticket_no] = q;
+        if (q.id) qcMap[q.id] = q;
+      }
+
       for (const inv of invoices) {
         if (inv.commodity_name) {
           inv.commodity_name = canonicalizeCommodityName(inv.commodity_name);
@@ -1830,6 +1837,16 @@ export default async function handler(req, res) {
         inv.party_name = p ? p.name : (inv.party_id ? inv.party_id.replace('party-', '').replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : 'Farmer');
         inv.party_type = p ? p.party_type : (inv.party_type || 'FARMER');
         inv.branch_name = branchMap[inv.branch_id] || (inv.branch_id === 'br-chikhali' ? 'Chikhali APMC Main Yard' : (inv.branch_id === 'br-varvand' ? 'Varvand Yard' : (inv.branch_id === 'br-sarola' ? 'Sarola Maruti Yard' : 'APMC Yard')));
+
+        // Link QC inspection photos
+        const qc = inv.qc_ticket_no ? qcMap[inv.qc_ticket_no] : null;
+        if (qc) {
+          inv.meter_photo_path = qc.meter_photo_path || qc.moisture_meter_photo || qc.photo_path || qc.image_path || inv.meter_photo_path || null;
+          inv.grain_photo_path = qc.grain_photo_path || qc.grain_sample_photo || qc.lot_photo_path || inv.grain_photo_path || null;
+        }
+        if (!inv.meter_photo_path && inv.slip_photo_url) {
+          inv.meter_photo_path = inv.slip_photo_url;
+        }
       }
 
       (Array.isArray(users) ? users : []).forEach(u => { delete u.password_hash; delete u.password; });

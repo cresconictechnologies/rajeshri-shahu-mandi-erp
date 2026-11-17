@@ -311,7 +311,7 @@ export default async function handler(req, res) {
           net_weight_kg: netWeight,
           net_quintals: netQuintals,
           rate_per_quintal: ratePerQtl,
-          is_rate_overridden: body.is_rate_overridden === 'true' || false,
+          is_rate_overridden: (body.is_rate_overridden === true || body.is_rate_overridden === 'true' || body.is_rate_overridden === 1 || body.is_rate_overridden === '1') ? 1 : 0,
           rate_override_status: body.rate_override_status || null,
           rate_override_reason: body.rate_override_reason || null,
           gross_amount: grossPayable,

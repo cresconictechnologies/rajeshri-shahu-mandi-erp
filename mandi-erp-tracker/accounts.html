@@ -2816,7 +2816,14 @@
 
         async function loadAccountsData() {
             try {
-                const res = await fetch('/api/accounts/data');
+                let branchParam = '';
+                try {
+                    const u = JSON.parse(localStorage.getItem('mandi_user') || '{}');
+                    if (u.role === 'BRANCH_CASHIER' && u.branch_id) {
+                        branchParam = '?branch_id=' + encodeURIComponent(u.branch_id);
+                    }
+                } catch(_) {}
+                const res = await fetch('/api/accounts/data' + branchParam);
                 if (res.ok) {
                     const data = await res.json();
                     if (data.commodities && data.commodities.length > 0) ACCOUNTS_CACHE.commodities = data.commodities;

@@ -231,6 +231,10 @@
       "destination": "/api/portal?action=invoices"
     },
     {
+      "source": "/api/branch/invoices/parchi/:token",
+      "destination": "/api/portal?action=parchi&token_number=:token"
+    },
+    {
       "source": "/api/branch/inward-unified",
       "destination": "/api/portal?action=invoices"
     },

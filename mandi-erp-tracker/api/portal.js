@@ -418,7 +418,9 @@ export default async function handler(req, res) {
           console.warn('Ledger auto-post warning:', ledErr);
         }
 
-        return res.status(200).json({ success: true, message: `Invoice #${tokenNumber} registered!`, data: await resp.json() });
+        // Also return token_number at top level for frontend parchi auto-open
+        const invoiceResult = await resp.json();
+        return res.status(200).json({ success: true, message: `Invoice #${tokenNumber} registered!`, token_number: tokenNumber, data: invoiceResult });
       } catch (err) {
         return res.status(500).json({ success: false, error: err.message });
       }
@@ -448,6 +450,202 @@ export default async function handler(req, res) {
       } catch (err) {
         return res.status(500).json({ success: false, error: err.message });
       }
+    }
+  }
+
+  // =========================================================================
+  // 3B. PARCHI SLIP ACTION — Serve printable HTML for a given token_number
+  // =========================================================================
+  if (action === 'parchi') {
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    const tokenNum = req.query.token_number || req.query.token || body.token_number || '';
+    const fmt = req.query.format || 'a4';
+    if (!tokenNum) {
+      return res.status(400).send('<html><body><p>Missing token_number</p></body></html>');
+    }
+    try {
+      // Fetch invoice from Supabase
+      const invResp = await fetch(
+        `${supabaseUrl}/rest/v1/purchase_invoices?token_number=eq.${encodeURIComponent(tokenNum)}&limit=1`,
+        { headers }
+      );
+      const rows = invResp.ok ? await invResp.json() : [];
+      if (!Array.isArray(rows) || rows.length === 0) {
+        return res.status(404).send('<html><body><p>Invoice not found: ' + tokenNum + '</p></body></html>');
+      }
+      const inv = rows[0];
+
+      // Enrich with party and branch names
+      try {
+        const [pResp, bResp] = await Promise.all([
+          fetch(`${supabaseUrl}/rest/v1/parties?id=eq.${encodeURIComponent(inv.party_id)}&limit=1`, { headers }),
+          fetch(`${supabaseUrl}/rest/v1/branches?id=eq.${encodeURIComponent(inv.branch_id)}&limit=1`, { headers })
+        ]);
+        const parties = pResp.ok ? await pResp.json() : [];
+        const branches = bResp.ok ? await bResp.json() : [];
+        if (parties[0]) {
+          inv.party_name = parties[0].name;
+          inv.village = parties[0].village || 'स्थानिक';
+          inv.phone = parties[0].phone || '-';
+        }
+        if (branches[0]) {
+          inv.branch_name = branches[0].name;
+          inv.mandi_license_no = branches[0].mandi_license_no || 'APMC-MH-VERIFIED';
+        }
+      } catch (_) {}
+
+      inv.party_name = inv.party_name || 'Farmer';
+      inv.branch_name = inv.branch_name || (inv.branch_id === 'br-chikhali' ? 'Chikhali APMC Main Mandi' : (inv.branch_id === 'br-varvand' ? 'Varvand APMC Yard' : (inv.branch_id === 'br-sarola' ? 'Sarola Maruti APMC Yard' : 'Dhad APMC Yard')));
+      inv.mandi_license_no = inv.mandi_license_no || 'APMC-MH-VERIFIED';
+
+      // Amount in words helper
+      const ones = ['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
+      const tens = ['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+      function numWords(n) {
+        n = Math.round(n);
+        if (n === 0) return 'Zero';
+        if (n < 20) return ones[n];
+        if (n < 100) return tens[Math.floor(n/10)] + (n%10 ? ' ' + ones[n%10] : '');
+        if (n < 1000) return ones[Math.floor(n/100)] + ' Hundred' + (n%100 ? ' ' + numWords(n%100) : '');
+        if (n < 100000) return numWords(Math.floor(n/1000)) + ' Thousand' + (n%1000 ? ' ' + numWords(n%1000) : '');
+        if (n < 10000000) return numWords(Math.floor(n/100000)) + ' Lakh' + (n%100000 ? ' ' + numWords(n%100000) : '');
+        return numWords(Math.floor(n/10000000)) + ' Crore' + (n%10000000 ? ' ' + numWords(n%10000000) : '');
+      }
+      const amountInWords = 'Rupees ' + numWords(Math.round(inv.net_payable_amount || 0)) + ' Only';
+
+      const hamali = (inv.hamali_charge || 0).toFixed(2);
+      const gross = (inv.gross_amount || 0).toFixed(2);
+      const net = (inv.net_payable_amount || 0).toFixed(2);
+      const netQtl = (inv.net_quintals || 0).toFixed(2);
+      const rate = (inv.rate_per_quintal || 0).toFixed(2);
+      const netKg = Math.round(inv.net_weight_kg || inv.net_quintals * 100 || 0);
+      const grossKg = Math.round(inv.gross_weight_kg || 0);
+      const tareKg = Math.round(inv.vehicle_tare_kg || 0);
+      const isWeighbridge = (inv.weighment_mode || '').toUpperCase().includes('WEIGHBRIDGE');
+
+      // Build printable half-A4 (A5) slip — 2 copies on one A4 sheet
+      const slipHtml = `
+<!DOCTYPE html>
+<html lang="mr">
+<head>
+<meta charset="UTF-8">
+<title>Parchi #${inv.token_number}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;background:#e2e8f0;padding:12px 10px;font-size:11px;color:#0f172a;}
+  .no-print{display:block;}
+  @media print{
+    body{background:#fff!important;padding:0!important;margin:0!important;}
+    .no-print{display:none!important;}
+    @page{size:A4 portrait;margin:4mm 6mm;}
+    .slip-wrap{break-inside:avoid;}
+  }
+  .toolbar{max-width:800px;margin:0 auto 10px;background:#0f172a;color:#fff;padding:8px 14px;border-radius:8px;display:flex;justify-content:space-between;align-items:center;}
+  .btn-p{background:#059669;color:#fff;border:none;padding:7px 20px;font-size:13px;font-weight:800;border-radius:6px;cursor:pointer;}
+  .btn-c{background:#334155;color:#f1f5f9;border:none;padding:7px 14px;font-size:12px;font-weight:700;border-radius:6px;cursor:pointer;margin-left:8px;}
+  .a4-sheet{width:210mm;max-width:800px;margin:0 auto;background:#fff;padding:5mm 7mm;box-shadow:0 8px 20px rgba(0,0,0,.12);border-radius:4px;}
+  .slip-wrap{border:1.5px solid #0f172a;border-radius:6px;padding:8px 12px;margin-bottom:0;background:#fff;}
+  .slip-wrap + .slip-wrap{margin-top:0;}
+  .cut-line{display:flex;align-items:center;text-align:center;color:#64748b;font-size:9.5px;font-weight:700;letter-spacing:.5px;margin:5px 0;user-select:none;}
+  .cut-line::before,.cut-line::after{content:'';flex:1;border-bottom:1.5px dashed #94a3b8;}
+  .cut-line span{padding:0 10px;}
+  .hdr{border-bottom:1.5px solid #0f172a;padding-bottom:5px;margin-bottom:7px;position:relative;text-align:center;}
+  .badge{position:absolute;top:0;right:0;padding:2px 7px;border-radius:4px;font-size:9.5px;font-weight:800;text-transform:uppercase;}
+  .badge-f{background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0;}
+  .badge-m{background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;}
+  .firm{font-size:15px;font-weight:900;letter-spacing:.6px;}
+  .sub{font-size:9px;font-weight:700;color:#0284c7;margin-top:1px;}
+  .branch{font-size:9.5px;font-weight:600;color:#334155;margin-top:1px;}
+  .meta{display:flex;justify-content:space-between;align-items:center;background:#f1f5f9;padding:3px 7px;border-radius:4px;font-size:9.5px;font-weight:700;color:#1e293b;margin-top:4px;border:1px solid #e2e8f0;}
+  .dg{display:grid;grid-template-columns:1.3fr 1fr;gap:4px 10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:5px;padding:5px 9px;margin-bottom:7px;font-size:10.5px;line-height:1.45;}
+  table{width:100%;border-collapse:collapse;font-size:10.5px;margin-bottom:5px;}
+  th{background:#0f172a;color:#fff;font-weight:800;padding:4px 5px;font-size:10px;}
+  td{padding:5px 5px;border-bottom:1px solid #e2e8f0;}
+  .npr{background:#ecfdf5!important;border-top:2px solid #059669!important;border-bottom:2px solid #059669!important;}
+  .npc{padding:5px 7px!important;font-size:13px!important;font-weight:900!important;color:#047857!important;text-align:right;}
+  .wb{background:#fafaf9;border:1px solid #e7e5e4;border-radius:4px;padding:3px 7px;font-size:9.5px;font-weight:700;color:#44403c;margin-bottom:5px;}
+  .footer{display:flex;justify-content:space-between;align-items:flex-end;margin-top:5px;padding-top:5px;border-top:1px dashed #cbd5e1;font-size:9px;}
+  .sig{text-align:center;min-width:110px;border-top:1.2px solid #0f172a;padding-top:2px;font-size:9.5px;}
+</style>
+</head>
+<body>
+<div class="toolbar no-print">
+  <span style="font-size:13px;font-weight:800;">🧾 Mandi Parchi #${inv.token_number}</span>
+  <div>
+    <button class="btn-p" onclick="window.print()">🖨️ Print (Half-A4)</button>
+    <button class="btn-c" onclick="window.close()">✕ Close</button>
+  </div>
+</div>
+
+<div class="a4-sheet">
+  ${['शेतकरी प्रत (Farmer Copy)','badge-f','मंडी / कार्यालय प्रत (Office Copy)','badge-m'].reduce((_, __, i, arr) => {
+    if (i % 2 !== 0) return _;
+    const label = arr[i], cls = arr[i+1];
+    return _ + `
+  <div class="slip-wrap">
+    <div class="hdr">
+      <span class="badge ${cls}">🌾 ${label}</span>
+      <div class="firm">RAJARSHI SHAHU TRADING</div>
+      <div class="sub">COMMERCIAL GRAIN TRADING &amp; COMMISSION FIRM</div>
+      <div class="branch">${inv.branch_name} &bull; Mandi Lic: ${inv.mandi_license_no}</div>
+      <div class="meta">
+        <span>Token: <strong>#${inv.token_number}</strong></span>
+        <span>Date: <strong>${inv.invoice_date}</strong></span>
+        <span>Mode: <strong>${isWeighbridge ? 'धर्मकाटा' : 'यार्ड काटा'}</strong></span>
+      </div>
+    </div>
+    <div class="dg">
+      <div><strong>शेतकरी / Farmer:</strong> ${inv.party_name}<br>
+           <strong>गाव:</strong> ${inv.village || 'स्थानिक'} &nbsp;|&nbsp; <strong>Mobile:</strong> ${inv.phone || '-'}</div>
+      <div><strong>वाहन / Vehicle:</strong> ${inv.vehicle_number || '-'}<br>
+           <strong>Status:</strong> <span style="color:#059669;font-weight:800;">${inv.payout_status || 'PAID'}</span></div>
+    </div>
+    <table>
+      <thead><tr>
+        <th style="text-align:left;">शेतमाल / Commodity</th>
+        <th style="text-align:right;">निव्वळ वजन</th>
+        <th style="text-align:right;">दर ₹/Qtl</th>
+        <th style="text-align:right;">रक्कम ₹</th>
+      </tr></thead>
+      <tbody>
+        <tr>
+          <td style="font-weight:800;">${inv.commodity_name} <small style="color:#475569;">(${inv.quality_grade || 'Standard'})</small></td>
+          <td style="text-align:right;font-weight:800;">${netQtl} Qtl<br><small style="color:#64748b;">(${netKg} Kg)</small></td>
+          <td style="text-align:right;font-weight:800;">₹ ${rate}</td>
+          <td style="text-align:right;font-weight:800;">₹ ${gross}</td>
+        </tr>
+        <tr style="background:#fff1f2;color:#9f1239;">
+          <td colspan="3" style="font-weight:700;font-size:9.5px;">(-) हमाली कपात (₹25/100Kg):</td>
+          <td style="text-align:right;font-weight:800;font-size:10px;color:#be123c;">- ₹ ${hamali}</td>
+        </tr>
+        <tr class="npr">
+          <td colspan="2" style="font-weight:900;font-size:11px;color:#065f46;padding:5px 7px;">शेतकऱ्यास देय / NET PAYABLE:</td>
+          <td colspan="2" class="npc">₹ ${net}</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="wb"><strong>अक्षरी / Words:</strong> ${amountInWords}</div>
+    <div class="footer">
+      <div style="color:#64748b;line-height:1.3;">Sec 269ST Compliant &bull; Zero Mandi Cess<br>APMC Verified Computer Parchi v2.0</div>
+      <div style="display:flex;gap:24px;">
+        <div class="sig"><strong>शेतकऱ्याची सही / अंगठा</strong><br><span style="font-size:8px;color:#64748b;">(वजन व हिशोब मान्य)</span></div>
+        <div class="sig"><strong>मुनीम / कॅशियर सही</strong><br><span style="font-size:8px;color:#64748b;">(Rajarshi Shahu Trading)</span></div>
+      </div>
+    </div>
+  </div>` + (i === 0 ? `\n  <div class="cut-line"><span>✂ कापून वेगळे करा — Cut Here — ✂</span></div>` : '');
+  }, '')}
+</div>
+<script>
+  // Auto-print if opened as popup
+  if (window.opener || window.name === 'parchiPrint') {
+    window.addEventListener('load', function() { setTimeout(function(){ window.print(); }, 400); });
+  }
+</script>
+</body>
+</html>`;
+      return res.status(200).send(slipHtml);
+    } catch (err) {
+      return res.status(500).send('<html><body><p>Error: ' + err.message + '</p></body></html>');
     }
   }
 

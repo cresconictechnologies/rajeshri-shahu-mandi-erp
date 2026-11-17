@@ -4643,7 +4643,21 @@
                 const d = await res.json();
                 if (d.success) {
                     closeConfirmModal();
-                    viewParchiSlip(d.token_number);
+                    // Auto-dismiss the QC ticket that was consumed for this invoice
+                    const usedTicketNo = selectedQCTicketData ? selectedQCTicketData.ticket_no :
+                                         document.getElementById('inward_qc_ticket_no')?.value?.trim();
+                    if (usedTicketNo) {
+                        try {
+                            await fetch('/api/inspector/tickets/delete', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ ticket_no: usedTicketNo, action: 'delete' })
+                            });
+                            selectedQCTicketData = null;
+                            if (typeof fetchPendingQCTickets === 'function') fetchPendingQCTickets(true);
+                        } catch (_) {}
+                    }
+                    viewParchiSlip(d.token_number || (d.data && d.data[0] && d.data[0].token_number));
                 } else {
                     alert('Submission Error: ' + (d.error || 'Failed to generate invoice'));
                     btn.disabled = false;
@@ -4978,7 +4992,7 @@
         async function viewParchiSlip(token) {
             currentParchiToken = token;
             try {
-                const res = await fetch(`/api/branch/invoices/parchi/${token}?format=a4`);
+                const res = await fetch(`/api/portal?action=parchi&token_number=${encodeURIComponent(token)}&format=a4`);
                 const html = await res.text();
                 document.getElementById('parchiContent').innerHTML = html;
                 const isLocked = res.status === 403;
@@ -4997,10 +5011,8 @@
                 window.print();
                 return;
             }
-            const win = window.open(`/api/branch/invoices/parchi/${currentParchiToken}?format=${fmt}`, '_blank');
-            if (win) {
-                win.focus();
-            }
+            const win = window.open(`/api/portal?action=parchi&token_number=${encodeURIComponent(currentParchiToken)}&format=${fmt}`, '_blank');
+            if (win) win.focus();
         }
 
         function closeParchiModal() {

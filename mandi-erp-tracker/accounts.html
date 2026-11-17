@@ -16,7 +16,7 @@
                     window.location.replace('/login?redirect=' + encodeURIComponent(window.location.pathname + window.location.search));
                     return;
                 }
-                if (user.role !== 'ACCOUNTANT_HQ' && user.role !== 'SUPER_ADMIN') {
+                if (user.role !== 'ACCOUNTANT_HQ' && user.role !== 'SUPER_ADMIN' && user.role !== 'BRANCH_CASHIER') {
                     if (user.role === 'INSPECTOR' || user.role === 'QUALITY_INSPECTOR') window.location.replace('/app');
                     else window.location.replace('/portal');
                 }
@@ -5458,6 +5458,11 @@ _For inquiries or bank RTGS verification, please contact Central Accounts._`;
                     } else if (target === 'general') {
                         showTab('tab-ledgers');
                         switchLedgersSection('general-ledger');
+                    } else if (!target) {
+                        try {
+                            const u = JSON.parse(localStorage.getItem('mandi_user') || '{}');
+                            if (u.role === 'BRANCH_CASHIER') showTab('tab-ledgers');
+                        } catch(_) {}
                     }
                 } catch(e) {
                     console.error("Tab router error:", e);

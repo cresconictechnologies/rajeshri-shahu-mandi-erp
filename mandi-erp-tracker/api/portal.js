@@ -270,24 +270,24 @@ export default async function handler(req, res) {
         const tokenNumber = body.token_number || `${prefix}-${dateStr}-${randomNum}`;
         const invoiceId = body.id || `inv-${Date.now()}-${randomNum}`;
 
-        const grossKg = parseFloat(body.gross_weight_kg) || 0.0;
-        const tareKg = parseFloat(body.tare_weight_kg) || 0.0;
-        const grossWeight = parseFloat(body.gross_weight) || (grossKg > 0 ? grossKg : 0.0);
-        const netWeight = grossWeight - tareKg;
+        const grossKg = parseFloat(body.gross_weight_kg) || parseFloat(body.yard_weight_kg) || parseFloat(body.gross_weight) || 0.0;
+        const tareKg = parseFloat(body.vehicle_tare_kg) || parseFloat(body.tare_weight_kg) || 0.0;
+        const grossWeight = grossKg;
+        const netWeight = parseFloat(body.net_weight_kg) || (grossWeight - tareKg);
         const netQuintals = parseFloat(body.net_quintals) || (netWeight / 100.0);
         const ratePerQtl = parseFloat(body.rate_per_quintal) || 0.0;
-        const grossPayable = netQuintals * ratePerQtl;
-        const hamali = parseFloat(body.hamali_deduction) || 0.0;
+        const grossPayable = parseFloat(body.gross_amount) || (netQuintals * ratePerQtl);
+        const hamali = parseFloat(body.hamali_charge) || parseFloat(body.hamali_deduction) || (netQuintals * 25.0);
         const weighbridge = parseFloat(body.weighbridge_deduction) || 0.0;
         const totalDeductions = hamali + weighbridge;
         const netPayable = parseFloat(body.net_payable_amount) || (grossPayable - totalDeductions);
         const weighmentMode = (body.weighment_mode || 'CASH').toUpperCase();
-        const payoutStatus = weighmentMode === 'CASH' ? 'PAID' : (body.payout_status || 'PENDING');
+        const payoutStatus = (weighmentMode === 'CASH' || weighmentMode === 'MANUAL_YARD' || (body.payout_mode || '').toUpperCase() === 'CASH') ? 'PAID' : (body.payout_status || 'PENDING');
 
         // Store party details and ensure party exists in parties table to satisfy FK constraint
         const partyId = body.party_id || `party-${Date.now()}`;
-        const partyNameLocal = body.party_name || 'Farmer';
-        const partyPhoneLocal = body.party_phone || '9999999999';
+        const partyNameLocal = body.party_name || body.farmer_name || body.rtgs_beneficiary_name || 'Farmer';
+        const partyPhoneLocal = body.party_phone || body.farmer_phone || '9999999999';
         const partyTypeLocal = (body.party_type || 'FARMER').toUpperCase();
 
         try {
@@ -513,7 +513,27 @@ export default async function handler(req, res) {
         }
       } catch (_) {}
 
+      // Multi-layer fallback for farmer details
+      if (!inv.party_name || inv.party_name === 'Farmer') {
+        if (inv.rtgs_beneficiary_name) inv.party_name = inv.rtgs_beneficiary_name;
+      }
+      if ((!inv.party_name || inv.party_name === 'Farmer') && inv.qc_ticket_no) {
+        try {
+          const qcResp = await fetch(`${supabaseUrl}/rest/v1/quality_inspections?ticket_no=eq.${encodeURIComponent(inv.qc_ticket_no)}&limit=1`, { headers });
+          if (qcResp.ok) {
+            const qcRows = await qcResp.json();
+            if (qcRows && qcRows[0]) {
+              inv.party_name = qcRows[0].farmer_name || inv.party_name;
+              inv.village = qcRows[0].farmer_village || qcRows[0].village || inv.village;
+              inv.phone = qcRows[0].farmer_phone || inv.phone;
+            }
+          }
+        } catch (_) {}
+      }
+
       inv.party_name = inv.party_name || 'Farmer';
+      inv.village = inv.village || 'स्थानिक';
+      inv.phone = inv.phone || '-';
       inv.branch_name = inv.branch_name || (inv.branch_id === 'br-chikhali' ? 'Chikhali APMC Main Mandi' : (inv.branch_id === 'br-varvand' ? 'Varvand APMC Yard' : (inv.branch_id === 'br-sarola' ? 'Sarola Maruti APMC Yard' : 'Dhad APMC Yard')));
       inv.mandi_license_no = inv.mandi_license_no || 'APMC-MH-VERIFIED';
 

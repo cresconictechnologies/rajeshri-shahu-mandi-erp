@@ -4220,11 +4220,13 @@
             fetchRecentInvoices(currentBranchId);
             loadRegisteredFarmers();
 
-            // Settings tab deep-link route check
+            // Settings and Ledger tab deep-link route check
             const urlParams = new URLSearchParams(window.location.search);
             const tabParam = urlParams.get('tab');
             if (tabParam === 'settings' || window.location.pathname.includes('/settings') || window.location.hash === '#settings' || window.location.hash === '#tab-settings') {
                 setTimeout(() => showTab('tab-settings'), 80);
+            } else if (tabParam === 'ledger' || tabParam === 'branch-ledger' || tabParam === 'tab-branch-ledger' || window.location.hash === '#tab-branch-ledger' || window.location.hash === '#branch-ledger') {
+                setTimeout(() => showTab('tab-branch-ledger'), 80);
             }
         }
 
@@ -4571,6 +4573,37 @@
             }
 
             // Build Review Card HTML
+            window.lastConfirmedInwardData = {
+                party_id: partyId,
+                party_name: farmerName,
+                party_phone: farmerPhone,
+                village: farmerVillage,
+                commodity_name: commodity,
+                weighment_mode: mode,
+                gross_weight_kg: grossWeight,
+                gross_weight: grossWeight,
+                vehicle_tare_kg: tareWeight,
+                tare_weight_kg: tareWeight,
+                net_weight_kg: netWeight,
+                net_quintals: netQuintals,
+                rate_per_quintal: rate,
+                gross_amount: grossProduceVal,
+                hamali_charge: hamaliDeduction,
+                hamali_deduction: hamaliDeduction,
+                net_payable_amount: netPayable,
+                rounded_net_payable: roundedPayout,
+                payout_mode: settleMode,
+                branch_id: document.getElementById('branch_id')?.value || currentBranchId || 'br-chikhali',
+                qc_ticket_no: selectedQCTicketData ? selectedQCTicketData.ticket_no : (document.getElementById('inward_qc_ticket_no')?.value?.trim() || ''),
+                vehicle_number: document.getElementById('vehicle_number')?.value || '',
+                quality_grade: document.getElementById('quality_grade')?.value || 'Standard Grade',
+                invoice_date: document.getElementById('invoice_date')?.value || new Date().toISOString().slice(0, 10),
+                rtgs_beneficiary_name: farmerName,
+                rtgs_bank_name: document.getElementById('rtgs_bank_name')?.value || farmerBank,
+                rtgs_account_no: document.getElementById('rtgs_account_no')?.value || farmerAccount,
+                rtgs_ifsc_code: document.getElementById('rtgs_ifsc_code')?.value || farmerIfsc
+            };
+
             const reviewHtml = `
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
                     <!-- Farmer Info -->
@@ -4634,11 +4667,17 @@
 
             const form = document.getElementById('unifiedPurchaseForm');
             const formData = new FormData(form);
+            const formObj = {};
+            formData.forEach((v, k) => { formObj[k] = v; });
+
+            // Merge form data with verified calculated values from review modal
+            const payload = Object.assign({}, formObj, window.lastConfirmedInwardData || {});
 
             try {
                 const res = await fetch('/api/branch/invoices/create', {
                     method: 'POST',
-                    body: formData
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
                 });
                 const d = await res.json();
                 if (d.success) {
@@ -6210,11 +6249,13 @@ window.onload = function() {
             fetchRecentInvoices(currentBranchId);
             loadRegisteredFarmers();
 
-            // Settings tab deep-link route check
+            // Settings and Ledger tab deep-link route check
             const urlParams = new URLSearchParams(window.location.search);
             const tabParam = urlParams.get('tab');
             if (tabParam === 'settings' || window.location.pathname.includes('/settings') || window.location.hash === '#settings' || window.location.hash === '#tab-settings') {
                 setTimeout(() => showTab('tab-settings'), 80);
+            } else if (tabParam === 'ledger' || tabParam === 'branch-ledger' || tabParam === 'tab-branch-ledger' || window.location.hash === '#tab-branch-ledger' || window.location.hash === '#branch-ledger') {
+                setTimeout(() => showTab('tab-branch-ledger'), 80);
             }
             recalculateOutward();
             const buyerSel = document.getElementById('outward_buyer_id');

@@ -1593,18 +1593,18 @@
                         <div class="form-group">
                             <label>Commodity Dispatched *</label>
                             <select id="outward_commodity_name" name="commodity_name" required onchange="recalculateOutward()">
-                                <option value="Soybean">Soybean / Soyabean (Yellow)</option>
-                                <option value="Dollar (Chickpea)">Dollar (Chickpea / Kabuli Chana)</option>
-                                <option value="Rajma (Kidney Beans)">Rajma (Red Kidney Beans)</option>
-                                <option value="Rajma (Varun)">Rajma (Varun)</option>
-                                <option value="Virat (Chickpea)">Virat (Chickpea)</option>
-                                <option value="Rajma (Brazil)">Rajma (Brazil)</option>
-                                <option value="Bengal Gram / Red Gram">Bengal Gram / Red Gram</option>
-                                <option value="Besan (Gram Flour)">Besan (Gram Flour)</option>
-                                <option value="Chana (Desi)">Chana (Desi / Harbhara)</option>
-                                <option value="Toor (White)">Tur / Arhar (Toor)</option>
-                                <option value="Wheat (Sharbati)">Wheat (Lokwan / Sharbati)</option>
-                                <option value="Maize (Yellow)">Maize (Yellow / Makka)</option>
+                                <option value="Soyabean (Yellow)">Soyabean (Yellow / सोयाबीन)</option>
+                                <option value="Dollar Chana (Kabuli / डॉलर चना)">Dollar Chana (Kabuli / डॉलर चना)</option>
+                                <option value="Rajma (Red Kidney Beans / राजमा)">Rajma (Red Kidney Beans / राजमा)</option>
+                                <option value="Rajma Varun (राजमा वरुण)">Rajma Varun (राजमा वरुण)</option>
+                                <option value="Virat Chana (Chickpea / विराट चना)">Virat Chana (Chickpea / विराट चना)</option>
+                                <option value="Rajma Brazil (राजमा ब्राझील)">Rajma Brazil (राजमा ब्राझील)</option>
+                                <option value="Bengal Gram / Red Gram (लाल चना)">Bengal Gram / Red Gram (लाल चना)</option>
+                                <option value="Besan (Gram Flour / बेसन)">Besan (Gram Flour / बेसन)</option>
+                                <option value="Chana (Desi) / Harbhara (हरभरा)">Chana (Desi) / Harbhara (हरभरा)</option>
+                                <option value="Tur / Arhar (तूर)">Tur / Arhar (तूर)</option>
+                                <option value="Wheat (Lokwan)">Wheat (Lokwan / गहू)</option>
+                                <option value="Maize (Makka)">Maize (Makka / मका)</option>
                             </select>
                         </div>
 
@@ -3545,21 +3545,13 @@
     <script src="/static/js/live_sync.js"></script>
     <script type="application/json" id="daily-rates-data">
 [
-  {"commodity_name":"Soybean","min_rate_per_qtl":6500.0,"target_rate_per_qtl":6850.0,"max_rate_per_qtl":7500.0,"standard_moisture_pct":10.0,"grade":"STANDARD"},
   {"commodity_name":"Soyabean (Yellow / सोयाबीन)","min_rate_per_qtl":6500.0,"target_rate_per_qtl":6850.0,"max_rate_per_qtl":7500.0,"standard_moisture_pct":10.0,"grade":"STANDARD"},
-  {"commodity_name":"Dollar (Chickpea)","min_rate_per_qtl":7400.0,"target_rate_per_qtl":7560.0,"max_rate_per_qtl":7600.0,"standard_moisture_pct":10.0,"grade":"FAQ"},
   {"commodity_name":"Dollar Chana (Kabuli / डॉलर चना)","min_rate_per_qtl":7400.0,"target_rate_per_qtl":7560.0,"max_rate_per_qtl":7600.0,"standard_moisture_pct":10.0,"grade":"FAQ"},
-  {"commodity_name":"Rajma (Kidney Beans)","min_rate_per_qtl":7000.0,"target_rate_per_qtl":7650.0,"max_rate_per_qtl":8200.0,"standard_moisture_pct":10.0,"grade":"STANDARD"},
   {"commodity_name":"Rajma (Red Kidney Beans / राजमा)","min_rate_per_qtl":7000.0,"target_rate_per_qtl":7650.0,"max_rate_per_qtl":8200.0,"standard_moisture_pct":10.0,"grade":"STANDARD"},
-  {"commodity_name":"Rajma (Varun)","min_rate_per_qtl":5000.0,"target_rate_per_qtl":5450.0,"max_rate_per_qtl":6000.0,"standard_moisture_pct":10.0,"grade":"STANDARD"},
   {"commodity_name":"Rajma (Varun / वरुण राजमा)","min_rate_per_qtl":5000.0,"target_rate_per_qtl":5450.0,"max_rate_per_qtl":6000.0,"standard_moisture_pct":10.0,"grade":"STANDARD"},
-  {"commodity_name":"Virat (Chickpea)","min_rate_per_qtl":6400.0,"target_rate_per_qtl":6800.0,"max_rate_per_qtl":7200.0,"standard_moisture_pct":10.0,"grade":"STANDARD"},
   {"commodity_name":"Virat (Chickpea / विराट चना)","min_rate_per_qtl":6400.0,"target_rate_per_qtl":6800.0,"max_rate_per_qtl":7200.0,"standard_moisture_pct":10.0,"grade":"STANDARD"},
-  {"commodity_name":"Rajma (Brazil)","min_rate_per_qtl":5200.0,"target_rate_per_qtl":5620.0,"max_rate_per_qtl":6000.0,"standard_moisture_pct":10.0,"grade":"STANDARD"},
   {"commodity_name":"Rajma (Brazil / ब्राझील राजमा)","min_rate_per_qtl":5200.0,"target_rate_per_qtl":5620.0,"max_rate_per_qtl":6000.0,"standard_moisture_pct":10.0,"grade":"STANDARD"},
-  {"commodity_name":"Bengal Gram / Red Gram","min_rate_per_qtl":6000.0,"target_rate_per_qtl":6300.0,"max_rate_per_qtl":6800.0,"standard_moisture_pct":10.0,"grade":"STANDARD"},
   {"commodity_name":"Bengal Gram / Red Gram (लाल चना)","min_rate_per_qtl":6000.0,"target_rate_per_qtl":6300.0,"max_rate_per_qtl":6800.0,"standard_moisture_pct":10.0,"grade":"STANDARD"},
-  {"commodity_name":"Besan (Gram Flour)","min_rate_per_qtl":4200.0,"target_rate_per_qtl":4475.0,"max_rate_per_qtl":4800.0,"standard_moisture_pct":10.0,"grade":"STANDARD"},
   {"commodity_name":"Besan (Gram Flour / बेसन)","min_rate_per_qtl":4200.0,"target_rate_per_qtl":4475.0,"max_rate_per_qtl":4800.0,"standard_moisture_pct":10.0,"grade":"STANDARD"},
   {"commodity_name":"Chana (Desi) / Harbhara (हरभरा)","min_rate_per_qtl":5600.0,"target_rate_per_qtl":5900.0,"max_rate_per_qtl":6400.0,"standard_moisture_pct":10.0,"grade":"FAQ"},
   {"commodity_name":"Tur / Arhar (तूर)","min_rate_per_qtl":7800.0,"target_rate_per_qtl":8200.0,"max_rate_per_qtl":8800.0,"standard_moisture_pct":11.0,"grade":"FAQ"},

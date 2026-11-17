@@ -2300,20 +2300,53 @@
             });
         }
 
+        
+        function canonicalizeCommodityName(name) {
+            if (!name) return 'Soyabean (Yellow)';
+            const n = String(name).trim();
+            const low = n.toLowerCase();
+            if (low.includes('brazil')) return 'Rajma Brazil (राजमा ब्राझील)';
+            if (low.includes('varun')) return 'Rajma Varun (राजमा वरुण)';
+            if (low.includes('virat')) return 'Virat Chana (Chickpea / विराट चना)';
+            if (low.includes('dollar') || low.includes('kabuli')) return 'Dollar Chana (Kabuli / डॉलर चना)';
+            if (low.includes('bengal') || low.includes('red gram')) return 'Bengal Gram / Red Gram (लाल चना)';
+            if (low.includes('besan')) return 'Besan (Gram Flour / बेसन)';
+            if (low.includes('kidney') || (low.includes('rajma') && !low.includes('varun') && !low.includes('brazil'))) return 'Rajma (Red Kidney Beans / राजमा)';
+            if (low.includes('soya') || low.includes('soybean')) return 'Soyabean (Yellow)';
+            if (low.includes('desi') || low.includes('harbhara') || (low.includes('chana') && !low.includes('dollar') && !low.includes('virat'))) return 'Chana (Desi) / Harbhara (हरभरा)';
+            if (low.includes('tur') || low.includes('toor') || low.includes('arhar')) return 'Tur / Arhar (तूर)';
+            if (low.includes('wheat') || low.includes('sharbati') || low.includes('lokwan') || low.includes('gehu')) return 'Wheat (Lokwan)';
+            if (low.includes('maize') || low.includes('makka') || low.includes('corn')) return 'Maize (Makka)';
+            if (low.includes('mustard') || low.includes('rayda') || low.includes('sarson') || low.includes('mohari')) return 'Mustard (Rayda)';
+            if (low.includes('cotton') || low.includes('kapas')) return 'Cotton / Kapas (कापूस)';
+            if (low.includes('groundnut') || low.includes('bhuimug') || low.includes('peanut')) return 'Groundnut / Bhuimug (भुईमूग)';
+            if (low.includes('moong') || low.includes('mung')) return 'Moong (Green Gram)';
+            if (low.includes('urad') || low.includes('udid')) return 'Urad (Black Gram)';
+            if (low.includes('masoor') || low.includes('lentil')) return 'Masoor (Red Lentil / मसूर)';
+            if (low.includes('jowar') || low.includes('sorghum') || low.includes('jwari')) return 'Jowar / Sorghum (ज्वारी)';
+            if (low.includes('bajra') || low.includes('millet')) return 'Bajra / Pearl Millet (बाजरी)';
+            return n;
+        }
+
         const ALL_DEFAULT_COMMODITIES = [
             { id: 'comm-soyabean', name: 'Soyabean (Yellow)', standard_moisture_pct: 10.0, hsn_code: '1201', min: 6500, target: 6850, max: 7500 },
             { id: 'comm-wheat', name: 'Wheat (Lokwan)', standard_moisture_pct: 10.0, hsn_code: '1001', min: 2750, target: 2950, max: 3300 },
             { id: 'comm-chana-desi', name: 'Chana (Desi) / Harbhara (हरभरा)', standard_moisture_pct: 10.0, hsn_code: '0713', min: 5600, target: 5900, max: 6400 },
-            { id: 'comm-dollar-chana', name: 'Dollar Chana (Kabuli / डॉलर चना)', standard_moisture_pct: 10.0, hsn_code: '0713', min: 9500, target: 10200, max: 11000 },
+            { id: 'comm-dollar-chana', name: 'Dollar Chana (Kabuli / डॉलर चना)', standard_moisture_pct: 10.0, hsn_code: '0713', min: 7400, target: 7560, max: 7600 },
             { id: 'comm-tur', name: 'Tur / Arhar (तूर)', standard_moisture_pct: 10.0, hsn_code: '0713', min: 7800, target: 8200, max: 8800 },
             { id: 'comm-moong', name: 'Moong (Green Gram)', standard_moisture_pct: 10.0, hsn_code: '0713', min: 7400, target: 7800, max: 8400 },
             { id: 'comm-urad', name: 'Urad (Black Gram)', standard_moisture_pct: 10.0, hsn_code: '0713', min: 7200, target: 7600, max: 8200 },
             { id: 'comm-masoor', name: 'Masoor (Red Lentil / मसूर)', standard_moisture_pct: 10.0, hsn_code: '0713', min: 5700, target: 6000, max: 6500 },
-            { id: 'comm-rajma', name: 'Rajma (Red Kidney Beans / राजमा)', standard_moisture_pct: 10.0, hsn_code: '0713', min: 8200, target: 8700, max: 9400 },
+            { id: 'comm-rajma', name: 'Rajma (Red Kidney Beans / राजमा)', standard_moisture_pct: 10.0, hsn_code: '0713', min: 7000, target: 7650, max: 8200 },
+            { id: 'comm-rajma-varun', name: 'Rajma Varun (राजमा वरुण)', standard_moisture_pct: 10.0, hsn_code: '0713', min: 5000, target: 5450, max: 6000 },
+            { id: 'comm-rajma-brazil', name: 'Rajma Brazil (राजमा ब्राझील)', standard_moisture_pct: 10.0, hsn_code: '0713', min: 5200, target: 5620, max: 6000 },
+            { id: 'comm-virat-chana', name: 'Virat Chana (Chickpea / विराट चना)', standard_moisture_pct: 10.0, hsn_code: '0713', min: 6400, target: 6800, max: 7200 },
+            { id: 'comm-besan', name: 'Besan (Gram Flour / बेसन)', standard_moisture_pct: 10.0, hsn_code: '1106', min: 4200, target: 4475, max: 4800 },
+            { id: 'comm-bengal-gram', name: 'Bengal Gram / Red Gram (लाल चना)', standard_moisture_pct: 10.0, hsn_code: '0713', min: 6000, target: 6300, max: 6800 },
             { id: 'comm-cotton', name: 'Cotton / Kapas (कापूस)', standard_moisture_pct: 8.0, hsn_code: '5201', min: 6800, target: 7100, max: 7500 },
             { id: 'comm-groundnut', name: 'Groundnut / Bhuimug (भुईमूग)', standard_moisture_pct: 8.0, hsn_code: '1202', min: 5800, target: 6100, max: 6600 },
             { id: 'comm-mustard', name: 'Mustard (Rayda)', standard_moisture_pct: 8.0, hsn_code: '1207', min: 4800, target: 5100, max: 5500 },
-            { id: 'comm-maize', name: 'Maize (Makka)', standard_moisture_pct: 12.0, hsn_code: '1005', min: 2100, target: 2300, max: 2550 },
+            { id: 'comm-maize', name: 'Maize (Makka)', standard_moisture_pct: 12.0, hsn_code: '1005', min: 2100, target: 2250, max: 2400 },
             { id: 'comm-jowar', name: 'Jowar / Sorghum (ज्वारी)', standard_moisture_pct: 11.0, hsn_code: '1007', min: 2800, target: 3050, max: 3350 },
             { id: 'comm-bajra', name: 'Bajra / Pearl Millet (बाजरी)', standard_moisture_pct: 12.0, hsn_code: '1008', min: 2150, target: 2350, max: 2600 }
         ];
@@ -2374,16 +2407,16 @@
             if (Array.isArray(commodities)) {
                 commodities.forEach(c => {
                     if (c && c.name) {
-                        const key = c.name.trim().toLowerCase();
-                        if (!namesMap.has(key)) namesMap.set(key, c.name.trim());
+                        const canon = canonicalizeCommodityName(c.name);
+                        namesMap.set(canon, canon);
                     }
                 });
             }
             if (Array.isArray(rates)) {
                 rates.forEach(r => {
                     if (r && r.commodity_name) {
-                        const key = r.commodity_name.trim().toLowerCase();
-                        if (!namesMap.has(key)) namesMap.set(key, r.commodity_name.trim());
+                        const canon = canonicalizeCommodityName(r.commodity_name);
+                        namesMap.set(canon, canon);
                     }
                 });
             }
@@ -2408,15 +2441,15 @@
             if (!container) return;
             container.innerHTML = '';
 
-            // STRICT DEDUPLICATION: Only render each commodity once
+            // STRICT DEDUPLICATION: Only render each commodity once using canonical name
             const seen = new Set();
             const uniqueRates = [];
             (Array.isArray(rates) ? rates : []).forEach(c => {
                 if (!c || !c.commodity_name) return;
-                const key = c.commodity_name.trim().toLowerCase();
-                if (!seen.has(key)) {
-                    seen.add(key);
-                    uniqueRates.push(c);
+                const canon = canonicalizeCommodityName(c.commodity_name);
+                if (!seen.has(canon)) {
+                    seen.add(canon);
+                    uniqueRates.push({ ...c, commodity_name: canon });
                 }
             });
 

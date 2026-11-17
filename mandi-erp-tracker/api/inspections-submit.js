@@ -2,6 +2,33 @@
 // Rajarshi Shahu Trading Mandi ERP (Commercial Mandi ERP v1.0)
 // Powered by Cresconic Technologies
 
+function canonicalizeCommodityName(name) {
+  if (!name) return 'Soyabean (Yellow)';
+  const n = String(name).trim();
+  const low = n.toLowerCase();
+  if (low.includes('brazil')) return 'Rajma Brazil (राजमा ब्राझील)';
+  if (low.includes('varun')) return 'Rajma Varun (राजमा वरुण)';
+  if (low.includes('virat')) return 'Virat Chana (Chickpea / विराट चना)';
+  if (low.includes('dollar') || low.includes('kabuli')) return 'Dollar Chana (Kabuli / डॉलर चना)';
+  if (low.includes('bengal') || low.includes('red gram')) return 'Bengal Gram / Red Gram (लाल चना)';
+  if (low.includes('besan')) return 'Besan (Gram Flour / बेसन)';
+  if (low.includes('kidney') || (low.includes('rajma') && !low.includes('varun') && !low.includes('brazil'))) return 'Rajma (Red Kidney Beans / राजमा)';
+  if (low.includes('soya') || low.includes('soybean')) return 'Soyabean (Yellow)';
+  if (low.includes('desi') || low.includes('harbhara') || (low.includes('chana') && !low.includes('dollar') && !low.includes('virat'))) return 'Chana (Desi) / Harbhara (हरभरा)';
+  if (low.includes('tur') || low.includes('toor') || low.includes('arhar')) return 'Tur / Arhar (तूर)';
+  if (low.includes('wheat') || low.includes('sharbati') || low.includes('lokwan') || low.includes('gehu')) return 'Wheat (Lokwan)';
+  if (low.includes('maize') || low.includes('makka') || low.includes('corn')) return 'Maize (Makka)';
+  if (low.includes('mustard') || low.includes('rayda') || low.includes('sarson') || low.includes('mohari')) return 'Mustard (Rayda)';
+  if (low.includes('cotton') || low.includes('kapas')) return 'Cotton / Kapas (कापूस)';
+  if (low.includes('groundnut') || low.includes('bhuimug') || low.includes('peanut')) return 'Groundnut / Bhuimug (भुईमूग)';
+  if (low.includes('moong') || low.includes('mung')) return 'Moong (Green Gram)';
+  if (low.includes('urad') || low.includes('udid')) return 'Urad (Black Gram)';
+  if (low.includes('masoor') || low.includes('lentil')) return 'Masoor (Red Lentil / मसूर)';
+  if (low.includes('jowar') || low.includes('sorghum') || low.includes('jwari')) return 'Jowar / Sorghum (ज्वारी)';
+  if (low.includes('bajra') || low.includes('millet')) return 'Bajra / Pearl Millet (बाजरी)';
+  return n;
+}
+
 export default async function handler(req, res) {
   res.setHeader('Content-Type', 'application/json');
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -111,7 +138,7 @@ export default async function handler(req, res) {
         farmer_name: (body.farmer_name || 'Walk-in Farmer').trim(),
         farmer_phone: body.farmer_phone || '',
         farmer_village: body.farmer_village || body.village || '',
-        commodity_name: body.commodity_name || 'Soyabean (Yellow)',
+        commodity_name: canonicalizeCommodityName(body.commodity_name || 'Soyabean (Yellow)'),
         moisture_pct: parseFloat(body.moisture_pct) || 10.0,
         moisture_cut_kg: parseFloat(body.moisture_cut_kg) || 0.0,
         karda_pct: parseFloat(body.karda_pct) || 0.0,

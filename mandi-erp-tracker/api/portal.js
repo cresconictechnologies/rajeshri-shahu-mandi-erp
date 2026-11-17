@@ -1,6 +1,33 @@
 // Consolidated Multi-Panel Web ERP Serverless Handler
 // Rajarshi Shahu Trading Mandi ERP — Powered by Cresconic Technologies
 
+function canonicalizeCommodityName(name) {
+  if (!name) return 'Soyabean (Yellow)';
+  const n = String(name).trim();
+  const low = n.toLowerCase();
+  if (low.includes('brazil')) return 'Rajma Brazil (राजमा ब्राझील)';
+  if (low.includes('varun')) return 'Rajma Varun (राजमा वरुण)';
+  if (low.includes('virat')) return 'Virat Chana (Chickpea / विराट चना)';
+  if (low.includes('dollar') || low.includes('kabuli')) return 'Dollar Chana (Kabuli / डॉलर चना)';
+  if (low.includes('bengal') || low.includes('red gram')) return 'Bengal Gram / Red Gram (लाल चना)';
+  if (low.includes('besan')) return 'Besan (Gram Flour / बेसन)';
+  if (low.includes('kidney') || (low.includes('rajma') && !low.includes('varun') && !low.includes('brazil'))) return 'Rajma (Red Kidney Beans / राजमा)';
+  if (low.includes('soya') || low.includes('soybean')) return 'Soyabean (Yellow)';
+  if (low.includes('desi') || low.includes('harbhara') || (low.includes('chana') && !low.includes('dollar') && !low.includes('virat'))) return 'Chana (Desi) / Harbhara (हरभरा)';
+  if (low.includes('tur') || low.includes('toor') || low.includes('arhar')) return 'Tur / Arhar (तूर)';
+  if (low.includes('wheat') || low.includes('sharbati') || low.includes('lokwan') || low.includes('gehu')) return 'Wheat (Lokwan)';
+  if (low.includes('maize') || low.includes('makka') || low.includes('corn')) return 'Maize (Makka)';
+  if (low.includes('mustard') || low.includes('rayda') || low.includes('sarson') || low.includes('mohari')) return 'Mustard (Rayda)';
+  if (low.includes('cotton') || low.includes('kapas')) return 'Cotton / Kapas (कापूस)';
+  if (low.includes('groundnut') || low.includes('bhuimug') || low.includes('peanut')) return 'Groundnut / Bhuimug (भुईमूग)';
+  if (low.includes('moong') || low.includes('mung')) return 'Moong (Green Gram)';
+  if (low.includes('urad') || low.includes('udid')) return 'Urad (Black Gram)';
+  if (low.includes('masoor') || low.includes('lentil')) return 'Masoor (Red Lentil / मसूर)';
+  if (low.includes('jowar') || low.includes('sorghum') || low.includes('jwari')) return 'Jowar / Sorghum (ज्वारी)';
+  if (low.includes('bajra') || low.includes('millet')) return 'Bajra / Pearl Millet (बाजरी)';
+  return n;
+}
+
 export default async function handler(req, res) {
   res.setHeader('Content-Type', 'application/json');
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -318,7 +345,7 @@ export default async function handler(req, res) {
           branch_id: branchId,
           token_number: tokenNumber,
           party_id: partyId,
-          commodity_name: body.commodity_name || 'Soyabean (Yellow)',
+          commodity_name: canonicalizeCommodityName(body.commodity_name || 'Soyabean (Yellow)'),
           hsn_code: body.hsn_code || (String(body.commodity_name || '').toLowerCase().includes('chickpea') ? '0713' : '1201'),
           quality_grade: body.quality_grade || 'Standard Grade',
           vehicle_number: body.vehicle_number || null,
@@ -1507,7 +1534,7 @@ export default async function handler(req, res) {
           branch_id: body.branch_id || 'br-chikhali',
           buyer_id: body.buyer_id || `buyer-${Date.now()}`,
           buyer_name: body.buyer_name || 'Buyer Mill',
-          commodity_name: body.commodity_name || 'Soyabean',
+          commodity_name: canonicalizeCommodityName(body.commodity_name || 'Soyabean (Yellow)'),
           vehicle_number: body.vehicle_number || '',
           driver_name: body.driver_name || '',
           net_quintals: netQtl,
@@ -1791,6 +1818,9 @@ export default async function handler(req, res) {
       branches.forEach(b => { branchMap[b.id] = b.name; });
 
       for (const inv of invoices) {
+        if (inv.commodity_name) {
+          inv.commodity_name = canonicalizeCommodityName(inv.commodity_name);
+        }
         const qtl = parseFloat(inv.net_quintals) || 0.0;
         const amt = parseFloat(inv.net_payable_amount) || 0.0;
         totalQuintals += qtl;
@@ -1859,13 +1889,13 @@ export default async function handler(req, res) {
         ledgers = ledgers.filter(l => !l.branch_id || l.branch_id === branchId || l.branch_id.toLowerCase() === branchId.toLowerCase());
       }
 
-      // Deduplicate rates: keep only latest row per commodity
+      // Deduplicate rates: keep only latest row per canonical commodity
       const latestRatesMap = {};
       for (const r of (Array.isArray(rawRates) ? rawRates : [])) {
         if (!r.commodity_name) continue;
-        const normKey = r.commodity_name.trim().toLowerCase();
-        if (!latestRatesMap[normKey]) {
-          latestRatesMap[normKey] = r;
+        const canonName = canonicalizeCommodityName(r.commodity_name);
+        if (!latestRatesMap[canonName]) {
+          latestRatesMap[canonName] = { ...r, commodity_name: canonName };
         }
       }
 
@@ -1890,15 +1920,16 @@ export default async function handler(req, res) {
 
       for (const c of (Array.isArray(commodities) ? commodities : [])) {
         if (!c.name) continue;
-        const normKey = c.name.trim().toLowerCase();
-        if (!latestRatesMap[normKey]) {
+        const canonName = canonicalizeCommodityName(c.name);
+        if (!latestRatesMap[canonName]) {
           let b = { min: 3500, target: 4000, max: 4500 };
+          const low = canonName.toLowerCase();
           for (const [k, v] of Object.entries(baselineDefaults)) {
-            if (normKey.includes(k)) { b = v; break; }
+            if (low.includes(k)) { b = v; break; }
           }
-          latestRatesMap[normKey] = {
-            id: `rate-${c.id || normKey}`,
-            commodity_name: c.name,
+          latestRatesMap[canonName] = {
+            id: `rate-${c.id || canonName.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
+            commodity_name: canonName,
             min_rate_per_qtl: b.min,
             target_rate_per_qtl: b.target,
             max_rate_per_qtl: b.max,
@@ -1909,6 +1940,22 @@ export default async function handler(req, res) {
           };
         }
       }
+
+      // Canonicalize commodities list for accounts
+      const dedupedAccountsCommodities = [];
+      const seenAccComms = new Set();
+      for (const c of (Array.isArray(commodities) ? commodities : [])) {
+        if (!c.name) continue;
+        const cName = canonicalizeCommodityName(c.name);
+        if (!seenAccComms.has(cName)) {
+          seenAccComms.add(cName);
+          dedupedAccountsCommodities.push({ ...c, name: cName });
+        }
+      }
+
+      // Canonicalize invoice and outward commodity names
+      invoices.forEach(inv => { if (inv.commodity_name) inv.commodity_name = canonicalizeCommodityName(inv.commodity_name); });
+      outwardOrders.forEach(o => { if (o.commodity_name) o.commodity_name = canonicalizeCommodityName(o.commodity_name); });
 
       const rates = Object.values(latestRatesMap);
 
@@ -1956,7 +2003,18 @@ export default async function handler(req, res) {
         invoices: invoices,
         outward_orders: outwardOrders,
         inspectors: inspectors,
-        commodities: commodities,
+        commodities: (() => {
+        const seen = new Set();
+        const list = [];
+        for (const c of (Array.isArray(commodities) ? commodities : [])) {
+          const cName = canonicalizeCommodityName(c.name);
+          if (!seen.has(cName)) {
+            seen.add(cName);
+            list.push({ ...c, name: cName });
+          }
+        }
+        return list;
+      })(),
         ledgers: enrichedLedgers,
         parties: partiesList,
         branches: branchesList,

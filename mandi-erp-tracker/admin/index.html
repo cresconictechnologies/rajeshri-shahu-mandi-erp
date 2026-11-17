@@ -862,10 +862,10 @@
             ],
             commodities: [
                 { id: 'comm-soya', name: 'Soyabean (Yellow)', hsn_code: '1201', standard_moisture_pct: 10.0, is_active: true },
-                { id: 'comm-chana', name: 'Chana (Desi)', hsn_code: '0713', standard_moisture_pct: 10.0, is_active: true },
-                { id: 'comm-toor', name: 'Toor (White)', hsn_code: '0713', standard_moisture_pct: 11.0, is_active: true },
-                { id: 'comm-wheat', name: 'Wheat (Sharbati)', hsn_code: '1001', standard_moisture_pct: 12.0, is_active: true },
-                { id: 'comm-maize', name: 'Maize (Yellow)', hsn_code: '1005', standard_moisture_pct: 12.0, is_active: true },
+                { id: 'comm-chana', name: 'Chana (Desi) / Harbhara (हरभरा)', hsn_code: '0713', standard_moisture_pct: 10.0, is_active: true },
+                { id: 'comm-tur', name: 'Tur / Arhar (तूर)', hsn_code: '0713', standard_moisture_pct: 11.0, is_active: true },
+                { id: 'comm-wheat', name: 'Wheat (Lokwan)', hsn_code: '1001', standard_moisture_pct: 12.0, is_active: true },
+                { id: 'comm-maize', name: 'Maize (Makka)', hsn_code: '1005', standard_moisture_pct: 12.0, is_active: true },
                 { id: 'comm-mustard', name: 'Mustard (Rayda)', hsn_code: '1207', standard_moisture_pct: 8.0, is_active: true }
             ],
             invoices: [],
@@ -950,10 +950,15 @@
             const tbody = document.getElementById('commoditiesTableBody');
             if (!tbody) return;
             tbody.innerHTML = '';
-            commodities.forEach(c => {
+            const seen = new Set();
+            (commodities || []).forEach(c => {
+                if (!c || !c.name) return;
+                const cName = canonicalizeCommodityName(c.name);
+                if (seen.has(cName)) return;
+                seen.add(cName);
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td><strong>${c.name}</strong></td>
+                    <td><strong>${cName}</strong></td>
                     <td><code style="font-weight:700;">${c.hsn_code || '1201'}</code></td>
                     <td>${c.standard_moisture_pct}%</td>
                     <td><span class="badge-pill badge-green">Active</span></td>
@@ -1098,6 +1103,34 @@
         }
 
                 // Render Live Commodity Stock Cards (Zero Stock Hidden)
+        
+        function canonicalizeCommodityName(name) {
+            if (!name) return 'Soyabean (Yellow)';
+            const n = String(name).trim();
+            const low = n.toLowerCase();
+            if (low.includes('brazil')) return 'Rajma Brazil (राजमा ब्राझील)';
+            if (low.includes('varun')) return 'Rajma Varun (राजमा वरुण)';
+            if (low.includes('virat')) return 'Virat Chana (Chickpea / विराट चना)';
+            if (low.includes('dollar') || low.includes('kabuli')) return 'Dollar Chana (Kabuli / डॉलर चना)';
+            if (low.includes('bengal') || low.includes('red gram')) return 'Bengal Gram / Red Gram (लाल चना)';
+            if (low.includes('besan')) return 'Besan (Gram Flour / बेसन)';
+            if (low.includes('kidney') || (low.includes('rajma') && !low.includes('varun') && !low.includes('brazil'))) return 'Rajma (Red Kidney Beans / राजमा)';
+            if (low.includes('soya') || low.includes('soybean')) return 'Soyabean (Yellow)';
+            if (low.includes('desi') || low.includes('harbhara') || (low.includes('chana') && !low.includes('dollar') && !low.includes('virat'))) return 'Chana (Desi) / Harbhara (हरभरा)';
+            if (low.includes('tur') || low.includes('toor') || low.includes('arhar')) return 'Tur / Arhar (तूर)';
+            if (low.includes('wheat') || low.includes('sharbati') || low.includes('lokwan') || low.includes('gehu')) return 'Wheat (Lokwan)';
+            if (low.includes('maize') || low.includes('makka') || low.includes('corn')) return 'Maize (Makka)';
+            if (low.includes('mustard') || low.includes('rayda') || low.includes('sarson') || low.includes('mohari')) return 'Mustard (Rayda)';
+            if (low.includes('cotton') || low.includes('kapas')) return 'Cotton / Kapas (कापूस)';
+            if (low.includes('groundnut') || low.includes('bhuimug') || low.includes('peanut')) return 'Groundnut / Bhuimug (भुईमूग)';
+            if (low.includes('moong') || low.includes('mung')) return 'Moong (Green Gram)';
+            if (low.includes('urad') || low.includes('udid')) return 'Urad (Black Gram)';
+            if (low.includes('masoor') || low.includes('lentil')) return 'Masoor (Red Lentil / मसूर)';
+            if (low.includes('jowar') || low.includes('sorghum') || low.includes('jwari')) return 'Jowar / Sorghum (ज्वारी)';
+            if (low.includes('bajra') || low.includes('millet')) return 'Bajra / Pearl Millet (बाजरी)';
+            return n;
+        }
+
         function renderCommodityStockGrid(invoices) {
             const grid = document.getElementById('commodityStockGrid');
             const badge = document.getElementById('badgeCommInStock');
@@ -1115,7 +1148,7 @@
 
             const commMap = {};
             invoices.forEach(inv => {
-                const cName = inv.commodity_name || 'Standard Commodity';
+                const cName = canonicalizeCommodityName(inv.commodity_name);
                 const qtl = parseFloat(inv.net_quintals) || 0;
                 const amt = parseFloat(inv.net_payable_amount) || 0;
                 if (!commMap[cName]) {

@@ -29,6 +29,7 @@ export default async function handler(req, res) {
     else if (req.url.includes('/tickets') || req.url.includes('/inspections')) action = 'tickets';
     else if (req.url.includes('/overrides')) action = 'overrides';
     else if (req.url.includes('/outward')) action = 'outward';
+    else if (req.url.includes('/parchi')) action = 'parchi';
     else if (req.url.includes('/staff/update-all') || req.url.includes('/staff')) action = 'staff_update_all';
     else if (req.url.includes('/admin/profile/update') || req.url.includes('/profile/update')) action = 'profile_update';
     else if (req.url.includes('/admin/settings') || req.url.includes('/settings')) action = 'settings';
@@ -494,6 +495,62 @@ export default async function handler(req, res) {
       }
       const inv = rows[0];
 
+      // Branch Cashier Access Control: cashier cannot view/print other branches' slips
+      const reqBranchId = (req.query.branch_id || req.query.user_branch_id || req.headers['x-branch-id'] || body.branch_id || '').trim();
+      const reqRole = (req.query.role || req.query.user_role || req.headers['x-user-role'] || '').trim().toUpperCase();
+
+      const isBranchRestricted = reqBranchId && !['all', 'admin', 'super_admin', 'accountant', 'hq'].includes(reqBranchId.toLowerCase());
+      if (isBranchRestricted && inv.branch_id && inv.branch_id.toLowerCase() !== reqBranchId.toLowerCase()) {
+        return res.status(403).send(`<!DOCTYPE html>
+<html lang="mr">
+<head>
+<meta charset="UTF-8">
+<title>403 Forbidden — Branch Restricted</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; background: #fff1f2; color: #9f1239; padding: 40px 20px; text-align: center; }
+  .box { max-width: 520px; margin: 40px auto; background: #fff; border: 2px solid #fecdd3; border-radius: 8px; padding: 24px; box-shadow: 0 4px 14px rgba(0,0,0,0.06); }
+  h2 { font-size: 18px; margin-bottom: 12px; color: #be123c; }
+  p { font-size: 13px; line-height: 1.6; color: #475569; margin-bottom: 14px; }
+  .btn { background: #be123c; color: #fff; border: none; padding: 8px 20px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="box">
+  <h2>⛔ अनधिकृत पावती (Cross-Branch Access Restricted)</h2>
+  <p>ही पावती दुसऱ्या शाखेची (<strong>${inv.branch_id}</strong>) आहे. शाखा कॅशियर केवळ त्यांच्या स्वतःच्या शाखेच्या पावत्या पाहू व प्रिंट करू शकतात.</p>
+  <p style="font-size: 11px; color: #64748b;">(Requested Token: #${tokenNum} &bull; Invoice Branch: ${inv.branch_id} &bull; Your Yard: ${reqBranchId})</p>
+  <button class="btn" onclick="window.close()">✕ विंडो बंद करा (Close Window)</button>
+</div>
+</body>
+</html>`);
+      }
+
+      // Lock slip if rate override is pending approval
+      if (inv.rate_override_status === 'PENDING' && (isBranchRestricted || reqRole === 'BRANCH_CASHIER')) {
+        return res.status(403).send(`<!DOCTYPE html>
+<html lang="mr">
+<head>
+<meta charset="UTF-8">
+<title>403 Locked — Rate Override Pending</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; background: #fffbeb; color: #92400e; padding: 40px 20px; text-align: center; }
+  .box { max-width: 520px; margin: 40px auto; background: #fff; border: 2px solid #fde68a; border-radius: 8px; padding: 24px; box-shadow: 0 4px 14px rgba(0,0,0,0.06); }
+  h2 { font-size: 18px; margin-bottom: 12px; color: #b45309; }
+  p { font-size: 13px; line-height: 1.6; color: #475569; margin-bottom: 14px; }
+  .btn { background: #b45309; color: #fff; border: none; padding: 8px 20px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="box">
+  <h2>🔒 पावती लॉक आहे (Parchi Locked — Approval Pending)</h2>
+  <p>या पावतीचा दर दैनंदिन मंजूर दरापेक्षा वेगळा असल्याने <strong>मुख्यालय (Head Office / Central Accounts)</strong> च्या मंजुरीसाठी प्रलंबित आहे. मंजुरी मिळाल्याशिवाय ही पावती प्रिंट करता येणार नाही.</p>
+  <p style="font-size: 11px; color: #64748b;">(Token: #${tokenNum} &bull; Reason: ${inv.rate_override_reason || 'Rate Corridor Override'})</p>
+  <button class="btn" onclick="window.close()">✕ विंडो बंद करा (Close Window)</button>
+</div>
+</body>
+</html>`);
+      }
+
       // Enrich with party and branch names
       try {
         const [pResp, bResp] = await Promise.all([
@@ -541,8 +598,8 @@ export default async function handler(req, res) {
       const ones = ['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
       const tens = ['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
       function numWords(n) {
-        n = Math.round(n);
-        if (n === 0) return 'Zero';
+        n = Math.round(Number(n) || 0);
+        if (n <= 0) return 'Zero';
         if (n < 20) return ones[n];
         if (n < 100) return tens[Math.floor(n/10)] + (n%10 ? ' ' + ones[n%10] : '');
         if (n < 1000) return ones[Math.floor(n/100)] + ' Hundred' + (n%100 ? ' ' + numWords(n%100) : '');
@@ -550,69 +607,195 @@ export default async function handler(req, res) {
         if (n < 10000000) return numWords(Math.floor(n/100000)) + ' Lakh' + (n%100000 ? ' ' + numWords(n%100000) : '');
         return numWords(Math.floor(n/10000000)) + ' Crore' + (n%10000000 ? ' ' + numWords(n%10000000) : '');
       }
-      const amountInWords = 'Rupees ' + numWords(Math.round(inv.net_payable_amount || 0)) + ' Only';
 
-      const hamali = (inv.hamali_charge || 0).toFixed(2);
-      const gross = (inv.gross_amount || 0).toFixed(2);
-      const net = (inv.net_payable_amount || 0).toFixed(2);
-      const netQtl = (inv.net_quintals || 0).toFixed(2);
-      const rate = (inv.rate_per_quintal || 0).toFixed(2);
-      const netKg = Math.round(inv.net_weight_kg || inv.net_quintals * 100 || 0);
-      const grossKg = Math.round(inv.gross_weight_kg || 0);
-      const tareKg = Math.round(inv.vehicle_tare_kg || 0);
-      const isWeighbridge = (inv.weighment_mode || '').toUpperCase().includes('WEIGHBRIDGE');
+      const rawGross = parseFloat(inv.gross_amount);
+      const rawNet = parseFloat(inv.net_payable_amount);
+      const rawHamali = parseFloat(inv.hamali_charge);
+      const rawRate = parseFloat(inv.rate_per_quintal);
+      const rawNetQtl = parseFloat(inv.net_quintals);
+      const rawNetKg = parseFloat(inv.net_weight_kg);
+      const rawGrossKg = parseFloat(inv.gross_weight_kg);
+      const rawTareKg = parseFloat(inv.vehicle_tare_kg);
 
-      // Build printable half-A4 (A5) slip — 2 copies on one A4 sheet
+      const netQtlNum = !isNaN(rawNetQtl) && rawNetQtl >= 0 ? rawNetQtl : (!isNaN(rawNetKg) ? rawNetKg / 100.0 : 0.0);
+      const rateNum = !isNaN(rawRate) && rawRate >= 0 ? rawRate : 0.0;
+      const grossNum = !isNaN(rawGross) && rawGross >= 0 ? rawGross : (netQtlNum * rateNum);
+      const hamaliNum = !isNaN(rawHamali) && rawHamali >= 0 ? rawHamali : (netQtlNum * 25.0);
+      const netNum = !isNaN(rawNet) && rawNet >= 0 ? rawNet : Math.max(0, grossNum - hamaliNum);
+
+      const hamali = hamaliNum.toFixed(2);
+      const gross = grossNum.toFixed(2);
+      const net = netNum.toFixed(2);
+      const netQtl = netQtlNum.toFixed(2);
+      const rate = rateNum.toFixed(2);
+      const netKg = Math.round(!isNaN(rawNetKg) && rawNetKg >= 0 ? rawNetKg : (netQtlNum * 100));
+      const grossKg = Math.round(!isNaN(rawGrossKg) && rawGrossKg >= 0 ? rawGrossKg : (netKg + (!isNaN(rawTareKg) ? rawTareKg : 0)));
+      const tareKg = Math.round(!isNaN(rawTareKg) && rawTareKg >= 0 ? rawTareKg : 0);
+      const isWeighbridge = String(inv.weighment_mode || '').toUpperCase().includes('WEIGHBRIDGE');
+      const amountInWords = 'Rupees ' + numWords(Math.round(netNum)) + ' Only';
+
+      // Thermal 80mm single slip format
+      if (fmt === 'thermal') {
+        const thermalHtml = `<!DOCTYPE html>
+<html lang="mr">
+<head>
+<meta charset="UTF-8">
+<title>Parchi #${inv.token_number} (Thermal 80mm)</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;background:#fff;padding:8px;font-size:12px;color:#000;width:76mm;margin:0 auto;}
+  .no-print{display:block;}
+  @media print{
+    body{padding:0;width:100%;}
+    .no-print{display:none!important;}
+    @page{size:80mm auto;margin:2mm 3mm;}
+  }
+  .toolbar{background:#0f172a;color:#fff;padding:6px 10px;border-radius:6px;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:11px;}
+  .btn-p{background:#059669;color:#fff;border:none;padding:5px 12px;font-size:11px;font-weight:800;border-radius:4px;cursor:pointer;}
+  .btn-c{background:#334155;color:#fff;border:none;padding:5px 8px;font-size:11px;font-weight:700;border-radius:4px;cursor:pointer;margin-left:4px;}
+  .center{text-align:center;}
+  .firm{font-size:15px;font-weight:900;text-align:center;}
+  .sub{font-size:9.5px;font-weight:700;text-align:center;}
+  .dash{border-top:1px dashed #000;margin:6px 0;}
+  .row{display:flex;justify-content:space-between;margin:3px 0;font-size:11.5px;}
+  .net-box{background:#f0fdf4;border:1.5px solid #059669;padding:6px;margin:6px 0;text-align:center;}
+  .net-val{font-size:17px;font-weight:900;color:#047857;}
+  .sig{text-align:center;margin-top:16px;border-top:1px solid #000;padding-top:3px;font-size:10px;}
+</style>
+</head>
+<body>
+<div class="toolbar no-print">
+  <span>🧾 Parchi #${inv.token_number}</span>
+  <div>
+    <button class="btn-p" onclick="window.print()">🖨️ Print</button>
+    <button class="btn-c" onclick="if(typeof closeParchiModal==='function'){closeParchiModal();}else{window.close();}">✕</button>
+  </div>
+</div>
+<div class="firm">RAJARSHI SHAHU TRADING</div>
+<div class="sub">COMMERCIAL GRAIN TRADING &amp; COMMISSION FIRM</div>
+<div class="sub">${inv.branch_name} &bull; Lic: ${inv.mandi_license_no}</div>
+<div class="dash"></div>
+<div class="row"><span>Token: <strong>#${inv.token_number}</strong></span><span>Date: <strong>${inv.invoice_date}</strong></span></div>
+<div class="row"><span>Mode: <strong>${isWeighbridge ? 'धर्मकाटा' : 'यार्ड काटा'}</strong></span><span>Status: <strong>${inv.payout_status || 'PAID'}</strong></span></div>
+<div class="dash"></div>
+<div style="font-size:11.5px;line-height:1.4;">
+  <strong>शेतकरी:</strong> ${inv.party_name}<br>
+  <strong>गाव:</strong> ${inv.village || 'स्थानिक'} | <strong>Mob:</strong> ${inv.phone || '-'}<br>
+  <strong>वाहन:</strong> ${inv.vehicle_number || '-'}
+</div>
+<div class="dash"></div>
+<div class="row" style="font-weight:800;"><span>माल / Commodity</span><span>वजन / Weight</span></div>
+<div class="row"><span>${inv.commodity_name} (${inv.quality_grade || 'Standard'})</span><span>${netQtl} Qtl (${netKg} Kg)</span></div>
+<div class="row"><span>दर / Rate: ₹${rate}/Qtl</span><span>रक्कम: ₹${gross}</span></div>
+<div class="row" style="color:#b91c1c;"><span>(-) हमाली:</span><span>-₹${hamali}</span></div>
+<div class="net-box">
+  <div style="font-size:10.5px;font-weight:800;color:#065f46;">शेतकऱ्यास देय / NET PAYABLE</div>
+  <div class="net-val">₹ ${net}</div>
+</div>
+<div style="font-size:10px;font-weight:700;">अक्षरी: ${amountInWords}</div>
+<div class="dash"></div>
+<div style="display:flex;justify-content:space-between;margin-top:14px;">
+  <div class="sig" style="width:45%;">शेतकरी सही/अंगठा</div>
+  <div class="sig" style="width:45%;">कॅशियर सही</div>
+</div>
+<div style="text-align:center;font-size:8.5px;color:#555;margin-top:8px;">Sec 269ST Compliant &bull; Zero Mandi Cess</div>
+<script>
+  if (window.opener || window.name === 'parchiPrint') {
+    window.addEventListener('load', function() { setTimeout(function(){ window.print(); }, 400); });
+  }
+</script>
+</body>
+</html>`;
+        return res.status(200).send(thermalHtml);
+      }
+
+      // Build printable full-page A4 dual-copy slip — Farmer Copy + Mandi Office Copy filling the entire A4 page
       const slipHtml = `
 <!DOCTYPE html>
 <html lang="mr">
 <head>
 <meta charset="UTF-8">
-<title>Parchi #${inv.token_number}</title>
+<title>Parchi #${inv.token_number} - Rajarshi Shahu Trading</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
-  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;background:#e2e8f0;padding:12px 10px;font-size:11px;color:#0f172a;}
+  html,body{background:#e2e8f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;font-size:11px;color:#0f172a;}
+  body{padding:12px 10px;}
   .no-print{display:block;}
-  @media print{
-    body{background:#fff!important;padding:0!important;margin:0!important;}
-    .no-print{display:none!important;}
-    @page{size:A4 portrait;margin:4mm 6mm;}
-    .slip-wrap{break-inside:avoid;}
-  }
-  .toolbar{max-width:800px;margin:0 auto 10px;background:#0f172a;color:#fff;padding:8px 14px;border-radius:8px;display:flex;justify-content:space-between;align-items:center;}
-  .btn-p{background:#059669;color:#fff;border:none;padding:7px 20px;font-size:13px;font-weight:800;border-radius:6px;cursor:pointer;}
-  .btn-c{background:#334155;color:#f1f5f9;border:none;padding:7px 14px;font-size:12px;font-weight:700;border-radius:6px;cursor:pointer;margin-left:8px;}
-  .a4-sheet{width:210mm;max-width:800px;margin:0 auto;background:#fff;padding:5mm 7mm;box-shadow:0 8px 20px rgba(0,0,0,.12);border-radius:4px;}
-  .slip-wrap{border:1.5px solid #0f172a;border-radius:6px;padding:8px 12px;margin-bottom:0;background:#fff;}
-  .slip-wrap + .slip-wrap{margin-top:0;}
-  .cut-line{display:flex;align-items:center;text-align:center;color:#64748b;font-size:9.5px;font-weight:700;letter-spacing:.5px;margin:5px 0;user-select:none;}
+  .toolbar{max-width:820px;margin:0 auto 10px;background:#0f172a;color:#fff;padding:8px 16px;border-radius:8px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 4px 12px rgba(15,23,42,0.15);}
+  .btn-p{background:#059669;color:#fff;border:none;padding:8px 20px;font-size:13px;font-weight:800;border-radius:6px;cursor:pointer;}
+  .btn-p:hover{background:#047857;}
+  .btn-c{background:#334155;color:#f1f5f9;border:none;padding:8px 14px;font-size:12px;font-weight:700;border-radius:6px;cursor:pointer;margin-left:8px;}
+  .btn-c:hover{background:#475569;}
+  .a4-sheet{width:210mm;max-width:820px;min-height:288mm;margin:0 auto;background:#fff;padding:4mm 6mm;box-shadow:0 8px 20px rgba(0,0,0,.12);border-radius:4px;display:flex;flex-direction:column;justify-content:space-between;box-sizing:border-box;}
+  .slip-wrap{height:138mm;max-height:138mm;border:1.5px solid #0f172a;border-radius:6px;padding:8px 12px;background:#fff;display:flex;flex-direction:column;justify-content:space-between;box-sizing:border-box;overflow:hidden;}
+  .cut-line{height:8mm;display:flex;align-items:center;text-align:center;color:#64748b;font-size:9.5px;font-weight:700;letter-spacing:.5px;margin:1mm 0;user-select:none;}
   .cut-line::before,.cut-line::after{content:'';flex:1;border-bottom:1.5px dashed #94a3b8;}
   .cut-line span{padding:0 10px;}
-  .hdr{border-bottom:1.5px solid #0f172a;padding-bottom:5px;margin-bottom:7px;position:relative;text-align:center;}
-  .badge{position:absolute;top:0;right:0;padding:2px 7px;border-radius:4px;font-size:9.5px;font-weight:800;text-transform:uppercase;}
+  .hdr{border-bottom:1.5px solid #0f172a;padding-bottom:4px;margin-bottom:0;position:relative;text-align:center;}
+  .badge{position:absolute;top:0;right:0;padding:2px 8px;border-radius:4px;font-size:9.5px;font-weight:800;text-transform:uppercase;}
   .badge-f{background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0;}
   .badge-m{background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;}
-  .firm{font-size:15px;font-weight:900;letter-spacing:.6px;}
-  .sub{font-size:9px;font-weight:700;color:#0284c7;margin-top:1px;}
-  .branch{font-size:9.5px;font-weight:600;color:#334155;margin-top:1px;}
-  .meta{display:flex;justify-content:space-between;align-items:center;background:#f1f5f9;padding:3px 7px;border-radius:4px;font-size:9.5px;font-weight:700;color:#1e293b;margin-top:4px;border:1px solid #e2e8f0;}
-  .dg{display:grid;grid-template-columns:1.3fr 1fr;gap:4px 10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:5px;padding:5px 9px;margin-bottom:7px;font-size:10.5px;line-height:1.45;}
-  table{width:100%;border-collapse:collapse;font-size:10.5px;margin-bottom:5px;}
-  th{background:#0f172a;color:#fff;font-weight:800;padding:4px 5px;font-size:10px;}
-  td{padding:5px 5px;border-bottom:1px solid #e2e8f0;}
+  .firm{font-size:16.5px;font-weight:900;letter-spacing:.6px;}
+  .sub{font-size:9.5px;font-weight:700;color:#0284c7;margin-top:1px;}
+  .branch{font-size:10px;font-weight:600;color:#334155;margin-top:1px;}
+  .meta{display:flex;justify-content:space-between;align-items:center;background:#f1f5f9;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;color:#1e293b;margin-top:4px;border:1px solid #e2e8f0;}
+  .dg{display:grid;grid-template-columns:1.35fr 1fr;gap:4px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:5px;padding:6px 10px;margin-bottom:0;font-size:11.5px;line-height:1.45;}
+  table{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:0;}
+  th{background:#0f172a;color:#fff;font-weight:800;padding:5px 6px;font-size:10.5px;}
+  td{padding:6px 6px;border-bottom:1px solid #e2e8f0;}
   .npr{background:#ecfdf5!important;border-top:2px solid #059669!important;border-bottom:2px solid #059669!important;}
-  .npc{padding:5px 7px!important;font-size:13px!important;font-weight:900!important;color:#047857!important;text-align:right;}
-  .wb{background:#fafaf9;border:1px solid #e7e5e4;border-radius:4px;padding:3px 7px;font-size:9.5px;font-weight:700;color:#44403c;margin-bottom:5px;}
-  .footer{display:flex;justify-content:space-between;align-items:flex-end;margin-top:5px;padding-top:5px;border-top:1px dashed #cbd5e1;font-size:9px;}
-  .sig{text-align:center;min-width:110px;border-top:1.2px solid #0f172a;padding-top:2px;font-size:9.5px;}
+  .npc{padding:6px 8px!important;font-size:16px!important;font-weight:900!important;color:#047857!important;text-align:right;}
+  .wb{background:#fafaf9;border:1px solid #e7e5e4;border-radius:4px;padding:4px 8px;font-size:10.5px;font-weight:700;color:#334155;margin-bottom:0;}
+  .footer{display:flex;justify-content:space-between;align-items:flex-end;margin-top:0;padding-top:4px;border-top:1px dashed #cbd5e1;font-size:9.5px;}
+  .sig{text-align:center;min-width:140px;border-top:1.2px solid #0f172a;padding-top:3px;font-size:10px;}
+  @media print{
+    html,body{background:#fff!important;padding:0!important;margin:0!important;width:100%!important;height:100%!important;}
+    .no-print{display:none!important;}
+    @page{size:A4 portrait;margin:4mm 6mm;}
+    .a4-sheet{
+      width:100%!important;
+      max-width:100%!important;
+      height:288mm!important;
+      max-height:288mm!important;
+      padding:0!important;
+      margin:0!important;
+      box-shadow:none!important;
+      border-radius:0!important;
+      display:flex!important;
+      flex-direction:column!important;
+      justify-content:space-between!important;
+      page-break-after:avoid!important;
+      break-after:avoid!important;
+      page-break-inside:avoid!important;
+      break-inside:avoid!important;
+      overflow:hidden!important;
+    }
+    .slip-wrap{
+      height:138mm!important;
+      max-height:138mm!important;
+      min-height:138mm!important;
+      box-sizing:border-box!important;
+      break-inside:avoid!important;
+      page-break-inside:avoid!important;
+      overflow:hidden!important;
+      display:flex!important;
+      flex-direction:column!important;
+      justify-content:space-between!important;
+      padding:8px 12px!important;
+    }
+    .cut-line{
+      height:8mm!important;
+      margin:1mm 0!important;
+    }
+  }
 </style>
 </head>
 <body>
 <div class="toolbar no-print">
   <span style="font-size:13px;font-weight:800;">🧾 Mandi Parchi #${inv.token_number}</span>
   <div>
-    <button class="btn-p" onclick="window.print()">🖨️ Print (Half-A4)</button>
-    <button class="btn-c" onclick="window.close()">✕ Close</button>
+    <button class="btn-p" onclick="if(typeof printParchiPopup === 'function' && !window.opener){ printParchiPopup('a4'); } else { window.print(); }">🖨️ Print A4 (Dual Copy)</button>
+    <button class="btn-c" onclick="if(typeof closeParchiModal === 'function'){ closeParchiModal(); } else { window.close(); }">✕ Close</button>
   </div>
 </div>
 
@@ -654,21 +837,21 @@ export default async function handler(req, res) {
           <td style="text-align:right;font-weight:800;">₹ ${gross}</td>
         </tr>
         <tr style="background:#fff1f2;color:#9f1239;">
-          <td colspan="3" style="font-weight:700;font-size:9.5px;">(-) हमाली कपात (₹25/100Kg):</td>
-          <td style="text-align:right;font-weight:800;font-size:10px;color:#be123c;">- ₹ ${hamali}</td>
+          <td colspan="3" style="font-weight:700;font-size:10px;">(-) हमाली कपात (₹25/100Kg):</td>
+          <td style="text-align:right;font-weight:800;font-size:10.5px;color:#be123c;">- ₹ ${hamali}</td>
         </tr>
         <tr class="npr">
-          <td colspan="2" style="font-weight:900;font-size:11px;color:#065f46;padding:5px 7px;">शेतकऱ्यास देय / NET PAYABLE:</td>
+          <td colspan="2" style="font-weight:900;font-size:11.5px;color:#065f46;padding:6px 8px;">शेतकऱ्यास देय / NET PAYABLE:</td>
           <td colspan="2" class="npc">₹ ${net}</td>
         </tr>
       </tbody>
     </table>
     <div class="wb"><strong>अक्षरी / Words:</strong> ${amountInWords}</div>
     <div class="footer">
-      <div style="color:#64748b;line-height:1.3;">Sec 269ST Compliant &bull; Zero Mandi Cess<br>APMC Verified Computer Parchi v2.0</div>
-      <div style="display:flex;gap:24px;">
-        <div class="sig"><strong>शेतकऱ्याची सही / अंगठा</strong><br><span style="font-size:8px;color:#64748b;">(वजन व हिशोब मान्य)</span></div>
-        <div class="sig"><strong>मुनीम / कॅशियर सही</strong><br><span style="font-size:8px;color:#64748b;">(Rajarshi Shahu Trading)</span></div>
+      <div style="color:#64748b;line-height:1.35;">Sec 269ST Compliant &bull; Zero Mandi Cess<br>APMC Verified Computer Parchi v2.0</div>
+      <div style="display:flex;gap:28px;">
+        <div class="sig"><strong>शेतकऱ्याची सही / अंगठा</strong><br><span style="font-size:8.5px;color:#64748b;">(वजन व हिशोब मान्य)</span></div>
+        <div class="sig"><strong>मुनीम / कॅशियर सही</strong><br><span style="font-size:8.5px;color:#64748b;">(Rajarshi Shahu Trading)</span></div>
       </div>
     </div>
   </div>` + (i === 0 ? `\n  <div class="cut-line"><span>✂ कापून वेगळे करा — Cut Here — ✂</span></div>` : '');
@@ -836,10 +1019,14 @@ export default async function handler(req, res) {
   if (action === 'users') {
     if (req.method === 'GET') {
       try {
-        const resp = await fetch(`${supabaseUrl}/rest/v1/users?select=*&order=created_at.asc`, { headers });
+        const resp = await fetch(`${supabaseUrl}/rest/v1/users?select=id,username,full_name,role,branch_id,phone,is_active,created_at,updated_at&order=created_at.asc`, { headers });
         if (!resp.ok) return res.status(200).json({ success: true, users: [] });
         const rows = await resp.json();
-        return res.status(200).json({ success: true, users: Array.isArray(rows) ? rows : [] });
+        const safeUsers = (Array.isArray(rows) ? rows : []).map(u => {
+          const { password_hash, password, ...rest } = u;
+          return rest;
+        });
+        return res.status(200).json({ success: true, users: safeUsers });
       } catch (err) {
         return res.status(200).json({ success: true, users: [], error: err.message });
       }
@@ -1272,7 +1459,8 @@ export default async function handler(req, res) {
   if (action === 'outward') {
     if (req.method === 'GET') {
       try {
-        const resp = await fetch(`${supabaseUrl}/rest/v1/outward_orders?select=*&order=created_at.desc&limit=100`, { headers });
+        const branchFilter = req.query.branch_id && req.query.branch_id !== 'all' ? `&branch_id=eq.${encodeURIComponent(req.query.branch_id)}` : '';
+        const resp = await fetch(`${supabaseUrl}/rest/v1/outward_orders?select=*${branchFilter}&order=created_at.desc&limit=100`, { headers });
         if (!resp.ok) return res.status(200).json({ success: true, orders: [] });
         const rows = await resp.json();
         return res.status(200).json({ success: true, orders: Array.isArray(rows) ? rows : [] });
@@ -1339,6 +1527,59 @@ export default async function handler(req, res) {
 
         if (!resp.ok) return res.status(resp.status).json({ success: false, error: await resp.text() });
         return res.status(200).json({ success: true, message: `Challan #${challanNo} generated!`, challan: payload });
+      } catch (err) {
+        return res.status(500).json({ success: false, error: err.message });
+      }
+    }
+  }
+
+  // =========================================================================
+  // 8B. RATE OVERRIDES & EXCEPTION AUDIT ACTION
+  // =========================================================================
+  if (action === 'overrides') {
+    if (req.method === 'POST') {
+      try {
+        const userRole = (body.role || body.user_role || req.headers['x-user-role'] || '').toUpperCase();
+        const reqBranchId = (body.branch_id || req.query.branch_id || req.headers['x-branch-id'] || '').trim();
+
+        // Security boundary: Cashiers/Branch staff cannot approve rate corridor overrides
+        if (userRole === 'BRANCH_CASHIER' || userRole === 'CASHIER' || (reqBranchId && !['all', 'admin', 'super_admin', 'accountant', 'hq'].includes(reqBranchId.toLowerCase()))) {
+          return res.status(403).json({ success: false, error: 'Unauthorized: Branch staff cannot approve rate overrides. Rate corridor exceptions require Head Office (Central Accounts) authorization.' });
+        }
+
+        const invId = body.invoice_id || body.id;
+        const decision = (body.decision || '').toUpperCase();
+        const reason = body.accountant_reason || body.reason || 'Verified by HQ Central Accounts';
+
+        if (!invId) {
+          return res.status(400).json({ success: false, error: 'invoice_id is required' });
+        }
+
+        const newStatus = decision === 'APPROVE' ? 'APPROVED' : (decision === 'REJECT' ? 'REJECTED' : 'PENDING');
+        const updateData = {
+          rate_override_status: newStatus,
+          rate_override_reason: reason,
+          updated_at: new Date().toISOString()
+        };
+
+        const resp = await fetch(`${supabaseUrl}/rest/v1/purchase_invoices?id=eq.${encodeURIComponent(invId)}`, {
+          method: 'PATCH',
+          headers: { ...headers, 'Prefer': 'return=representation' },
+          body: JSON.stringify(updateData)
+        });
+
+        if (!resp.ok) {
+          return res.status(resp.status).json({ success: false, error: await resp.text() });
+        }
+
+        // Browser form redirect
+        const accept = req.headers.accept || '';
+        if (accept.includes('text/html')) {
+          res.setHeader('Location', '/accounts/');
+          return res.status(302).end();
+        }
+
+        return res.status(200).json({ success: true, message: `Invoice override ${newStatus} successfully!`, status: newStatus });
       } catch (err) {
         return res.status(500).json({ success: false, error: err.message });
       }
@@ -1528,7 +1769,7 @@ export default async function handler(req, res) {
         fetch(`${supabaseUrl}/rest/v1/purchase_invoices?select=*&order=created_at.desc&limit=150`, { headers }),
         fetch(`${supabaseUrl}/rest/v1/quality_inspections?select=*&order=created_at.desc&limit=100`, { headers }),
         fetch(`${supabaseUrl}/rest/v1/branches?select=*&order=created_at.asc`, { headers }),
-        fetch(`${supabaseUrl}/rest/v1/users?select=*&order=created_at.asc`, { headers }),
+        fetch(`${supabaseUrl}/rest/v1/users?select=id,username,full_name,role,branch_id,phone,is_active,created_at,updated_at&order=created_at.asc`, { headers }),
         fetch(`${supabaseUrl}/rest/v1/commodities?select=*&order=name.asc`, { headers }),
         fetch(`${supabaseUrl}/rest/v1/parties?select=id,name,party_type`, { headers })
       ]);
@@ -1560,6 +1801,8 @@ export default async function handler(req, res) {
         inv.party_type = p ? p.party_type : (inv.party_type || 'FARMER');
         inv.branch_name = branchMap[inv.branch_id] || (inv.branch_id === 'br-chikhali' ? 'Chikhali APMC Main Yard' : (inv.branch_id === 'br-varvand' ? 'Varvand Yard' : (inv.branch_id === 'br-sarola' ? 'Sarola Maruti Yard' : 'APMC Yard')));
       }
+
+      (Array.isArray(users) ? users : []).forEach(u => { delete u.password_hash; delete u.password; });
 
       return res.status(200).json({
         success: true,
@@ -1599,11 +1842,22 @@ export default async function handler(req, res) {
       ]);
 
       const rawRates = ratesResp.ok ? await ratesResp.json() : [];
-      const invoices = invoicesResp.ok ? await invoicesResp.json() : [];
-      const outwardOrders = outwardResp.ok ? await outwardResp.json() : [];
+      let invoices = invoicesResp.ok ? await invoicesResp.json() : [];
+      let outwardOrders = outwardResp.ok ? await outwardResp.json() : [];
       const inspectors = inspectorsResp.ok ? await inspectorsResp.json() : [];
       const commodities = commoditiesResp.ok ? await commoditiesResp.json() : [];
-      const ledgers = ledgersResp.ok ? await ledgersResp.json() : [];
+      let ledgers = ledgersResp.ok ? await ledgersResp.json() : [];
+
+      if (!Array.isArray(invoices)) invoices = [];
+      if (!Array.isArray(outwardOrders)) outwardOrders = [];
+      if (!Array.isArray(ledgers)) ledgers = [];
+
+      const branchId = (req.query.branch_id || '').trim();
+      if (branchId && branchId.toLowerCase() !== 'all') {
+        invoices = invoices.filter(inv => !inv.branch_id || inv.branch_id === branchId || inv.branch_id.toLowerCase() === branchId.toLowerCase());
+        outwardOrders = outwardOrders.filter(o => !o.branch_id || o.branch_id === branchId || o.branch_id.toLowerCase() === branchId.toLowerCase());
+        ledgers = ledgers.filter(l => !l.branch_id || l.branch_id === branchId || l.branch_id.toLowerCase() === branchId.toLowerCase());
+      }
 
       // Deduplicate rates: keep only latest row per commodity
       const latestRatesMap = {};

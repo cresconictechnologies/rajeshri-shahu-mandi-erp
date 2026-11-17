@@ -4938,7 +4938,9 @@
         async function viewParchiSlip(token) {
             currentParchiToken = token;
             try {
-                const res = await fetch(`/api/branch/invoices/parchi/${token}?format=a4`);
+                const bId = document.getElementById('branch_id')?.value || (window.currentUser && window.currentUser.branch_id) || '';
+                const branchQuery = bId ? `&branch_id=${encodeURIComponent(bId)}` : '';
+                const res = await fetch(`/api/branch/invoices/parchi/${token}?format=a4${branchQuery}`);
                 const html = await res.text();
                 document.getElementById('parchiContent').innerHTML = html;
                 const isLocked = res.status === 403;
@@ -4957,7 +4959,9 @@
                 window.print();
                 return;
             }
-            const win = window.open(`/api/branch/invoices/parchi/${currentParchiToken}?format=${fmt}`, '_blank');
+            const bId = document.getElementById('branch_id')?.value || (window.currentUser && window.currentUser.branch_id) || '';
+            const branchQuery = bId ? `&branch_id=${encodeURIComponent(bId)}` : '';
+            const win = window.open(`/api/branch/invoices/parchi/${currentParchiToken}?format=${fmt}${branchQuery}`, '_blank');
             if (win) {
                 win.focus();
             }

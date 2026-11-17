@@ -284,33 +284,55 @@ export default async function handler(req, res) {
         const weighmentMode = (body.weighment_mode || 'CASH').toUpperCase();
         const payoutStatus = weighmentMode === 'CASH' ? 'PAID' : (body.payout_status || 'PENDING');
 
+        // Store party_name locally for ledger narration (not sent to Supabase)
+        const partyNameLocal = body.party_name || 'Farmer';
+
         const invoicePayload = {
           id: invoiceId,
           branch_id: branchId,
-          branch_name: body.branch_name || (branchId === 'br-chikhali' ? 'Chikhali APMC Main Mandi' : (branchId === 'br-varvand' ? 'Varvand APMC Yard' : (branchId === 'br-sarola' ? 'Sarola Maruti APMC Yard' : 'Dhad APMC Yard'))),
           token_number: tokenNumber,
           party_id: body.party_id || `farmer-${Date.now()}`,
-          party_name: body.party_name || 'Farmer',
-          party_type: (body.party_type || 'FARMER').toUpperCase(),
-          party_phone: body.party_phone || null,
-          commodity_id: body.commodity_id || 'comm-soya',
           commodity_name: body.commodity_name || 'Soyabean (Yellow)',
+          hsn_code: body.hsn_code || null,
+          quality_grade: body.quality_grade || 'Standard Grade',
+          vehicle_number: body.vehicle_number || null,
+          weighment_mode: weighmentMode,
+          external_kanta_name: body.external_kanta_name || null,
+          external_slip_number: body.external_slip_number || null,
+          bag_count: parseInt(body.bag_count) || 0,
+          bag_type: body.bag_type || 'LOOSE',
           gross_weight_kg: grossWeight,
-          tare_weight_kg: tareKg,
+          vehicle_tare_kg: parseFloat(body.vehicle_tare_kg) || tareKg,
+          bag_tare_kg: parseFloat(body.bag_tare_kg) || 0,
+          moisture_percentage: parseFloat(body.moisture_percentage) || 0,
+          moisture_cut_kg: parseFloat(body.moisture_cut_kg) || 0,
+          karda_percentage: parseFloat(body.karda_percentage) || 0,
+          karda_cut_kg: parseFloat(body.karda_cut_kg) || 0,
           net_weight_kg: netWeight,
           net_quintals: netQuintals,
           rate_per_quintal: ratePerQtl,
+          is_rate_overridden: body.is_rate_overridden === 'true' || false,
+          rate_override_status: body.rate_override_status || null,
+          rate_override_reason: body.rate_override_reason || null,
           gross_amount: grossPayable,
-          hamali_deduction: hamali,
-          weighbridge_deduction: weighbridge,
-          total_deductions: totalDeductions,
+          hamali_charge: hamali,
+          bardana_deduction: parseFloat(body.bardana_deduction) || 0,
+          silai_charge: parseFloat(body.silai_charge) || 0,
+          tulai_charge: parseFloat(body.tulai_charge) || 0,
+          mandi_cess_amount: parseFloat(body.mandi_cess_amount) || 0,
+          advance_adjusted: parseFloat(body.advance_adjusted) || 0,
+          interest_adjusted: parseFloat(body.interest_adjusted) || 0,
           net_payable_amount: netPayable,
-          weighment_mode: weighmentMode,
+          rounded_net_payable: Math.round(netPayable),
+          round_off_amount: Math.round(netPayable) - netPayable,
           payout_status: payoutStatus,
-          cashier_user_id: body.cashier_user_id || 'cashier-1',
-          cashier_name: body.cashier_name || 'Branch Cashier',
+          inspector_name: body.inspector_name || null,
           qc_ticket_no: body.qc_ticket_no || null,
+          qc_ticket_id: body.qc_ticket_id || null,
+          dominant_breed: body.dominant_breed || null,
+          breed_purity_pct: parseFloat(body.breed_purity_pct) || null,
           invoice_date: body.invoice_date || now.toISOString().slice(0, 10),
+          created_by_user_id: body.cashier_user_id || body.created_by_user_id || null,
           created_at: now.toISOString(),
           rtgs_bank_name: body.rtgs_bank_name || null,
           rtgs_account_no: body.rtgs_account_no || null,
@@ -331,7 +353,7 @@ export default async function handler(req, res) {
         // Auto-post double-entry journal records to Supabase ledger_entries
         try {
           const invDate = invoicePayload.invoice_date || now.toISOString().slice(0, 10);
-          const farmerName = invoicePayload.party_name || 'Farmer';
+          const farmerName = partyNameLocal;
           const ledgerEntries = [
             {
               id: `led-deb-${invoiceId}`,

@@ -1148,6 +1148,8 @@
                     <input type="hidden" id="commodity_name" name="commodity_name" value="Soyabean (Yellow)">
                     <input type="hidden" id="weighment_mode" name="weighment_mode" value="MANUAL_YARD">
                     <input type="hidden" id="settlement_mode" name="settlement_mode" value="CASH">
+                    <input type="hidden" id="is_rate_overridden" name="is_rate_overridden" value="0">
+                    <input type="hidden" id="rate_override_status" name="rate_override_status" value="APPROVED">
                     <input type="hidden" id="inward_dominant_breed" name="dominant_breed" value="">
                     <input type="hidden" id="inward_breed_purity_pct" name="breed_purity_pct" value="">
                     <input type="hidden" id="inward_karda_pct" name="karda_percentage" value="0.0">
@@ -4225,19 +4227,34 @@
             const rate = parseFloat(document.getElementById('rate_per_quintal').value || 0);
             const statusDiv = document.getElementById('rateStatus');
             const overrideBox = document.getElementById('overrideReasonBox');
+            const isOverriddenInput = document.getElementById('is_rate_overridden');
+            const overrideStatusInput = document.getElementById('rate_override_status');
 
-            const rateInfo = dailyRates.find(r => r.commodity_name === commodity);
+            const canonName = typeof canonicalizeCommodityName === 'function' ? canonicalizeCommodityName(commodity) : commodity;
+            const rateInfo = dailyRates.find(r => {
+                const rName = typeof canonicalizeCommodityName === 'function' ? canonicalizeCommodityName(r.commodity_name) : r.commodity_name;
+                return rName === canonName;
+            });
+
             if (rateInfo && rateInfo.min_rate_per_qtl && rateInfo.max_rate_per_qtl) {
                 if (rate < rateInfo.min_rate_per_qtl || rate > rateInfo.max_rate_per_qtl) {
-                    statusDiv.innerHTML = `<span style="color:#dc2626;">⚠️ Rate ₹${rate.toLocaleString()} is OUTSIDE daily corridor (HQ: ₹${rateInfo.min_rate_per_qtl} - ₹${rateInfo.max_rate_per_qtl}). Central HQ approval required.</span>`;
-                    overrideBox.style.display = 'block';
+                    const diff = rate < rateInfo.min_rate_per_qtl ? (rateInfo.min_rate_per_qtl - rate) : (rate - rateInfo.max_rate_per_qtl);
+                    const diffLabel = rate < rateInfo.min_rate_per_qtl ? `(₹${diff.toFixed(2)} Below Min)` : `(₹${diff.toFixed(2)} Above Max)`;
+                    statusDiv.innerHTML = `<span style="color:#dc2626; font-weight:800;">⚠️ Rate ₹${rate.toLocaleString()} is OUTSIDE daily corridor ${diffLabel} (HQ: ₹${rateInfo.min_rate_per_qtl} - ₹${rateInfo.max_rate_per_qtl}). Central HQ approval required & payout will be ON HOLD.</span>`;
+                    if (overrideBox) overrideBox.style.display = 'block';
+                    if (isOverriddenInput) isOverriddenInput.value = '1';
+                    if (overrideStatusInput) overrideStatusInput.value = 'PENDING';
                 } else {
-                    statusDiv.innerHTML = `<span style="color:#15803d;">✓ Within approved daily corridor (HQ: ₹${rateInfo.min_rate_per_qtl} - ₹${rateInfo.max_rate_per_qtl}). Target: ₹${rateInfo.target_rate_per_qtl}</span>`;
-                    overrideBox.style.display = 'none';
+                    statusDiv.innerHTML = `<span style="color:#15803d; font-weight:700;">✓ Within approved daily corridor (HQ: ₹${rateInfo.min_rate_per_qtl} - ₹${rateInfo.max_rate_per_qtl}). Target: ₹${rateInfo.target_rate_per_qtl}</span>`;
+                    if (overrideBox) overrideBox.style.display = 'none';
+                    if (isOverriddenInput) isOverriddenInput.value = '0';
+                    if (overrideStatusInput) overrideStatusInput.value = 'APPROVED';
                 }
             } else {
                 statusDiv.innerHTML = `<span style="color:#475569;">Rate for ${commodity}: ₹${rate.toLocaleString()}/Qtl</span>`;
-                overrideBox.style.display = 'none';
+                if (overrideBox) overrideBox.style.display = 'none';
+                if (isOverriddenInput) isOverriddenInput.value = '0';
+                if (overrideStatusInput) overrideStatusInput.value = 'APPROVED';
             }
             recalculate();
         }
@@ -4473,6 +4490,15 @@
                 return;
             }
 
+            // 2b. Rate corridor exception check & validation
+            const isRateOverridden = document.getElementById('is_rate_overridden')?.value === '1';
+            const rateOverrideReason = document.getElementById('rate_override_reason')?.value?.trim() || '';
+            if (isRateOverridden && !rateOverrideReason) {
+                alert('⚠️ ATTENTION: Agreed purchase rate (₹' + rate.toLocaleString() + ') is outside the approved Head Office Price Corridor.\n\nPlease enter a specific justification reason in the box provided before submitting. This entry requires Central Accountant review and payout will be placed ON HOLD.');
+                document.getElementById('rate_override_reason')?.focus();
+                return;
+            }
+
             const netQuintals = netWeight / 100.0;
             const grossProduceVal = netQuintals * rate;
             const hamaliDeduction = netQuintals * 25.0; // Fixed ₹25 per 100 kg
@@ -4569,6 +4595,19 @@
                 </div>
 
                 ${settlementHtml}
+
+                ${isRateOverridden ? `
+                    <div style="background:#fef2f2; border:1.5px solid #fecaca; border-radius:10px; padding:12px; margin-top:10px;">
+                        <div style="font-weight:800; color:#b91c1c; font-size:13px; display:flex; align-items:center; gap:6px;">
+                            <span>⚠️ Price Corridor Exception Flagged</span>
+                        </div>
+                        <div style="font-size:12px; color:#991b1b; margin-top:4px; line-height:1.4;">
+                            Rate of <strong>₹${rate.toLocaleString()}/Qtl</strong> is outside the approved Head Office daily corridor.<br>
+                            <strong>Reason:</strong> "${rateOverrideReason}"<br>
+                            <span style="font-weight:800; color:#7f1d1d;">Parchi slip will be locked & cash payout held pending Central Accountant authorization.</span>
+                        </div>
+                    </div>
+                ` : ''}
             `;
 
             document.getElementById('confirmReviewBody').innerHTML = reviewHtml;
@@ -4595,6 +4634,10 @@
                 const d = await res.json();
                 if (d.success) {
                     closeConfirmModal();
+                    const isOverridden = document.getElementById('is_rate_overridden')?.value === '1';
+                    if (isOverridden) {
+                        alert(`⚠️ Purchase #${d.token_number || ''} recorded with RATE OVERRIDE EXCEPTION!\n\nPayout is placed ON HOLD pending Head Office (Central Accounts) authorization. Parchi printing remains locked until approval.`);
+                    }
                     viewParchiSlip(d.token_number);
                 } else {
                     alert('Submission Error: ' + (d.error || 'Failed to generate invoice'));

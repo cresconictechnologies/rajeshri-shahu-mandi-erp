@@ -340,13 +340,46 @@ export default async function handler(req, res) {
           console.warn('Party auto-ensure warning:', pErr);
         }
 
+        const canonCommodity = canonicalizeCommodityName(body.commodity_name || 'Soyabean (Yellow)');
+        let isRateOverridden = (body.is_rate_overridden === true || body.is_rate_overridden === 'true' || body.is_rate_overridden === 1 || body.is_rate_overridden === '1');
+        let overrideReason = body.rate_override_reason || null;
+        let overrideStatus = body.rate_override_status || null;
+
+        // Verify purchase rate against published daily price corridor (Server-Side Invariant)
+        try {
+          const ratesCheckResp = await fetch(`${supabaseUrl}/rest/v1/daily_commodity_rates?commodity_name=eq.${encodeURIComponent(canonCommodity)}&order=rate_date.desc&limit=1`, { headers });
+          if (ratesCheckResp.ok) {
+            const corridorRows = await ratesCheckResp.json();
+            if (Array.isArray(corridorRows) && corridorRows.length > 0) {
+              const activeCorridor = corridorRows[0];
+              const minR = parseFloat(activeCorridor.min_rate_per_qtl) || 0;
+              const maxR = parseFloat(activeCorridor.max_rate_per_qtl) || 0;
+              if (minR > 0 && maxR > 0) {
+                if (ratePerQtl < minR || ratePerQtl > maxR) {
+                  isRateOverridden = true;
+                  overrideStatus = 'PENDING';
+                  if (!overrideReason) {
+                    overrideReason = `Rate ₹${ratePerQtl.toFixed(2)} is outside approved daily corridor (₹${minR.toFixed(2)} - ₹${maxR.toFixed(2)})`;
+                  }
+                } else if (!isRateOverridden) {
+                  overrideStatus = 'APPROVED';
+                }
+              }
+            }
+          }
+        } catch (rCheckErr) {
+          console.warn('Corridor verification check note:', rCheckErr);
+        }
+
+        const finalPayoutStatus = (isRateOverridden && (overrideStatus === 'PENDING' || !overrideStatus)) ? 'ON_HOLD' : payoutStatus;
+
         const invoicePayload = {
           id: invoiceId,
           branch_id: branchId,
           token_number: tokenNumber,
           party_id: partyId,
-          commodity_name: canonicalizeCommodityName(body.commodity_name || 'Soyabean (Yellow)'),
-          hsn_code: body.hsn_code || (String(body.commodity_name || '').toLowerCase().includes('chickpea') ? '0713' : '1201'),
+          commodity_name: canonCommodity,
+          hsn_code: body.hsn_code || (String(canonCommodity || '').toLowerCase().includes('chickpea') ? '0713' : '1201'),
           quality_grade: body.quality_grade || 'Standard Grade',
           vehicle_number: body.vehicle_number || null,
           weighment_mode: weighmentMode,
@@ -364,9 +397,9 @@ export default async function handler(req, res) {
           net_weight_kg: netWeight,
           net_quintals: netQuintals,
           rate_per_quintal: ratePerQtl,
-          is_rate_overridden: (body.is_rate_overridden === true || body.is_rate_overridden === 'true' || body.is_rate_overridden === 1 || body.is_rate_overridden === '1') ? 1 : 0,
-          rate_override_status: body.rate_override_status || null,
-          rate_override_reason: body.rate_override_reason || null,
+          is_rate_overridden: isRateOverridden ? 1 : 0,
+          rate_override_status: overrideStatus || (isRateOverridden ? 'PENDING' : 'APPROVED'),
+          rate_override_reason: overrideReason,
           gross_amount: grossPayable,
           hamali_charge: hamali,
           bardana_deduction: parseFloat(body.bardana_deduction) || 0,
@@ -378,7 +411,7 @@ export default async function handler(req, res) {
           net_payable_amount: netPayable,
           rounded_net_payable: Math.round(netPayable),
           round_off_amount: Math.round(netPayable) - netPayable,
-          payout_status: payoutStatus,
+          payout_status: finalPayoutStatus,
           inspector_name: body.inspector_name || null,
           qc_ticket_no: body.qc_ticket_no || null,
           qc_ticket_id: body.qc_ticket_id || null,
@@ -753,28 +786,28 @@ export default async function handler(req, res) {
   .btn-p:hover{background:#047857;}
   .btn-c{background:#334155;color:#f1f5f9;border:none;padding:8px 14px;font-size:12px;font-weight:700;border-radius:6px;cursor:pointer;margin-left:8px;}
   .btn-c:hover{background:#475569;}
-  .a4-sheet{width:210mm;max-width:820px;min-height:288mm;margin:0 auto;background:#fff;padding:4mm 6mm;box-shadow:0 8px 20px rgba(0,0,0,.12);border-radius:4px;display:flex;flex-direction:column;justify-content:space-between;box-sizing:border-box;}
-  .slip-wrap{height:138mm;max-height:138mm;border:1.5px solid #0f172a;border-radius:6px;padding:8px 12px;background:#fff;display:flex;flex-direction:column;justify-content:space-between;box-sizing:border-box;overflow:hidden;}
-  .cut-line{height:8mm;display:flex;align-items:center;text-align:center;color:#64748b;font-size:9.5px;font-weight:700;letter-spacing:.5px;margin:1mm 0;user-select:none;}
+  .a4-sheet{width:210mm;max-width:820px;min-height:287mm;margin:0 auto;background:#fff;padding:4mm 6mm;box-shadow:0 8px 20px rgba(0,0,0,.12);border-radius:4px;display:flex;flex-direction:column;justify-content:space-between;box-sizing:border-box;}
+  .slip-wrap{height:136mm;min-height:136mm;max-height:136mm;border:1.8px solid #0f172a;border-radius:6px;padding:10px 14px;background:#fff;display:flex;flex-direction:column;justify-content:space-between;box-sizing:border-box;overflow:hidden;}
+  .cut-line{height:9mm;display:flex;align-items:center;text-align:center;color:#64748b;font-size:10px;font-weight:700;letter-spacing:1px;margin:1.5mm 0;user-select:none;}
   .cut-line::before,.cut-line::after{content:'';flex:1;border-bottom:1.5px dashed #94a3b8;}
-  .cut-line span{padding:0 10px;}
-  .hdr{border-bottom:1.5px solid #0f172a;padding-bottom:4px;margin-bottom:0;position:relative;text-align:center;}
+  .cut-line span{padding:0 12px;}
+  .hdr{border-bottom:1.5px solid #0f172a;padding-bottom:5px;margin-bottom:0;position:relative;text-align:center;}
   .badge{position:absolute;top:0;right:0;padding:2px 8px;border-radius:4px;font-size:9.5px;font-weight:800;text-transform:uppercase;}
   .badge-f{background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0;}
   .badge-m{background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;}
-  .firm{font-size:16.5px;font-weight:900;letter-spacing:.6px;}
-  .sub{font-size:9.5px;font-weight:700;color:#0284c7;margin-top:1px;}
-  .branch{font-size:10px;font-weight:600;color:#334155;margin-top:1px;}
-  .meta{display:flex;justify-content:space-between;align-items:center;background:#f1f5f9;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;color:#1e293b;margin-top:4px;border:1px solid #e2e8f0;}
-  .dg{display:grid;grid-template-columns:1.35fr 1fr;gap:4px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:5px;padding:6px 10px;margin-bottom:0;font-size:11.5px;line-height:1.45;}
-  table{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:0;}
-  th{background:#0f172a;color:#fff;font-weight:800;padding:5px 6px;font-size:10.5px;}
-  td{padding:6px 6px;border-bottom:1px solid #e2e8f0;}
+  .firm{font-size:17.5px;font-weight:900;letter-spacing:.6px;}
+  .sub{font-size:10px;font-weight:700;color:#0284c7;margin-top:1px;}
+  .branch{font-size:10.5px;font-weight:600;color:#334155;margin-top:1px;}
+  .meta{display:flex;justify-content:space-between;align-items:center;background:#f1f5f9;padding:4px 10px;border-radius:4px;font-size:10.5px;font-weight:700;color:#1e293b;margin-top:5px;border:1px solid #e2e8f0;}
+  .dg{display:grid;grid-template-columns:1.35fr 1fr;gap:4px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:5px;padding:8px 12px;margin-bottom:0;font-size:11.5px;line-height:1.48;}
+  table{width:100%;border-collapse:collapse;font-size:11.5px;margin:3px 0;}
+  th{background:#0f172a;color:#fff;font-weight:800;padding:6px 8px;font-size:10.5px;}
+  td{padding:7px 8px;border-bottom:1px solid #e2e8f0;}
   .npr{background:#ecfdf5!important;border-top:2px solid #059669!important;border-bottom:2px solid #059669!important;}
-  .npc{padding:6px 8px!important;font-size:16px!important;font-weight:900!important;color:#047857!important;text-align:right;}
-  .wb{background:#fafaf9;border:1px solid #e7e5e4;border-radius:4px;padding:4px 8px;font-size:10.5px;font-weight:700;color:#334155;margin-bottom:0;}
-  .footer{display:flex;justify-content:space-between;align-items:flex-end;margin-top:0;padding-top:4px;border-top:1px dashed #cbd5e1;font-size:9.5px;}
-  .sig{text-align:center;min-width:140px;border-top:1.2px solid #0f172a;padding-top:3px;font-size:10px;}
+  .npc{padding:7px 10px!important;font-size:17px!important;font-weight:900!important;color:#047857!important;text-align:right;}
+  .wb{background:#fafaf9;border:1px solid #e7e5e4;border-radius:4px;padding:5px 10px;font-size:11px;font-weight:700;color:#334155;margin-bottom:0;}
+  .footer{display:flex;justify-content:space-between;align-items:flex-end;margin-top:0;padding-top:6px;border-top:1px dashed #cbd5e1;font-size:9.5px;}
+  .sig{text-align:center;min-width:150px;border-top:1.5px solid #0f172a;padding-top:4px;font-size:10px;}
   @media print{
     html,body{background:#fff!important;padding:0!important;margin:0!important;width:100%!important;height:100%!important;}
     .no-print{display:none!important;}
@@ -782,10 +815,11 @@ export default async function handler(req, res) {
     .a4-sheet{
       width:100%!important;
       max-width:100%!important;
-      height:288mm!important;
-      max-height:288mm!important;
+      height:287mm!important;
+      min-height:287mm!important;
+      max-height:287mm!important;
       padding:0!important;
-      margin:0!important;
+      margin:0 auto!important;
       box-shadow:none!important;
       border-radius:0!important;
       display:flex!important;
@@ -798,9 +832,9 @@ export default async function handler(req, res) {
       overflow:hidden!important;
     }
     .slip-wrap{
-      height:138mm!important;
-      max-height:138mm!important;
-      min-height:138mm!important;
+      height:136mm!important;
+      max-height:136mm!important;
+      min-height:136mm!important;
       box-sizing:border-box!important;
       break-inside:avoid!important;
       page-break-inside:avoid!important;
@@ -808,11 +842,20 @@ export default async function handler(req, res) {
       display:flex!important;
       flex-direction:column!important;
       justify-content:space-between!important;
-      padding:8px 12px!important;
+      padding:10px 14px!important;
+      border:1.8px solid #0f172a!important;
+      border-radius:6px!important;
     }
     .cut-line{
-      height:8mm!important;
-      margin:1mm 0!important;
+      height:9mm!important;
+      margin:1.5mm 0!important;
+      display:flex!important;
+      align-items:center!important;
+      text-align:center!important;
+      color:#64748b!important;
+      font-size:10px!important;
+      font-weight:700!important;
+      letter-spacing:1px!important;
     }
   }
 </style>
@@ -1583,9 +1626,30 @@ export default async function handler(req, res) {
         }
 
         const newStatus = decision === 'APPROVE' ? 'APPROVED' : (decision === 'REJECT' ? 'REJECTED' : 'PENDING');
+        let payoutUpdate = {};
+        if (decision === 'APPROVE') {
+          try {
+            const invResp = await fetch(`${supabaseUrl}/rest/v1/purchase_invoices?id=eq.${encodeURIComponent(invId)}&limit=1`, { headers });
+            if (invResp.ok) {
+              const rows = await invResp.json();
+              if (rows && rows[0]) {
+                const inv = rows[0];
+                const isCash = inv.weighment_mode === 'CASH' || inv.weighment_mode === 'MANUAL_YARD' || (inv.payout_mode || '').toUpperCase() === 'CASH';
+                payoutUpdate.payout_status = isCash ? 'PAID' : 'PENDING';
+                payoutUpdate.is_rate_overridden = 0;
+              }
+            }
+          } catch (relErr) {
+            console.warn('Payout release warning:', relErr);
+          }
+        } else if (decision === 'REJECT') {
+          payoutUpdate.payout_status = 'REJECTED';
+        }
+
         const updateData = {
           rate_override_status: newStatus,
           rate_override_reason: reason,
+          ...payoutUpdate,
           updated_at: new Date().toISOString()
         };
 
@@ -1978,6 +2042,14 @@ export default async function handler(req, res) {
 
       // Pending overrides
       const pendingOverrides = invoices.filter(inv => inv.rate_override_status === 'PENDING' || inv.is_backdated);
+      pendingOverrides.forEach(inv => {
+        const commRate = latestRatesMap[inv.commodity_name];
+        if (commRate) {
+          inv.corridor_min = commRate.min_rate_per_qtl;
+          inv.corridor_target = commRate.target_rate_per_qtl;
+          inv.corridor_max = commRate.max_rate_per_qtl;
+        }
+      });
 
       // Pending RTGS
       const pendingRtgs = invoices.filter(inv => inv.weighment_mode === 'RTGS' && inv.payout_status !== 'PAID');

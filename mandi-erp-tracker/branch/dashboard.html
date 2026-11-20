@@ -1350,6 +1350,49 @@
                             <input type="text" id="vehicle_number" name="vehicle_number" placeholder="e.g. MH-28-AB-1234" style="text-transform:uppercase; font-weight:700;">
                         </div>
 
+                        <!-- Multi-Commodity Lots Table Section (Active for Multi-Lot Arrivals) -->
+                        <div id="multiLotSection" class="form-group form-full" style="display:none; background:#f0fdf4; border:1.8px solid #86efac; border-radius:10px; padding:14px; margin-bottom:12px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <span style="font-size:22px;">📦</span>
+                                    <div>
+                                        <div style="font-weight:900; font-size:14px; color:#14532d;">Multi-Commodity Vehicle Inward Table (एकाच पावतीमध्ये सर्व शेतमाल)</div>
+                                        <div style="font-size:11.5px; color:#166534;" id="multiLotBannerSub">Enter scale weights and agreed rates for each lot in this trolley below.</div>
+                                    </div>
+                                </div>
+                                <span id="multiLotCountBadgeForm" class="badge" style="background:#059669; color:#fff; font-size:11.5px; font-weight:800; padding:3px 10px; border-radius:12px;">
+                                    2 Lots
+                                </span>
+                            </div>
+                            <div style="overflow-x:auto;">
+                                <table style="width:100%; border-collapse:collapse; font-size:12px; background:#fff; border-radius:8px; overflow:hidden; border:1px solid #bbf7d0;">
+                                    <thead>
+                                        <tr style="background:#0f172a; color:#fff; font-size:11px;">
+                                            <th style="padding:7px 8px; text-align:left;"># Lot & Commodity</th>
+                                            <th style="padding:7px 8px; text-align:right;">Gross (Kg)</th>
+                                            <th style="padding:7px 8px; text-align:right;">Tare (Kg)</th>
+                                            <th style="padding:7px 8px; text-align:right;">Net Wt (Qtl)</th>
+                                            <th style="padding:7px 8px; text-align:right;">Rate (₹/Qtl)</th>
+                                            <th style="padding:7px 8px; text-align:right;">Hamali (₹)</th>
+                                            <th style="padding:7px 8px; text-align:right;">Net Amount (₹)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="multiLotTableBody">
+                                        <!-- Dynamic Lot Rows -->
+                                    </tbody>
+                                    <tfoot>
+                                        <tr style="background:#ecfdf5; font-weight:900; border-top:2px solid #059669; font-size:12.5px;">
+                                            <td colspan="3" style="padding:8px 10px; text-align:right; color:#065f46;">CONSOLIDATED TOTALS:</td>
+                                            <td id="multiLotTotNetQtl" style="padding:8px 10px; text-align:right; color:#065f46;">0.00 Qtl</td>
+                                            <td></td>
+                                            <td id="multiLotTotHamali" style="padding:8px 10px; text-align:right; color:#b91c1c;">-₹0.00</td>
+                                            <td id="multiLotTotPayable" style="padding:8px 10px; text-align:right; color:#047857; font-size:15px;">₹0.00</td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+
                         <!-- Weighment Mode Toggle -->
                         <div class="form-group form-full">
                             <label>Weighment Method</label>
@@ -4465,6 +4508,44 @@
             let tareWeight = 0;
             let netWeight = 0;
             let modeTitle = '';
+            let multiItems = null;
+
+            if (window.activeMultiLotData && window.activeMultiLotData.length > 1) {
+                multiItems = window.activeMultiLotData.map((it, idx) => {
+                    const g = parseFloat(document.getElementById(`multi_gross_${idx}`)?.value || 0);
+                    const tr = parseFloat(document.getElementById(`multi_tare_${idx}`)?.value || 0);
+                    const n = Math.max(0, g - tr);
+                    const nQtl = n / 100.0;
+                    const r = parseFloat(document.getElementById(`multi_rate_${idx}`)?.value || 0);
+                    const gross = nQtl * r;
+                    const h = nQtl * 25.0;
+                    const net = Math.max(0, gross - h);
+                    return {
+                        commodity_name: it.commodity_name,
+                        moisture_pct: it.moisture_pct,
+                        quality_grade: it.grade_label || 'Standard Grade',
+                        gross_weight_kg: g,
+                        tare_weight_kg: tr,
+                        net_weight_kg: n,
+                        net_quintals: nQtl,
+                        rate_per_quintal: r,
+                        gross_amount: gross,
+                        hamali_charge: h,
+                        net_amount: net
+                    };
+                });
+
+                const zeroWt = multiItems.some(i => i.net_weight_kg <= 0);
+                if (zeroWt) {
+                    alert('⚠️ Please enter scale net weight greater than zero for all commodities in the multi-lot table.');
+                    return;
+                }
+                const zeroRate = multiItems.some(i => i.rate_per_quintal <= 0);
+                if (zeroRate) {
+                    alert('⚠️ Please enter agreed purchase rate greater than zero for all commodities in the multi-lot table.');
+                    return;
+                }
+            }
 
             if (mode === 'MANUAL_YARD') {
                 grossWeight = parseFloat(document.getElementById('yard_weight_kg').value || 0);
@@ -4499,11 +4580,27 @@
                 return;
             }
 
-            const netQuintals = netWeight / 100.0;
-            const grossProduceVal = netQuintals * rate;
-            const hamaliDeduction = netQuintals * 25.0; // Fixed ₹25 per 100 kg
-            const netPayable = currentExactPayable > 0 ? currentExactPayable : (grossProduceVal - hamaliDeduction);
-            const roundedPayout = Math.ceil(netPayable);
+            let netQuintals = netWeight / 100.0;
+            let grossProduceVal = netQuintals * rate;
+            let hamaliDeduction = netQuintals * 25.0; // Fixed ₹25 per 100 kg
+            let netPayable = currentExactPayable > 0 ? currentExactPayable : (grossProduceVal - hamaliDeduction);
+            let roundedPayout = Math.ceil(netPayable);
+
+            if (multiItems && multiItems.length > 1) {
+                grossWeight = multiItems.reduce((acc, i) => acc + i.gross_weight_kg, 0);
+                tareWeight = multiItems.reduce((acc, i) => acc + i.tare_weight_kg, 0);
+                netWeight = multiItems.reduce((acc, i) => acc + i.net_weight_kg, 0);
+                netQuintals = netWeight / 100.0;
+                grossProduceVal = multiItems.reduce((acc, i) => acc + i.gross_amount, 0);
+                hamaliDeduction = multiItems.reduce((acc, i) => acc + i.hamali_charge, 0);
+                netPayable = multiItems.reduce((acc, i) => acc + i.net_amount, 0);
+                roundedPayout = Math.ceil(netPayable);
+                currentExactPayable = netPayable;
+                modeTitle = `Multi-Lot Inward (${multiItems.length} Commodities)`;
+                window.activeMultiLotItems = multiItems;
+            } else {
+                window.activeMultiLotItems = null;
+            }
 
             // 3. Settlement check
             const settleMode = document.getElementById('settlement_mode').value;
@@ -4562,11 +4659,39 @@
                     <!-- Produce & Mode -->
                     <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px;">
                         <div style="font-size:10.5px; text-transform:uppercase; color:#64748b; font-weight:800; margin-bottom:4px;">🌾 Produce & Weighment</div>
-                        <div style="font-size:16px; font-weight:800; color:#0f172a;">${commodity}</div>
+                        <div style="font-size:16px; font-weight:800; color:#0f172a;">${multiItems && multiItems.length > 1 ? multiItems.map(m => m.commodity_name).join(', ') : commodity}</div>
                         <div style="font-size:12px; color:#0284c7; font-weight:700; margin-top:2px;">${modeTitle}</div>
                         <div style="font-size:11.5px; color:#475569; margin-top:4px;">Gross: ${grossWeight.toLocaleString()} Kg | Tare: ${tareWeight.toLocaleString()} Kg</div>
                     </div>
                 </div>
+
+                ${(multiItems && multiItems.length > 1) ? `
+                    <div style="background:#f0fdf4; border:1px solid #86efac; border-radius:10px; padding:10px 12px; margin-top:10px;">
+                        <div style="font-size:11.5px; font-weight:800; color:#14532d; margin-bottom:6px;">📦 Multi-Commodity Consolidated Lot Breakdown:</div>
+                        <table style="width:100%; border-collapse:collapse; font-size:11.5px; text-align:left;">
+                            <thead>
+                                <tr style="border-bottom:1px solid #bbf7d0; color:#166534; font-size:10.5px;">
+                                    <th style="padding:4px 6px;">Commodity</th>
+                                    <th style="padding:4px 6px; text-align:right;">Net Wt</th>
+                                    <th style="padding:4px 6px; text-align:right;">Rate</th>
+                                    <th style="padding:4px 6px; text-align:right;">Hamali</th>
+                                    <th style="padding:4px 6px; text-align:right;">Net Payout</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${multiItems.map((it, idx) => `
+                                    <tr style="border-bottom:1px dashed #bbf7d0;">
+                                        <td style="padding:4px 6px; font-weight:700;">${idx+1}. ${it.commodity_name}</td>
+                                        <td style="padding:4px 6px; text-align:right;">${it.net_quintals.toFixed(2)} Qtl (${Math.round(it.net_weight_kg)}kg)</td>
+                                        <td style="padding:4px 6px; text-align:right;">₹${Math.round(it.rate_per_quintal)}</td>
+                                        <td style="padding:4px 6px; text-align:right; color:#b91c1c;">-₹${it.hamali_charge.toFixed(2)}</td>
+                                        <td style="padding:4px 6px; text-align:right; font-weight:800; color:#047857;">₹${it.net_amount.toFixed(2)}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                ` : ''}
 
                 <!-- Weights, Rates & Math Box -->
                 <div style="background:#ffffff; border:1.5px solid #cbd5e1; border-radius:10px; padding:14px; margin-top:12px;">
@@ -4625,6 +4750,9 @@
 
             const form = document.getElementById('unifiedPurchaseForm');
             const formData = new FormData(form);
+            if (window.activeMultiLotItems && window.activeMultiLotItems.length > 0) {
+                formData.append('items', JSON.stringify(window.activeMultiLotItems));
+            }
 
             try {
                 const res = await fetch('/api/branch/invoices/create', {
@@ -5443,7 +5571,10 @@
                         <span style="font-size:11px; color:#64748b;">📞 ${t.farmer_phone || '-'}</span>
                     </td>
                     <td style="padding:10px 8px;"><code>${t.vehicle_no || t.vehicle_number || '-'}</code></td>
-                    <td style="padding:10px 8px;"><strong>${t.commodity_name}</strong></td>
+                    <td style="padding:10px 8px;">
+                        <strong>${t.commodity_name}</strong>
+                        ${(t.items && Array.isArray(t.items) && t.items.length > 1) ? `<span class="badge" style="background:#e0e7ff; color:#3730a3; font-weight:800; font-size:10px; padding:2px 6px; border-radius:4px; margin-left:4px;">📦 ${t.items.length} Lots</span>` : ''}
+                    </td>
                     <td style="padding:10px 8px;"><span class="badge-pill badge-blue">${t.moisture_pct || t.moisture || 0}%</span></td>
                     <td style="padding:10px 8px;"><span class="badge-pill badge-green">${t.faq_grade || t.grade_label || 'FAQ-1'}</span></td>
                     <td style="padding:10px 8px; text-align:right;"><strong style="color:#047857;">₹${(parseFloat(t.suggested_buying_rate_per_qtl || t.suggested_rate) || 0).toLocaleString()}</strong></td>
@@ -5564,6 +5695,63 @@
             }
         }
 
+        
+        window.activeMultiLotData = null;
+
+        function recalcMultiLotTotals() {
+            if (!window.activeMultiLotData) return;
+            let totNetKg = 0;
+            let totGrossProduce = 0;
+            let totHamali = 0;
+            let totNetPayable = 0;
+
+            window.activeMultiLotData.forEach((item, idx) => {
+                const g = parseFloat(document.getElementById(`multi_gross_${idx}`)?.value || 0);
+                const tr = parseFloat(document.getElementById(`multi_tare_${idx}`)?.value || 0);
+                const netKg = Math.max(0, g - tr);
+                const netQtl = netKg / 100.0;
+                const r = parseFloat(document.getElementById(`multi_rate_${idx}`)?.value || 0);
+                const grossVal = netQtl * r;
+                const hamaliVal = netQtl * 25.0;
+                const lineNet = Math.max(0, grossVal - hamaliVal);
+
+                totNetKg += netKg;
+                totGrossProduce += grossVal;
+                totHamali += hamaliVal;
+                totNetPayable += lineNet;
+
+                const netCell = document.getElementById(`multi_net_${idx}`);
+                if (netCell) netCell.innerHTML = `${netQtl.toFixed(2)} Qtl<br><small style="color:#64748b;">(${Math.round(netKg)} Kg)</small>`;
+                const hamaliCell = document.getElementById(`multi_hamali_${idx}`);
+                if (hamaliCell) hamaliCell.innerText = `-₹${hamaliVal.toFixed(2)}`;
+                const amtCell = document.getElementById(`multi_amount_${idx}`);
+                if (amtCell) amtCell.innerText = `₹${lineNet.toFixed(2)}`;
+            });
+
+            const totQtl = totNetKg / 100.0;
+            const elTotNet = document.getElementById('multiLotTotNetQtl');
+            if (elTotNet) elTotNet.innerHTML = `${totQtl.toFixed(2)} Qtl<br><small style="color:#64748b;">(${Math.round(totNetKg)} Kg)</small>`;
+            const elTotHam = document.getElementById('multiLotTotHamali');
+            if (elTotHam) elTotHam.innerText = `-₹${totHamali.toFixed(2)}`;
+            const elTotPay = document.getElementById('multiLotTotPayable');
+            if (elTotPay) elTotPay.innerText = `₹${Math.round(totNetPayable).toLocaleString()}.00`;
+
+            // Update top-level hidden/display inputs
+            const yardWt = document.getElementById('yard_weight_kg');
+            if (yardWt) yardWt.value = Math.round(totNetKg);
+            const rateInp = document.getElementById('rate_per_quintal');
+            if (rateInp && totQtl > 0) rateInp.value = Math.round(totGrossProduce / totQtl);
+
+            // Update live summary badges if available
+            currentExactPayable = totNetPayable;
+            const livePayable = document.getElementById('liveNetPayableAmount');
+            if (livePayable) livePayable.innerText = `₹${Math.round(totNetPayable).toLocaleString()}.00`;
+            const liveGross = document.getElementById('liveGrossAmount');
+            if (liveGross) liveGross.innerText = `₹${Math.round(totGrossProduce).toLocaleString()}.00`;
+            const liveHamali = document.getElementById('liveHamaliDeduction');
+            if (liveHamali) liveHamali.innerText = `-₹${Math.round(totHamali).toLocaleString()}.00`;
+        }
+        
         function applySelectedQCToForm(ticketIndexOrObj) {
             let t = selectedQCTicketData;
             if (typeof ticketIndexOrObj === 'object' && ticketIndexOrObj !== null) {
@@ -5575,6 +5763,52 @@
             }
             if (!t) return;
             selectedQCTicketData = t;
+
+            // Multi-lot arrival detection and activation
+            const multiLotSec = document.getElementById('multiLotSection');
+            if (t.items && Array.isArray(t.items) && t.items.length > 1) {
+                window.activeMultiLotData = t.items;
+                if (multiLotSec) {
+                    multiLotSec.style.display = 'block';
+                    const tbody = document.getElementById('multiLotTableBody');
+                    const badge = document.getElementById('multiLotCountBadgeForm');
+                    if (badge) badge.innerText = `${t.items.length} Commodities`;
+                    if (tbody) {
+                        tbody.innerHTML = t.items.map((item, idx) => {
+                            const sugRate = Math.round(parseFloat(item.suggested_buying_rate_per_qtl) || 0);
+                            return `
+                                <tr style="border-bottom:1px solid #e2e8f0;" id="multi_row_${idx}">
+                                    <td style="padding:8px 10px; font-weight:800; color:#0f172a;">
+                                        ${idx + 1}. ${item.commodity_name}<br>
+                                        <small style="color:#64748b; font-weight:600;">💧 ${item.moisture_pct}% | ${item.grade_label || 'Standard'}</small>
+                                    </td>
+                                    <td style="padding:6px; text-align:right;">
+                                        <input type="number" step="1" id="multi_gross_${idx}" value="0" min="0" style="width:90px; text-align:right; font-weight:800; padding:6px; border:1.5px solid #cbd5e1; border-radius:6px;" oninput="recalcMultiLotTotals()">
+                                    </td>
+                                    <td style="padding:6px; text-align:right;">
+                                        <input type="number" step="1" id="multi_tare_${idx}" value="0" min="0" style="width:70px; text-align:right; font-weight:700; padding:6px; border:1.5px solid #cbd5e1; border-radius:6px;" oninput="recalcMultiLotTotals()">
+                                    </td>
+                                    <td style="padding:8px 10px; text-align:right; font-weight:800; color:#0f172a;" id="multi_net_${idx}">
+                                        0.00 Qtl<br><small style="color:#64748b;">(0 Kg)</small>
+                                    </td>
+                                    <td style="padding:6px; text-align:right;">
+                                        <input type="number" step="1" id="multi_rate_${idx}" value="${sugRate}" min="1" style="width:85px; text-align:right; font-weight:800; padding:6px; border:1.5px solid #cbd5e1; border-radius:6px; color:#047857;" oninput="recalcMultiLotTotals()">
+                                    </td>
+                                    <td style="padding:8px 10px; text-align:right; font-weight:700; color:#b91c1c;" id="multi_hamali_${idx}">
+                                        -₹0.00
+                                    </td>
+                                    <td style="padding:8px 10px; text-align:right; font-weight:900; color:#047857; font-size:13px;" id="multi_amount_${idx}">
+                                        ₹0.00
+                                    </td>
+                                </tr>
+                            `;
+                        }).join('');
+                    }
+                }
+            } else {
+                window.activeMultiLotData = null;
+                if (multiLotSec) multiLotSec.style.display = 'none';
+            }
 
             // 1. QC Ticket dedicated field
             const qcTicketInput = document.getElementById('inward_qc_ticket_no');

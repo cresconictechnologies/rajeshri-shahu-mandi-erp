@@ -373,6 +373,12 @@ export default async function handler(req, res) {
 
         const finalPayoutStatus = (isRateOverridden && (overrideStatus === 'PENDING' || !overrideStatus)) ? 'ON_HOLD' : payoutStatus;
 
+        let invoiceItems = body.items || body.multi_items;
+        if (typeof invoiceItems === 'string') {
+          try { invoiceItems = JSON.parse(invoiceItems); } catch (_) { invoiceItems = []; }
+        }
+        const finalItems = Array.isArray(invoiceItems) ? invoiceItems : [];
+
         const invoicePayload = {
           id: invoiceId,
           branch_id: branchId,
@@ -420,6 +426,7 @@ export default async function handler(req, res) {
           invoice_date: body.invoice_date || now.toISOString().slice(0, 10),
           created_by_user_id: body.cashier_user_id || body.created_by_user_id || null,
           created_at: now.toISOString(),
+          items: finalItems,
           rtgs_bank_name: body.rtgs_bank_name || null,
           rtgs_account_no: body.rtgs_account_no || null,
           rtgs_ifsc_code: body.rtgs_ifsc_code || null,
@@ -459,22 +466,32 @@ export default async function handler(req, res) {
         try {
           const invDate = invoicePayload.invoice_date || now.toISOString().slice(0, 10);
           const farmerName = partyNameLocal;
-          const ledgerEntries = [
-            {
-              id: `led-deb-${invoiceId}`,
-              branch_id: branchId,
-              transaction_date: invDate,
-              voucher_type: 'PURCHASE_INVOICE',
-              voucher_id: tokenNumber || invoiceId,
-              account_name: `Grain Procurement - ${invoicePayload.commodity_name}`,
-              party_id: invoicePayload.party_id,
-              debit_amount: netPayable,
-              credit_amount: 0.0,
-              narration: `Procurement of ${netQuintals.toFixed(2)} Qtl ${invoicePayload.commodity_name} from ${farmerName} @ Rs.${ratePerQtl.toFixed(2)}/Qtl (Token #${tokenNumber})`,
-              created_at: now.toISOString(),
-              updated_at: now.toISOString()
-            },
-            {
+          let ledgerEntries = [];
+
+          if (Array.isArray(invoicePayload.items) && invoicePayload.items.length > 1) {
+            // Multi-commodity split debits
+            const debits = invoicePayload.items.map((item, idx) => {
+              const itemNet = parseFloat(item.net_amount) || parseFloat(item.gross_amount) || 0.0;
+              const itemNetQtl = parseFloat(item.net_quintals) || ((parseFloat(item.net_weight_kg) || 0) / 100.0);
+              const itemRate = parseFloat(item.rate_per_quintal) || 0.0;
+              return {
+                id: `led-deb-${invoiceId}-${idx + 1}`,
+                branch_id: branchId,
+                transaction_date: invDate,
+                voucher_type: 'PURCHASE_INVOICE',
+                voucher_id: tokenNumber || invoiceId,
+                account_name: `Grain Procurement - ${item.commodity_name}`,
+                party_id: invoicePayload.party_id,
+                debit_amount: itemNet,
+                credit_amount: 0.0,
+                narration: `Procurement of ${itemNetQtl.toFixed(2)} Qtl ${item.commodity_name} from ${farmerName} @ Rs.${itemRate.toFixed(2)}/Qtl (Token #${tokenNumber})`,
+                created_at: now.toISOString(),
+                updated_at: now.toISOString()
+              };
+            });
+
+            // Single consolidated credit to farmer
+            const credit = {
               id: `led-crd-${invoiceId}`,
               branch_id: branchId,
               transaction_date: invDate,
@@ -484,11 +501,43 @@ export default async function handler(req, res) {
               party_id: invoicePayload.party_id,
               debit_amount: 0.0,
               credit_amount: netPayable,
-              narration: `Payment obligation for Token #${tokenNumber} (${farmerName})`,
+              narration: `Payment obligation for Token #${tokenNumber} (${farmerName}) - ${invoicePayload.items.length} Commodities Consolidated`,
               created_at: now.toISOString(),
               updated_at: now.toISOString()
-            }
-          ];
+            };
+            ledgerEntries = [...debits, credit];
+          } else {
+            ledgerEntries = [
+              {
+                id: `led-deb-${invoiceId}`,
+                branch_id: branchId,
+                transaction_date: invDate,
+                voucher_type: 'PURCHASE_INVOICE',
+                voucher_id: tokenNumber || invoiceId,
+                account_name: `Grain Procurement - ${invoicePayload.commodity_name}`,
+                party_id: invoicePayload.party_id,
+                debit_amount: netPayable,
+                credit_amount: 0.0,
+                narration: `Procurement of ${netQuintals.toFixed(2)} Qtl ${invoicePayload.commodity_name} from ${farmerName} @ Rs.${ratePerQtl.toFixed(2)}/Qtl (Token #${tokenNumber})`,
+                created_at: now.toISOString(),
+                updated_at: now.toISOString()
+              },
+              {
+                id: `led-crd-${invoiceId}`,
+                branch_id: branchId,
+                transaction_date: invDate,
+                voucher_type: 'PURCHASE_INVOICE',
+                voucher_id: tokenNumber || invoiceId,
+                account_name: `${weighmentMode === 'CASH' ? 'Cash In Hand' : 'Farmer Payable (RTGS)'} - ${farmerName}`,
+                party_id: invoicePayload.party_id,
+                debit_amount: 0.0,
+                credit_amount: netPayable,
+                narration: `Payment obligation for Token #${tokenNumber} (${farmerName})`,
+                created_at: now.toISOString(),
+                updated_at: now.toISOString()
+              }
+            ];
+          }
           await fetch(`${supabaseUrl}/rest/v1/ledger_entries`, {
             method: 'POST',
             headers: { ...headers, 'Prefer': 'resolution=merge-duplicates' },
@@ -745,8 +794,15 @@ export default async function handler(req, res) {
 </div>
 <div class="dash"></div>
 <div class="row" style="font-weight:800;"><span>माल / Commodity</span><span>वजन / Weight</span></div>
-<div class="row"><span>${inv.commodity_name} (${inv.quality_grade || 'Standard'})</span><span>${netQtl} Qtl (${netKg} Kg)</span></div>
-<div class="row"><span>दर / Rate: ₹${rate}/Qtl</span><span>रक्कम: ₹${gross}</span></div>
+${(Array.isArray(inv.items) && inv.items.length > 1) ? inv.items.map((it, idx) => {
+  const itQtl = (parseFloat(it.net_quintals) || ((parseFloat(it.net_weight_kg) || 0) / 100.0)).toFixed(2);
+  const itKg = Math.round(parseFloat(it.net_weight_kg) || 0);
+  const itRate = (parseFloat(it.rate_per_quintal) || 0).toFixed(2);
+  const itGross = (parseFloat(it.gross_amount) || (itQtl * itRate)).toFixed(2);
+  return `<div class="row" style="margin-top:2px;"><span>${idx+1}. ${it.commodity_name}</span><span>${itQtl} Qtl (${itKg}kg)</span></div>
+  <div class="row" style="font-size:10px;color:#334155;margin-bottom:2px;"><span>&bull; Rate: ₹${itRate}/Q</span><span>रक्कम: ₹${itGross}</span></div>`;
+}).join('') : `<div class="row"><span>${inv.commodity_name} (${inv.quality_grade || 'Standard'})</span><span>${netQtl} Qtl (${netKg} Kg)</span></div>
+<div class="row"><span>दर / Rate: ₹${rate}/Qtl</span><span>रक्कम: ₹${gross}</span></div>`}
 <div class="row" style="color:#b91c1c;"><span>(-) हमाली:</span><span>-₹${hamali}</span></div>
 <div class="net-box">
   <div style="font-size:10.5px;font-weight:800;color:#065f46;">शेतकऱ्यास देय / NET PAYABLE</div>
@@ -900,12 +956,23 @@ export default async function handler(req, res) {
         <th style="text-align:right;">रक्कम ₹</th>
       </tr></thead>
       <tbody>
-        <tr>
+        ${(Array.isArray(inv.items) && inv.items.length > 1) ? inv.items.map((it, idx) => {
+          const itQtl = (parseFloat(it.net_quintals) || ((parseFloat(it.net_weight_kg) || 0) / 100.0)).toFixed(2);
+          const itKg = Math.round(parseFloat(it.net_weight_kg) || 0);
+          const itRate = (parseFloat(it.rate_per_quintal) || 0).toFixed(2);
+          const itGross = (parseFloat(it.gross_amount) || (itQtl * itRate)).toFixed(2);
+          return `<tr>
+            <td style="font-weight:700;">${idx + 1}. ${it.commodity_name} <small style="color:#475569;">(${it.quality_grade || 'Standard'})</small></td>
+            <td style="text-align:right;font-weight:700;">${itQtl} Qtl<br><small style="color:#64748b;">(${itKg} Kg)</small></td>
+            <td style="text-align:right;font-weight:700;">₹ ${itRate}</td>
+            <td style="text-align:right;font-weight:700;">₹ ${itGross}</td>
+          </tr>`;
+        }).join('') : `<tr>
           <td style="font-weight:800;">${inv.commodity_name} <small style="color:#475569;">(${inv.quality_grade || 'Standard'})</small></td>
           <td style="text-align:right;font-weight:800;">${netQtl} Qtl<br><small style="color:#64748b;">(${netKg} Kg)</small></td>
           <td style="text-align:right;font-weight:800;">₹ ${rate}</td>
           <td style="text-align:right;font-weight:800;">₹ ${gross}</td>
-        </tr>
+        </tr>`}
         <tr style="background:#fff1f2;color:#9f1239;">
           <td colspan="3" style="font-weight:700;font-size:10px;">(-) हमाली कपात (₹25/100Kg):</td>
           <td style="text-align:right;font-weight:800;font-size:10.5px;color:#be123c;">- ₹ ${hamali}</td>

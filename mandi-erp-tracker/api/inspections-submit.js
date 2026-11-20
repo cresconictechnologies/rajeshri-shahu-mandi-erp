@@ -128,6 +128,26 @@ export default async function handler(req, res) {
       if (branchId === 'VRV' || branchId === 'varvand') branchId = 'br-varvand';
       if (branchId === 'DHD' || branchId === 'dhad') branchId = 'br-dhad';
 
+      // Parse and canonicalize multi-commodity items if provided
+      const rawItems = Array.isArray(body.items) && body.items.length > 0 ? body.items : null;
+      let multiItems = null;
+      let primaryCommodity = canonicalizeCommodityName(body.commodity_name || 'Soyabean (Yellow)');
+
+      if (rawItems) {
+        multiItems = rawItems.map((it, idx) => ({
+          lot_index: idx + 1,
+          commodity_name: canonicalizeCommodityName(it.commodity_name || 'Soyabean (Yellow)'),
+          moisture_pct: parseFloat(it.moisture_pct) || 10.0,
+          karda_pct: parseFloat(it.karda_pct) || 0.0,
+          grade_label: it.grade_label || 'Grade 1 (Premium FAQ)',
+          sortex_clean_yield_pct: parseFloat(it.sortex_clean_yield_pct) || 94.0,
+          suggested_buying_rate_per_qtl: parseFloat(it.suggested_buying_rate_per_qtl) || 0.0,
+          meter_photo_path: it.meter_photo_path || null,
+          grain_photo_path: it.grain_photo_path || null
+        }));
+        primaryCommodity = multiItems.map(m => m.commodity_name).join(', ');
+      }
+
       const payload = {
         id: body.id || `qc-${ticketNo.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
         ticket_no: ticketNo,
@@ -138,10 +158,11 @@ export default async function handler(req, res) {
         farmer_name: (body.farmer_name || 'Walk-in Farmer').trim(),
         farmer_phone: body.farmer_phone || '',
         farmer_village: body.farmer_village || body.village || '',
-        commodity_name: canonicalizeCommodityName(body.commodity_name || 'Soyabean (Yellow)'),
-        moisture_pct: parseFloat(body.moisture_pct) || 10.0,
+        commodity_name: primaryCommodity,
+        items: multiItems || [],
+        moisture_pct: parseFloat(body.moisture_pct) || (multiItems ? multiItems[0].moisture_pct : 10.0),
         moisture_cut_kg: parseFloat(body.moisture_cut_kg) || 0.0,
-        karda_pct: parseFloat(body.karda_pct) || 0.0,
+        karda_pct: parseFloat(body.karda_pct) || (multiItems ? multiItems[0].karda_pct : 0.0),
         damaged_pct: parseFloat(body.damaged_pct) || 0.0,
         green_seeds_pct: parseFloat(body.green_seeds_pct) || 0.0,
         broken_split_pct: parseFloat(body.broken_split_pct) || 0.0,
@@ -152,22 +173,22 @@ export default async function handler(req, res) {
         admixture_pct: parseFloat(body.admixture_pct) || 0.0,
         breed_status: body.breed_status || 'PURE_BREED',
         faq_grade: body.faq_grade || 'FAQ_GRADE_1',
-        grade_label: body.grade_label || 'Grade 1 (Premium FAQ)',
+        grade_label: body.grade_label || (multiItems ? multiItems[0].grade_label : 'Grade 1 (Premium FAQ)'),
         suggested_rate_cut_per_qtl: parseFloat(body.suggested_rate_cut_per_qtl) || 0.0,
         corridor_min_rate: parseFloat(body.corridor_min_rate) || 0.0,
         corridor_target_rate: parseFloat(body.corridor_target_rate) || 0.0,
         corridor_max_rate: parseFloat(body.corridor_max_rate) || 0.0,
-        suggested_buying_rate_per_qtl: parseFloat(body.suggested_buying_rate_per_qtl) || 0.0,
+        suggested_buying_rate_per_qtl: parseFloat(body.suggested_buying_rate_per_qtl) || (multiItems ? multiItems[0].suggested_buying_rate_per_qtl : 0.0),
         sample_weight_grams: parseFloat(body.sample_weight_grams) || 250.0,
         total_seeds_analyzed: parseInt(body.total_seeds_analyzed, 10) || 500,
-        meter_photo_path: body.meter_photo_path || null,
-        grain_photo_path: body.grain_photo_path || null,
+        meter_photo_path: body.meter_photo_path || (multiItems ? multiItems[0].meter_photo_path : null),
+        grain_photo_path: body.grain_photo_path || (multiItems ? multiItems[0].grain_photo_path : null),
         inspector_signature: body.inspector_signature || null,
-        sortex_clean_yield_pct: parseFloat(body.sortex_clean_yield_pct) || 94.0,
+        sortex_clean_yield_pct: parseFloat(body.sortex_clean_yield_pct) || (multiItems ? multiItems[0].sortex_clean_yield_pct : 94.0),
         sortex_reject_pct: parseFloat(body.sortex_reject_pct) || 6.0,
         sortex_grade: body.sortex_grade || 'SORTEX Grade B (Commercial Trading Standard)',
         status: 'PENDING',
-        inspection_notes: body.inspection_notes || 'Mobile App Assayed'
+        inspection_notes: body.inspection_notes || (multiItems ? `Multi-Lot Inward: ${multiItems.length} commodities` : 'Mobile App Assayed')
       };
 
       // Post to Supabase PostgREST

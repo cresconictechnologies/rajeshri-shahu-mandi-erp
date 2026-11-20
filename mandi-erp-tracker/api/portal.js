@@ -62,7 +62,7 @@ export default async function handler(req, res) {
     else if (req.url.includes('/admin/settings') || req.url.includes('/settings')) action = 'settings';
     else if (req.url.includes('/admin/data')) action = 'admin_data';
     else if (req.url.includes('/accounts/data')) action = 'accounts_data';
-    else if (req.url.includes('/accounts/reports') || req.url.includes('/reports')) action = 'reports';
+    else if (req.url.includes('/accounts/reports') || req.url.includes('/reports') || req.url.includes('/export')) action = 'reports';
     else action = 'summary';
   }
 
@@ -200,7 +200,7 @@ export default async function handler(req, res) {
 
     if (req.method === 'GET') {
       try {
-        const resp = await fetch(`${supabaseUrl}/rest/v1/daily_commodity_rates?select=*&order=updated_at.desc&limit=100`, { headers });
+        const resp = await fetch(`${supabaseUrl}/rest/v1/daily_commodity_rates?select=*&order=updated_at.desc&limit=2500`, { headers });
         if (!resp.ok) return res.status(200).json({ success: true, rates: defaultRates });
         const rows = await resp.json();
         if (!Array.isArray(rows) || rows.length === 0) return res.status(200).json({ success: true, rates: defaultRates });
@@ -259,7 +259,7 @@ export default async function handler(req, res) {
       try {
         const branchFilter = req.query.branch_id && req.query.branch_id !== 'all' ? `&branch_id=eq.${encodeURIComponent(req.query.branch_id)}` : '';
         const targetDate = req.query.target_date ? `&invoice_date=eq.${encodeURIComponent(req.query.target_date)}` : '';
-        const resp = await fetch(`${supabaseUrl}/rest/v1/purchase_invoices?select=*${branchFilter}${targetDate}&order=created_at.desc&limit=150`, { headers });
+        const resp = await fetch(`${supabaseUrl}/rest/v1/purchase_invoices?select=*${branchFilter}${targetDate}&order=created_at.desc&limit=5000`, { headers });
         if (!resp.ok) return res.status(200).json({ success: true, invoices: [] });
         const rows = await resp.json();
         const invoices = Array.isArray(rows) ? rows : [];
@@ -842,28 +842,29 @@ ${(Array.isArray(inv.items) && inv.items.length > 1) ? inv.items.map((it, idx) =
   .btn-p:hover{background:#047857;}
   .btn-c{background:#334155;color:#f1f5f9;border:none;padding:8px 14px;font-size:12px;font-weight:700;border-radius:6px;cursor:pointer;margin-left:8px;}
   .btn-c:hover{background:#475569;}
-  .a4-sheet{width:210mm;max-width:820px;min-height:287mm;margin:0 auto;background:#fff;padding:4mm 6mm;box-shadow:0 8px 20px rgba(0,0,0,.12);border-radius:4px;display:flex;flex-direction:column;justify-content:space-between;box-sizing:border-box;}
-  .slip-wrap{height:136mm;min-height:136mm;max-height:136mm;border:1.8px solid #0f172a;border-radius:6px;padding:10px 14px;background:#fff;display:flex;flex-direction:column;justify-content:space-between;box-sizing:border-box;overflow:hidden;}
-  .cut-line{height:9mm;display:flex;align-items:center;text-align:center;color:#64748b;font-size:10px;font-weight:700;letter-spacing:1px;margin:1.5mm 0;user-select:none;}
+  .a4-sheet{width:210mm;max-width:820px;height:287mm;min-height:287mm;max-height:287mm;margin:0 auto;background:#fff;padding:4mm 6mm;box-shadow:0 8px 20px rgba(0,0,0,.12);border-radius:4px;display:flex;flex-direction:column;justify-content:space-between;box-sizing:border-box;overflow:hidden;}
+  .slip-wrap{height:137mm;min-height:137mm;max-height:137mm;border:1.8px solid #0f172a;border-radius:6px;padding:8px 14px;background:#fff;display:flex;flex-direction:column;justify-content:space-between;box-sizing:border-box;overflow:hidden;break-inside:avoid;}
+  .cut-line{height:8mm;margin:1mm 0;display:flex;align-items:center;text-align:center;color:#64748b;font-size:9.5px;font-weight:700;letter-spacing:1px;user-select:none;}
   .cut-line::before,.cut-line::after{content:'';flex:1;border-bottom:1.5px dashed #94a3b8;}
   .cut-line span{padding:0 12px;}
-  .hdr{border-bottom:1.5px solid #0f172a;padding-bottom:5px;margin-bottom:0;position:relative;text-align:center;}
-  .badge{position:absolute;top:0;right:0;padding:2px 8px;border-radius:4px;font-size:9.5px;font-weight:800;text-transform:uppercase;}
-  .badge-f{background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0;}
-  .badge-m{background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;}
-  .firm{font-size:17.5px;font-weight:900;letter-spacing:.6px;}
-  .sub{font-size:10px;font-weight:700;color:#0284c7;margin-top:1px;}
-  .branch{font-size:10.5px;font-weight:600;color:#334155;margin-top:1px;}
-  .meta{display:flex;justify-content:space-between;align-items:center;background:#f1f5f9;padding:4px 10px;border-radius:4px;font-size:10.5px;font-weight:700;color:#1e293b;margin-top:5px;border:1px solid #e2e8f0;}
-  .dg{display:grid;grid-template-columns:1.35fr 1fr;gap:4px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:5px;padding:8px 12px;margin-bottom:0;font-size:11.5px;line-height:1.48;}
-  table{width:100%;border-collapse:collapse;font-size:11.5px;margin:3px 0;}
-  th{background:#0f172a;color:#fff;font-weight:800;padding:6px 8px;font-size:10.5px;}
-  td{padding:7px 8px;border-bottom:1px solid #e2e8f0;}
+  .hdr{border-bottom:1.5px solid #0f172a;padding-bottom:4px;margin-bottom:0;position:relative;text-align:center;}
+  .badge{position:absolute;top:0;right:0;padding:2.5px 8px;border-radius:4px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:0.3px;}
+  .badge-f{background:#ecfdf5;color:#065f46;border:1.2px solid #059669;}
+  .badge-m{background:#eff6ff;color:#1e40af;border:1.2px solid #2563eb;}
+  .firm{font-size:17px;font-weight:900;letter-spacing:.6px;line-height:1.15;color:#0f172a;}
+  .sub{font-size:9.5px;font-weight:700;color:#0284c7;margin-top:1px;letter-spacing:0.4px;}
+  .branch{font-size:10px;font-weight:600;color:#334155;margin-top:1px;}
+  .meta{display:flex;justify-content:space-between;align-items:center;background:#f8fafc;padding:3px 10px;border-radius:4px;font-size:10px;font-weight:700;color:#1e293b;margin-top:4px;border:1px solid #e2e8f0;}
+  .dg{display:grid;grid-template-columns:1.35fr 1fr;gap:4px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:5px;padding:6px 10px;margin:2px 0;font-size:11px;line-height:1.45;}
+  table{width:100%;border-collapse:collapse;font-size:11px;margin:2px 0;}
+  th{background:#0f172a;color:#fff;font-weight:800;padding:5px 8px;font-size:10px;}
+  td{padding:5px 8px;border-bottom:1px solid #e2e8f0;}
   .npr{background:#ecfdf5!important;border-top:2px solid #059669!important;border-bottom:2px solid #059669!important;}
-  .npc{padding:7px 10px!important;font-size:17px!important;font-weight:900!important;color:#047857!important;text-align:right;}
-  .wb{background:#fafaf9;border:1px solid #e7e5e4;border-radius:4px;padding:5px 10px;font-size:11px;font-weight:700;color:#334155;margin-bottom:0;}
-  .footer{display:flex;justify-content:space-between;align-items:flex-end;margin-top:0;padding-top:6px;border-top:1px dashed #cbd5e1;font-size:9.5px;}
-  .sig{text-align:center;min-width:150px;border-top:1.5px solid #0f172a;padding-top:4px;font-size:10px;}
+  .npc{padding:5px 10px!important;font-size:16px!important;font-weight:900!important;color:#047857!important;text-align:right;}
+  .wb{background:#fafaf9;border:1px solid #e7e5e4;border-radius:4px;padding:4px 10px;font-size:10.5px;font-weight:700;color:#334155;margin:2px 0;}
+  .footer{display:flex;justify-content:space-between;align-items:flex-end;margin-top:2px;padding-top:4px;font-size:9px;}
+  .sig-space{height:20px;}
+  .sig{text-align:center;min-width:145px;border-top:1.5px solid #0f172a;padding-top:3px;font-size:9.5px;}
   @media print{
     html,body{background:#fff!important;padding:0!important;margin:0!important;width:100%!important;height:100%!important;}
     .no-print{display:none!important;}
@@ -888,9 +889,9 @@ ${(Array.isArray(inv.items) && inv.items.length > 1) ? inv.items.map((it, idx) =
       overflow:hidden!important;
     }
     .slip-wrap{
-      height:136mm!important;
-      max-height:136mm!important;
-      min-height:136mm!important;
+      height:137mm!important;
+      max-height:137mm!important;
+      min-height:137mm!important;
       box-sizing:border-box!important;
       break-inside:avoid!important;
       page-break-inside:avoid!important;
@@ -898,18 +899,18 @@ ${(Array.isArray(inv.items) && inv.items.length > 1) ? inv.items.map((it, idx) =
       display:flex!important;
       flex-direction:column!important;
       justify-content:space-between!important;
-      padding:10px 14px!important;
+      padding:8px 14px!important;
       border:1.8px solid #0f172a!important;
       border-radius:6px!important;
     }
     .cut-line{
-      height:9mm!important;
-      margin:1.5mm 0!important;
+      height:8mm!important;
+      margin:1mm 0!important;
       display:flex!important;
       align-items:center!important;
       text-align:center!important;
       color:#64748b!important;
-      font-size:10px!important;
+      font-size:9.5px!important;
       font-weight:700!important;
       letter-spacing:1px!important;
     }
@@ -985,10 +986,16 @@ ${(Array.isArray(inv.items) && inv.items.length > 1) ? inv.items.map((it, idx) =
     </table>
     <div class="wb"><strong>अक्षरी / Words:</strong> ${amountInWords}</div>
     <div class="footer">
-      <div style="color:#64748b;line-height:1.35;">Sec 269ST Compliant &bull; Zero Mandi Cess<br>APMC Verified Computer Parchi v2.0</div>
-      <div style="display:flex;gap:28px;">
-        <div class="sig"><strong>शेतकऱ्याची सही / अंगठा</strong><br><span style="font-size:8.5px;color:#64748b;">(वजन व हिशोब मान्य)</span></div>
-        <div class="sig"><strong>मुनीम / कॅशियर सही</strong><br><span style="font-size:8.5px;color:#64748b;">(Rajarshi Shahu Trading)</span></div>
+      <div style="color:#64748b;line-height:1.35;font-weight:600;">Sec 269ST Compliant &bull; Zero Mandi Cess<br>APMC Verified Computer Parchi v2.0</div>
+      <div style="display:flex;gap:24px;">
+        <div class="sig">
+          <div class="sig-space"></div>
+          <strong>शेतकऱ्याची सही / अंगठा</strong><br><span style="font-size:8px;color:#64748b;">(वजन व हिशोब मान्य)</span>
+        </div>
+        <div class="sig">
+          <div class="sig-space"></div>
+          <strong>मुनीम / कॅशियर सही</strong><br><span style="font-size:8px;color:#64748b;">(Rajarshi Shahu Trading)</span>
+        </div>
       </div>
     </div>
   </div>` + (i === 0 ? `\n  <div class="cut-line"><span>✂ कापून वेगळे करा — Cut Here — ✂</span></div>` : '');
@@ -1410,7 +1417,7 @@ ${(Array.isArray(inv.items) && inv.items.length > 1) ? inv.items.map((it, idx) =
     if (req.method === 'GET') {
       try {
         const branchId = req.query.branch_id;
-        let url = `${supabaseUrl}/rest/v1/ledger_entries?select=*&order=transaction_date.desc,created_at.desc&limit=500`;
+        let url = `${supabaseUrl}/rest/v1/ledger_entries?select=*&order=transaction_date.desc,created_at.desc&limit=5000`;
         if (branchId && branchId !== 'all') {
           url += `&branch_id=eq.${encodeURIComponent(branchId)}`;
         }
@@ -1569,7 +1576,7 @@ ${(Array.isArray(inv.items) && inv.items.length > 1) ? inv.items.map((it, idx) =
       try {
         const branchId = req.query.branch_id;
         const status = req.query.status || 'PENDING';
-        let url = `${supabaseUrl}/rest/v1/quality_inspections?order=created_at.desc&limit=100`;
+        let url = `${supabaseUrl}/rest/v1/quality_inspections?order=created_at.desc&limit=2500`;
         if (status && status !== 'all') {
           url += `&status=eq.${encodeURIComponent(status)}`;
         }
@@ -1597,7 +1604,7 @@ ${(Array.isArray(inv.items) && inv.items.length > 1) ? inv.items.map((it, idx) =
     if (req.method === 'GET') {
       try {
         const branchFilter = req.query.branch_id && req.query.branch_id !== 'all' ? `&branch_id=eq.${encodeURIComponent(req.query.branch_id)}` : '';
-        const resp = await fetch(`${supabaseUrl}/rest/v1/outward_orders?select=*${branchFilter}&order=created_at.desc&limit=100`, { headers });
+        const resp = await fetch(`${supabaseUrl}/rest/v1/outward_orders?select=*${branchFilter}&order=created_at.desc&limit=2500`, { headers });
         if (!resp.ok) return res.status(200).json({ success: true, orders: [] });
         const rows = await resp.json();
         return res.status(200).json({ success: true, orders: Array.isArray(rows) ? rows : [] });
@@ -1924,8 +1931,8 @@ ${(Array.isArray(inv.items) && inv.items.length > 1) ? inv.items.map((it, idx) =
   if (action === 'admin_data') {
     try {
       const [invoicesResp, inspectionsResp, branchesResp, usersResp, commoditiesResp, partiesResp] = await Promise.all([
-        fetch(`${supabaseUrl}/rest/v1/purchase_invoices?select=*&order=created_at.desc&limit=150`, { headers }),
-        fetch(`${supabaseUrl}/rest/v1/quality_inspections?select=*&order=created_at.desc&limit=100`, { headers }),
+        fetch(`${supabaseUrl}/rest/v1/purchase_invoices?select=*&order=created_at.desc&limit=5000`, { headers }),
+        fetch(`${supabaseUrl}/rest/v1/quality_inspections?select=*&order=created_at.desc&limit=2500`, { headers }),
         fetch(`${supabaseUrl}/rest/v1/branches?select=*&order=created_at.asc`, { headers }),
         fetch(`${supabaseUrl}/rest/v1/users?select=id,username,full_name,role,branch_id,phone,is_active,created_at,updated_at&order=created_at.asc`, { headers }),
         fetch(`${supabaseUrl}/rest/v1/commodities?select=*&order=name.asc`, { headers }),
@@ -2009,12 +2016,12 @@ ${(Array.isArray(inv.items) && inv.items.length > 1) ? inv.items.map((it, idx) =
   if (action === 'accounts_data') {
     try {
       const [ratesResp, invoicesResp, outwardResp, inspectorsResp, commoditiesResp, ledgersResp, partiesResp, branchesResp] = await Promise.all([
-        fetch(`${supabaseUrl}/rest/v1/daily_commodity_rates?select=*&order=updated_at.desc&limit=100`, { headers }),
-        fetch(`${supabaseUrl}/rest/v1/purchase_invoices?select=*&order=invoice_date.desc,created_at.desc&limit=1000`, { headers }),
-        fetch(`${supabaseUrl}/rest/v1/outward_orders?select=*&order=order_date.desc,created_at.desc&limit=500`, { headers }),
+        fetch(`${supabaseUrl}/rest/v1/daily_commodity_rates?select=*&order=updated_at.desc&limit=2500`, { headers }),
+        fetch(`${supabaseUrl}/rest/v1/purchase_invoices?select=*&order=invoice_date.desc,created_at.desc&limit=5000`, { headers }),
+        fetch(`${supabaseUrl}/rest/v1/outward_orders?select=*&order=order_date.desc,created_at.desc&limit=2500`, { headers }),
         fetch(`${supabaseUrl}/rest/v1/inspectors?select=*&order=name.asc`, { headers }),
         fetch(`${supabaseUrl}/rest/v1/commodities?select=*&order=name.asc`, { headers }),
-        fetch(`${supabaseUrl}/rest/v1/ledger_entries?select=*&order=transaction_date.desc,created_at.desc&limit=1000`, { headers }),
+        fetch(`${supabaseUrl}/rest/v1/ledger_entries?select=*&order=transaction_date.desc,created_at.desc&limit=5000`, { headers }),
         fetch(`${supabaseUrl}/rest/v1/parties?select=*&order=name.asc`, { headers }),
         fetch(`${supabaseUrl}/rest/v1/branches?select=*&order=name.asc`, { headers })
       ]);
@@ -2189,14 +2196,14 @@ ${(Array.isArray(inv.items) && inv.items.length > 1) ? inv.items.map((it, idx) =
   // =========================================================================
   // 11. CENTRAL ACCOUNTS REPORTS & TALLY EXPORT ACTION
   // =========================================================================
-  if (action === 'reports') {
+  if (action === 'reports' || action === 'export') {
     try {
       let type = req.query.type || '';
       if (!type) {
         const urlClean = (req.url || '').split('?')[0];
         const segments = urlClean.split('/').filter(Boolean);
         const lastSeg = segments[segments.length - 1];
-        if (lastSeg && lastSeg !== 'reports' && lastSeg !== 'portal') {
+        if (lastSeg && lastSeg !== 'reports' && lastSeg !== 'portal' && lastSeg !== 'export') {
           type = lastSeg;
         }
       }
@@ -2213,9 +2220,9 @@ ${(Array.isArray(inv.items) && inv.items.length > 1) ? inv.items.map((it, idx) =
       const toDate = req.query.to_date || '';
 
       const [invoicesResp, outwardResp, ledgersResp, partiesResp, branchesResp] = await Promise.all([
-        fetch(`${supabaseUrl}/rest/v1/purchase_invoices?select=*&order=invoice_date.desc,created_at.desc&limit=1000`, { headers }),
-        fetch(`${supabaseUrl}/rest/v1/outward_orders?select=*&order=order_date.desc,created_at.desc&limit=500`, { headers }),
-        fetch(`${supabaseUrl}/rest/v1/ledger_entries?select=*&order=transaction_date.desc,created_at.desc&limit=1000`, { headers }),
+        fetch(`${supabaseUrl}/rest/v1/purchase_invoices?select=*&order=invoice_date.desc,created_at.desc&limit=5000`, { headers }),
+        fetch(`${supabaseUrl}/rest/v1/outward_orders?select=*&order=order_date.desc,created_at.desc&limit=2500`, { headers }),
+        fetch(`${supabaseUrl}/rest/v1/ledger_entries?select=*&order=transaction_date.desc,created_at.desc&limit=5000`, { headers }),
         fetch(`${supabaseUrl}/rest/v1/parties?select=*&order=name.asc`, { headers }),
         fetch(`${supabaseUrl}/rest/v1/branches?select=*&order=name.asc`, { headers })
       ]);
@@ -3129,7 +3136,7 @@ ${(Array.isArray(inv.items) && inv.items.length > 1) ? inv.items.map((it, idx) =
       // -----------------------------------------------------------------------
       // 4. DAILY INWARD PROCUREMENT REGISTER
       // -----------------------------------------------------------------------
-      if (type === 'daily_inward') {
+      if (type === 'daily_inward' || type === 'inward' || type === 'invoices') {
         const filteredInvoices = allInvoices.filter(inv => {
           const invDate = (inv.invoice_date || '').split('T')[0];
           if (targetDate && invDate !== targetDate) return false;
@@ -3454,7 +3461,7 @@ ${(Array.isArray(inv.items) && inv.items.length > 1) ? inv.items.map((it, idx) =
       // -----------------------------------------------------------------------
       // 5. DAILY OUTWARD SALES REGISTER
       // -----------------------------------------------------------------------
-      if (type === 'daily_outward') {
+      if (type === 'daily_outward' || type === 'outward') {
         const filteredOutward = allOutward.filter(o => {
           const oDate = (o.order_date || '').split('T')[0];
           if (targetDate && oDate !== targetDate) return false;
@@ -3739,7 +3746,7 @@ ${(Array.isArray(inv.items) && inv.items.length > 1) ? inv.items.map((it, idx) =
       // -----------------------------------------------------------------------
       // 6. CONSOLIDATED GENERAL LEDGER REGISTER
       // -----------------------------------------------------------------------
-      if (type === 'general_ledger') {
+      if (type === 'general_ledger' || type === 'ledgers' || type === 'ledger') {
         const filteredLedgers = allLedgers.filter(l => {
           if (branchId !== 'all' && l.branch_id !== branchId) return false;
           return true;
@@ -3898,7 +3905,7 @@ ${(Array.isArray(inv.items) && inv.items.length > 1) ? inv.items.map((it, idx) =
       // -----------------------------------------------------------------------
       // 7. CONSOLIDATED TALLY DAYBOOK IMPORT BUNDLE
       // -----------------------------------------------------------------------
-      if (type === 'tally_daybook') {
+      if (type === 'tally_daybook' || type === 'tally') {
         const filteredInvoices = allInvoices.filter(inv => {
           const invDate = (inv.invoice_date || '').split('T')[0];
           if (targetDate && invDate !== targetDate) return false;
@@ -4108,7 +4115,7 @@ ${(Array.isArray(inv.items) && inv.items.length > 1) ? inv.items.map((it, idx) =
   // =========================================================================
   try {
     const [invoicesResp, branchesResp] = await Promise.all([
-      fetch(`${supabaseUrl}/rest/v1/purchase_invoices?select=id,branch_id,net_quintals,net_payable_amount,weighment_mode,payout_status&limit=200`, { headers }),
+      fetch(`${supabaseUrl}/rest/v1/purchase_invoices?select=id,branch_id,net_quintals,net_payable_amount,weighment_mode,payout_status&limit=5000`, { headers }),
       fetch(`${supabaseUrl}/rest/v1/branches?select=id,name,branch_code,is_active`, { headers })
     ]);
 

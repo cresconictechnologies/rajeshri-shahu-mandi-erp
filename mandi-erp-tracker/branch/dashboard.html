@@ -101,10 +101,11 @@
             body * {
                 visibility: hidden !important;
             }
-            #parchiModal, #parchiModal *, #outwardChallanModal, #outwardChallanModal * {
+            #parchiModal[style*="display: flex"], #parchiModal[style*="display: flex"] *,
+            #outwardChallanModal[style*="display: flex"], #outwardChallanModal[style*="display: flex"] * {
                 visibility: visible !important;
             }
-            #parchiModal, #outwardChallanModal {
+            #parchiModal[style*="display: flex"], #outwardChallanModal[style*="display: flex"] {
                 position: absolute !important;
                 left: 0 !important;
                 top: 0 !important;
@@ -114,6 +115,9 @@
                 background: #ffffff !important;
                 display: block !important;
             }
+            #parchiModal:not([style*="display: flex"]), #outwardChallanModal:not([style*="display: flex"]) {
+                display: none !important;
+            }
             #parchiModal .modal, #outwardChallanModal .modal {
                 box-shadow: none !important;
                 border: none !important;
@@ -121,13 +125,19 @@
                 width: 100% !important;
                 padding: 0 !important;
                 margin: 0 !important;
+                background: #ffffff !important;
             }
             #parchiModal .modal-header, #outwardChallanModal .modal-header, .no-print {
                 display: none !important;
             }
+            #parchiContent {
+                width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
             @page {
                 size: A4 portrait;
-                margin: 6mm 8mm;
+                margin: 4mm 6mm;
             }
         }
 

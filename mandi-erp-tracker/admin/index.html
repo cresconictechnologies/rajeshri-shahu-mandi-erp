@@ -233,9 +233,9 @@
             <div class="hint hint-amber" id="statTotalStockHint">0.00 Qtl Holding (0.00 MT)</div>
         </div>
         <div class="stat-card accent-green" id="cardTotalPnl">
-            <div class="label">Net Realized Spread / P&L</div>
+            <div class="label">Net Trading Profit & Loss (P&L)</div>
             <div class="value" id="statTotalPnl" style="color:#059669;">+₹0.00</div>
-            <div class="hint hint-green" id="statPnlHint">▲ Net Sales vs Procurement</div>
+            <div class="hint hint-green" id="statPnlHint">▲ Net Sales + Stock vs Procurement</div>
         </div>
         <div class="stat-card accent-purple">
             <div class="label">Active Users</div>
@@ -1241,8 +1241,10 @@
                 if (stats.total_quintals !== undefined) totalProcQtl = parseFloat(stats.total_quintals);
             }
 
-            const totalPnl = totalSalesAmt - totalDisbursed;
-            const pnlPct = totalDisbursed > 0 ? ((totalPnl / totalDisbursed) * 100).toFixed(1) : '0.0';
+            let totalPnl = 0.0;
+            let pnlPct = '0.0';
+            let realizedMargin = 0.0;
+            let realizedMarginPct = '0.0';
 
             const statQuintals = document.getElementById('statTotalQuintals');
             if (statQuintals) statQuintals.innerText = totalProcQtl.toFixed(2);
@@ -1262,6 +1264,10 @@
             if (stats && stats.total_stock_value !== undefined) {
                 totalStockVal = parseFloat(stats.total_stock_value) || 0.0;
                 totalStockQtl = parseFloat(stats.total_stock_quintals) || 0.0;
+                totalPnl = parseFloat(stats.total_pnl) || 0.0;
+                pnlPct = stats.total_pnl_pct || '0.0';
+                realizedMargin = parseFloat(stats.realized_margin) || 0.0;
+                realizedMarginPct = stats.realized_margin_pct || '0.0';
             } else {
                 const cMap = {};
                 (invoices || []).forEach(inv => {
@@ -1275,6 +1281,7 @@
                     if (!cMap[cn]) cMap[cn] = { procQtl: 0, procAmt: 0, soldQtl: 0 };
                     cMap[cn].soldQtl += parseFloat(out.net_quintals) || 0;
                 });
+                let totCogs = 0;
                 for (const cn in cMap) {
                     const it = cMap[cn];
                     const net = it.procQtl - it.soldQtl;
@@ -1283,8 +1290,14 @@
                         totalStockQtl += net;
                         totalStockVal += net * avg;
                     }
+                    totCogs += Math.min(it.soldQtl, it.procQtl) * avg;
                 }
+                totalPnl = (totalSalesAmt + totalStockVal) - totalDisbursed;
+                pnlPct = totalDisbursed > 0 ? ((totalPnl / totalDisbursed) * 100).toFixed(1) : '0.0';
+                realizedMargin = totalSalesAmt - totCogs;
+                realizedMarginPct = totalSalesAmt > 0 ? ((realizedMargin / totalSalesAmt) * 100).toFixed(1) : '0.0';
             }
+
             const statStockVal = document.getElementById('statTotalStockVal');
             if (statStockVal) statStockVal.innerText = '₹' + totalStockVal.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
             const statStockHint = document.getElementById('statTotalStockHint');
@@ -1293,17 +1306,19 @@
             const badgeCount = document.getElementById('outwardBadgeCount');
             if (badgeCount) badgeCount.innerText = salesCount;
             const totalBadge = document.getElementById('outwardTotalSalesBadge');
-            if (totalBadge) totalBadge.innerText = '₹' + totalSalesAmt.toLocaleString(undefined, {minimumFractionDigits:2}) + ' Total Sales';
+            if (totalBadge) totalBadge.innerText = '₹' + totalSalesAmt.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' Total Sales';
 
             const statPnl = document.getElementById('statTotalPnl');
             if (statPnl) {
                 const sign = totalPnl >= 0 ? '+' : '-';
-                statPnl.innerText = `${sign}₹${Math.abs(totalPnl).toLocaleString(undefined, {minimumFractionDigits:2})}`;
+                statPnl.innerText = `${sign}₹${Math.abs(totalPnl).toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2})}`;
                 statPnl.style.color = totalPnl >= 0 ? '#059669' : '#dc2626';
             }
             const pnlHint = document.getElementById('statPnlHint');
             if (pnlHint) {
-                pnlHint.innerText = totalPnl >= 0 ? `▲ +${pnlPct}% Sales Spread Over Procurement` : `▼ ${pnlPct}% Deficit`;
+                pnlHint.innerText = totalPnl >= 0 
+                    ? `▲ +${pnlPct}% Trading Gain (Sales + Stock vs Procurement) • Dispatched Margin: +₹${(realizedMargin/100000).toFixed(2)}L`
+                    : `▼ ${pnlPct}% Deficit`;
                 pnlHint.className = totalPnl >= 0 ? 'hint hint-green' : 'hint hint-red';
             }
         }
@@ -1391,13 +1406,11 @@
             if (!name) return 'Soyabean (Yellow)';
             const n = String(name).trim();
             const low = n.toLowerCase();
-            if (low.includes('brazil')) return 'Rajma Brazil (राजमा ब्राझील)';
-            if (low.includes('varun')) return 'Rajma Varun (राजमा वरुण)';
+            if (low.includes('rajma') || low.includes('kidney') || low.includes('brazil') || low.includes('varun')) return 'Rajma (Combined Brazil / Varun / Desi)';
             if (low.includes('virat')) return 'Virat Chana (Chickpea / विराट चना)';
             if (low.includes('dollar') || low.includes('kabuli')) return 'Dollar Chana (Kabuli / डॉलर चना)';
             if (low.includes('bengal') || low.includes('red gram')) return 'Bengal Gram / Red Gram (लाल चना)';
             if (low.includes('besan')) return 'Besan (Gram Flour / बेसन)';
-            if (low.includes('kidney') || (low.includes('rajma') && !low.includes('varun') && !low.includes('brazil'))) return 'Rajma (Red Kidney Beans / राजमा)';
             if (low.includes('soya') || low.includes('soybean')) return 'Soyabean (Yellow)';
             if (low.includes('desi') || low.includes('harbhara') || (low.includes('chana') && !low.includes('dollar') && !low.includes('virat'))) return 'Chana (Desi) / Harbhara (हरभरा)';
             if (low.includes('tur') || low.includes('toor') || low.includes('arhar')) return 'Tur / Arhar (तूर)';

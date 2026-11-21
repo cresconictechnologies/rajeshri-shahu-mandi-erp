@@ -5,13 +5,11 @@ function canonicalizeCommodityName(name) {
   if (!name) return 'Soyabean (Yellow)';
   const n = String(name).trim();
   const low = n.toLowerCase();
-  if (low.includes('brazil')) return 'Rajma Brazil (राजमा ब्राझील)';
-  if (low.includes('varun')) return 'Rajma Varun (राजमा वरुण)';
+  if (low.includes('rajma') || low.includes('kidney') || low.includes('brazil') || low.includes('varun')) return 'Rajma (Combined Brazil / Varun / Desi)';
   if (low.includes('virat')) return 'Virat Chana (Chickpea / विराट चना)';
   if (low.includes('dollar') || low.includes('kabuli')) return 'Dollar Chana (Kabuli / डॉलर चना)';
   if (low.includes('bengal') || low.includes('red gram')) return 'Bengal Gram / Red Gram (लाल चना)';
   if (low.includes('besan')) return 'Besan (Gram Flour / बेसन)';
-  if (low.includes('kidney') || (low.includes('rajma') && !low.includes('varun') && !low.includes('brazil'))) return 'Rajma (Red Kidney Beans / राजमा)';
   if (low.includes('soya') || low.includes('soybean')) return 'Soyabean (Yellow)';
   if (low.includes('desi') || low.includes('harbhara') || (low.includes('chana') && !low.includes('dollar') && !low.includes('virat'))) return 'Chana (Desi) / Harbhara (हरभरा)';
   if (low.includes('tur') || low.includes('toor') || low.includes('arhar')) return 'Tur / Arhar (तूर)';
@@ -2124,19 +2122,16 @@ ${rawBardanaRefund > 0 ? `<div class="row" style="color:#047857;font-weight:800;
 
       (Array.isArray(users) ? users : []).forEach(u => { delete u.password_hash; delete u.password; });
 
-      totalPnl = totalSales - totalDisbursed;
-      const pnlPct = totalDisbursed > 0 ? ((totalPnl / totalDisbursed) * 100).toFixed(1) : '0.0';
-
-      // Calculate physical closing inventory stock valuation
+      // Calculate physical closing inventory stock valuation and COGS
       const commStockMap = {};
       for (const inv of invoices) {
-        const c = inv.commodity_name || 'Soyabean (Yellow)';
+        const c = canonicalizeCommodityName(inv.commodity_name);
         if (!commStockMap[c]) commStockMap[c] = { procQtl: 0.0, procAmt: 0.0, soldQtl: 0.0, soldAmt: 0.0 };
         commStockMap[c].procQtl += parseFloat(inv.net_quintals) || 0.0;
         commStockMap[c].procAmt += parseFloat(inv.net_payable_amount) || 0.0;
       }
       for (const out of (Array.isArray(outwardOrders) ? outwardOrders : [])) {
-        const c = out.commodity_name || 'Soyabean (Yellow)';
+        const c = canonicalizeCommodityName(out.commodity_name);
         if (!commStockMap[c]) commStockMap[c] = { procQtl: 0.0, procAmt: 0.0, soldQtl: 0.0, soldAmt: 0.0 };
         commStockMap[c].soldQtl += parseFloat(out.net_quintals) || 0.0;
         commStockMap[c].soldAmt += parseFloat(out.total_bill_amount || out.gross_amount) || 0.0;
@@ -2144,6 +2139,7 @@ ${rawBardanaRefund > 0 ? `<div class="row" style="color:#047857;font-weight:800;
 
       let totalStockQuintals = 0.0;
       let totalStockValue = 0.0;
+      let totalCogs = 0.0;
       for (const c in commStockMap) {
         const item = commStockMap[c];
         const netQtl = item.procQtl - item.soldQtl;
@@ -2152,7 +2148,15 @@ ${rawBardanaRefund > 0 ? `<div class="row" style="color:#047857;font-weight:800;
           totalStockQuintals += netQtl;
           totalStockValue += netQtl * avgBuy;
         }
+        totalCogs += Math.min(item.soldQtl, item.procQtl) * avgBuy;
       }
+
+      // Net Trading P&L = (Total Sales + Closing Stock Value) - Procurement Cost
+      totalPnl = (totalSales + totalStockValue) - totalDisbursed;
+      const pnlPct = totalDisbursed > 0 ? ((totalPnl / totalDisbursed) * 100).toFixed(1) : '0.0';
+
+      const realizedMargin = totalSales - totalCogs;
+      const realizedMarginPct = totalSales > 0 ? ((realizedMargin / totalSales) * 100).toFixed(1) : '0.0';
 
       return res.status(200).json({
         success: true,
@@ -2163,10 +2167,12 @@ ${rawBardanaRefund > 0 ? `<div class="row" style="color:#047857;font-weight:800;
           total_sales: totalSales,
           total_sales_quintals: totalSalesQuintals,
           total_sales_count: Array.isArray(outwardOrders) ? outwardOrders.length : 0,
-          total_pnl: totalPnl,
-          total_pnl_pct: pnlPct,
           total_stock_value: totalStockValue,
           total_stock_quintals: totalStockQuintals,
+          total_pnl: totalPnl,
+          total_pnl_pct: pnlPct,
+          realized_margin: realizedMargin,
+          realized_margin_pct: realizedMarginPct,
           users_active: users.filter(u => u.is_active).length
         },
         invoices: invoices,

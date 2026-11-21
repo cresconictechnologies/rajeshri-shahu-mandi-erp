@@ -2033,13 +2033,14 @@ ${rawBardanaRefund > 0 ? `<div class="row" style="color:#047857;font-weight:800;
 
   if (action === 'admin_data') {
     try {
-      const [invoicesResp, inspectionsResp, branchesResp, usersResp, commoditiesResp, partiesResp] = await Promise.all([
+      const [invoicesResp, inspectionsResp, branchesResp, usersResp, commoditiesResp, partiesResp, outwardResp] = await Promise.all([
         fetch(`${supabaseUrl}/rest/v1/purchase_invoices?select=*&order=created_at.desc&limit=5000`, { headers }),
         fetch(`${supabaseUrl}/rest/v1/quality_inspections?select=*&order=created_at.desc&limit=2500`, { headers }),
         fetch(`${supabaseUrl}/rest/v1/branches?select=*&order=created_at.asc`, { headers }),
         fetch(`${supabaseUrl}/rest/v1/users?select=id,username,full_name,role,branch_id,phone,is_active,created_at,updated_at&order=created_at.asc`, { headers }),
         fetch(`${supabaseUrl}/rest/v1/commodities?select=*&order=name.asc`, { headers }),
-        fetch(`${supabaseUrl}/rest/v1/parties?select=id,name,party_type`, { headers })
+        fetch(`${supabaseUrl}/rest/v1/parties?select=id,name,party_type`, { headers }),
+        fetch(`${supabaseUrl}/rest/v1/outward_orders?select=*&order=order_date.desc,created_at.desc&limit=5000`, { headers })
       ]);
 
       const invoices = invoicesResp.ok ? await invoicesResp.json() : [];
@@ -2047,9 +2048,12 @@ ${rawBardanaRefund > 0 ? `<div class="row" style="color:#047857;font-weight:800;
       const branches = branchesResp.ok ? await branchesResp.json() : [];
       const users = usersResp.ok ? await usersResp.json() : [];
       const commodities = commoditiesResp.ok ? await commoditiesResp.json() : [];
+      const outwardOrders = outwardResp && outwardResp.ok ? await outwardResp.json() : [];
 
       let totalQuintals = 0.0;
       let totalDisbursed = 0.0;
+      let totalSales = 0.0;
+      let totalSalesQuintals = 0.0;
       let totalPnl = 0.0;
 
       const parties = partiesResp && partiesResp.ok ? await partiesResp.json() : [];
@@ -2057,6 +2061,21 @@ ${rawBardanaRefund > 0 ? `<div class="row" style="color:#047857;font-weight:800;
       parties.forEach(p => { partyMap[p.id] = p; });
       const branchMap = {};
       branches.forEach(b => { branchMap[b.id] = b.name; });
+
+      // Outward sales metrics & branch enrichment
+      for (const out of (Array.isArray(outwardOrders) ? outwardOrders : [])) {
+        if (out.commodity_name) {
+          out.commodity_name = canonicalizeCommodityName(out.commodity_name);
+        }
+        const amt = parseFloat(out.total_bill_amount || out.gross_amount || 0.0);
+        const qtl = parseFloat(out.net_quintals || 0.0);
+        totalSales += amt;
+        totalSalesQuintals += qtl;
+        out.branch_name = branchMap[out.branch_id] || (out.branch_id === 'br-chikhali' ? 'Chikhali APMC Main Yard' : (out.branch_id === 'br-varvand' ? 'Varvand Yard' : (out.branch_id === 'br-sarola' ? 'Sarola Maruti Yard' : 'APMC Yard')));
+      }
+
+      totalPnl = totalSales - totalDisbursed;
+      const pnlPct = totalDisbursed > 0 ? ((totalPnl / totalDisbursed) * 100).toFixed(1) : '0.0';
 
       // Map inspections by ticket_no and id for linking photos to invoices
       const qcMap = {};
@@ -2098,11 +2117,15 @@ ${rawBardanaRefund > 0 ? `<div class="row" style="color:#047857;font-weight:800;
           branches_active: branches.filter(b => b.is_active).length,
           total_quintals: totalQuintals,
           total_disbursed: totalDisbursed,
+          total_sales: totalSales,
+          total_sales_quintals: totalSalesQuintals,
+          total_sales_count: Array.isArray(outwardOrders) ? outwardOrders.length : 0,
           total_pnl: totalPnl,
-          total_pnl_pct: '0.0',
+          total_pnl_pct: pnlPct,
           users_active: users.filter(u => u.is_active).length
         },
         invoices: invoices,
+        outward_orders: outwardOrders,
         inspections: inspections,
         branches: branches,
         users: users,

@@ -218,14 +218,19 @@
             <div class="hint hint-green" id="statTotalMt">0.00 Metric Tonnes</div>
         </div>
         <div class="stat-card accent-amber">
-            <div class="label">Total Disbursements</div>
+            <div class="label">Total Disbursements (Procurement)</div>
             <div class="value" id="statTotalDisbursed">₹0.00</div>
-            <div class="hint hint-amber">Across All Branches</div>
+            <div class="hint hint-amber">Across All Branches (Farmer Payouts)</div>
+        </div>
+        <div class="stat-card accent-blue" id="cardTotalSales" style="border-left: 4px solid #2563eb;">
+            <div class="label">Total Outward Sales Realized</div>
+            <div class="value" id="statTotalSales" style="color:#2563eb;">₹0.00</div>
+            <div class="hint hint-blue" id="statTotalSalesHint">0.00 Qtl Dispatched • 0 Orders</div>
         </div>
         <div class="stat-card accent-green" id="cardTotalPnl">
-            <div class="label">Total Estimated Profit / Loss</div>
+            <div class="label">Net Realized Spread / P&L</div>
             <div class="value" id="statTotalPnl" style="color:#059669;">+₹0.00</div>
-            <div class="hint hint-green" id="statPnlHint">▲ Break-Even / Balanced</div>
+            <div class="hint hint-green" id="statPnlHint">▲ Net Sales vs Procurement</div>
         </div>
         <div class="stat-card accent-purple">
             <div class="label">Active Users</div>
@@ -259,6 +264,7 @@
     <!-- TABS NAVIGATION -->
     <div class="tabs">
         <button class="tab-btn active" onclick="showTab('tab-procurement')">Recent Purchases</button>
+        <button class="tab-btn" id="tabBtnOutward" onclick="showTab('tab-outward')">🚚 Outward Sales (<span id="outwardBadgeCount">0</span>)</button>
         <button class="tab-btn" onclick="showTab('tab-qc-audit')">🔬 Quality & Photo Audit (<span id="qcBadgeCount">0</span>)</button>
         <button class="tab-btn" onclick="showTab('tab-branches')">Branch Management</button>
         <button class="tab-btn" onclick="showTab('tab-users')">User Access Control</button>
@@ -271,7 +277,7 @@
             <div class="card-header">
                 <div>
                     <h2><span>📦</span> Cross-Branch Inward Purchase Feed</h2>
-                    <p style="font-size:12px; color:var(--text-muted); margin-top:2px;">Viewing live organization procurement feed</p></p>
+                    <p style="font-size:12px; color:var(--text-muted); margin-top:2px;">Viewing live organization procurement feed</p>
                     
                 </div>
                 <div style="display:flex; gap:8px; align-items:center;">
@@ -308,6 +314,59 @@
                     </tr>
                 </tbody>
             </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB: OUTWARD SALES -->
+    <div id="tab-outward" class="tab-content">
+        <div class="card">
+            <div class="card-header">
+                <div>
+                    <h2><span>🚚</span> Cross-Branch Outward Sales Feed</h2>
+                    <p style="font-size:12px; color:var(--text-muted); margin-top:2px;">Viewing live dispatch and sales realization across all mandi branches</p>
+                </div>
+                <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <span style="font-size:12px; color:var(--text-muted);">Branch:</span>
+                        <select id="outwardBranchFilter" onchange="filterOutwardTable()" style="padding:6px 12px; border-radius:8px; border:1px solid #cbd5e1; font-size:13px; font-weight:600;">
+                            <option value="all">All Branches</option>
+                            <option value="br-chikhali">Chikhali APMC Main Yard</option>
+                            <option value="br-varvand">Varvand Yard</option>
+                            <option value="br-sarola">Sarola Maruti Yard</option>
+                        </select>
+                    </div>
+                    <input type="text" id="outwardSearchInput" placeholder="🔍 Search buyer, commodity, challan..." oninput="filterOutwardTable()" style="padding:6px 12px; border-radius:8px; border:1px solid #cbd5e1; font-size:13px; width:220px;">
+                    <span class="badge-pill badge-green" id="outwardTotalSalesBadge">₹0.00 Total Sales</span>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Challan No</th>
+                            <th>Branch</th>
+                            <th>Buyer Name</th>
+                            <th>Commodity</th>
+                            <th>Net Wt (Qtl)</th>
+                            <th>Rate (₹/Qtl)</th>
+                            <th>Gross Produce</th>
+                            <th>Bardana</th>
+                            <th>Total Bill</th>
+                            <th>Status</th>
+                            <th>Mode</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody id="outwardTableBody">
+                        <tr>
+                            <td colspan="12" style="text-align:center; padding:36px; color:#64748b;">
+                                <div style="font-size:32px; margin-bottom:8px;">🚚</div>
+                                <strong style="font-size:14px; color:#334155;">No Outward Sales Dispatches Recorded Yet</strong>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
@@ -927,7 +986,9 @@
                 { id: 'comm-mustard', name: 'Mustard (Rayda)', hsn_code: '1207', standard_moisture_pct: 8.0, is_active: true }
             ],
             invoices: [],
-            inspections: []
+            outward: [],
+            inspections: [],
+            stats: {}
         };
 
         // Render Tables Functions
@@ -1086,6 +1147,129 @@
             document.getElementById('statTotalDisbursed').innerText = '₹' + totalDisbursed.toLocaleString(undefined, {minimumFractionDigits:2});
         }
 
+        function renderOutwardTable(orders) {
+            const tbody = document.getElementById('outwardTableBody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            const list = orders || [];
+            if (list.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="12" style="text-align:center; padding:36px; color:#64748b;">
+                            <div style="font-size:32px; margin-bottom:8px;">🚚</div>
+                            <strong style="font-size:14px; color:#334155;">No Outward Sales Dispatches Recorded Yet</strong>
+                            <p style="margin:4px 0 0 0; font-size:12px;">Dispatches from Chikhali, Varvand, and Sarola Maruti will appear here automatically.</p>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            list.forEach(out => {
+                const qtl = parseFloat(out.net_quintals || 0);
+                const rate = parseFloat(out.rate_per_quintal || 0);
+                const gross = parseFloat(out.gross_amount || 0);
+                const totalBill = parseFloat(out.total_bill_amount || out.gross_amount || 0);
+                const bardana = Math.max(0, Math.round(totalBill - gross));
+                const chal = out.challan_number || out.id || '-';
+                const pStat = (out.payment_status || 'PAID').toUpperCase();
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><code style="font-weight:700; color:#2563eb;">${chal}</code></td>
+                    <td><strong>${out.branch_name || out.branch_id || 'Chikhali Yard'}</strong></td>
+                    <td><strong>${out.buyer_name || 'Buyer'}</strong></td>
+                    <td>${out.commodity_name || 'Commodity'}</td>
+                    <td><strong>${qtl.toFixed(2)} Qtl</strong></td>
+                    <td>₹${rate.toLocaleString(undefined, {minimumFractionDigits:2})}</td>
+                    <td>₹${gross.toLocaleString(undefined, {minimumFractionDigits:2})}</td>
+                    <td style="color:#d97706; font-weight:700;">₹${bardana.toLocaleString(undefined, {minimumFractionDigits:2})}</td>
+                    <td><strong style="color:#0f172a;">₹${totalBill.toLocaleString(undefined, {minimumFractionDigits:2})}</strong></td>
+                    <td>
+                        <span class="badge-pill ${pStat === 'PAID' ? 'badge-green' : 'badge-amber'}">
+                            ${pStat}
+                        </span>
+                    </td>
+                    <td><span class="badge-pill badge-blue">${out.payment_mode || 'RTGS'}</span></td>
+                    <td style="color:var(--text-muted); font-size:12px;">${out.order_date || '-'}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function filterOutwardTable() {
+            const branch = document.getElementById('outwardBranchFilter')?.value || 'all';
+            const q = (document.getElementById('outwardSearchInput')?.value || '').toLowerCase().trim();
+            const filtered = (ADMIN_CACHE.outward || []).filter(o => {
+                if (branch !== 'all' && o.branch_id !== branch) return false;
+                if (q) {
+                    const str = `${o.challan_number || ''} ${o.buyer_name || ''} ${o.commodity_name || ''} ${o.vehicle_number || ''}`.toLowerCase();
+                    if (!str.includes(q)) return false;
+                }
+                return true;
+            });
+            renderOutwardTable(filtered);
+        }
+
+        function updateAdminStats(stats, invoices, outward) {
+            let totalProcQtl = 0.0;
+            let totalDisbursed = 0.0;
+            (invoices || []).forEach(inv => {
+                totalProcQtl += parseFloat(inv.net_quintals) || 0;
+                totalDisbursed += parseFloat(inv.net_payable_amount) || 0;
+            });
+
+            let totalSalesAmt = 0.0;
+            let totalSalesQtl = 0.0;
+            let salesCount = (outward || []).length;
+            (outward || []).forEach(out => {
+                totalSalesAmt += parseFloat(out.total_bill_amount || out.gross_amount || 0);
+                totalSalesQtl += parseFloat(out.net_quintals || 0);
+            });
+
+            if (stats) {
+                if (stats.total_sales !== undefined) totalSalesAmt = parseFloat(stats.total_sales);
+                if (stats.total_sales_quintals !== undefined) totalSalesQtl = parseFloat(stats.total_sales_quintals);
+                if (stats.total_sales_count !== undefined) salesCount = stats.total_sales_count;
+                if (stats.total_disbursed !== undefined) totalDisbursed = parseFloat(stats.total_disbursed);
+                if (stats.total_quintals !== undefined) totalProcQtl = parseFloat(stats.total_quintals);
+            }
+
+            const totalPnl = totalSalesAmt - totalDisbursed;
+            const pnlPct = totalDisbursed > 0 ? ((totalPnl / totalDisbursed) * 100).toFixed(1) : '0.0';
+
+            const statQuintals = document.getElementById('statTotalQuintals');
+            if (statQuintals) statQuintals.innerText = totalProcQtl.toFixed(2);
+            const statMt = document.getElementById('statTotalMt');
+            if (statMt) statMt.innerText = (totalProcQtl / 10.0).toFixed(2) + ' Metric Tonnes';
+
+            const statDisbursed = document.getElementById('statTotalDisbursed');
+            if (statDisbursed) statDisbursed.innerText = '₹' + totalDisbursed.toLocaleString(undefined, {minimumFractionDigits:2});
+
+            const statSales = document.getElementById('statTotalSales');
+            if (statSales) statSales.innerText = '₹' + totalSalesAmt.toLocaleString(undefined, {minimumFractionDigits:2});
+            const statSalesHint = document.getElementById('statTotalSalesHint');
+            if (statSalesHint) statSalesHint.innerText = `${totalSalesQtl.toFixed(2)} Qtl Dispatched • ${salesCount} Orders`;
+
+            const badgeCount = document.getElementById('outwardBadgeCount');
+            if (badgeCount) badgeCount.innerText = salesCount;
+            const totalBadge = document.getElementById('outwardTotalSalesBadge');
+            if (totalBadge) totalBadge.innerText = '₹' + totalSalesAmt.toLocaleString(undefined, {minimumFractionDigits:2}) + ' Total Sales';
+
+            const statPnl = document.getElementById('statTotalPnl');
+            if (statPnl) {
+                const sign = totalPnl >= 0 ? '+' : '-';
+                statPnl.innerText = `${sign}₹${Math.abs(totalPnl).toLocaleString(undefined, {minimumFractionDigits:2})}`;
+                statPnl.style.color = totalPnl >= 0 ? '#059669' : '#dc2626';
+            }
+            const pnlHint = document.getElementById('statPnlHint');
+            if (pnlHint) {
+                pnlHint.innerText = totalPnl >= 0 ? `▲ +${pnlPct}% Sales Spread Over Procurement` : `▼ ${pnlPct}% Deficit`;
+                pnlHint.className = totalPnl >= 0 ? 'hint hint-green' : 'hint hint-red';
+            }
+        }
+
         function renderInspectionsTable(inspections) {
             const tbody = document.getElementById('inspectionsTableBody');
             if (!tbody) return;
@@ -1192,37 +1376,38 @@
             return n;
         }
 
-        function renderCommodityStockGrid(invoices) {
+        function renderCommodityStockGrid(invoices, outward) {
             const grid = document.getElementById('commodityStockGrid');
             const badge = document.getElementById('badgeCommInStock');
             if (!grid) return;
 
-            if (!invoices || invoices.length === 0) {
-                grid.innerHTML = `
-                    <div style="grid-column:1/-1; text-align:center; padding:30px; color:var(--text-muted); font-size:14px; font-weight:600;">
-                        📦 Zero stock available across all commodities. Commodity cards will appear here automatically when inward purchases are registered.
-                    </div>
-                `;
-                if (badge) badge.innerText = '0 Commodities In Stock';
-                return;
-            }
-
             const commMap = {};
-            invoices.forEach(inv => {
+            (invoices || []).forEach(inv => {
                 const cName = canonicalizeCommodityName(inv.commodity_name);
                 const qtl = parseFloat(inv.net_quintals) || 0;
                 const amt = parseFloat(inv.net_payable_amount) || 0;
                 if (!commMap[cName]) {
-                    commMap[cName] = { qtl: 0, amt: 0, count: 0, branches: new Set() };
+                    commMap[cName] = { procQtl: 0, procAmt: 0, soldQtl: 0, soldAmt: 0, branches: new Set() };
                 }
-                commMap[cName].qtl += qtl;
-                commMap[cName].amt += amt;
-                commMap[cName].count += 1;
+                commMap[cName].procQtl += qtl;
+                commMap[cName].procAmt += amt;
                 if (inv.branch_name) commMap[cName].branches.add(inv.branch_name);
             });
 
-            const activeComms = Object.keys(commMap).filter(k => commMap[k].qtl > 0);
-            if (badge) badge.innerText = `${activeComms.length} Commodities In Stock`;
+            (outward || []).forEach(out => {
+                const cName = canonicalizeCommodityName(out.commodity_name);
+                const qtl = parseFloat(out.net_quintals) || 0;
+                const amt = parseFloat(out.total_bill_amount || out.gross_amount) || 0;
+                if (!commMap[cName]) {
+                    commMap[cName] = { procQtl: 0, procAmt: 0, soldQtl: 0, soldAmt: 0, branches: new Set() };
+                }
+                commMap[cName].soldQtl += qtl;
+                commMap[cName].soldAmt += amt;
+                if (out.branch_name) commMap[cName].branches.add(out.branch_name);
+            });
+
+            const activeComms = Object.keys(commMap).filter(k => (commMap[k].procQtl > 0 || commMap[k].soldQtl > 0));
+            if (badge) badge.innerText = `${activeComms.length} Commodities Traded / In Stock`;
 
             if (activeComms.length === 0) {
                 grid.innerHTML = `
@@ -1234,9 +1419,11 @@
             }
 
             grid.innerHTML = '';
-            activeComms.sort((a, b) => commMap[b].qtl - commMap[a].qtl).forEach(cName => {
+            activeComms.sort((a, b) => (commMap[b].procQtl + commMap[b].soldQtl) - (commMap[a].procQtl + commMap[a].soldQtl)).forEach(cName => {
                 const item = commMap[cName];
-                const avg = item.qtl > 0 ? (item.amt / item.qtl) : 0;
+                const avgBuy = item.procQtl > 0 ? (item.procAmt / item.procQtl) : 0;
+                const avgSale = item.soldQtl > 0 ? (item.soldAmt / item.soldQtl) : 0;
+                const netHoldingQtl = item.procQtl - item.soldQtl;
                 const card = document.createElement('div');
                 card.className = 'card clickable-card';
                 card.style.cssText = 'padding:16px; border-radius:12px; background:#ffffff; border:1.5px solid var(--card-border); transition:transform 0.15s ease, box-shadow 0.15s ease; box-shadow:0 1px 3px rgba(0,0,0,0.06);';
@@ -1246,27 +1433,31 @@
                             <span style="font-size:11px; text-transform:uppercase; font-weight:800; color:#0284c7; letter-spacing:0.5px;">Physical Holding</span>
                             <h3 style="font-size:15px; font-weight:800; color:#0f172a; margin:2px 0 0 0;">🌾 ${cName}</h3>
                         </div>
-                        <span class="badge-pill badge-green" style="font-size:11px;">Active</span>
+                        <span class="badge-pill ${netHoldingQtl >= 0 ? 'badge-green' : 'badge-amber'}" style="font-size:11px;">
+                            ${netHoldingQtl >= 0 ? '✓ In Stock' : '⚠ Dispatched'}
+                        </span>
                     </div>
                     <div style="margin:12px 0; padding:10px 12px; background:#f8fafc; border-radius:8px; border:1px solid #e2e8f0;">
-                        <span style="font-size:11px; color:var(--text-muted); font-weight:600;">Total Procured Volume</span>
-                        <div style="font-size:22px; font-weight:900; color:#0f172a; margin-top:2px;">
-                            ${item.qtl.toFixed(2)} <span style="font-size:14px; font-weight:700; color:#64748b;">Qtl</span>
-                            <span style="font-size:12px; font-weight:700; color:#059669; margin-left:6px;">(${(item.qtl/10).toFixed(2)} MT)</span>
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <span style="font-size:11px; color:var(--text-muted); font-weight:600;">Current Stock:</span>
+                            <strong style="font-size:15px; color:${netHoldingQtl >= 0 ? '#059669' : '#dc2626'};">${netHoldingQtl.toFixed(2)} Qtl</strong>
+                        </div>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:6px; padding-top:6px; border-top:1px dashed #cbd5e1; font-size:11.5px;">
+                            <div>Procured: <strong>${item.procQtl.toFixed(2)} Qtl</strong></div>
+                            <div style="text-align:right;">Dispatched: <strong>${item.soldQtl.toFixed(2)} Qtl</strong></div>
                         </div>
                     </div>
                     <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:12px;">
                         <div>
-                            <span style="color:var(--text-muted); font-size:11px;">Avg Buying Rate:</span>
-                            <div style="font-weight:800; color:#0f172a; font-size:13px;">₹${Math.round(avg).toLocaleString()}/Qtl</div>
+                            <span style="color:var(--text-muted); font-size:11px;">Avg Buy Rate:</span>
+                            <div style="font-weight:700; color:#0f172a;">${avgBuy > 0 ? '₹' + avgBuy.toFixed(2) : '—'}</div>
                         </div>
-                        <div>
-                            <span style="color:var(--text-muted); font-size:11px;">Total Outlay:</span>
-                            <div style="font-weight:800; color:#059669; font-size:13px;">₹${item.amt.toLocaleString(undefined, {minimumFractionDigits:2})}</div>
+                        <div style="text-align:right;">
+                            <span style="color:var(--text-muted); font-size:11px;">Avg Sale Rate:</span>
+                            <div style="font-weight:700; color:#2563eb;">${avgSale > 0 ? '₹' + avgSale.toFixed(2) : '—'}</div>
                         </div>
                     </div>
-                    <div style="margin-top:10px; padding-top:8px; border-top:1px dashed #e2e8f0; font-size:11.5px; color:var(--text-muted); display:flex; justify-content:space-between;">
-                        <span>Batches Weighed: <strong>${item.count}</strong></span>
+                    <div style="margin-top:10px; padding-top:8px; border-top:1px solid #f1f5f9; font-size:11px; color:var(--text-muted);">
                         <span>Location: <strong>${Array.from(item.branches).join(', ') || 'Chikhali Yard'}</strong></span>
                     </div>
                 `;
@@ -1284,7 +1475,9 @@
                     if (data.users && data.users.length > 0) ADMIN_CACHE.users = data.users;
                     if (data.commodities && data.commodities.length > 0) ADMIN_CACHE.commodities = data.commodities;
                     if (data.invoices) ADMIN_CACHE.invoices = data.invoices;
+                    if (data.outward_orders) ADMIN_CACHE.outward = data.outward_orders;
                     if (data.inspections) ADMIN_CACHE.inspections = data.inspections;
+                    if (data.stats) ADMIN_CACHE.stats = data.stats;
                 }
             } catch (err) {
                 console.warn('Using local master data cache:', err);
@@ -1294,8 +1487,10 @@
             renderUsersTable(ADMIN_CACHE.users);
             renderCommoditiesTable(ADMIN_CACHE.commodities);
             renderInvoicesTable(ADMIN_CACHE.invoices);
+            renderOutwardTable(ADMIN_CACHE.outward);
             renderInspectionsTable(ADMIN_CACHE.inspections);
-            renderCommodityStockGrid(ADMIN_CACHE.invoices);
+            renderCommodityStockGrid(ADMIN_CACHE.invoices, ADMIN_CACHE.outward);
+            updateAdminStats(ADMIN_CACHE.stats, ADMIN_CACHE.invoices, ADMIN_CACHE.outward);
         }
 
         // Action Handlers

@@ -173,6 +173,11 @@
                 <span>📲</span> <span>Install App</span>
             </button>
 
+            <!-- Recent QC Tickets Button -->
+            <button onclick="openRecentTicketsModal()" title="View Recent QC Tickets & Multi-Lot Certificates" class="inline-flex items-center gap-1.5 text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 px-3 py-1.5 rounded-lg shadow-xs transition active:scale-95 cursor-pointer">
+                <span>📋</span> <span>Recent Tickets</span>
+            </button>
+
             <!-- System Updates Button -->
             <button onclick="openSystemUpdatesModal()" title="System Updates & Hotfix Status" class="inline-flex items-center gap-1.5 text-xs font-bold bg-slate-900 hover:bg-slate-800 text-cyan-400 border border-cyan-400/40 px-3 py-1.5 rounded-lg shadow-sm transition active:scale-95">
                 <span>⚡</span> <span>Updates</span>
@@ -283,8 +288,30 @@
                         </div>
                     </div>
 
-                    <div>
-                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Target Commodity *</label>
+                    <!-- CARGO MODE SELECTOR: SINGLE VS MULTI-COMMODITY -->
+                    <div class="p-3 bg-gradient-to-r from-slate-50 via-indigo-50/50 to-slate-50 rounded-xl border border-slate-200 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <label class="block text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                                <span>📦</span> <span>Vehicle Cargo Type (शेतमाल आवक प्रकार) *</span>
+                            </label>
+                            <span id="cargoModeBadge" class="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                🌾 1 Single Lot
+                            </span>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-2">
+                            <button type="button" id="btnSingleMode" onclick="setInwardCargoMode('single')" class="py-2.5 px-3 rounded-xl border-2 font-bold text-xs flex items-center justify-center gap-1.5 transition active:scale-95 bg-white border-emerald-600 text-emerald-800 shadow-sm cursor-pointer">
+                                <span>🌾</span> <span>1 Commodity (एक शेतमाल)</span>
+                            </button>
+                            <button type="button" id="btnMultiMode" onclick="setInwardCargoMode('multi')" class="py-2.5 px-3 rounded-xl border-2 font-bold text-xs flex items-center justify-center gap-1.5 transition active:scale-95 bg-slate-50 border-slate-200 text-slate-600 hover:border-indigo-400 hover:text-indigo-700 cursor-pointer">
+                                <span>📦</span> <span>Multi-Commodity (२+ शेतमाल)</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- SINGLE COMMODITY CONTAINER -->
+                    <div id="singleCommodityContainer" class="space-y-1.5">
+                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider">Target Commodity *</label>
                         <select id="inpCommodity" class="w-full text-sm font-semibold bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-slate-900 focus:bg-white focus:border-emerald-500 outline-none transition">
                             <option value="Soyabean (Yellow)" selected>Soyabean (Yellow / सोयाबीन) - Benchmark: 10.0% Moisture (Target: ₹6,850)</option>
                             <option value="Dollar Chana (Kabuli / डॉलर चना)">Dollar Chana (Kabuli / डॉलर चना) - Benchmark: 10.0% Moisture (Target: ₹7,560)</option>
@@ -304,6 +331,74 @@
                             <option value="Groundnut / Bhuimug">Groundnut / Bhuimug (भुईमूग) - Benchmark: 8.0% Moisture (Target: ₹6,200)</option>
                             <option value="Masoor (Red Lentil)">Masoor (Red Lentil / मसूर) - Benchmark: 10.0% Moisture (Target: ₹6,200)</option>
                         </select>
+                        <div class="flex items-center justify-between text-[11px] pt-0.5">
+                            <span class="text-slate-500">Standard APMC single produce inward.</span>
+                            <button type="button" onclick="setInwardCargoMode('multi')" class="text-indigo-600 font-extrabold hover:underline flex items-center gap-1 cursor-pointer">
+                                <span>📦</span> <span>Vehicle has 2+ produce? Add Multi-Lots</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- MULTI-COMMODITY INWARD LOTS BUILDER CONTAINER (PROMINENT IN STEP 1) -->
+                    <div id="inspectorMultiLotSection" class="hidden p-3.5 bg-indigo-50/90 rounded-2xl border-2 border-indigo-200 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h3 class="text-xs font-extrabold text-indigo-950 uppercase tracking-wider flex items-center gap-1.5">
+                                    <span>📦</span> <span>Multi-Commodity Vehicle Inward (एकाधिक शेतमाल आवक)</span>
+                                </h3>
+                                <p class="text-[11px] text-indigo-700">Declare produce items arriving together in this tractor trolley / truck.</p>
+                            </div>
+                            <span id="multiLotCountBadge" class="text-xs font-mono font-extrabold bg-indigo-600 text-white px-2.5 py-1 rounded-full shadow-xs">
+                                2 Lots Staged
+                            </span>
+                        </div>
+
+                        <!-- Quick Presets -->
+                        <div class="flex items-center gap-1.5 overflow-x-auto pb-1 text-[11px]">
+                            <span class="text-indigo-900 font-bold whitespace-nowrap text-[10px] uppercase">⚡ Quick Presets:</span>
+                            <button type="button" onclick="applyInspectorMultiPreset('soya_dollar')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-indigo-100 text-indigo-900 font-semibold border border-indigo-200 whitespace-nowrap transition active:scale-95 cursor-pointer">
+                                Soyabean + Dollar
+                            </button>
+                            <button type="button" onclick="applyInspectorMultiPreset('soya_rajma')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-indigo-100 text-indigo-900 font-semibold border border-indigo-200 whitespace-nowrap transition active:scale-95 cursor-pointer">
+                                Soyabean + Rajma Brazil
+                            </button>
+                            <button type="button" onclick="applyInspectorMultiPreset('soya_chana')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-indigo-100 text-indigo-900 font-semibold border border-indigo-200 whitespace-nowrap transition active:scale-95 cursor-pointer">
+                                Soyabean + Lal Chana
+                            </button>
+                            <button type="button" onclick="applyInspectorMultiPreset('dollar_rajma')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-indigo-100 text-indigo-900 font-semibold border border-indigo-200 whitespace-nowrap transition active:scale-95 cursor-pointer">
+                                Dollar + Rajma
+                            </button>
+                        </div>
+
+                        <!-- Dynamic Table of Lots -->
+                        <div class="overflow-x-auto rounded-xl border border-indigo-200 bg-white shadow-xs">
+                            <table class="w-full text-left text-xs">
+                                <thead class="bg-indigo-100/70 text-indigo-950 font-bold text-[11px] uppercase tracking-wider">
+                                    <tr>
+                                        <th class="py-2.5 px-2.5 w-14 text-center">Lot</th>
+                                        <th class="py-2.5 px-2.5 min-w-[200px]">Commodity (शेतमाल)</th>
+                                        <th class="py-2.5 px-2 w-20 text-center">Est Bags</th>
+                                        <th class="py-2.5 px-2 w-24 text-center">Moisture %</th>
+                                        <th class="py-2.5 px-2.5 min-w-[140px]">Target Rate</th>
+                                        <th class="py-2.5 px-2 text-center w-16">Assay</th>
+                                        <th class="py-2.5 px-2 text-center w-10">Del</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="inspectorMultiLotTableBody" class="divide-y divide-indigo-100 font-medium">
+                                    <!-- Rendered dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Actions row -->
+                        <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
+                            <button type="button" onclick="addInspectorLotRow()" class="py-2 px-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center gap-1.5 active:scale-95 cursor-pointer">
+                                <span>➕</span> <span>Add Another Lot (आणखी शेतमाल जोडा)</span>
+                            </button>
+                            <span id="multiLotSummaryText" class="text-[11px] font-bold text-indigo-900 font-mono bg-indigo-100/80 px-2.5 py-1 rounded-lg border border-indigo-200">
+                                Total: 2 Lots
+                            </span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -321,6 +416,19 @@
                 </div>
 
                 <div class="space-y-3 text-left">
+                    <!-- Active Lot Assaying Bar (Shown when multi-commodity is active) -->
+                    <div id="activeLotAssayingBar" class="hidden p-2.5 bg-indigo-50 border border-indigo-200 rounded-xl flex items-center justify-between">
+                        <div class="flex items-center gap-1.5">
+                            <span class="text-xs font-bold text-indigo-950 flex items-center gap-1">
+                                <span>🎯</span> <span>Active Assaying Target:</span>
+                            </span>
+                            <span id="activeLotNameLabel" class="text-xs font-extrabold text-indigo-900 bg-white px-2 py-0.5 rounded border border-indigo-200">Lot 1: Soyabean</span>
+                        </div>
+                        <div id="activeLotPillsContainer" class="flex items-center gap-1.5 overflow-x-auto">
+                            <!-- Rendered dynamically -->
+                        </div>
+                    </div>
+
                     <div class="flex items-center gap-3">
                         <div class="flex-1">
                             <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Moisture Readout (%)</label>
@@ -503,24 +611,16 @@
                             </div>
                         </div>
 
-                        <!-- Multi-Lot Staging Bar & Add Button -->
+                        <!-- Multi-Lot Staging Bar & Summary -->
                         <div id="multiLotInspectorCard" class="p-3 rounded-xl bg-indigo-50/80 border border-indigo-200">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs font-bold text-indigo-900 flex items-center gap-1.5">
-                                    <span>📦</span> <span>Multi-Commodity Vehicle Inward</span>
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                                    <span>🌾</span> <span>Single Produce Vehicle</span>
                                 </span>
-                                <span id="multiLotCountBadge" class="text-[10px] font-extrabold bg-indigo-600 text-white px-2 py-0.5 rounded-full">
-                                    0 Lots Staged
-                                </span>
+                                <button type="button" onclick="setInwardCargoMode('multi')" class="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline">
+                                    + Switch to Multi-Lot
+                                </button>
                             </div>
-                            <div id="inspectorLotsList" class="space-y-1.5 mb-2 text-xs">
-                                <div class="text-slate-500 text-[11px] italic" id="noLotsPlaceholder">
-                                    Vehicle has 1 commodity currently. Click below to add multiple commodities for this trolley.
-                                </div>
-                            </div>
-                            <button type="button" onclick="addAnotherCommodityLot()" class="w-full py-2.5 px-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-lg shadow-sm transition flex items-center justify-center gap-1.5 active:scale-95">
-                                <span>➕</span> <span>+ Add Another Commodity / Lot (दुसरा शेतमाल जोडा)</span>
-                            </button>
                         </div>
 
                         <!-- Slip action buttons -->
@@ -552,7 +652,7 @@ Commodity      : <span id="slipCommodity">--</span>
 Inspector      : <span id="slipInspector">--</span>
 Branch Yard    : <span id="slipYard">--</span>
 Gate Auth      : <span class="font-bold text-emerald-700">HQ ACCOUNTANT PROVISIONED</span>
-------------------------------------------------------
+<div id="slipSingleLotBody">------------------------------------------------------
         PHYSICAL QUALITY PARAMETERS & REFRACTIONS
 ------------------------------------------------------
 1. Moisture (Nami) %       : <span id="slipMoisture">--</span> (Topological OCR)
@@ -572,7 +672,8 @@ Admixture (Other Breed) % : <span id="slipAdmixture">--</span>
 ------------------------------------------------------
 Today's Corridor : <span id="slipCorridor">Rs. 6,500 - Rs. 7,500 / Qtl</span>
 APMC FAQ Grade   : <span id="slipGrade">--</span>
-SUGGESTED RATE   : <span id="slipRate">--</span>
+SUGGESTED RATE   : <span id="slipRate">--</span></div>
+<div id="slipMultiLotBody" class="hidden"></div>
 ------------------------------------------------------
 Farmer Hamali    : Rs. 25.00 / 100 Kg
 Mandi Cess       : 0% (APMC Deregulated)
@@ -587,6 +688,35 @@ Mandi Cess       : 0% (APMC Deregulated)
         </div>
 
     </main>
+
+    <!-- RECENT QC TICKETS MODAL -->
+    <div id="recentTicketsModal" class="hidden fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 text-left space-y-4 max-h-[90vh] flex flex-col">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div class="flex items-center gap-2">
+                    <span class="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-800 font-bold text-sm flex items-center justify-center">📋</span>
+                    <div>
+                        <h2 class="font-display font-bold text-slate-900 text-base">Recent Quality Certificates Issued</h2>
+                        <p class="text-xs text-slate-500">Live synchronization with Branch Cashier Desk</p>
+                    </div>
+                </div>
+                <button type="button" onclick="closeRecentTicketsModal()" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold flex items-center justify-center transition">✕</button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto space-y-2 pr-1" id="recentTicketsList">
+                <div class="text-center py-8 text-slate-400 text-xs">Loading recent certificates...</div>
+            </div>
+
+            <div class="pt-3 border-t border-slate-100 flex items-center justify-between">
+                <button type="button" onclick="fetchRecentTickets()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition flex items-center gap-1.5 cursor-pointer">
+                    <span>🔄</span> <span>Refresh List</span>
+                </button>
+                <button type="button" onclick="closeRecentTicketsModal()" class="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl transition cursor-pointer">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
 
     <!-- FOOTER BAR -->
     <footer class="bg-white border-t border-slate-200 py-3 px-4 text-center text-xs text-slate-500 font-medium">
@@ -811,8 +941,17 @@ Mandi Cess       : 0% (APMC Deregulated)
                 if (el) el.innerText = e.target.value || '--';
                 recalculateRate();
             });
-            document.getElementById('inpMoisture')?.addEventListener('input', () => {
+            document.getElementById('inpMoisture')?.addEventListener('input', (e) => {
+                if (inwardCargoMode === 'multi' && inspectorLots[activeAssayLotIndex]) {
+                    const m = parseFloat(e.target.value) || 10.0;
+                    inspectorLots[activeAssayLotIndex].moisture_pct = m;
+                    const calc = calculateLotRateAndGrade(inspectorLots[activeAssayLotIndex].commodity_name, m);
+                    inspectorLots[activeAssayLotIndex].suggested_buying_rate_per_qtl = calc.rate;
+                    inspectorLots[activeAssayLotIndex].grade_label = calc.grade;
+                    renderInspectorMultiLotTable();
+                }
                 recalculateRate();
+                syncMultiLotToSlip();
             });
             recalculateRate();
         });
@@ -1049,7 +1188,20 @@ Mandi Cess       : 0% (APMC Deregulated)
                     badge.className = 'text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded text-[10px] font-extrabold border border-emerald-200';
                 }
 
+                if (inwardCargoMode === 'multi' && inspectorLots[activeAssayLotIndex]) {
+                    const m = parseFloat(detectedMoisture) || 10.0;
+                    inspectorLots[activeAssayLotIndex].moisture_pct = m;
+                    if (base64Data) {
+                        inspectorLots[activeAssayLotIndex].meter_photo_path = base64Data;
+                    }
+                    const calc = calculateLotRateAndGrade(inspectorLots[activeAssayLotIndex].commodity_name, m);
+                    inspectorLots[activeAssayLotIndex].suggested_buying_rate_per_qtl = calc.rate;
+                    inspectorLots[activeAssayLotIndex].grade_label = calc.grade;
+                    renderInspectorMultiLotTable();
+                }
+
                 recalculateRate();
+                syncMultiLotToSlip();
             };
             reader.readAsDataURL(file);
         }
@@ -1420,42 +1572,460 @@ Mandi Cess       : 0% (APMC Deregulated)
             if (slipRateEl) slipRateEl.innerText = `Rs. ${rate.toLocaleString('en-IN')}.00 / Quintal`;
         }
 
+        // =====================================================================
+        // MULTI-COMMODITY INWARD LOTS & STATE MANAGEMENT (INSPECTOR PORTAL)
+        // =====================================================================
+        let inwardCargoMode = 'single'; // 'single' | 'multi'
         let inspectorLots = [];
+        let activeAssayLotIndex = 0;
 
-        function renderInspectorLots() {
-            const listEl = document.getElementById('inspectorLotsList');
-            const countEl = document.getElementById('multiLotCountBadge');
-            if (!listEl || !countEl) return;
+        const COMMODITY_CATALOG = [
+            { val: 'Soyabean (Yellow)', label: 'Soyabean (Yellow / सोयाबीन) - ₹6,850' },
+            { val: 'Dollar Chana (Kabuli / डॉलर चना)', label: 'Dollar Chana (Kabuli / डॉलर चना) - ₹7,560' },
+            { val: 'Rajma (Red Kidney Beans / राजमा)', label: 'Rajma (Red Kidney Beans / राजमा) - ₹7,650' },
+            { val: 'Rajma Brazil (राजमा ब्राझील)', label: 'Rajma Brazil (ब्राझील राजमा) - ₹5,620' },
+            { val: 'Rajma Varun (राजमा वरुण)', label: 'Rajma Varun (वरुण राजमा) - ₹5,450' },
+            { val: 'Virat Chana (Chickpea / विराट चना)', label: 'Virat Chana (विराट चना) - ₹6,800' },
+            { val: 'Bengal Gram / Red Gram', label: 'Bengal Gram / Red Gram (लाल चना) - ₹6,300' },
+            { val: 'Besan (Gram Flour / बेसन)', label: 'Besan (Gram Flour / बेसन) - ₹4,475' },
+            { val: 'Chana (Desi) / Harbhara (हरभरा)', label: 'Chana (Desi) / Harbhara - ₹5,900' },
+            { val: 'Wheat (Lokwan)', label: 'Wheat (Lokwan / गहू) - ₹2,950' },
+            { val: 'Tur / Arhar (तूर)', label: 'Tur / Arhar (तूर) - ₹8,200' },
+            { val: 'Mustard (Rayda)', label: 'Mustard (Rayda / मोहरी) - ₹5,400' },
+            { val: 'Maize (Makka)', label: 'Maize (Makka / मका) - ₹2,250' },
+            { val: 'Bajra / Pearl Millet', label: 'Bajra (बाजरी) - ₹2,400' },
+            { val: 'Cotton / Kapas', label: 'Cotton / Kapas (कापूस) - ₹7,250' },
+            { val: 'Groundnut / Bhuimug', label: 'Groundnut (भुईमूग) - ₹6,200' },
+            { val: 'Masoor (Red Lentil)', label: 'Masoor (मसूर) - ₹6,200' }
+        ];
 
-            countEl.innerText = `${inspectorLots.length} Lot${inspectorLots.length === 1 ? '' : 's'} Staged`;
+        function calculateLotRateAndGrade(commodityName, moisturePct) {
+            const cfg = getCommodityConfig(commodityName);
+            const baseRate = cfg.baseRate || 6850;
+            const floor = cfg.minRate || Math.round(baseRate * 0.95);
+            const ceiling = cfg.maxRate || Math.round(baseRate * 1.05);
+            const stdMoisture = cfg.stdMoisture || 10.0;
+            const m = parseFloat(moisturePct) || stdMoisture;
 
-            if (inspectorLots.length === 0) {
-                listEl.innerHTML = `<div class="text-slate-500 text-[11px] italic" id="noLotsPlaceholder">
-                    Vehicle has 1 commodity currently. Click below to add multiple commodities for this trolley.
-                </div>`;
+            let rate = baseRate;
+            let grade = 'Grade 1 (Premium FAQ)';
+            if (m <= stdMoisture) {
+                const bonusPct = Math.min(0.04, (stdMoisture - m) * 0.01);
+                rate = Math.round(baseRate * (1 + bonusPct));
+                grade = 'Grade 1 (Premium FAQ)';
+            } else if (m <= (stdMoisture + 1.5)) {
+                const discountPct = (m - stdMoisture) * 0.008;
+                rate = Math.round(baseRate * (1 - discountPct));
+                grade = 'Grade 2 (Standard FAQ)';
+            } else {
+                const excess = m - stdMoisture;
+                rate = Math.round(baseRate * (1 - (excess * 0.015)));
+                grade = 'Grade 3 (Non-FAQ / Discounted)';
+            }
+            rate = Math.max(floor, Math.min(ceiling, rate));
+            return { rate, grade, floor, ceiling };
+        }
+
+        function setInwardCargoMode(mode) {
+            inwardCargoMode = mode;
+            const btnSingle = document.getElementById('btnSingleMode');
+            const btnMulti = document.getElementById('btnMultiMode');
+            const badge = document.getElementById('cargoModeBadge');
+            const singleSec = document.getElementById('singleCommodityContainer');
+            const multiSec = document.getElementById('inspectorMultiLotSection');
+            const activeBar = document.getElementById('activeLotAssayingBar');
+
+            if (mode === 'multi') {
+                if (btnSingle) {
+                    btnSingle.className = 'py-2.5 px-3 rounded-xl border-2 font-bold text-xs flex items-center justify-center gap-1.5 transition active:scale-95 bg-slate-50 border-slate-200 text-slate-600 hover:border-emerald-400 hover:text-emerald-700 cursor-pointer';
+                }
+                if (btnMulti) {
+                    btnMulti.className = 'py-2.5 px-3 rounded-xl border-2 font-bold text-xs flex items-center justify-center gap-1.5 transition active:scale-95 bg-white border-indigo-600 text-indigo-900 shadow-sm cursor-pointer';
+                }
+                if (badge) {
+                    badge.className = 'text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800 border border-indigo-200';
+                    badge.innerText = '📦 Multi-Lot Vehicle';
+                }
+                if (singleSec) singleSec.classList.add('hidden');
+                if (multiSec) multiSec.classList.remove('hidden');
+                if (activeBar) activeBar.classList.remove('hidden');
+
+                if (inspectorLots.length < 2) {
+                    initDefaultMultiLots();
+                } else {
+                    renderInspectorMultiLotTable();
+                }
+            } else {
+                if (btnSingle) {
+                    btnSingle.className = 'py-2.5 px-3 rounded-xl border-2 font-bold text-xs flex items-center justify-center gap-1.5 transition active:scale-95 bg-white border-emerald-600 text-emerald-800 shadow-sm cursor-pointer';
+                }
+                if (btnMulti) {
+                    btnMulti.className = 'py-2.5 px-3 rounded-xl border-2 font-bold text-xs flex items-center justify-center gap-1.5 transition active:scale-95 bg-slate-50 border-slate-200 text-slate-600 hover:border-indigo-400 hover:text-indigo-700 cursor-pointer';
+                }
+                if (badge) {
+                    badge.className = 'text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200';
+                    badge.innerText = '🌾 1 Single Lot';
+                }
+                if (singleSec) singleSec.classList.remove('hidden');
+                if (multiSec) multiSec.classList.add('hidden');
+                if (activeBar) activeBar.classList.add('hidden');
+            }
+            recalculateRate();
+            syncMultiLotToSlip();
+        }
+
+        function initDefaultMultiLots() {
+            const currentComm = document.getElementById('inpCommodity')?.value || 'Soyabean (Yellow)';
+            const clean1 = currentComm.split(' - ')[0].trim();
+            const clean2 = clean1.toLowerCase().includes('dollar') ? 'Soyabean (Yellow)' : 'Dollar Chana (Kabuli / डॉलर चना)';
+
+            const calc1 = calculateLotRateAndGrade(clean1, 10.0);
+            const calc2 = calculateLotRateAndGrade(clean2, 10.0);
+
+            inspectorLots = [
+                {
+                    lot_index: 1,
+                    commodity_name: clean1,
+                    est_bags: 50,
+                    est_weight_qtl: 25.0,
+                    moisture_pct: 10.0,
+                    karda_pct: 0.0,
+                    grade_label: calc1.grade,
+                    sortex_clean_yield_pct: 95.0,
+                    suggested_buying_rate_per_qtl: calc1.rate,
+                    meter_photo_path: null,
+                    grain_photo_path: null
+                },
+                {
+                    lot_index: 2,
+                    commodity_name: clean2,
+                    est_bags: 25,
+                    est_weight_qtl: 12.5,
+                    moisture_pct: 10.0,
+                    karda_pct: 0.0,
+                    grade_label: calc2.grade,
+                    sortex_clean_yield_pct: 94.0,
+                    suggested_buying_rate_per_qtl: calc2.rate,
+                    meter_photo_path: null,
+                    grain_photo_path: null
+                }
+            ];
+            activeAssayLotIndex = 0;
+            renderInspectorMultiLotTable();
+        }
+
+        function applyInspectorMultiPreset(presetKey) {
+            let p1 = 'Soyabean (Yellow)';
+            let p2 = 'Dollar Chana (Kabuli / डॉलर चना)';
+            if (presetKey === 'soya_rajma') {
+                p2 = 'Rajma Brazil (राजमा ब्राझील)';
+            } else if (presetKey === 'soya_chana') {
+                p2 = 'Bengal Gram / Red Gram';
+            } else if (presetKey === 'dollar_rajma') {
+                p1 = 'Dollar Chana (Kabuli / डॉलर चना)';
+                p2 = 'Rajma Brazil (राजमा ब्राझील)';
+            }
+
+            const calc1 = calculateLotRateAndGrade(p1, 10.0);
+            const calc2 = calculateLotRateAndGrade(p2, 10.0);
+
+            inspectorLots = [
+                {
+                    lot_index: 1,
+                    commodity_name: p1,
+                    est_bags: 60,
+                    est_weight_qtl: 30.0,
+                    moisture_pct: 10.0,
+                    karda_pct: 0.0,
+                    grade_label: calc1.grade,
+                    sortex_clean_yield_pct: 95.0,
+                    suggested_buying_rate_per_qtl: calc1.rate,
+                    meter_photo_path: null,
+                    grain_photo_path: null
+                },
+                {
+                    lot_index: 2,
+                    commodity_name: p2,
+                    est_bags: 30,
+                    est_weight_qtl: 15.0,
+                    moisture_pct: 10.0,
+                    karda_pct: 0.0,
+                    grade_label: calc2.grade,
+                    sortex_clean_yield_pct: 94.0,
+                    suggested_buying_rate_per_qtl: calc2.rate,
+                    meter_photo_path: null,
+                    grain_photo_path: null
+                }
+            ];
+            activeAssayLotIndex = 0;
+            renderInspectorMultiLotTable();
+            syncMultiLotToSlip();
+        }
+
+        function renderCommoditySelectOptions(selectedName) {
+            const cleanSelected = (selectedName || '').toLowerCase().trim();
+            return COMMODITY_CATALOG.map(c => {
+                const match = cleanSelected.includes(c.val.toLowerCase().split(' (')[0]);
+                return `<option value="${c.val}" ${match ? 'selected' : ''}>${c.label}</option>`;
+            }).join('');
+        }
+
+        function renderInspectorMultiLotTable() {
+            const tbody = document.getElementById('inspectorMultiLotTableBody');
+            const countBadge = document.getElementById('multiLotCountBadge');
+            const summaryText = document.getElementById('multiLotSummaryText');
+            const pillsBox = document.getElementById('activeLotPillsContainer');
+            const activeLabel = document.getElementById('activeLotNameLabel');
+
+            if (countBadge) {
+                countBadge.innerText = `${inspectorLots.length} Lots Staged`;
+            }
+
+            let totalBags = 0;
+            inspectorLots.forEach(l => { totalBags += (parseInt(l.est_bags, 10) || 0); });
+            if (summaryText) {
+                summaryText.innerText = `Total: ${inspectorLots.length} Lots | ~${totalBags} Bags`;
+            }
+
+            if (pillsBox) {
+                pillsBox.innerHTML = inspectorLots.map((lot, idx) => `
+                    <button type="button" onclick="setActiveAssayLot(${idx})" class="px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer ${idx === activeAssayLotIndex ? 'bg-indigo-600 text-white shadow-xs' : 'bg-white text-indigo-900 border border-indigo-200 hover:bg-indigo-50'}">
+                        <span>${idx === activeAssayLotIndex ? '👉' : '⚪'}</span>
+                        <span>Lot ${idx + 1}: ${lot.commodity_name.split(' (')[0]}</span>
+                        <span class="text-[10px] opacity-80 font-mono">${lot.moisture_pct}%</span>
+                    </button>
+                `).join('');
+            }
+            if (activeLabel && inspectorLots[activeAssayLotIndex]) {
+                activeLabel.innerText = `Lot ${activeAssayLotIndex + 1}: ${inspectorLots[activeAssayLotIndex].commodity_name.split(' (')[0]}`;
+            }
+
+            if (!tbody) return;
+
+            tbody.innerHTML = inspectorLots.map((lot, idx) => {
+                const isActive = idx === activeAssayLotIndex;
+                const calc = calculateLotRateAndGrade(lot.commodity_name, lot.moisture_pct);
+                lot.suggested_buying_rate_per_qtl = calc.rate;
+                lot.grade_label = calc.grade;
+
+                return `
+                    <tr class="transition ${isActive ? 'bg-indigo-50/80 font-semibold' : 'hover:bg-slate-50'}">
+                        <td class="py-2.5 px-2.5 text-center">
+                            <span class="inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-extrabold ${isActive ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 text-slate-700'}">
+                                ${idx + 1}
+                            </span>
+                        </td>
+                        <td class="py-2 px-2.5">
+                            <select onchange="updateInspectorLotCommodity(${idx}, this.value)" class="w-full text-xs font-bold bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-slate-900 focus:border-indigo-500 outline-none">
+                                ${renderCommoditySelectOptions(lot.commodity_name)}
+                            </select>
+                        </td>
+                        <td class="py-2 px-2 text-center">
+                            <input type="number" min="0" placeholder="Bags" value="${lot.est_bags || ''}" oninput="updateInspectorLotBags(${idx}, this.value)" class="w-16 text-xs text-center font-bold bg-white border border-slate-300 rounded-lg py-1.5 px-1 text-slate-900 focus:border-indigo-500 outline-none">
+                        </td>
+                        <td class="py-2 px-2 text-center">
+                            <div class="relative inline-block w-20">
+                                <input type="number" step="0.1" min="7.0" max="24.0" value="${lot.moisture_pct || 10.0}" oninput="updateInspectorLotMoisture(${idx}, this.value)" class="w-full text-xs text-center font-mono font-extrabold bg-white border border-slate-300 rounded-lg py-1.5 pl-1 pr-4 text-slate-900 focus:border-indigo-500 outline-none">
+                                <span class="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">%</span>
+                            </div>
+                        </td>
+                        <td class="py-2 px-2.5">
+                            <div class="text-[11px] font-extrabold text-emerald-700 font-mono">
+                                ₹ ${calc.rate.toLocaleString('en-IN')}<span class="text-[10px] text-slate-500 font-normal">/Qtl</span>
+                            </div>
+                            <div class="text-[10px] text-slate-600 truncate max-w-[140px]" title="${calc.grade}">
+                                ${calc.grade}
+                            </div>
+                        </td>
+                        <td class="py-2 px-2 text-center">
+                            <button type="button" onclick="setActiveAssayLot(${idx})" class="p-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${isActive ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 text-slate-700 hover:bg-indigo-100 hover:text-indigo-900'}" title="Activate Lot for Camera OCR & Tray Assaying">
+                                ${isActive ? '🎯 Active' : 'Assay'}
+                            </button>
+                        </td>
+                        <td class="py-2 px-2 text-center">
+                            ${inspectorLots.length > 1 ? `
+                                <button type="button" onclick="removeInspectorLotRow(${idx})" class="text-rose-600 hover:text-rose-800 p-1.5 rounded-lg hover:bg-rose-50 font-bold transition text-xs cursor-pointer" title="Delete Lot">
+                                    ✕
+                                </button>
+                            ` : `<span class="text-slate-300 text-xs">-</span>`}
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            renderStep4MultiLotSummary();
+            syncMultiLotToSlip();
+        }
+
+        function addInspectorLotRow() {
+            const nextIdx = inspectorLots.length + 1;
+            const newComm = nextIdx === 2 ? 'Dollar Chana (Kabuli / डॉलर चना)' : (nextIdx === 3 ? 'Rajma Brazil (राजमा ब्राझील)' : 'Bengal Gram / Red Gram');
+            const calc = calculateLotRateAndGrade(newComm, 10.0);
+            inspectorLots.push({
+                lot_index: nextIdx,
+                commodity_name: newComm,
+                est_bags: 25,
+                est_weight_qtl: 12.5,
+                moisture_pct: 10.0,
+                karda_pct: 0.0,
+                grade_label: calc.grade,
+                sortex_clean_yield_pct: 94.0,
+                suggested_buying_rate_per_qtl: calc.rate,
+                meter_photo_path: null,
+                grain_photo_path: null
+            });
+            activeAssayLotIndex = inspectorLots.length - 1;
+            renderInspectorMultiLotTable();
+        }
+
+        function removeInspectorLotRow(idx) {
+            if (inspectorLots.length <= 1) return;
+            inspectorLots.splice(idx, 1);
+            inspectorLots.forEach((l, i) => { l.lot_index = i + 1; });
+            if (activeAssayLotIndex >= inspectorLots.length) {
+                activeAssayLotIndex = inspectorLots.length - 1;
+            }
+            renderInspectorMultiLotTable();
+        }
+
+        function updateInspectorLotCommodity(idx, val) {
+            if (!inspectorLots[idx]) return;
+            inspectorLots[idx].commodity_name = val;
+            const calc = calculateLotRateAndGrade(val, inspectorLots[idx].moisture_pct);
+            inspectorLots[idx].suggested_buying_rate_per_qtl = calc.rate;
+            inspectorLots[idx].grade_label = calc.grade;
+            renderInspectorMultiLotTable();
+        }
+
+        function updateInspectorLotBags(idx, val) {
+            if (!inspectorLots[idx]) return;
+            const bags = parseInt(val, 10) || 0;
+            inspectorLots[idx].est_bags = bags;
+            inspectorLots[idx].est_weight_qtl = +(bags * 0.5).toFixed(2);
+            renderStep4MultiLotSummary();
+            syncMultiLotToSlip();
+        }
+
+        function updateInspectorLotMoisture(idx, val) {
+            if (!inspectorLots[idx]) return;
+            const m = parseFloat(val) || 10.0;
+            inspectorLots[idx].moisture_pct = m;
+            const calc = calculateLotRateAndGrade(inspectorLots[idx].commodity_name, m);
+            inspectorLots[idx].suggested_buying_rate_per_qtl = calc.rate;
+            inspectorLots[idx].grade_label = calc.grade;
+            if (idx === activeAssayLotIndex) {
+                const inpM = document.getElementById('inpMoisture');
+                if (inpM) inpM.value = m;
+            }
+            renderInspectorMultiLotTable();
+        }
+
+        function setActiveAssayLot(idx) {
+            if (!inspectorLots[idx]) return;
+            activeAssayLotIndex = idx;
+            const lot = inspectorLots[idx];
+            const inpM = document.getElementById('inpMoisture');
+            if (inpM) inpM.value = lot.moisture_pct;
+            renderInspectorMultiLotTable();
+            recalculateRate();
+        }
+
+        function renderStep4MultiLotSummary() {
+            const card = document.getElementById('multiLotInspectorCard');
+            if (!card) return;
+
+            if (inwardCargoMode !== 'multi' || inspectorLots.length < 2) {
+                card.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                            <span>🌾</span> <span>Single Produce Vehicle</span>
+                        </span>
+                        <button type="button" onclick="setInwardCargoMode('multi')" class="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer">
+                            + Switch to Multi-Lot
+                        </button>
+                    </div>
+                `;
                 return;
             }
 
-            listEl.innerHTML = inspectorLots.map((lot, idx) => `
-                <div class="flex items-center justify-between bg-white border border-indigo-200 rounded-lg p-2 shadow-xs">
-                    <div>
-                        <span class="font-extrabold text-indigo-900 text-[11px]">Lot #${idx + 1}: ${lot.commodity_name}</span>
-                        <div class="text-[10px] text-slate-600 flex gap-2">
-                            <span>💧 ${lot.moisture_pct}%</span>
-                            <span>🏷️ ${lot.grade_label}</span>
-                            <span>₹${Math.round(lot.suggested_buying_rate_per_qtl).toLocaleString()}/Qtl</span>
-                        </div>
-                    </div>
-                    <button type="button" onclick="removeInspectionLot(${idx})" class="text-rose-600 hover:text-rose-800 font-bold text-xs p-1 rounded hover:bg-rose-50" title="Remove Lot">
-                        ✕
+            card.innerHTML = `
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-bold text-indigo-950 flex items-center gap-1.5">
+                        <span>📦</span> <span>Multi-Commodity Vehicle (${inspectorLots.length} Lots Configured)</span>
+                    </span>
+                    <button type="button" onclick="window.scrollTo({top: 0, behavior: 'smooth'})" class="text-[11px] font-bold text-indigo-600 hover:underline cursor-pointer">
+                        ✏️ Edit in Step 1
                     </button>
                 </div>
-            `).join('');
+                <div class="space-y-1.5 text-xs">
+                    ${inspectorLots.map((lot, idx) => `
+                        <div class="flex items-center justify-between bg-white border border-indigo-200 rounded-lg p-2 shadow-xs">
+                            <div>
+                                <span class="font-extrabold text-indigo-900 text-xs">Lot #${idx + 1}: ${lot.commodity_name.split(' (')[0]}</span>
+                                <div class="text-[10px] text-slate-600 flex gap-2">
+                                    <span>📦 ${lot.est_bags || 0} Bags</span>
+                                    <span>💧 ${lot.moisture_pct}%</span>
+                                    <span>🏷️ ${lot.grade_label}</span>
+                                </div>
+                            </div>
+                            <span class="font-mono font-extrabold text-emerald-700 text-xs">
+                                ₹ ${Math.round(lot.suggested_buying_rate_per_qtl).toLocaleString('en-IN')}/Qtl
+                            </span>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
         }
 
-        function removeInspectionLot(idx) {
-            inspectorLots.splice(idx, 1);
-            renderInspectorLots();
+        function syncMultiLotToSlip() {
+            const slipCommodity = document.getElementById('slipCommodity');
+            const singleBody = document.getElementById('slipSingleLotBody');
+            const multiBody = document.getElementById('slipMultiLotBody');
+            if (!slipCommodity) return;
+
+            const isMulti = inwardCargoMode === 'multi' && inspectorLots.length > 1;
+
+            if (isMulti) {
+                slipCommodity.innerText = inspectorLots.map(l => l.commodity_name.split(' (')[0]).join(', ');
+                if (singleBody) singleBody.classList.add('hidden');
+                if (multiBody) {
+                    multiBody.classList.remove('hidden');
+                    multiBody.innerHTML = `------------------------------------------------------
+         MULTI-COMMODITY INWARD LOTS DETAILS
+------------------------------------------------------
+${inspectorLots.map((l, i) => `[LOT ${i+1}] ${l.commodity_name.split(' (')[0].toUpperCase()}
+  Est. Bags      : ${l.est_bags || 0} Bags (~${l.est_weight_qtl || 0} Qtl)
+  Moisture (Nami): ${l.moisture_pct}% (${l.grade_label})
+  Suggested Rate : Rs. ${Math.round(l.suggested_buying_rate_per_qtl).toLocaleString('en-IN')}.00 / Qtl
+`).join('\n')}------------------------------------------------------
+        PHYSICAL QUALITY PARAMETERS & REFRACTIONS
+------------------------------------------------------
+1. Moisture (Nami) %       : ${inspectorLots[0].moisture_pct}% (Primary Lot)
+2. Foreign Matter (Karda)% : 0.0%
+3. Rain & Damaged %        : 0.0%
+4. Immature Green %        : 0.0%
+5. Broken & Split Dal %    : 0.0%
+6. Size Uniformity Index   : 95.0%
+------------------------------------------------------
+        APMC CORRIDOR RATE DISCOVERY & PRICING
+------------------------------------------------------
+Today's Corridor : ${document.getElementById('corridorRange')?.innerText || 'Rs. 6,500 - Rs. 7,500'}
+APMC FAQ Grade   : Multi-Commodity Inward (${inspectorLots.length} Lots)
+SUGGESTED RATE   : Rs. ${Math.round(inspectorLots[0].suggested_buying_rate_per_qtl).toLocaleString('en-IN')}.00 / Qtl (Lot 1)`;
+                }
+            } else {
+                const commRaw = document.getElementById('inpCommodity')?.value || 'Soyabean (Yellow)';
+                slipCommodity.innerText = commRaw.split(' - ')[0].trim();
+                if (singleBody) singleBody.classList.remove('hidden');
+                if (multiBody) multiBody.classList.add('hidden');
+            }
+        }
+
+        // Backward compatibility for old button if called
+        function addAnotherCommodityLot() {
+            setInwardCargoMode('multi');
+            addInspectorLotRow();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
         function resetCommodityInputsOnly() {
@@ -1483,58 +2053,7 @@ Mandi Cess       : 0% (APMC Deregulated)
             if (elSortexGrade) elSortexGrade.innerText = 'Awaiting Assaying';
         }
 
-        function addAnotherCommodityLot() {
-            const farmerName = document.getElementById('inpFarmer')?.value?.trim();
-            if (!farmerName) {
-                alert('⚠️ Please enter Farmer Name first before adding lots.');
-                document.getElementById('inpFarmer')?.focus();
-                return;
-            }
-            const vehicleNo = document.getElementById('inpVehicle')?.value?.trim();
-            if (!vehicleNo) {
-                alert('⚠️ Please enter Vehicle Number.');
-                document.getElementById('inpVehicle')?.focus();
-                return;
-            }
-            const commRaw = document.getElementById('inpCommodity')?.value || 'Soyabean (Yellow)';
-            const commodityName = commRaw.split(' - ')[0].trim();
-            const moistureVal = document.getElementById('inpMoisture')?.value?.trim();
-            if (!moistureVal) {
-                alert('⚠️ Please enter or capture Moisture Readout (%) for ' + commodityName + ' before adding next lot.');
-                document.getElementById('inpMoisture')?.focus();
-                return;
-            }
-
-            const moisturePct = parseFloat(moistureVal) || 10.0;
-            const kardaPct = parseFloat(document.getElementById('valKarda')?.innerText?.replace(/[^0-9.]/g, '') || '0.0');
-            const sortexClean = parseFloat(document.getElementById('valSortexClean')?.innerText?.replace(/[^0-9.]/g, '') || '95.0');
-            const gradeLabel = document.getElementById('badgeGrade')?.innerText?.trim() || 'Grade 1';
-            const rateStr = document.getElementById('valRate')?.innerText?.replace(/[^0-9.]/g, '') || '0';
-            const suggestedRate = parseFloat(rateStr) || 0.0;
-            const meterPhoto = document.getElementById('moisturePhotoPreview')?.src || null;
-            const grainPhoto = document.getElementById('trayPhotoPreview')?.src || null;
-
-            inspectorLots.push({
-                lot_index: inspectorLots.length + 1,
-                commodity_name: commodityName,
-                moisture_pct: moisturePct,
-                karda_pct: kardaPct,
-                grade_label: gradeLabel,
-                sortex_clean_yield_pct: sortexClean,
-                suggested_buying_rate_per_qtl: suggestedRate,
-                meter_photo_path: (meterPhoto && meterPhoto.startsWith('data:image')) ? meterPhoto : null,
-                grain_photo_path: (grainPhoto && grainPhoto.startsWith('data:image')) ? grainPhoto : null
-            });
-
-            renderInspectorLots();
-            resetCommodityInputsOnly();
-
-            alert(`✅ Lot #${inspectorLots.length} (${commodityName}) added to vehicle!\n\nFarmer: ${farmerName}\nVehicle: ${vehicleNo}\n\nNow select the NEXT commodity and capture its moisture/assaying.`);
-        }
-
         function resetInspectorForm() {
-            inspectorLots = [];
-            renderInspectorLots();
             const fName = document.getElementById('inpFarmer');
             if (fName) fName.value = '';
             const vNo = document.getElementById('inpVehicle');
@@ -1629,13 +2148,21 @@ Mandi Cess       : 0% (APMC Deregulated)
             const inspectorName = user ? user.name : 'Sanjay Patil';
             generateNewTicketNumber(yardCode);
             updateSlipMetadata(yardCode, yardName, inspectorName);
+
+            if (inwardCargoMode === 'multi') {
+                initDefaultMultiLots();
+            } else {
+                inspectorLots = [];
+            }
+            recalculateRate();
+            syncMultiLotToSlip();
         }
 
         function printSlip() {
+            syncMultiLotToSlip();
             window.print();
         }
 
-        
         function compressImageDataUrl(dataUrl, maxWidth = 800, quality = 0.7) {
             return new Promise((resolve) => {
                 if (!dataUrl || !dataUrl.startsWith('data:image')) {
@@ -1697,32 +2224,62 @@ Mandi Cess       : 0% (APMC Deregulated)
                 btn.innerHTML = '<span>⚡</span> <span>Sync to Cashier Desk</span>';
                 return;
             }
-            const commRaw = document.getElementById('inpCommodity')?.value || 'Soyabean (Yellow)';
-            const commodityName = commRaw.split(' - ')[0].trim();
-            const moistureVal = document.getElementById('inpMoisture')?.value?.trim();
-            if (!moistureVal) {
-                alert('⚠️ Please enter or capture Moisture Readout (%) before issuing ticket.');
-                document.getElementById('inpMoisture')?.focus();
-                btn.disabled = false;
-                btn.innerHTML = '<span>⚡</span> <span>Sync to Cashier Desk</span>';
-                return;
+
+            const isMulti = inwardCargoMode === 'multi' && inspectorLots.length > 1;
+            let commodityName = '';
+            let moisturePct = 10.0;
+            let suggestedRate = 0.0;
+            let gradeLabel = '';
+
+            if (isMulti) {
+                // Multi-lot validation
+                for (let i = 0; i < inspectorLots.length; i++) {
+                    const l = inspectorLots[i];
+                    if (!l.commodity_name) {
+                        alert(`⚠️ Please select commodity for Lot #${i+1}`);
+                        btn.disabled = false;
+                        btn.innerHTML = '<span>⚡</span> <span>Sync to Cashier Desk</span>';
+                        return;
+                    }
+                    if (!l.moisture_pct || isNaN(l.moisture_pct)) {
+                        alert(`⚠️ Please enter moisture for Lot #${i+1} (${l.commodity_name})`);
+                        btn.disabled = false;
+                        btn.innerHTML = '<span>⚡</span> <span>Sync to Cashier Desk</span>';
+                        return;
+                    }
+                }
+                commodityName = inspectorLots.map(l => l.commodity_name.split(' (')[0]).join(', ');
+                moisturePct = inspectorLots[0].moisture_pct;
+                suggestedRate = inspectorLots[0].suggested_buying_rate_per_qtl;
+                gradeLabel = `Multi-Lot (${inspectorLots.length} Commodities)`;
+            } else {
+                const commRaw = document.getElementById('inpCommodity')?.value || 'Soyabean (Yellow)';
+                commodityName = commRaw.split(' - ')[0].trim();
+                const moistureVal = document.getElementById('inpMoisture')?.value?.trim();
+                if (!moistureVal) {
+                    alert('⚠️ Please enter or capture Moisture Readout (%) before issuing ticket.');
+                    document.getElementById('inpMoisture')?.focus();
+                    btn.disabled = false;
+                    btn.innerHTML = '<span>⚡</span> <span>Sync to Cashier Desk</span>';
+                    return;
+                }
+                moisturePct = parseFloat(moistureVal) || 10.0;
+                const rateStr = document.getElementById('valRate')?.innerText?.replace(/[^0-9.]/g, '') || '0';
+                suggestedRate = parseFloat(rateStr) || 0.0;
+                gradeLabel = document.getElementById('badgeGrade')?.innerText?.trim() || 'Grade 1';
             }
-            const moisturePct = parseFloat(moistureVal);
 
             const kardaPct = parseFloat(document.getElementById('valKarda')?.innerText?.replace(/[^0-9.]/g, '') || '0.0');
             const damagedPct = parseFloat(document.getElementById('valDamaged')?.innerText?.replace(/[^0-9.]/g, '') || '0.0');
             const greenPct = parseFloat(document.getElementById('valGreen')?.innerText?.replace(/[^0-9.]/g, '') || '0.0');
             const brokenPct = parseFloat(document.getElementById('valBroken')?.innerText?.replace(/[^0-9.]/g, '') || '0.0');
-            const sortexClean = parseFloat(document.getElementById('valSortexClean')?.innerText?.replace(/[^0-9.]/g, '') || '0.0');
-            const sortexReject = parseFloat(document.getElementById('valSortexReject')?.innerText?.replace(/[^0-9.]/g, '') || '0.0');
+            const sortexClean = parseFloat(document.getElementById('valSortexClean')?.innerText?.replace(/[^0-9.]/g, '') || '95.0');
+            const sortexReject = parseFloat(document.getElementById('valSortexReject')?.innerText?.replace(/[^0-9.]/g, '') || '5.0');
             const sortexGrade = document.getElementById('badgeSortexGrade')?.innerText?.trim() || 'Awaiting Assaying';
-            const gradeLabel = document.getElementById('badgeGrade')?.innerText?.trim() || 'Awaiting Assaying';
-            const rateStr = document.getElementById('valRate')?.innerText?.replace(/[^0-9.]/g, '') || '0';
-            const suggestedRate = parseFloat(rateStr) || 0.0;
+
             let meterPhoto = document.getElementById('moisturePhotoPreview')?.src || null;
             let grainPhoto = document.getElementById('trayPhotoPreview')?.src || null;
 
-            // Compress photos to prevent exceeding Vercel 4.5MB request limit
             if (meterPhoto && meterPhoto.startsWith('data:image')) {
                 meterPhoto = await compressImageDataUrl(meterPhoto, 800, 0.7);
             }
@@ -1730,32 +2287,9 @@ Mandi Cess       : 0% (APMC Deregulated)
                 grainPhoto = await compressImageDataUrl(grainPhoto, 800, 0.7);
             }
 
-            // Map yard to branch_id
             let branchId = 'br-chikhali';
             if (yardCode === 'VRV') branchId = 'br-varvand';
             if (yardCode === 'DHD') branchId = 'br-dhad';
-
-            // Auto-stage open commodity into inspectorLots if inspector filled it and didn't click add button
-            if (inspectorLots.length > 0) {
-                const curComm = commodityName;
-                const exists = inspectorLots.some(l => l.commodity_name === curComm);
-                if (!exists && moisturePct > 0) {
-                    inspectorLots.push({
-                        lot_index: inspectorLots.length + 1,
-                        commodity_name: curComm,
-                        moisture_pct: moisturePct,
-                        karda_pct: kardaPct,
-                        grade_label: gradeLabel,
-                        sortex_clean_yield_pct: sortexClean,
-                        suggested_buying_rate_per_qtl: suggestedRate,
-                        meter_photo_path: (meterPhoto && meterPhoto.startsWith('data:image')) ? meterPhoto : null,
-                        grain_photo_path: (grainPhoto && grainPhoto.startsWith('data:image')) ? grainPhoto : null
-                    });
-                }
-            }
-
-            const isMultiLot = inspectorLots.length > 1;
-            const finalCommodity = isMultiLot ? inspectorLots.map(l => l.commodity_name).join(', ') : commodityName;
 
             const payload = {
                 ticket_no: ticket,
@@ -1766,18 +2300,18 @@ Mandi Cess       : 0% (APMC Deregulated)
                 farmer_village: farmerVillage,
                 village: farmerVillage,
                 vehicle_no: vehicleNo,
-                commodity_name: finalCommodity,
-                items: isMultiLot ? inspectorLots : [],
-                moisture_pct: isMultiLot ? inspectorLots[0].moisture_pct : moisturePct,
-                karda_pct: isMultiLot ? inspectorLots[0].karda_pct : kardaPct,
+                commodity_name: commodityName,
+                items: isMulti ? inspectorLots : [],
+                moisture_pct: moisturePct,
+                karda_pct: kardaPct,
                 damaged_pct: damagedPct,
                 green_seeds_pct: greenPct,
                 broken_split_pct: brokenPct,
                 sortex_clean_yield_pct: sortexClean,
                 sortex_reject_pct: sortexReject,
                 sortex_grade: sortexGrade,
-                grade_label: isMultiLot ? `Multi-Lot (${inspectorLots.length} Commodities)` : gradeLabel,
-                suggested_buying_rate_per_qtl: isMultiLot ? inspectorLots[0].suggested_buying_rate_per_qtl : suggestedRate,
+                grade_label: gradeLabel,
+                suggested_buying_rate_per_qtl: suggestedRate,
                 inspector_name: inspectorName,
                 meter_photo_path: (meterPhoto && meterPhoto.startsWith('data:image')) ? meterPhoto : null,
                 grain_photo_path: (grainPhoto && grainPhoto.startsWith('data:image')) ? grainPhoto : null,
@@ -1786,7 +2320,6 @@ Mandi Cess       : 0% (APMC Deregulated)
 
             let syncSuccess = false;
 
-            // Attempt cloud sync via /api/inspections-submit
             try {
                 const res = await fetch('/api/inspections-submit', {
                     method: 'POST',
@@ -1803,7 +2336,6 @@ Mandi Cess       : 0% (APMC Deregulated)
                 console.warn('Direct cloud submit error, trying LAN fallback:', err);
             }
 
-            // Fallback to LAN if not reachable on cloud
             if (!syncSuccess) {
                 try {
                     const host = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? '127.0.0.1' : (window.location.hostname || 'localhost');
@@ -1824,22 +2356,133 @@ Mandi Cess       : 0% (APMC Deregulated)
             btn.innerHTML = '<span>⚡</span> <span>Sync to Cashier Desk</span>';
 
             if (syncSuccess) {
+                const lotsSummary = isMulti
+                    ? `\nMulti-Commodity Inward (${inspectorLots.length} Lots):\n` + inspectorLots.map((l, i) => `  ${i+1}. ${l.commodity_name.split(' (')[0]} (~${l.est_bags || 0} Bags | 💧${l.moisture_pct}% | ₹${Math.round(l.suggested_buying_rate_per_qtl)}/Qtl)`).join('\n')
+                    : `\nCommodity: ${commodityName} (💧${moisturePct}% | ₹${Math.round(suggestedRate)}/Qtl)`;
+
                 alert(`🎉 QC Certificate ${ticket} Issued & Synced!
+
+Farmer: ${farmerName} (${farmerVillage})
+Vehicle: ${vehicleNo}${lotsSummary}
 
 Authenticated Inspector: ${inspectorName}
 Assigned APMC Yard: ${yardName} (${yardCode})
 Status: 🔒 FORWARDED TO BRANCH CASHIER
 
-Ticket successfully delivered to Supabase Cloud & Branch Cashier Desk for weighment deduction and farmer payment settlement.`);
+Delivered to Supabase Cloud & Branch Cashier Desk for weighment deduction and farmer payment.`);
             } else {
                 alert(`⚠️ Sync Warning for Ticket ${ticket}:
-
 Ticket was generated, but could not be sent to Cloud or Branch Cashier.
 Please check internet connection or LAN Wi-Fi connection to Branch Server.`);
             }
             resetInspectorForm();
         }
 
+        // =====================================================================
+        // RECENT QC TICKETS MODAL & REPRINT
+        // =====================================================================
+        async function openRecentTicketsModal() {
+            const modal = document.getElementById('recentTicketsModal');
+            if (modal) modal.classList.remove('hidden');
+            await fetchRecentTickets();
+        }
+
+        function closeRecentTicketsModal() {
+            const modal = document.getElementById('recentTicketsModal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        async function fetchRecentTickets() {
+            const listEl = document.getElementById('recentTicketsList');
+            if (!listEl) return;
+            listEl.innerHTML = '<div class="text-center py-8 text-slate-400 text-xs">Loading recent certificates...</div>';
+
+            try {
+                const user = getCurrentUser();
+                let branchId = 'br-chikhali';
+                if (user && user.yard === 'VRV') branchId = 'br-varvand';
+                if (user && user.yard === 'DHD') branchId = 'br-dhad';
+
+                const res = await fetch(`/api/inspections-submit?status=all&branch_id=${branchId}&limit=25`);
+                if (res.ok) {
+                    const data = await res.json();
+                    const tickets = data.tickets || [];
+                    if (tickets.length === 0) {
+                        listEl.innerHTML = '<div class="text-center py-8 text-slate-400 text-xs">No certificates found for this yard today.</div>';
+                        return;
+                    }
+
+                    listEl.innerHTML = tickets.map(t => {
+                        const isMulti = t.items && Array.isArray(t.items) && t.items.length > 1;
+                        const dateStr = t.created_at ? new Date(t.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '--';
+                        return `
+                            <div class="p-3 bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-200 flex items-center justify-between gap-3 transition">
+                                <div class="space-y-1">
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-mono font-extrabold text-xs text-indigo-900">${t.ticket_no}</span>
+                                        <span class="text-[10px] text-slate-500 font-medium">🕒 ${dateStr}</span>
+                                        ${isMulti ? `<span class="text-[10px] font-extrabold bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full border border-indigo-200">📦 Multi-Lot (${t.items.length})</span>` : ''}
+                                        <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${t.status === 'PROCESSED' || t.status === 'INVOICED' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}">
+                                            ${t.status === 'PROCESSED' || t.status === 'INVOICED' ? '✅ Invoiced' : '⏳ Pending Cashier'}
+                                        </span>
+                                    </div>
+                                    <div class="text-xs font-bold text-slate-800 flex items-center gap-2">
+                                        <span>👤 ${t.farmer_name || 'Farmer'}</span>
+                                        <span class="text-slate-400">•</span>
+                                        <span class="font-mono text-slate-600">🚛 ${t.vehicle_no || '--'}</span>
+                                        <span class="text-slate-400">•</span>
+                                        <span class="text-slate-600">📍 ${t.farmer_village || t.village || '--'}</span>
+                                    </div>
+                                    <div class="text-[11px] text-slate-600 flex items-center gap-2">
+                                        <span>🌾 ${t.commodity_name}</span>
+                                        <span class="text-slate-400">•</span>
+                                        <span>💧 ${t.moisture_pct}%</span>
+                                        <span class="text-slate-400">•</span>
+                                        <span class="font-bold text-emerald-700">₹ ${Math.round(t.suggested_buying_rate_per_qtl || 0)}/Qtl</span>
+                                    </div>
+                                </div>
+                                <button type="button" onclick="loadAndReprintTicket('${t.ticket_no}')" class="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-lg shadow-xs transition flex items-center gap-1 active:scale-95 cursor-pointer whitespace-nowrap">
+                                    <span>🖨️</span> <span>Reprint</span>
+                                </button>
+                            </div>
+                        `;
+                    }).join('');
+                    window.cachedRecentTickets = tickets;
+                } else {
+                    listEl.innerHTML = '<div class="text-center py-8 text-rose-500 text-xs">Failed to load recent tickets.</div>';
+                }
+            } catch (err) {
+                listEl.innerHTML = `<div class="text-center py-8 text-rose-500 text-xs">Network error: ${err.message}</div>`;
+            }
+        }
+
+        function loadAndReprintTicket(ticketNo) {
+            const ticket = (window.cachedRecentTickets || []).find(x => x.ticket_no === ticketNo);
+            if (!ticket) return;
+
+            document.getElementById('slipTicket').innerText = ticket.ticket_no;
+            document.getElementById('slipTime').innerText = new Date(ticket.created_at || Date.now()).toLocaleString('en-IN');
+            document.getElementById('slipFarmer').innerText = ticket.farmer_name || '--';
+            document.getElementById('slipVehicle').innerText = ticket.vehicle_no || '--';
+            document.getElementById('slipVillage').innerText = ticket.farmer_village || ticket.village || '--';
+            document.getElementById('slipCommodity').innerText = ticket.commodity_name || '--';
+
+            if (ticket.items && Array.isArray(ticket.items) && ticket.items.length > 1) {
+                inwardCargoMode = 'multi';
+                inspectorLots = ticket.items;
+                syncMultiLotToSlip();
+            } else {
+                inwardCargoMode = 'single';
+                document.getElementById('slipMoisture').innerText = `${ticket.moisture_pct}%`;
+                document.getElementById('slipGrade').innerText = ticket.grade_label || 'Grade 1';
+                document.getElementById('slipRate').innerText = `Rs. ${Math.round(ticket.suggested_buying_rate_per_qtl || 0)}.00 / Quintal`;
+                syncMultiLotToSlip();
+            }
+
+            closeRecentTicketsModal();
+            window.scrollTo({ top: document.getElementById('slipBox').offsetTop - 50, behavior: 'smooth' });
+            setTimeout(() => { window.print(); }, 400);
+        }
         // Service Worker registration
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('/sw.js').then(() => {

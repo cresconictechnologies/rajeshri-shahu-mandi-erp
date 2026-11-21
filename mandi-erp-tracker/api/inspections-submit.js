@@ -44,10 +44,17 @@ export default async function handler(req, res) {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY || process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRiaGNwZWJjaG95anlmZnFqZ2loIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MzIwODA1NywiZXhwIjoyMTA4Nzg0MDU3fQ.X3zOVSoIDOsp6ppSJ4SvgQFfQTVJnBmPeKclXnzRaS0';
 
   if (req.method === 'GET') {
-    // Return pending inspections from Supabase
+    // Return pending or all recent inspections from Supabase
     try {
       const branchId = req.query.branch_id;
-      let url = `${supabaseUrl}/rest/v1/quality_inspections?status=eq.PENDING&order=created_at.desc&limit=50`;
+      const statusParam = req.query.status;
+      const limit = parseInt(req.query.limit, 10) || 50;
+      let url = `${supabaseUrl}/rest/v1/quality_inspections?order=created_at.desc&limit=${limit}`;
+      if (statusParam && statusParam !== 'all') {
+        url += `&status=eq.${encodeURIComponent(statusParam)}`;
+      } else if (!statusParam) {
+        url += `&status=eq.PENDING`;
+      }
       if (branchId) {
         url += `&branch_id=eq.${encodeURIComponent(branchId)}`;
       }
@@ -137,6 +144,8 @@ export default async function handler(req, res) {
         multiItems = rawItems.map((it, idx) => ({
           lot_index: idx + 1,
           commodity_name: canonicalizeCommodityName(it.commodity_name || 'Soyabean (Yellow)'),
+          est_bags: parseInt(it.est_bags, 10) || 0,
+          est_weight_qtl: parseFloat(it.est_weight_qtl) || 0.0,
           moisture_pct: parseFloat(it.moisture_pct) || 10.0,
           karda_pct: parseFloat(it.karda_pct) || 0.0,
           grade_label: it.grade_label || 'Grade 1 (Premium FAQ)',

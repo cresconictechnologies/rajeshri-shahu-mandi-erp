@@ -50,7 +50,7 @@ export default async function handler(req, res) {
     else if (req.url.includes('/branches')) action = 'branches';
     else if (req.url.includes('/users')) action = 'users';
     else if (req.url.includes('/commodities')) action = 'commodities';
-    else if (req.url.includes('/parties') || req.url.includes('/farmers')) action = 'parties';
+    else if (req.url.includes('/parties') || req.url.includes('/farmers') || req.url.includes('/buyers')) action = 'parties';
     else if (req.url.includes('/ledgers') || req.url.includes('/ledger')) action = 'ledgers';
     else if (req.url.includes('/inspectors')) action = 'inspectors';
     else if (req.url.includes('/tickets') || req.url.includes('/inspections')) action = 'tickets';
@@ -1462,10 +1462,14 @@ ${rawBardanaRefund > 0 ? `<div class="row" style="color:#047857;font-weight:800;
   // =========================================================================
   // 6B. PARTIES ACTION (FARMERS & BUYERS DIRECTORY)
   // =========================================================================
-  if (action === 'parties' || action === 'farmers') {
+  if (action === 'parties' || action === 'farmers' || action === 'buyers') {
     if (req.method === 'GET') {
       try {
-        const partyType = req.query.type;
+        let partyType = req.query.type;
+        if (!partyType) {
+          if (action === 'farmers') partyType = 'FARMER';
+          else if (action === 'buyers') partyType = 'BUYER';
+        }
         let url = `${supabaseUrl}/rest/v1/parties?select=*&order=name.asc`;
         if (partyType && partyType !== 'all') {
           url += `&party_type=eq.${encodeURIComponent(partyType.toUpperCase())}`;
@@ -1482,19 +1486,23 @@ ${rawBardanaRefund > 0 ? `<div class="row" style="color:#047857;font-weight:800;
 
     if (req.method === 'POST') {
       try {
-        const pId = body.id || `party-${(body.name || 'farmer').toLowerCase().replace(/[^a-z0-9]/g, '-')}-${Date.now().toString(36)}`;
+        const defaultType = (action === 'buyers' || body.gstin || body.gstin_number) ? 'BUYER' : 'FARMER';
+        const partyType = (body.party_type || defaultType).toUpperCase();
+        const pId = body.id || (partyType === 'BUYER' ? `pty-b-chk-${Date.now().toString(36)}` : `party-${(body.name || 'farmer').toLowerCase().replace(/[^a-z0-9]/g, '-')}-${Date.now().toString(36)}`);
         const payload = {
           id: pId,
           name: (body.name || '').trim(),
           phone: (body.phone || '').trim(),
-          village: (body.village || 'Chikhali Taluka').trim(),
-          party_type: (body.party_type || 'FARMER').toUpperCase(),
+          village: (body.village || body.address || 'Chikhali Taluka').trim(),
+          party_type: partyType,
           khasra_number: body.khasra_number || body.land_record_no || null,
           aadhaar_number: body.aadhaar_number || null,
           pan_number: body.pan_number || null,
           bank_name: body.bank_name || null,
           account_number: body.account_number || body.rtgs_account_no || null,
           ifsc_code: body.ifsc_code || body.rtgs_ifsc_code || null,
+          gstin: body.gstin || body.gstin_number || null,
+          home_branch_id: body.home_branch_id || 'br-chikhali',
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         };
@@ -1506,7 +1514,15 @@ ${rawBardanaRefund > 0 ? `<div class="row" style="color:#047857;font-weight:800;
         });
 
         if (!resp.ok) return res.status(resp.status).json({ success: false, error: await resp.text() });
-        return res.status(200).json({ success: true, message: `Party ${payload.name} saved successfully!`, party: payload });
+        return res.status(200).json({
+          success: true,
+          message: `Party ${payload.name} saved successfully!`,
+          party: payload,
+          farmer: payload,
+          buyer: payload,
+          id: payload.id,
+          name: payload.name
+        });
       } catch (err) {
         return res.status(500).json({ success: false, error: err.message });
       }

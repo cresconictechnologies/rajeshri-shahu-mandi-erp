@@ -16,9 +16,15 @@
                     window.location.replace('/login?redirect=' + encodeURIComponent(window.location.pathname + window.location.search));
                     return;
                 }
-                if (user.role !== 'ACCOUNTANT_HQ' && user.role !== 'SUPER_ADMIN') {
+                if (user.role !== 'ACCOUNTANT_HQ' && user.role !== 'SUPER_ADMIN' && user.role !== 'BRANCH_CASHIER') {
                     if (user.role === 'INSPECTOR' || user.role === 'QUALITY_INSPECTOR') window.location.replace('/app');
                     else window.location.replace('/portal');
+                }
+                if (user.role === 'BRANCH_CASHIER') {
+                    var style = document.createElement('style');
+                    style.id = 'cashier-guard-style';
+                    style.innerHTML = '.notice-card, #tabBtnRates, #tabBtnOverrides, #tabBtnRtgs, #tabBtnOutwardReceivables, #tabBtnInspectors, #tabBtnDailyInward, #tabBtnDailyOutward, #tabBtnTallyHub, #tabBtnLedgers { display: none !important; }';
+                    document.head.appendChild(style);
                 }
             } catch (e) {
                 localStorage.removeItem('mandi_user');
@@ -169,6 +175,11 @@
                 </div>
             </div>
 
+            <!-- Return to Cashier Desk link (prominent for Cashiers) -->
+            <a href="/portal" id="linkReturnCashierDesk" class="nav-pill" style="display:none; background:#047857; color:#fff; text-decoration:none; font-weight:800; font-size:12px; padding:6px 14px; border-radius:8px; border:1px solid #065f46; box-shadow:0 1px 3px rgba(4,120,87,0.3); align-items:center; gap:6px;">
+                <span>⬅️</span> Return to Cashier Desk
+            </a>
+
             <!-- User Role Tag -->
             <span class="nav-pill" id="accUserRoleTag" style="background:#ecfdf5; color:#065f46; border-color:#a7f3d0; font-weight:700;">
                 👤 Suraj (Chief Accountant HQ)
@@ -209,14 +220,16 @@
     </div>
 
     <!-- TABS -->
-        <!-- TABS -->
     <div class="tabs">
-        <button class="tab-btn active" onclick="showTab('tab-rates')">Daily Rate Corridor Master</button>
+        <button class="tab-btn active" id="tabBtnRates" onclick="showTab('tab-rates')">Daily Rate Corridor Master</button>
         <button class="tab-btn" id="tabBtnOverrides" onclick="showTab('tab-overrides')">⚠️ Rate & Backdated Approvals (<span id="overrideBadgeCount">0</span>)</button>
         <button class="tab-btn" id="tabBtnRtgs" onclick="showTab('tab-rtgs')">RTGS Bank Transfers (<span id="rtgsBadgeCount">0</span>)</button>
-        <button class="tab-btn" onclick="showTab('tab-outward-receivables')">🚚 Outward Receivables (<span id="outwardBadgeDue">0 Due</span>)</button>
-        <button class="tab-btn" onclick="showTab('tab-inspectors')">Quality Inspector Master</button>
+        <button class="tab-btn" id="tabBtnOutwardReceivables" onclick="showTab('tab-outward-receivables')">🚚 Outward Receivables (<span id="outwardBadgeDue">0 Due</span>)</button>
+        <button class="tab-btn" id="tabBtnInspectors" onclick="showTab('tab-inspectors')">Quality Inspector Master</button>
         <button class="tab-btn" id="tabBtnPartyLedger" onclick="showTab('tab-ledgers'); switchLedgersSection('party-khata');">📑 Party Ledger (Khata)</button>
+        <button class="tab-btn" id="tabBtnBalances" onclick="showTab('tab-ledgers'); switchLedgersSection('party-balances');" style="display:none;">👥 Remaining Balances</button>
+        <button class="tab-btn" id="tabBtnCashbook" onclick="showTab('tab-ledgers'); switchLedgersSection('cashbook');" style="display:none;">💵 Daily Cashbook (रोकडवही)</button>
+        <button class="tab-btn" id="tabBtnGeneralLedger" onclick="showTab('tab-ledgers'); switchLedgersSection('general-ledger');" style="display:none;">📖 General Ledger</button>
         <button class="tab-btn" id="tabBtnDailyInward" onclick="showTab('tab-daily-inward')">📥 Daily Inward Report</button>
         <button class="tab-btn" id="tabBtnDailyOutward" onclick="showTab('tab-daily-outward')">🚚 Daily Outward Report</button>
         <button class="tab-btn" id="tabBtnTallyHub" onclick="showTab('tab-tally-hub')" style="background:#f0fdf4; border-color:#047857; color:#047857; font-weight:800;">⚡ Tally Prime Import Hub</button>
@@ -320,25 +333,26 @@
         <div class="card">
             <div class="card-header">
                 <h2><span>⚠️</span> Pending Rate Overrides & Backdated Historical Entries</h2>
-                <span class="badge-pill badge-amber">0 Verifications Pending</span>
+                <span class="badge-pill badge-amber" id="overrideCardBadge">0 Verifications Pending</span>
             </div>
             <table>
                 <thead>
                     <tr>
-                        <th>Token</th>
+                        <th>Token #</th>
                         <th>Date</th>
                         <th>Branch</th>
                         <th>Farmer / Cultivator</th>
                         <th>Commodity</th>
                         <th>Net Qtl</th>
-                        <th>Rate / Qtl</th>
-                        <th>Audit Status & Reason</th>
-                        <th>Action with Audit Reason</th>
+                        <th>Agreed Rate vs Corridor</th>
+                        <th>Net Amount</th>
+                        <th>Branch Reason</th>
+                        <th>Auditor Action</th>
                     </tr>
                 </thead>
                 <tbody id="overridesTableBody">
                     <tr>
-                        <td colspan="9" style="text-align:center; padding:32px; color:#64748b;">
+                        <td colspan="10" style="text-align:center; padding:32px; color:#64748b;">
                             <div style="font-size:32px; margin-bottom:8px;">✅</div>
                             <strong style="font-size:14px; color:#334155;">All Rate & Backdated Requests Approved</strong>
                             <p style="margin:4px 0 0 0; font-size:12px;">No pending branch price corridor exception tickets require head office review.</p>
@@ -346,26 +360,6 @@
                     </tr>
                 </tbody>
             </table>
-                            
-                            <span class="badge" style="background:#fee2e2; color:#991b1b; border:1px solid #fca5a5; font-weight:700; font-size:10.5px; padding:2px 6px; border-radius:4px; display:inline-block; margin-bottom:3px;">⚠️ Rate > Corridor</span><br>
-                            
-                            <small style="color:var(--text-secondary); font-style:italic;">""</small>
-                        </td>
-                        <td>
-                            <form action="/api/accounts/rate-overrides/action" method="POST" style="display:flex; gap:6px; align-items:center;">
-                                <input type="hidden" name="invoice_id" value="">
-                                <input type="text" name="accountant_reason" placeholder="Audit verification note..." required style="padding:6px 10px; font-size:12px; border:1px solid var(--input-border); border-radius:6px; width:170px;">
-                                <button type="submit" name="decision" value="APPROVE" class="btn btn-sm btn-accounts" title="Approve & Unlock Parchi Slip">✓ Verify & Unlock</button>
-                                <button type="submit" name="decision" value="REJECT" class="btn btn-sm btn-danger">Reject</button>
-                            </form>
-                        </td>
-                    </tr>
-                    
-                </tbody>
-            </table>
-            
-            <p style="color:var(--text-muted); font-size:14px; padding:20px 0; font-weight:600;">✓ No pending out-of-range purchase rates. All branch entries are currently within daily approved corridors.</p>
-            
         </div>
     </div>
 
@@ -1447,10 +1441,20 @@
                         </button>
                     </div>
                 </div>
-                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px; padding:16px 20px;">
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px; padding:16px 20px;">
                     <div>
                         <label style="display:block; font-size:11.5px; font-weight:800; color:#334155; margin-bottom:4px; text-transform:uppercase;">Search Party / Village / Phone</label>
                         <input type="text" id="allPartiesSearchInput" oninput="renderAllPartiesTable()" placeholder="Type farmer or buyer name..." style="width:100%; padding:9px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-weight:600; font-size:13px; box-sizing:border-box;">
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:11.5px; font-weight:800; color:#334155; margin-bottom:4px; text-transform:uppercase;">Branch Filter</label>
+                        <select id="allPartiesBranchSelect" onchange="renderAllPartiesTable()" style="width:100%; padding:9px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-weight:700; font-size:13px; background:#fff;">
+                            <option value="all">All Branches Consolidated</option>
+                            <option value="br-chikhali">Chikhali APMC Main Yard</option>
+                            <option value="br-varvand">Varvand APMC Yard</option>
+                            <option value="br-sarola">Sarola Maruti APMC Yard</option>
+                            <option value="br-dhad">Dhad APMC Yard</option>
+                        </select>
                     </div>
                     <div>
                         <label style="display:block; font-size:11.5px; font-weight:800; color:#334155; margin-bottom:4px; text-transform:uppercase;">Party Type</label>
@@ -1941,7 +1945,16 @@
             }
             if (!btn) {
                 if (tabId === 'tab-ledgers') {
-                    btn = document.getElementById('tabBtnLedgers') || document.querySelector(".tab-btn[onclick*='tab-ledgers']");
+                    try {
+                        const u = JSON.parse(localStorage.getItem('mandi_user') || '{}');
+                        if (u.role === 'BRANCH_CASHIER') {
+                            btn = document.getElementById('tabBtnPartyLedger');
+                        } else {
+                            btn = document.getElementById('tabBtnLedgers') || document.querySelector(".tab-btn[onclick*='tab-ledgers']");
+                        }
+                    } catch (_) {
+                        btn = document.getElementById('tabBtnLedgers') || document.querySelector(".tab-btn[onclick*='tab-ledgers']");
+                    }
                 } else {
                     btn = document.querySelector(`.tab-btn[onclick*="'${tabId}'"]`);
                 }
@@ -3042,7 +3055,14 @@
 
         async function loadAccountsData() {
             try {
-                const res = await fetch('/api/accounts/data');
+                let branchParam = '';
+                try {
+                    const u = JSON.parse(localStorage.getItem('mandi_user') || '{}');
+                    if (u.role === 'BRANCH_CASHIER' && u.branch_id) {
+                        branchParam = '?branch_id=' + encodeURIComponent(u.branch_id);
+                    }
+                } catch(_) {}
+                const res = await fetch('/api/accounts/data' + branchParam);
                 if (res.ok) {
                     const data = await res.json();
                     if (data.commodities && data.commodities.length > 0) ACCOUNTS_CACHE.commodities = data.commodities;
@@ -3064,7 +3084,127 @@
             renderPublishedRatesTable(ACCOUNTS_CACHE.rates);
             renderInspectorsTable(ACCOUNTS_CACHE.inspectors);
             renderLedgersTable(ACCOUNTS_CACHE.ledgers);
+            renderOverridesTable(ACCOUNTS_CACHE.overrides);
             initReportsHub();
+            applyRoleUiCustomizations();
+        }
+
+        function renderOverridesTable(overrides) {
+            const tbody = document.getElementById('overridesTableBody');
+            if (!tbody) return;
+            const list = Array.isArray(overrides) ? overrides : [];
+            const badge = document.getElementById('overrideBadgeCount');
+            const cardBadge = document.getElementById('overrideCardBadge');
+            if (badge) badge.innerText = list.length;
+            if (cardBadge) cardBadge.innerText = `${list.length} Verifications Pending`;
+
+            if (list.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="10" style="text-align:center; padding:32px; color:#64748b;">
+                            <div style="font-size:32px; margin-bottom:8px;">✅</div>
+                            <strong style="font-size:14px; color:#334155;">All Rate & Backdated Requests Approved</strong>
+                            <p style="margin:4px 0 0 0; font-size:12px;">No pending branch price corridor exception tickets require head office review.</p>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = list.map(inv => {
+                const rate = parseFloat(inv.rate_per_quintal || 0);
+                const minR = parseFloat(inv.corridor_min || 0);
+                const maxR = parseFloat(inv.corridor_max || 0);
+                let corridorDiffHtml = '';
+                if (minR > 0 && maxR > 0) {
+                    if (rate < minR) {
+                        const diff = minR - rate;
+                        corridorDiffHtml = `<span class="badge" style="background:#fee2e2; color:#991b1b; font-size:10px; font-weight:700; display:inline-block; margin-top:3px;">⚠️ -₹${diff.toFixed(2)} Below Min (₹${minR} - ₹${maxR})</span>`;
+                    } else if (rate > maxR) {
+                        const diff = rate - maxR;
+                        corridorDiffHtml = `<span class="badge" style="background:#fef2f2; color:#dc2626; font-size:10px; font-weight:700; display:inline-block; margin-top:3px;">⚠️ +₹${diff.toFixed(2)} Above Max (₹${minR} - ₹${maxR})</span>`;
+                    } else {
+                        corridorDiffHtml = `<span class="badge" style="background:#ecfdf5; color:#065f46; font-size:10px; font-weight:700; display:inline-block; margin-top:3px;">Within Corridor (₹${minR} - ₹${maxR})</span>`;
+                    }
+                } else {
+                    corridorDiffHtml = `<span style="font-size:10.5px; color:#64748b;">Corridor: ₹${minR || '-'} - ₹${maxR || '-'}</span>`;
+                }
+
+                const netQtl = parseFloat(inv.net_quintals || (parseFloat(inv.net_weight_kg || 0) / 100.0)).toFixed(2);
+                const netKg = Math.round(parseFloat(inv.net_weight_kg || (netQtl * 100)));
+                const netAmt = parseFloat(inv.net_payable_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+                return `
+                    <tr>
+                        <td><strong style="color:#0f172a;">#${inv.token_number || '-'}</strong></td>
+                        <td>${inv.invoice_date || '-'}</td>
+                        <td><span style="font-weight:600; color:#334155;">${inv.branch_name || inv.branch_id || 'Chikhali'}</span></td>
+                        <td>
+                            <strong>${inv.party_name || 'Farmer'}</strong><br>
+                            <small style="color:#64748b;">${inv.village || 'स्थानिक'} • 📱 ${inv.phone || inv.party_phone || '-'}</small>
+                        </td>
+                        <td>
+                            <strong>${inv.commodity_name || '-'}</strong><br>
+                            <small style="color:#64748b;">${inv.quality_grade || 'Standard'}</small>
+                        </td>
+                        <td>
+                            <strong>${netQtl} Qtl</strong><br>
+                            <small style="color:#64748b;">(${netKg} Kg)</small>
+                        </td>
+                        <td>
+                            <strong style="font-size:13px; color:#0f172a;">₹${rate.toLocaleString()}/Qtl</strong><br>
+                            ${corridorDiffHtml}
+                        </td>
+                        <td>
+                            <strong style="font-size:13.5px; color:#047857;">₹${netAmt}</strong><br>
+                            <span class="badge" style="background:#fffbeb; color:#b45309; font-size:10px; font-weight:800;">${inv.payout_status || 'ON_HOLD'}</span>
+                        </td>
+                        <td>
+                            <div style="font-size:11.5px; color:#334155; max-width:220px; line-height:1.4;">
+                                "${inv.rate_override_reason || 'Out of daily price corridor'}"
+                            </div>
+                        </td>
+                        <td>
+                            <div style="display:flex; flex-direction:column; gap:5px; min-width:210px;">
+                                <input type="text" id="note_${inv.id}" placeholder="Auditor note..." value="Approved by Central Accounts" style="padding:5px 8px; font-size:11px; border:1px solid #cbd5e1; border-radius:5px; box-sizing:border-box;">
+                                <div style="display:flex; gap:6px;">
+                                    <button type="button" class="btn btn-sm btn-accounts" onclick="handleOverrideDecision('${inv.id}', 'APPROVE')" style="flex:1; padding:5px 8px; font-size:11px; font-weight:800;" title="Approve Rate & Release Parchi Lock">✓ Approve & Unlock</button>
+                                    <button type="button" class="btn btn-sm btn-danger" onclick="handleOverrideDecision('${inv.id}', 'REJECT')" style="padding:5px 8px; font-size:11px; font-weight:800;">✕ Reject</button>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        async function handleOverrideDecision(invId, decision) {
+            const noteInput = document.getElementById(`note_${invId}`);
+            const reason = noteInput ? noteInput.value : '';
+            if (decision === 'REJECT' && !confirm('Are you sure you want to REJECT this purchase rate override? Payout and parchi slip will remain blocked.')) {
+                return;
+            }
+            try {
+                const res = await fetch('/api/accounts/rate-overrides/action', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        invoice_id: invId,
+                        decision: decision,
+                        accountant_reason: reason,
+                        role: 'ACCOUNTANT'
+                    })
+                });
+                const d = await res.json();
+                if (d.success) {
+                    alert(`✓ Rate override for invoice ${decision === 'APPROVE' ? 'APPROVED & UNLOCKED' : 'REJECTED'} successfully!`);
+                    await loadAccountsData();
+                } else {
+                    alert('Error processing override: ' + (d.error || 'Server error'));
+                }
+            } catch (err) {
+                alert('Network error: ' + err.message);
+            }
         }
 
         // Rate submission override
@@ -3203,6 +3343,7 @@
             renderInspectorsTable(ACCOUNTS_CACHE.inspectors);
             renderLedgersTable(ACCOUNTS_CACHE.ledgers);
             initReportsHub();
+            applyRoleUiCustomizations();
         }
 
         async function handlePostPaymentReceipt(e) {
@@ -3270,37 +3411,131 @@
             const ribbon = document.querySelector('.rates-ribbon .title');
             if (ribbon) ribbon.innerText = `⚡ Today's HQ Buying Corridor (${todayStr}):`;
         }
-        if (document.readyState === 'loading') {
-            
-        // Sync user role badge
-        try {
-            const uStr = localStorage.getItem('mandi_user');
-            if (uStr) {
-                const u = JSON.parse(uStr);
-                const tag = document.getElementById('accUserRoleTag');
-                if (tag && (u.name || u.full_name)) {
-                    tag.innerText = '👤 ' + (u.name || u.full_name);
-                }
-            }
-        } catch (_) {}
+        function lockBranchSelectorsIfCashier() {
+            try {
+                const uStr = localStorage.getItem('mandi_user');
+                if (!uStr) return;
+                const user = JSON.parse(uStr);
+                if (user.role !== 'BRANCH_CASHIER') return;
 
-        window.addEventListener('DOMContentLoaded', applyRealtimeTodayDates);
-        } else {
-            applyRealtimeTodayDates();
+                const assignedBranch = user.branch_id || 'br-chikhali';
+                const branchSelectors = [
+                    'partyLedgerBranchSelect',
+                    'allPartiesBranchSelect',
+                    'cashbookBranchFilter',
+                    'ledgerBranchFilter'
+                ];
+
+                branchSelectors.forEach(selId => {
+                    const el = document.getElementById(selId);
+                    if (!el) return;
+                    let foundAssigned = false;
+                    Array.from(el.options).forEach(opt => {
+                        if (opt.value === assignedBranch) {
+                            opt.disabled = false;
+                            opt.style.display = '';
+                            opt.selected = true;
+                            foundAssigned = true;
+                        } else {
+                            opt.disabled = true;
+                            opt.style.display = 'none';
+                        }
+                    });
+                    if (foundAssigned) {
+                        el.value = assignedBranch;
+                    }
+                    el.disabled = true;
+                    el.style.backgroundColor = '#f1f5f9';
+                    el.style.color = '#334155';
+                    el.style.cursor = 'not-allowed';
+                    el.title = 'Branch locked to cashier assigned yard (' + assignedBranch + ')';
+                });
+            } catch (err) {
+                console.error('Error locking cashier branch selectors:', err);
+            }
         }
 
-        
-        // Sync user role badge
-        try {
-            const uStr = localStorage.getItem('mandi_user');
-            if (uStr) {
-                const u = JSON.parse(uStr);
+        function applyRoleUiCustomizations() {
+            try {
+                const uStr = localStorage.getItem('mandi_user');
+                if (!uStr) return;
+                const user = JSON.parse(uStr);
+
+                // Update Role Tag
                 const tag = document.getElementById('accUserRoleTag');
-                if (tag && (u.name || u.full_name)) {
-                    tag.innerText = '👤 ' + (u.name || u.full_name);
+                if (tag) {
+                    if (user.role === 'BRANCH_CASHIER') {
+                        tag.innerText = '👤 ' + (user.name || user.full_name || 'Cashier') + ' (Branch Cashier)';
+                        tag.style.background = '#fef3c7';
+                        tag.style.color = '#92400e';
+                        tag.style.borderColor = '#fcd34d';
+                    } else if (user.name || user.full_name) {
+                        tag.innerText = '👤 ' + (user.name || user.full_name);
+                    }
                 }
+
+                if (user.role === 'BRANCH_CASHIER') {
+                    // 1. Show prominent "Return to Cashier Desk" link
+                    const returnLink = document.getElementById('linkReturnCashierDesk');
+                    if (returnLink) returnLink.style.display = 'inline-flex';
+
+                    // 2. Hide top notice card
+                    const noticeCard = document.querySelector('.notice-card');
+                    if (noticeCard) noticeCard.style.display = 'none';
+
+                    // 3. Hide HQ tabs
+                    const hqTabIds = [
+                        'tabBtnRates',
+                        'tabBtnOverrides',
+                        'tabBtnRtgs',
+                        'tabBtnOutwardReceivables',
+                        'tabBtnInspectors',
+                        'tabBtnDailyInward',
+                        'tabBtnDailyOutward',
+                        'tabBtnTallyHub',
+                        'tabBtnLedgers'
+                    ];
+                    hqTabIds.forEach(id => {
+                        const el = document.getElementById(id);
+                        if (el) el.style.display = 'none';
+                    });
+
+                    // 4. Show Cashier-specific tabs in main tab bar
+                    const cashierTabIds = [
+                        'tabBtnPartyLedger',
+                        'tabBtnBalances',
+                        'tabBtnCashbook',
+                        'tabBtnGeneralLedger'
+                    ];
+                    cashierTabIds.forEach(id => {
+                        const el = document.getElementById(id);
+                        if (el) el.style.display = 'inline-flex';
+                    });
+
+                    // 5. Lock branch selectors to user.branch_id
+                    lockBranchSelectorsIfCashier();
+
+                    // 6. Ensure default active tab is tab-ledgers, not hidden tab-rates
+                    const tabRates = document.getElementById('tab-rates');
+                    if (tabRates && tabRates.classList.contains('active')) {
+                        showTab('tab-ledgers');
+                        switchLedgersSection('party-khata');
+                    }
+                }
+            } catch (err) {
+                console.error('Error applying role customizations:', err);
             }
-        } catch (_) {}
+        }
+
+        if (document.readyState === 'loading') {
+            window.addEventListener('DOMContentLoaded', function() {
+                applyRealtimeTodayDates();
+                applyRoleUiCustomizations();
+            });
+        } else {
+            applyRealtimeTodayDates();
+            applyRoleUiCustomizations();
+        }
 
         window.addEventListener('DOMContentLoaded', loadAccountsData);
     
@@ -3421,7 +3656,7 @@
                 { id: 'br-dhad', name: 'Dhad APMC Yard' }
             ];
 
-            ['partyLedgerBranchSelect', 'inwardBranchSelect', 'outwardBranchSelect', 'tallyDaybookBranch'].forEach(selId => {
+            ['partyLedgerBranchSelect', 'allPartiesBranchSelect', 'cashbookBranchFilter', 'ledgerBranchFilter', 'inwardBranchSelect', 'outwardBranchSelect', 'tallyDaybookBranch'].forEach(selId => {
                 const el = document.getElementById(selId);
                 if (!el) return;
                 const prev = el.value || 'all';
@@ -3434,6 +3669,7 @@
                 });
                 el.value = prev;
             });
+            lockBranchSelectorsIfCashier();
 
             // Populate commodity selectors
             const commodities = ACCOUNTS_CACHE.commodities || [];
@@ -3904,6 +4140,7 @@
             const bMap = {};
             (ACCOUNTS_CACHE.branches || []).forEach(b => { bMap[b.id] = b.name; });
 
+            const branchFilter = document.getElementById('allPartiesBranchSelect')?.value || 'all';
             const parties = ACCOUNTS_CACHE.parties || [];
             const invoices = ACCOUNTS_CACHE.invoices || [];
             const outward = ACCOUNTS_CACHE.outward || [];
@@ -3929,6 +4166,7 @@
 
                 // Match Invoices
                 invoices.forEach(inv => {
+                    if (branchFilter !== 'all' && inv.branch_id !== branchFilter) return;
                     const m = inv.party_id === pId || (inv.custom_farmer_name && inv.custom_farmer_name.toLowerCase() === pName.toLowerCase());
                     if (!m) return;
                     txCount++;
@@ -3943,6 +4181,7 @@
 
                 // Match Outward Orders
                 outward.forEach(out => {
+                    if (branchFilter !== 'all' && out.branch_id !== branchFilter) return;
                     const bName = (out.buyer_name || '').trim().toLowerCase();
                     const m = bName === pName.toLowerCase() || out.party_id === pId;
                     if (!m) return;
@@ -3955,6 +4194,8 @@
                         totalCredit += billAmt;
                     }
                 });
+
+                if (branchFilter !== 'all' && txCount === 0) return;
 
                 const rawBal = totalDebit - totalCredit;
                 const balAbs = Math.abs(rawBal);
@@ -5472,6 +5713,27 @@ _For inquiries or bank RTGS verification, please contact Central Accounts._`;
                 }
                 filterLedgers();
             }
+
+            // Sync active state to main cashier tab buttons if cashier is logged in
+            try {
+                const uStr = localStorage.getItem('mandi_user');
+                const u = uStr ? JSON.parse(uStr) : null;
+                if (u && u.role === 'BRANCH_CASHIER') {
+                    const cashierTabMap = {
+                        'party-khata': 'tabBtnPartyLedger',
+                        'party-balances': 'tabBtnBalances',
+                        'cashbook': 'tabBtnCashbook',
+                        'general-ledger': 'tabBtnGeneralLedger'
+                    };
+                    Object.entries(cashierTabMap).forEach(([secKey, bId]) => {
+                        const bEl = document.getElementById(bId);
+                        if (bEl) {
+                            if (secKey === section) bEl.classList.add('active');
+                            else bEl.classList.remove('active');
+                        }
+                    });
+                }
+            } catch (_) {}
         }
 
         function downloadGeneralLedgerPdf() {
@@ -5718,6 +5980,17 @@ _For inquiries or bank RTGS verification, please contact Central Accounts._`;
                     } else if (target === 'general') {
                         showTab('tab-ledgers');
                         switchLedgersSection('general-ledger');
+                    } else if (!target) {
+                        try {
+                            const u = JSON.parse(localStorage.getItem('mandi_user') || '{}');
+                            if (u.role === 'BRANCH_CASHIER') {
+                                showTab('tab-ledgers');
+                                switchLedgersSection('party-khata');
+                            }
+                        } catch(_) {}
+                    }
+                    if (typeof applyRoleUiCustomizations === 'function') {
+                        applyRoleUiCustomizations();
                     }
                 } catch(e) {
                     console.error("Tab router error:", e);

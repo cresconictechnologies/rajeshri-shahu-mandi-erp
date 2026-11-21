@@ -2074,9 +2074,6 @@ ${rawBardanaRefund > 0 ? `<div class="row" style="color:#047857;font-weight:800;
         out.branch_name = branchMap[out.branch_id] || (out.branch_id === 'br-chikhali' ? 'Chikhali APMC Main Yard' : (out.branch_id === 'br-varvand' ? 'Varvand Yard' : (out.branch_id === 'br-sarola' ? 'Sarola Maruti Yard' : 'APMC Yard')));
       }
 
-      totalPnl = totalSales - totalDisbursed;
-      const pnlPct = totalDisbursed > 0 ? ((totalPnl / totalDisbursed) * 100).toFixed(1) : '0.0';
-
       // Map inspections by ticket_no and id for linking photos to invoices
       const qcMap = {};
       for (const q of (Array.isArray(inspections) ? inspections : [])) {
@@ -2110,6 +2107,9 @@ ${rawBardanaRefund > 0 ? `<div class="row" style="color:#047857;font-weight:800;
       }
 
       (Array.isArray(users) ? users : []).forEach(u => { delete u.password_hash; delete u.password; });
+
+      totalPnl = totalSales - totalDisbursed;
+      const pnlPct = totalDisbursed > 0 ? ((totalPnl / totalDisbursed) * 100).toFixed(1) : '0.0';
 
       return res.status(200).json({
         success: true,

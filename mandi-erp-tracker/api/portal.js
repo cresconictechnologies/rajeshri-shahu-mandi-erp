@@ -307,8 +307,17 @@ export default async function handler(req, res) {
         const grossPayable = parseFloat(body.gross_amount) || (netQuintals * ratePerQtl);
         const hamali = parseFloat(body.hamali_charge) || parseFloat(body.hamali_deduction) || (netQuintals * 25.0);
         const weighbridge = parseFloat(body.weighbridge_deduction) || 0.0;
-        const totalDeductions = hamali + weighbridge;
-        const netPayable = parseFloat(body.net_payable_amount) || (grossPayable - totalDeductions);
+        const bagCount60 = parseInt(body.bag_count_60) || 0;
+        const bagCount100 = parseInt(body.bag_count_100) || 0;
+        const bardanaRefund = parseFloat(body.bardana_refund_amount) || ((bagCount60 * 20.0) + (bagCount100 * 40.0));
+        const gadiBhade = parseFloat(body.gadi_bhade) || parseFloat(body.freight_charge) || 0.0;
+        const totalBags = (bagCount60 + bagCount100 > 0) ? (bagCount60 + bagCount100) : (parseInt(body.bag_count) || parseInt(body.total_bag_count) || 0);
+        let bagTypeCalculated = body.bag_type || '';
+        if (bagCount60 > 0 || bagCount100 > 0) {
+          bagTypeCalculated = `${bagCount60 > 0 ? bagCount60 + 'x60kg' : ''}${bagCount60 > 0 && bagCount100 > 0 ? ', ' : ''}${bagCount100 > 0 ? bagCount100 + 'x100kg' : ''}`;
+        }
+        const totalDeductions = hamali + weighbridge + gadiBhade;
+        const netPayable = parseFloat(body.net_payable_amount) || Math.max(0, (grossPayable - totalDeductions) + bardanaRefund);
         const weighmentMode = (body.weighment_mode || 'CASH').toUpperCase();
         const payoutStatus = (weighmentMode === 'CASH' || weighmentMode === 'MANUAL_YARD' || (body.payout_mode || '').toUpperCase() === 'CASH') ? 'PAID' : (body.payout_status || 'PENDING');
 
@@ -391,8 +400,13 @@ export default async function handler(req, res) {
           weighment_mode: weighmentMode,
           external_kanta_name: body.external_kanta_name || null,
           external_slip_number: body.external_slip_number || null,
-          bag_count: parseInt(body.bag_count) || 0,
-          bag_type: body.bag_type || 'LOOSE',
+          bag_count: totalBags,
+          bag_type: bagTypeCalculated || body.bag_type || 'LOOSE',
+          bag_count_60: bagCount60,
+          bag_count_100: bagCount100,
+          bardana_refund_amount: bardanaRefund,
+          freight_charge: gadiBhade,
+          gadi_bhade: gadiBhade,
           gross_weight_kg: grossWeight,
           vehicle_tare_kg: parseFloat(body.vehicle_tare_kg) || tareKg,
           bag_tare_kg: parseFloat(body.bag_tare_kg) || 0,
@@ -490,8 +504,25 @@ export default async function handler(req, res) {
               };
             });
 
-            // Single consolidated credit to farmer
-            const credit = {
+            if (bardanaRefund > 0) {
+              debits.push({
+                id: `led-deb-bar-${invoiceId}`,
+                branch_id: branchId,
+                transaction_date: invDate,
+                voucher_type: 'PURCHASE_INVOICE',
+                voucher_id: tokenNumber || invoiceId,
+                account_name: 'Bardana Inventory & Gunny Bags',
+                party_id: invoicePayload.party_id,
+                debit_amount: bardanaRefund,
+                credit_amount: 0.0,
+                narration: `Gunny Bag Refund (60kg: ${bagCount60}, 100kg: ${bagCount100}) for Token #${tokenNumber}`,
+                created_at: now.toISOString(),
+                updated_at: now.toISOString()
+              });
+            }
+
+            // Single consolidated credit to farmer and freight clearing if applicable
+            const credits = [{
               id: `led-crd-${invoiceId}`,
               branch_id: branchId,
               transaction_date: invDate,
@@ -504,39 +535,93 @@ export default async function handler(req, res) {
               narration: `Payment obligation for Token #${tokenNumber} (${farmerName}) - ${invoicePayload.items.length} Commodities Consolidated`,
               created_at: now.toISOString(),
               updated_at: now.toISOString()
-            };
-            ledgerEntries = [...debits, credit];
-          } else {
-            ledgerEntries = [
-              {
-                id: `led-deb-${invoiceId}`,
+            }];
+
+            if (gadiBhade > 0) {
+              credits.push({
+                id: `led-crd-frt-${invoiceId}`,
                 branch_id: branchId,
                 transaction_date: invDate,
                 voucher_type: 'PURCHASE_INVOICE',
                 voucher_id: tokenNumber || invoiceId,
-                account_name: `Grain Procurement - ${invoicePayload.commodity_name}`,
-                party_id: invoicePayload.party_id,
-                debit_amount: netPayable,
-                credit_amount: 0.0,
-                narration: `Procurement of ${netQuintals.toFixed(2)} Qtl ${invoicePayload.commodity_name} from ${farmerName} @ Rs.${ratePerQtl.toFixed(2)}/Qtl (Token #${tokenNumber})`,
-                created_at: now.toISOString(),
-                updated_at: now.toISOString()
-              },
-              {
-                id: `led-crd-${invoiceId}`,
-                branch_id: branchId,
-                transaction_date: invDate,
-                voucher_type: 'PURCHASE_INVOICE',
-                voucher_id: tokenNumber || invoiceId,
-                account_name: `${weighmentMode === 'CASH' ? 'Cash In Hand' : 'Farmer Payable (RTGS)'} - ${farmerName}`,
+                account_name: 'Freight & Transportation Clearing Account (गाडी भाडे)',
                 party_id: invoicePayload.party_id,
                 debit_amount: 0.0,
-                credit_amount: netPayable,
-                narration: `Payment obligation for Token #${tokenNumber} (${farmerName})`,
+                credit_amount: gadiBhade,
+                narration: `Freight deduction payable to transporter for Token #${tokenNumber} (${farmerName})`,
                 created_at: now.toISOString(),
                 updated_at: now.toISOString()
-              }
-            ];
+              });
+            }
+            ledgerEntries = [...debits, ...credits];
+          } else {
+            const debits = [];
+            const produceNet = Math.max(0, (grossPayable - hamali));
+            debits.push({
+              id: `led-deb-${invoiceId}`,
+              branch_id: branchId,
+              transaction_date: invDate,
+              voucher_type: 'PURCHASE_INVOICE',
+              voucher_id: tokenNumber || invoiceId,
+              account_name: `Grain Procurement - ${invoicePayload.commodity_name}`,
+              party_id: invoicePayload.party_id,
+              debit_amount: produceNet,
+              credit_amount: 0.0,
+              narration: `Procurement of ${netQuintals.toFixed(2)} Qtl ${invoicePayload.commodity_name} from ${farmerName} @ Rs.${ratePerQtl.toFixed(2)}/Qtl (Token #${tokenNumber})`,
+              created_at: now.toISOString(),
+              updated_at: now.toISOString()
+            });
+
+            if (bardanaRefund > 0) {
+              debits.push({
+                id: `led-deb-bar-${invoiceId}`,
+                branch_id: branchId,
+                transaction_date: invDate,
+                voucher_type: 'PURCHASE_INVOICE',
+                voucher_id: tokenNumber || invoiceId,
+                account_name: 'Bardana Inventory & Gunny Bags',
+                party_id: invoicePayload.party_id,
+                debit_amount: bardanaRefund,
+                credit_amount: 0.0,
+                narration: `Gunny Bag Refund (60kg: ${bagCount60}, 100kg: ${bagCount100}) for Token #${tokenNumber}`,
+                created_at: now.toISOString(),
+                updated_at: now.toISOString()
+              });
+            }
+
+            const credits = [{
+              id: `led-crd-${invoiceId}`,
+              branch_id: branchId,
+              transaction_date: invDate,
+              voucher_type: 'PURCHASE_INVOICE',
+              voucher_id: tokenNumber || invoiceId,
+              account_name: `${weighmentMode === 'CASH' ? 'Cash In Hand' : 'Farmer Payable (RTGS)'} - ${farmerName}`,
+              party_id: invoicePayload.party_id,
+              debit_amount: 0.0,
+              credit_amount: netPayable,
+              narration: `Payment obligation for Token #${tokenNumber} (${farmerName})`,
+              created_at: now.toISOString(),
+              updated_at: now.toISOString()
+            }];
+
+            if (gadiBhade > 0) {
+              credits.push({
+                id: `led-crd-frt-${invoiceId}`,
+                branch_id: branchId,
+                transaction_date: invDate,
+                voucher_type: 'PURCHASE_INVOICE',
+                voucher_id: tokenNumber || invoiceId,
+                account_name: 'Freight & Transportation Clearing Account (गाडी भाडे)',
+                party_id: invoicePayload.party_id,
+                debit_amount: 0.0,
+                credit_amount: gadiBhade,
+                narration: `Freight deduction payable to transporter for Token #${tokenNumber} (${farmerName})`,
+                created_at: now.toISOString(),
+                updated_at: now.toISOString()
+              });
+            }
+
+            ledgerEntries = [...debits, ...credits];
           }
           await fetch(`${supabaseUrl}/rest/v1/ledger_entries`, {
             method: 'POST',
@@ -720,6 +805,10 @@ export default async function handler(req, res) {
       const rawGross = parseFloat(inv.gross_amount);
       const rawNet = parseFloat(inv.net_payable_amount);
       const rawHamali = parseFloat(inv.hamali_charge);
+      const rawFreight = parseFloat(inv.freight_charge) || parseFloat(inv.gadi_bhade) || 0.0;
+      const rawBardanaRefund = parseFloat(inv.bardana_refund_amount) || 0.0;
+      const bag60 = parseInt(inv.bag_count_60) || 0;
+      const bag100 = parseInt(inv.bag_count_100) || 0;
       const rawRate = parseFloat(inv.rate_per_quintal);
       const rawNetQtl = parseFloat(inv.net_quintals);
       const rawNetKg = parseFloat(inv.net_weight_kg);
@@ -730,9 +819,12 @@ export default async function handler(req, res) {
       const rateNum = !isNaN(rawRate) && rawRate >= 0 ? rawRate : 0.0;
       const grossNum = !isNaN(rawGross) && rawGross >= 0 ? rawGross : (netQtlNum * rateNum);
       const hamaliNum = !isNaN(rawHamali) && rawHamali >= 0 ? rawHamali : (netQtlNum * 25.0);
-      const netNum = !isNaN(rawNet) && rawNet >= 0 ? rawNet : Math.max(0, grossNum - hamaliNum);
+      const netNum = !isNaN(rawNet) && rawNet >= 0 ? rawNet : Math.max(0, (grossNum - hamaliNum - rawFreight) + rawBardanaRefund);
 
       const hamali = hamaliNum.toFixed(2);
+      const freight = rawFreight.toFixed(2);
+      const bardanaRefund = rawBardanaRefund.toFixed(2);
+      const bagRefundBreakdown = (bag60 > 0 || bag100 > 0) ? `(${bag60 > 0 ? bag60 + '×60kg @ ₹20' : ''}${bag60 > 0 && bag100 > 0 ? ' + ' : ''}${bag100 > 0 ? bag100 + '×100kg @ ₹40' : ''})` : '';
       const gross = grossNum.toFixed(2);
       const net = netNum.toFixed(2);
       const netQtl = netQtlNum.toFixed(2);
@@ -804,6 +896,9 @@ ${(Array.isArray(inv.items) && inv.items.length > 1) ? inv.items.map((it, idx) =
 }).join('') : `<div class="row"><span>${inv.commodity_name} (${inv.quality_grade || 'Standard'})</span><span>${netQtl} Qtl (${netKg} Kg)</span></div>
 <div class="row"><span>दर / Rate: ₹${rate}/Qtl</span><span>रक्कम: ₹${gross}</span></div>`}
 <div class="row" style="color:#b91c1c;"><span>(-) हमाली:</span><span>-₹${hamali}</span></div>
+${rawFreight > 0 ? `<div class="row" style="color:#b91c1c;"><span>(-) गाडी भाडे:</span><span>-₹${freight}</span></div>` : ''}
+${rawBardanaRefund > 0 ? `<div class="row" style="color:#047857;font-weight:800;"><span>(+) बारदाना परतावा:</span><span>+₹${bardanaRefund}</span></div>
+<div style="font-size:9.5px;color:#047857;text-align:right;margin-bottom:2px;">${bagRefundBreakdown}</div>` : ''}
 <div class="net-box">
   <div style="font-size:10.5px;font-weight:800;color:#065f46;">शेतकऱ्यास देय / NET PAYABLE</div>
   <div class="net-val">₹ ${net}</div>
@@ -978,6 +1073,14 @@ ${(Array.isArray(inv.items) && inv.items.length > 1) ? inv.items.map((it, idx) =
           <td colspan="3" style="font-weight:700;font-size:10px;">(-) हमाली कपात (₹25/100Kg):</td>
           <td style="text-align:right;font-weight:800;font-size:10.5px;color:#be123c;">- ₹ ${hamali}</td>
         </tr>
+        ${rawFreight > 0 ? `<tr style="background:#fff1f2;color:#9f1239;">
+          <td colspan="3" style="font-weight:700;font-size:10px;">(-) गाडी भाडे / वाहतूक कपात:</td>
+          <td style="text-align:right;font-weight:800;font-size:10.5px;color:#be123c;">- ₹ ${freight}</td>
+        </tr>` : ''}
+        ${rawBardanaRefund > 0 ? `<tr style="background:#ecfdf5;color:#065f46;">
+          <td colspan="3" style="font-weight:800;font-size:10px;">(+) बारदाना परतावा (Gunny Bags Refund) <small style="color:#047857;">${bagRefundBreakdown}</small>:</td>
+          <td style="text-align:right;font-weight:800;font-size:10.5px;color:#047857;">+ ₹ ${bardanaRefund}</td>
+        </tr>` : ''}
         <tr class="npr">
           <td colspan="2" style="font-weight:900;font-size:11.5px;color:#065f46;padding:6px 8px;">शेतकऱ्यास देय / NET PAYABLE:</td>
           <td colspan="2" class="npc">₹ ${net}</td>

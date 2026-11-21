@@ -1360,6 +1360,19 @@
                             <input type="text" id="vehicle_number" name="vehicle_number" placeholder="e.g. MH-28-AB-1234" style="text-transform:uppercase; font-weight:700;">
                         </div>
 
+                        <!-- Multi-Commodity Toggle Banner -->
+                        <div class="form-group form-full" style="display:flex; justify-content:space-between; align-items:center; background:#f8fafc; border:1.5px solid #cbd5e1; border-radius:8px; padding:10px 14px; margin-bottom:8px;">
+                            <div>
+                                <strong style="font-size:13px; color:#0f172a; display:flex; align-items:center; gap:6px;">
+                                    <span>📦</span> Multi-Commodity Vehicle Inward (एकाधिक शेतमाल आवक)
+                                </strong>
+                                <div style="font-size:11.5px; color:#64748b;">Farmer bringing multiple produce lots in one vehicle (e.g. Soyabean + Rajma + Dollar Chana)?</div>
+                            </div>
+                            <button type="button" id="btnToggleMultiLot" class="btn btn-secondary" onclick="toggleMultiLotBuilder()" style="padding:7px 14px; font-size:12px; font-weight:800; background:#f0fdf4; color:#15803d; border:1.5px solid #86efac; cursor:pointer;">
+                                📦 ➕ Add Multi-Commodity Lots
+                            </button>
+                        </div>
+
                         <!-- Multi-Commodity Lots Table Section (Active for Multi-Lot Arrivals) -->
                         <div id="multiLotSection" class="form-group form-full" style="display:none; background:#f0fdf4; border:1.8px solid #86efac; border-radius:10px; padding:14px; margin-bottom:12px;">
                             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
@@ -1370,9 +1383,14 @@
                                         <div style="font-size:11.5px; color:#166534;" id="multiLotBannerSub">Enter scale weights and agreed rates for each lot in this trolley below.</div>
                                     </div>
                                 </div>
-                                <span id="multiLotCountBadgeForm" class="badge" style="background:#059669; color:#fff; font-size:11.5px; font-weight:800; padding:3px 10px; border-radius:12px;">
-                                    2 Lots
-                                </span>
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <button type="button" class="btn btn-secondary" onclick="addCustomMultiLotRow()" style="padding:4px 10px; font-size:11.5px; font-weight:800; background:#ecfdf5; color:#065f46; border:1.2px solid #059669;">
+                                        ➕ Add Lot
+                                    </button>
+                                    <span id="multiLotCountBadgeForm" class="badge" style="background:#059669; color:#fff; font-size:11.5px; font-weight:800; padding:4px 10px; border-radius:12px;">
+                                        2 Lots
+                                    </span>
+                                </div>
                             </div>
                             <div style="overflow-x:auto;">
                                 <table style="width:100%; border-collapse:collapse; font-size:12px; background:#fff; border-radius:8px; overflow:hidden; border:1px solid #bbf7d0;">
@@ -1385,6 +1403,7 @@
                                             <th style="padding:7px 8px; text-align:right;">Rate (₹/Qtl)</th>
                                             <th style="padding:7px 8px; text-align:right;">Hamali (₹)</th>
                                             <th style="padding:7px 8px; text-align:right;">Net Amount (₹)</th>
+                                            <th style="padding:7px 8px; text-align:center;">Action</th>
                                         </tr>
                                     </thead>
                                     <tbody id="multiLotTableBody">
@@ -1397,6 +1416,9 @@
                                             <td></td>
                                             <td id="multiLotTotHamali" style="padding:8px 10px; text-align:right; color:#b91c1c;">-₹0.00</td>
                                             <td id="multiLotTotPayable" style="padding:8px 10px; text-align:right; color:#047857; font-size:15px;">₹0.00</td>
+                                            <td style="text-align:center;">
+                                                <button type="button" class="btn btn-secondary" onclick="addCustomMultiLotRow()" style="padding:3px 8px; font-size:10px; font-weight:800; background:#059669; color:#fff; border:none;" title="Add Another Lot">➕</button>
+                                            </td>
                                         </tr>
                                     </tfoot>
                                 </table>
@@ -1456,6 +1478,88 @@
                         <div class="form-group form-full" id="overrideReasonBox" style="display:none;">
                             <label style="color:#b91c1c;">Reason for Out-of-Corridor Rate (Required for Central HQ Approval)</label>
                             <input type="text" id="rate_override_reason" name="rate_override_reason" placeholder="High oil content / exceptionally clean lot..." style="border-color:#fca5a5; background:#fef2f2;">
+                        </div>
+
+                        <!-- ============================================== -->
+                        <!-- BARDANA (BAGS) MONEY-BACK & GADI BHADE SECTION -->
+                        <!-- ============================================== -->
+                        <div class="form-group form-full" style="background:#f0fdf4; border:1.8px solid #86efac; border-radius:10px; padding:14px; margin:14px 0;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <span style="font-size:22px;">🛍️</span>
+                                    <div>
+                                        <div style="font-weight:900; font-size:14px; color:#14532d;">बारदाना परतावा (Gunny Bags Refund — Money Back to Farmer)</div>
+                                        <div style="font-size:11.5px; color:#166534;">Select farmer bag counts. Mandi reimburses bag cost back to the farmer (Added to Net Payout).</div>
+                                    </div>
+                                </div>
+                                <span id="disp_bardana_badge" class="badge" style="background:#059669; color:#fff; font-size:12px; font-weight:800; padding:4px 12px; border-radius:12px;">
+                                    +₹0.00 Refund
+                                </span>
+                            </div>
+
+                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                                <!-- 60 Kg Bag Choice Box -->
+                                <div style="background:#fff; border:1.5px solid #bbf7d0; border-radius:8px; padding:12px; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+                                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                                        <strong style="font-size:13px; color:#0f172a;">🌾 60 Kg Bags</strong>
+                                        <span style="background:#fef3c7; color:#92400e; font-size:11px; font-weight:800; padding:2px 8px; border-radius:4px;">Rate: ₹20 / bag</span>
+                                    </div>
+                                    <div style="display:flex; align-items:center; gap:6px;">
+                                        <button type="button" class="btn btn-secondary" onclick="adjustBagCount('60', -1)" style="padding:6px 14px; font-weight:900; font-size:16px;">-</button>
+                                        <input type="number" id="bag_count_60" name="bag_count_60" value="0" min="0" oninput="updateBardanaCalculations()" style="text-align:center; font-size:16px; font-weight:800; padding:6px; flex:1; border:1.5px solid #cbd5e1; border-radius:6px;">
+                                        <button type="button" class="btn btn-secondary" onclick="adjustBagCount('60', 1)" style="padding:6px 14px; font-weight:900; font-size:16px;">+</button>
+                                    </div>
+                                    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; font-size:11.5px;">
+                                        <div style="display:flex; gap:4px;">
+                                            <button type="button" class="btn btn-secondary" onclick="adjustBagCount('60', 1)" style="padding:2px 7px; font-size:10px; font-weight:700;">+1</button>
+                                            <button type="button" class="btn btn-secondary" onclick="adjustBagCount('60', 5)" style="padding:2px 7px; font-size:10px; font-weight:700;">+5</button>
+                                            <button type="button" class="btn btn-secondary" onclick="adjustBagCount('60', 10)" style="padding:2px 7px; font-size:10px; font-weight:700;">+10</button>
+                                            <button type="button" class="btn btn-secondary" onclick="setBagCountDirect('60', 0)" style="padding:2px 7px; font-size:10px; color:#dc2626;">Clr</button>
+                                        </div>
+                                        <span id="disp_subtotal_60" style="font-weight:800; color:#059669;">Subtotal: ₹0.00</span>
+                                    </div>
+                                </div>
+
+                                <!-- 100 Kg Bag Choice Box -->
+                                <div style="background:#fff; border:1.5px solid #bbf7d0; border-radius:8px; padding:12px; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+                                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                                        <strong style="font-size:13px; color:#0f172a;">🌾 100 Kg Bags</strong>
+                                        <span style="background:#dbeafe; color:#1e40af; font-size:11px; font-weight:800; padding:2px 8px; border-radius:4px;">Rate: ₹40 / bag</span>
+                                    </div>
+                                    <div style="display:flex; align-items:center; gap:6px;">
+                                        <button type="button" class="btn btn-secondary" onclick="adjustBagCount('100', -1)" style="padding:6px 14px; font-weight:900; font-size:16px;">-</button>
+                                        <input type="number" id="bag_count_100" name="bag_count_100" value="0" min="0" oninput="updateBardanaCalculations()" style="text-align:center; font-size:16px; font-weight:800; padding:6px; flex:1; border:1.5px solid #cbd5e1; border-radius:6px;">
+                                        <button type="button" class="btn btn-secondary" onclick="adjustBagCount('100', 1)" style="padding:6px 14px; font-weight:900; font-size:16px;">+</button>
+                                    </div>
+                                    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; font-size:11.5px;">
+                                        <div style="display:flex; gap:4px;">
+                                            <button type="button" class="btn btn-secondary" onclick="adjustBagCount('100', 1)" style="padding:2px 7px; font-size:10px; font-weight:700;">+1</button>
+                                            <button type="button" class="btn btn-secondary" onclick="adjustBagCount('100', 5)" style="padding:2px 7px; font-size:10px; font-weight:700;">+5</button>
+                                            <button type="button" class="btn btn-secondary" onclick="adjustBagCount('100', 10)" style="padding:2px 7px; font-size:10px; font-weight:700;">+10</button>
+                                            <button type="button" class="btn btn-secondary" onclick="setBagCountDirect('100', 0)" style="padding:2px 7px; font-size:10px; color:#dc2626;">Clr</button>
+                                        </div>
+                                        <span id="disp_subtotal_100" style="font-weight:800; color:#059669;">Subtotal: ₹0.00</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Gadi Bhade (Freight) & Bag Total Row -->
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px; padding-top:10px; border-top:1px dashed #86efac; font-size:12px;">
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <label style="font-weight:800; color:#14532d; margin:0;">🚚 गाडी भाडे (Gadi Bhade / Freight):</label>
+                                    <div style="position:relative; width:130px;">
+                                        <span style="position:absolute; left:8px; top:6px; color:#64748b; font-weight:700;">₹</span>
+                                        <input type="number" id="gadi_bhade_input" name="gadi_bhade" value="0" min="0" step="1" oninput="recalculate()" style="width:100%; padding:5px 8px 5px 20px; font-weight:800; font-size:13px; text-align:right; border:1.5px solid #cbd5e1; border-radius:6px;" placeholder="0">
+                                    </div>
+                                    <small style="color:#64748b; font-size:11px;">(Deducted from payout if Mandi pays driver)</small>
+                                </div>
+                                <div style="text-align:right;">
+                                    <span style="color:#475569; font-weight:700;">Total Bags: <strong id="disp_total_bags_count" style="color:#0f172a;">0</strong> &bull; Total Refund:</span>
+                                    <strong id="disp_bardana_total_inline" style="color:#059669; font-size:15px; margin-left:4px;">+₹0.00</strong>
+                                </div>
+                            </div>
+                            <input type="hidden" id="bardana_refund_amount" name="bardana_refund_amount" value="0">
+                            <input type="hidden" id="total_bag_count" name="total_bag_count" value="0">
                         </div>
 
                         <!-- ============================================== -->
@@ -1583,10 +1687,18 @@
                         <span id="disp_gross_amount" style="font-weight:700;">₹1,60,308.75</span>
                     </div>
 
-                    <!-- MANDI CHARGES: HAMALI ONLY -->
+                    <!-- MANDI CHARGES: HAMALI, FREIGHT & BARDANA REFUND -->
                     <div class="calc-row">
                         <span>Farmer Hamali (₹25 / 100 Kg):</span>
                         <span id="disp_hamali_deduction" style="color:#dc2626; font-weight:700;">-₹861.88</span>
+                    </div>
+                    <div class="calc-row" id="disp_freight_row" style="display:none;">
+                        <span>(-) गाडी भाडे (Gadi Bhade / Freight):</span>
+                        <span id="disp_freight_deduction" style="color:#dc2626; font-weight:700;">-₹0.00</span>
+                    </div>
+                    <div class="calc-row" id="disp_bardana_row" style="display:none; background:#ecfdf5; padding:4px 8px; border-radius:6px; margin:4px 0;">
+                        <span style="color:#047857; font-weight:800;">(+) बारदाना परतावा (Bag Refund):</span>
+                        <span id="disp_bardana_refund" style="color:#047857; font-weight:800;">+₹0.00</span>
                     </div>
 
                     <div class="calc-row" style="font-size:17px; font-weight:800; color:#0f172a; border-top:2px solid #e2e8f0; margin-top:6px; padding-top:10px;">
@@ -4328,6 +4440,11 @@
             const moisture = parseFloat(document.getElementById('moisture_percentage')?.value || 0);
             const rate = parseFloat(document.getElementById('rate_per_quintal')?.value || 0);
 
+            const b60 = parseInt(document.getElementById('bag_count_60')?.value || 0);
+            const b100 = parseInt(document.getElementById('bag_count_100')?.value || 0);
+            const totalBardanaRefund = (b60 * 20.0) + (b100 * 40.0);
+            const gadiBhade = parseFloat(document.getElementById('gadi_bhade_input')?.value || 0);
+
             // Instant synchronous calculation (0ms, 100% resilient & zero network dependency)
             const vehicle_net_kg = Math.max(0, gross - tare);
             const moisture_cut_kg = (moisture > 12.0) ? (vehicle_net_kg * (moisture - 12.0) / 100.0) : 0;
@@ -4336,7 +4453,30 @@
             const net_quintals = parseFloat((net_weight_kg / 100.0).toFixed(2));
             const gross_amount = parseFloat((net_quintals * rate).toFixed(2));
             const hamaliAmt = parseFloat((net_quintals * 25.0).toFixed(2)); // ₹25 per quintal
-            const net_payable_amount = Math.max(0, parseFloat((gross_amount - hamaliAmt).toFixed(2)));
+
+            const fRow = document.getElementById('disp_freight_row');
+            const fDed = document.getElementById('disp_freight_deduction');
+            if (fRow && fDed) {
+                if (gadiBhade > 0) {
+                    fRow.style.display = 'flex';
+                    fDed.innerText = `-₹${gadiBhade.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                } else {
+                    fRow.style.display = 'none';
+                }
+            }
+
+            const bRow = document.getElementById('disp_bardana_row');
+            const bRef = document.getElementById('disp_bardana_refund');
+            if (bRow && bRef) {
+                if (totalBardanaRefund > 0) {
+                    bRow.style.display = 'flex';
+                    bRef.innerText = `+₹${totalBardanaRefund.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                } else {
+                    bRow.style.display = 'none';
+                }
+            }
+
+            const net_payable_amount = Math.max(0, parseFloat(((gross_amount - hamaliAmt - gadiBhade) + totalBardanaRefund).toFixed(2)));
 
             const dispVehNet = document.getElementById('disp_vehicle_net');
             if (dispVehNet) dispVehNet.innerText = vehicle_net_kg.toLocaleString() + ' Kg';
@@ -4590,10 +4730,15 @@
                 return;
             }
 
+            const b60 = parseInt(document.getElementById('bag_count_60')?.value || 0);
+            const b100 = parseInt(document.getElementById('bag_count_100')?.value || 0);
+            const bardanaRefund = (b60 * 20.0) + (b100 * 40.0);
+            const gadiBhade = parseFloat(document.getElementById('gadi_bhade_input')?.value || 0);
+
             let netQuintals = netWeight / 100.0;
             let grossProduceVal = netQuintals * rate;
             let hamaliDeduction = netQuintals * 25.0; // Fixed ₹25 per 100 kg
-            let netPayable = currentExactPayable > 0 ? currentExactPayable : (grossProduceVal - hamaliDeduction);
+            let netPayable = currentExactPayable > 0 ? currentExactPayable : Math.max(0, (grossProduceVal - hamaliDeduction - gadiBhade) + bardanaRefund);
             let roundedPayout = Math.ceil(netPayable);
 
             if (multiItems && multiItems.length > 1) {
@@ -4603,7 +4748,7 @@
                 netQuintals = netWeight / 100.0;
                 grossProduceVal = multiItems.reduce((acc, i) => acc + i.gross_amount, 0);
                 hamaliDeduction = multiItems.reduce((acc, i) => acc + i.hamali_charge, 0);
-                netPayable = multiItems.reduce((acc, i) => acc + i.net_amount, 0);
+                netPayable = Math.max(0, (grossProduceVal - hamaliDeduction - gadiBhade) + bardanaRefund);
                 roundedPayout = Math.ceil(netPayable);
                 currentExactPayable = netPayable;
                 modeTitle = `Multi-Lot Inward (${multiItems.length} Commodities)`;
@@ -4722,6 +4867,19 @@
                             <div style="font-size:11px; color:#64748b; font-weight:600;">(₹25.00 / 100 Kg)</div>
                         </div>
                     </div>
+
+                    ${gadiBhade > 0 ? `
+                        <div style="display:flex; justify-content:space-between; font-size:12px; color:#dc2626; font-weight:700; padding:6px 4px 2px;">
+                            <span>(-) गाडी भाडे / Transport Deduction:</span>
+                            <span>-₹${gadiBhade.toFixed(2)}</span>
+                        </div>
+                    ` : ''}
+                    ${bardanaRefund > 0 ? `
+                        <div style="display:flex; justify-content:space-between; font-size:12px; color:#047857; font-weight:800; background:#ecfdf5; padding:6px 10px; border-radius:6px; margin:6px 0;">
+                            <span>(+) बारदाना परतावा / Bag Refund (${b60 > 0 ? b60 + '×60kg @ ₹20' : ''}${b60 > 0 && b100 > 0 ? ' + ' : ''}${b100 > 0 ? b100 + '×100kg @ ₹40' : ''}):</span>
+                            <span>+₹${bardanaRefund.toFixed(2)}</span>
+                        </div>
+                    ` : ''}
 
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px; padding:10px 14px; background:#fef3c7; border-radius:8px;">
                         <span style="font-size:14px; font-weight:800; color:#92400e;">Net Farmer Disbursement Amount:</span>
@@ -5706,6 +5864,202 @@
         }
 
         
+        const MANDI_COMMODITY_LIST = [
+            "Soyabean (Yellow)",
+            "Dollar Chana (Chickpeas)",
+            "Brazil Rajma",
+            "Varun Rajma",
+            "Lal Chana",
+            "Virat Chana",
+            "Wheat (Sharbati)",
+            "Moong (Green Gram)",
+            "Urad (Black Gram)",
+            "Mustard (Rai)"
+        ];
+
+        function adjustBagCount(type, delta) {
+            const input = document.getElementById(`bag_count_${type}`);
+            if (!input) return;
+            let val = parseInt(input.value || 0) + delta;
+            if (val < 0) val = 0;
+            input.value = val;
+            updateBardanaCalculations();
+        }
+
+        function setBagCountDirect(type, val) {
+            const input = document.getElementById(`bag_count_${type}`);
+            if (!input) return;
+            input.value = Math.max(0, parseInt(val) || 0);
+            updateBardanaCalculations();
+        }
+
+        function updateBardanaCalculations() {
+            const b60 = parseInt(document.getElementById('bag_count_60')?.value || 0);
+            const b100 = parseInt(document.getElementById('bag_count_100')?.value || 0);
+            const sub60 = b60 * 20.0;
+            const sub100 = b100 * 40.0;
+            const totRefund = sub60 + sub100;
+            const totBags = b60 + b100;
+
+            const dSub60 = document.getElementById('disp_subtotal_60');
+            if (dSub60) dSub60.innerText = `Subtotal: ₹${sub60.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}`;
+
+            const dSub100 = document.getElementById('disp_subtotal_100');
+            if (dSub100) dSub100.innerText = `Subtotal: ₹${sub100.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}`;
+
+            const dBadge = document.getElementById('disp_bardana_badge');
+            if (dBadge) dBadge.innerText = `+₹${totRefund.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})} Refund`;
+
+            const dInline = document.getElementById('disp_bardana_total_inline');
+            if (dInline) dInline.innerText = `+₹${totRefund.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}`;
+
+            const dTotBags = document.getElementById('disp_total_bags_count');
+            if (dTotBags) dTotBags.innerText = totBags;
+
+            const hidRefund = document.getElementById('bardana_refund_amount');
+            if (hidRefund) hidRefund.value = totRefund;
+
+            const hidTotBags = document.getElementById('total_bag_count');
+            if (hidTotBags) hidTotBags.value = totBags;
+
+            recalculate();
+        }
+
+        function toggleMultiLotBuilder() {
+            const sec = document.getElementById('multiLotSection');
+            const btn = document.getElementById('btnToggleMultiLot');
+            if (!sec) return;
+
+            if (sec.style.display === 'none' || !sec.style.display) {
+                sec.style.display = 'block';
+                if (btn) {
+                    btn.innerHTML = '✕ Close Multi-Commodity Table';
+                    btn.style.background = '#fef2f2';
+                    btn.style.color = '#dc2626';
+                    btn.style.borderColor = '#fca5a5';
+                }
+                if (!window.activeMultiLotData || window.activeMultiLotData.length < 2) {
+                    initDefaultMultiLots();
+                } else {
+                    renderMultiLotRows();
+                }
+            } else {
+                sec.style.display = 'none';
+                if (btn) {
+                    btn.innerHTML = '📦 ➕ Add Multi-Commodity Lots';
+                    btn.style.background = '#f0fdf4';
+                    btn.style.color = '#15803d';
+                    btn.style.borderColor = '#86efac';
+                }
+                window.activeMultiLotData = null;
+                recalculate();
+            }
+        }
+
+        function initDefaultMultiLots() {
+            const currCommodity = document.getElementById('commodity_name')?.value || 'Soyabean (Yellow)';
+            window.activeMultiLotData = [
+                {
+                    commodity_name: currCommodity,
+                    grade_label: 'Standard Grade',
+                    gross_weight_kg: 1000,
+                    tare_weight_kg: 0,
+                    rate_per_quintal: 4100
+                },
+                {
+                    commodity_name: (currCommodity.includes('Dollar') ? 'Soyabean (Yellow)' : 'Dollar Chana (Chickpeas)'),
+                    grade_label: 'Standard Grade',
+                    gross_weight_kg: 500,
+                    tare_weight_kg: 0,
+                    rate_per_quintal: 7500
+                }
+            ];
+            renderMultiLotRows();
+        }
+
+        function renderMultiLotRows() {
+            const tbody = document.getElementById('multiLotTableBody');
+            const badge = document.getElementById('multiLotCountBadgeForm');
+            if (!tbody || !window.activeMultiLotData) return;
+
+            if (badge) badge.innerText = `${window.activeMultiLotData.length} Commodities`;
+
+            tbody.innerHTML = window.activeMultiLotData.map((item, idx) => {
+                const commOptions = MANDI_COMMODITY_LIST.map(c => 
+                    `<option value="${c}" ${c === item.commodity_name ? 'selected' : ''}>${c}</option>`
+                ).join('');
+
+                const g = parseFloat(item.gross_weight_kg || 0);
+                const tr = parseFloat(item.tare_weight_kg || 0);
+                const netKg = Math.max(0, g - tr);
+                const netQtl = (netKg / 100.0).toFixed(2);
+                const r = parseFloat(item.rate_per_quintal || 0);
+                const gross = (netQtl * r).toFixed(2);
+                const hamali = (netQtl * 25.0).toFixed(2);
+                const net = Math.max(0, gross - hamali).toFixed(2);
+
+                return `
+                    <tr style="border-bottom:1px solid #dcfce7;" id="multi_row_${idx}">
+                        <td style="padding:6px 8px;">
+                            <div style="font-weight:700; font-size:11px; margin-bottom:2px; color:#166534;">#${idx + 1} Commodity:</div>
+                            <select id="multi_comm_${idx}" onchange="updateMultiLotCommodity(${idx}, this.value)" style="width:100%; font-size:11.5px; font-weight:700; padding:4px 6px; border:1px solid #cbd5e1; border-radius:4px;">
+                                ${commOptions}
+                            </select>
+                        </td>
+                        <td style="padding:6px 8px; text-align:right;">
+                            <input type="number" id="multi_gross_${idx}" value="${g}" step="1" oninput="recalcMultiLotTotals()" style="width:80px; text-align:right; font-weight:700; padding:4px; font-size:12px; border:1px solid #cbd5e1; border-radius:4px;">
+                        </td>
+                        <td style="padding:6px 8px; text-align:right;">
+                            <input type="number" id="multi_tare_${idx}" value="${tr}" step="1" oninput="recalcMultiLotTotals()" style="width:70px; text-align:right; font-weight:700; padding:4px; font-size:12px; border:1px solid #cbd5e1; border-radius:4px;">
+                        </td>
+                        <td id="multi_net_${idx}" style="padding:6px 8px; text-align:right; font-weight:800; color:#0f172a; font-size:11.5px;">${netQtl} Qtl</td>
+                        <td style="padding:6px 8px; text-align:right;">
+                            <input type="number" id="multi_rate_${idx}" value="${r}" step="1" oninput="recalcMultiLotTotals()" style="width:80px; text-align:right; font-weight:700; padding:4px; font-size:12px; border:1px solid #cbd5e1; border-radius:4px; color:#047857;">
+                        </td>
+                        <td id="multi_hamali_${idx}" style="padding:6px 8px; text-align:right; color:#dc2626; font-weight:700; font-size:11.5px;">-₹${hamali}</td>
+                        <td id="multi_amount_${idx}" style="padding:6px 8px; text-align:right; font-weight:800; color:#047857; font-size:12.5px;">₹${net}</td>
+                        <td style="padding:6px 8px; text-align:center;">
+                            <button type="button" class="btn btn-secondary" onclick="removeMultiLotRow(${idx})" style="padding:2px 6px; font-size:11px; color:#dc2626; cursor:pointer;" title="Remove Lot">✕</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            recalcMultiLotTotals();
+        }
+
+        function addCustomMultiLotRow() {
+            if (!window.activeMultiLotData) window.activeMultiLotData = [];
+            const sec = document.getElementById('multiLotSection');
+            if (sec && sec.style.display === 'none') {
+                sec.style.display = 'block';
+            }
+            window.activeMultiLotData.push({
+                commodity_name: MANDI_COMMODITY_LIST[(window.activeMultiLotData.length) % MANDI_COMMODITY_LIST.length],
+                grade_label: 'Standard Grade',
+                gross_weight_kg: 500,
+                tare_weight_kg: 0,
+                rate_per_quintal: 4500
+            });
+            renderMultiLotRows();
+        }
+
+        function removeMultiLotRow(idx) {
+            if (!window.activeMultiLotData) return;
+            if (window.activeMultiLotData.length <= 1) {
+                alert('Multi-commodity entry must have at least 1 lot. Use single-lot mode instead.');
+                return;
+            }
+            window.activeMultiLotData.splice(idx, 1);
+            renderMultiLotRows();
+        }
+
+        function updateMultiLotCommodity(idx, val) {
+            if (window.activeMultiLotData && window.activeMultiLotData[idx]) {
+                window.activeMultiLotData[idx].commodity_name = val;
+            }
+        }
+        
         window.activeMultiLotData = null;
 
         function recalcMultiLotTotals() {
@@ -5716,14 +6070,25 @@
             let totNetPayable = 0;
 
             window.activeMultiLotData.forEach((item, idx) => {
+                const commInput = document.getElementById(`multi_comm_${idx}`);
+                if (commInput) item.commodity_name = commInput.value;
                 const g = parseFloat(document.getElementById(`multi_gross_${idx}`)?.value || 0);
                 const tr = parseFloat(document.getElementById(`multi_tare_${idx}`)?.value || 0);
+                item.gross_weight_kg = g;
+                item.tare_weight_kg = tr;
                 const netKg = Math.max(0, g - tr);
                 const netQtl = netKg / 100.0;
                 const r = parseFloat(document.getElementById(`multi_rate_${idx}`)?.value || 0);
+                item.rate_per_quintal = r;
                 const grossVal = netQtl * r;
                 const hamaliVal = netQtl * 25.0;
                 const lineNet = Math.max(0, grossVal - hamaliVal);
+
+                item.net_weight_kg = netKg;
+                item.net_quintals = netQtl;
+                item.gross_amount = grossVal;
+                item.hamali_charge = hamaliVal;
+                item.net_amount = lineNet;
 
                 totNetKg += netKg;
                 totGrossProduce += grossVal;
@@ -5738,13 +6103,19 @@
                 if (amtCell) amtCell.innerText = `₹${lineNet.toFixed(2)}`;
             });
 
+            const b60 = parseInt(document.getElementById('bag_count_60')?.value || 0);
+            const b100 = parseInt(document.getElementById('bag_count_100')?.value || 0);
+            const totalBardanaRefund = (b60 * 20.0) + (b100 * 40.0);
+            const gadiBhade = parseFloat(document.getElementById('gadi_bhade_input')?.value || 0);
+
             const totQtl = totNetKg / 100.0;
             const elTotNet = document.getElementById('multiLotTotNetQtl');
             if (elTotNet) elTotNet.innerHTML = `${totQtl.toFixed(2)} Qtl<br><small style="color:#64748b;">(${Math.round(totNetKg)} Kg)</small>`;
             const elTotHam = document.getElementById('multiLotTotHamali');
             if (elTotHam) elTotHam.innerText = `-₹${totHamali.toFixed(2)}`;
             const elTotPay = document.getElementById('multiLotTotPayable');
-            if (elTotPay) elTotPay.innerText = `₹${Math.round(totNetPayable).toLocaleString()}.00`;
+            const netConsolidated = Math.max(0, (totGrossProduce - totHamali - gadiBhade) + totalBardanaRefund);
+            if (elTotPay) elTotPay.innerText = `₹${Math.round(netConsolidated).toLocaleString()}.00`;
 
             // Update top-level hidden/display inputs
             const yardWt = document.getElementById('yard_weight_kg');
@@ -5753,13 +6124,15 @@
             if (rateInp && totQtl > 0) rateInp.value = Math.round(totGrossProduce / totQtl);
 
             // Update live summary badges if available
-            currentExactPayable = totNetPayable;
+            currentExactPayable = netConsolidated;
             const livePayable = document.getElementById('liveNetPayableAmount');
-            if (livePayable) livePayable.innerText = `₹${Math.round(totNetPayable).toLocaleString()}.00`;
+            if (livePayable) livePayable.innerText = `₹${Math.round(netConsolidated).toLocaleString()}.00`;
             const liveGross = document.getElementById('liveGrossAmount');
             if (liveGross) liveGross.innerText = `₹${Math.round(totGrossProduce).toLocaleString()}.00`;
             const liveHamali = document.getElementById('liveHamaliDeduction');
             if (liveHamali) liveHamali.innerText = `-₹${Math.round(totHamali).toLocaleString()}.00`;
+
+            recalculate();
         }
         
         function applySelectedQCToForm(ticketIndexOrObj) {

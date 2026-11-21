@@ -2127,6 +2127,33 @@ ${rawBardanaRefund > 0 ? `<div class="row" style="color:#047857;font-weight:800;
       totalPnl = totalSales - totalDisbursed;
       const pnlPct = totalDisbursed > 0 ? ((totalPnl / totalDisbursed) * 100).toFixed(1) : '0.0';
 
+      // Calculate physical closing inventory stock valuation
+      const commStockMap = {};
+      for (const inv of invoices) {
+        const c = inv.commodity_name || 'Soyabean (Yellow)';
+        if (!commStockMap[c]) commStockMap[c] = { procQtl: 0.0, procAmt: 0.0, soldQtl: 0.0, soldAmt: 0.0 };
+        commStockMap[c].procQtl += parseFloat(inv.net_quintals) || 0.0;
+        commStockMap[c].procAmt += parseFloat(inv.net_payable_amount) || 0.0;
+      }
+      for (const out of (Array.isArray(outwardOrders) ? outwardOrders : [])) {
+        const c = out.commodity_name || 'Soyabean (Yellow)';
+        if (!commStockMap[c]) commStockMap[c] = { procQtl: 0.0, procAmt: 0.0, soldQtl: 0.0, soldAmt: 0.0 };
+        commStockMap[c].soldQtl += parseFloat(out.net_quintals) || 0.0;
+        commStockMap[c].soldAmt += parseFloat(out.total_bill_amount || out.gross_amount) || 0.0;
+      }
+
+      let totalStockQuintals = 0.0;
+      let totalStockValue = 0.0;
+      for (const c in commStockMap) {
+        const item = commStockMap[c];
+        const netQtl = item.procQtl - item.soldQtl;
+        const avgBuy = item.procQtl > 0 ? (item.procAmt / item.procQtl) : 0.0;
+        if (netQtl > 0) {
+          totalStockQuintals += netQtl;
+          totalStockValue += netQtl * avgBuy;
+        }
+      }
+
       return res.status(200).json({
         success: true,
         stats: {
@@ -2138,6 +2165,8 @@ ${rawBardanaRefund > 0 ? `<div class="row" style="color:#047857;font-weight:800;
           total_sales_count: Array.isArray(outwardOrders) ? outwardOrders.length : 0,
           total_pnl: totalPnl,
           total_pnl_pct: pnlPct,
+          total_stock_value: totalStockValue,
+          total_stock_quintals: totalStockQuintals,
           users_active: users.filter(u => u.is_active).length
         },
         invoices: invoices,

@@ -227,6 +227,11 @@
             <div class="value" id="statTotalSales" style="color:#2563eb;">₹0.00</div>
             <div class="hint hint-blue" id="statTotalSalesHint">0.00 Qtl Dispatched • 0 Orders</div>
         </div>
+        <div class="stat-card accent-amber" id="cardTotalStockVal" style="border-left: 4px solid #d97706;">
+            <div class="label">Total Stock in Value (Inventory)</div>
+            <div class="value" id="statTotalStockVal" style="color:#d97706;">₹0.00</div>
+            <div class="hint hint-amber" id="statTotalStockHint">0.00 Qtl Holding (0.00 MT)</div>
+        </div>
         <div class="stat-card accent-green" id="cardTotalPnl">
             <div class="label">Net Realized Spread / P&L</div>
             <div class="value" id="statTotalPnl" style="color:#059669;">+₹0.00</div>
@@ -1252,6 +1257,39 @@
             const statSalesHint = document.getElementById('statTotalSalesHint');
             if (statSalesHint) statSalesHint.innerText = `${totalSalesQtl.toFixed(2)} Qtl Dispatched • ${salesCount} Orders`;
 
+            let totalStockVal = 0.0;
+            let totalStockQtl = 0.0;
+            if (stats && stats.total_stock_value !== undefined) {
+                totalStockVal = parseFloat(stats.total_stock_value) || 0.0;
+                totalStockQtl = parseFloat(stats.total_stock_quintals) || 0.0;
+            } else {
+                const cMap = {};
+                (invoices || []).forEach(inv => {
+                    const cn = canonicalizeCommodityName(inv.commodity_name);
+                    if (!cMap[cn]) cMap[cn] = { procQtl: 0, procAmt: 0, soldQtl: 0 };
+                    cMap[cn].procQtl += parseFloat(inv.net_quintals) || 0;
+                    cMap[cn].procAmt += parseFloat(inv.net_payable_amount) || 0;
+                });
+                (outward || []).forEach(out => {
+                    const cn = canonicalizeCommodityName(out.commodity_name);
+                    if (!cMap[cn]) cMap[cn] = { procQtl: 0, procAmt: 0, soldQtl: 0 };
+                    cMap[cn].soldQtl += parseFloat(out.net_quintals) || 0;
+                });
+                for (const cn in cMap) {
+                    const it = cMap[cn];
+                    const net = it.procQtl - it.soldQtl;
+                    const avg = it.procQtl > 0 ? (it.procAmt / it.procQtl) : 0;
+                    if (net > 0) {
+                        totalStockQtl += net;
+                        totalStockVal += net * avg;
+                    }
+                }
+            }
+            const statStockVal = document.getElementById('statTotalStockVal');
+            if (statStockVal) statStockVal.innerText = '₹' + totalStockVal.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            const statStockHint = document.getElementById('statTotalStockHint');
+            if (statStockHint) statStockHint.innerText = `${totalStockQtl.toFixed(2)} Qtl Physical Stock (${(totalStockQtl / 10).toFixed(2)} MT)`;
+
             const badgeCount = document.getElementById('outwardBadgeCount');
             if (badgeCount) badgeCount.innerText = salesCount;
             const totalBadge = document.getElementById('outwardTotalSalesBadge');
@@ -1407,7 +1445,17 @@
             });
 
             const activeComms = Object.keys(commMap).filter(k => (commMap[k].procQtl > 0 || commMap[k].soldQtl > 0));
-            if (badge) badge.innerText = `${activeComms.length} Commodities Traded / In Stock`;
+            let totalStockValAll = 0;
+            let totalStockQtlAll = 0;
+            activeComms.forEach(k => {
+                const net = commMap[k].procQtl - commMap[k].soldQtl;
+                const avg = commMap[k].procQtl > 0 ? (commMap[k].procAmt / commMap[k].procQtl) : 0;
+                if (net > 0) {
+                    totalStockQtlAll += net;
+                    totalStockValAll += net * avg;
+                }
+            });
+            if (badge) badge.innerText = `${activeComms.length} Commodities Traded • Total Stock Valuation: ₹${totalStockValAll.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2})} (${totalStockQtlAll.toFixed(2)} Qtl)`;
 
             if (activeComms.length === 0) {
                 grid.innerHTML = `
@@ -1424,6 +1472,7 @@
                 const avgBuy = item.procQtl > 0 ? (item.procAmt / item.procQtl) : 0;
                 const avgSale = item.soldQtl > 0 ? (item.soldAmt / item.soldQtl) : 0;
                 const netHoldingQtl = item.procQtl - item.soldQtl;
+                const stockVal = netHoldingQtl > 0 ? (netHoldingQtl * avgBuy) : 0;
                 const card = document.createElement('div');
                 card.className = 'card clickable-card';
                 card.style.cssText = 'padding:16px; border-radius:12px; background:#ffffff; border:1.5px solid var(--card-border); transition:transform 0.15s ease, box-shadow 0.15s ease; box-shadow:0 1px 3px rgba(0,0,0,0.06);';
@@ -1445,6 +1494,10 @@
                         <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:6px; padding-top:6px; border-top:1px dashed #cbd5e1; font-size:11.5px;">
                             <div>Procured: <strong>${item.procQtl.toFixed(2)} Qtl</strong></div>
                             <div style="text-align:right;">Dispatched: <strong>${item.soldQtl.toFixed(2)} Qtl</strong></div>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px; padding-top:6px; border-top:1px dashed #cbd5e1;">
+                            <span style="font-size:11px; color:#475569; font-weight:700;">Stock Valuation:</span>
+                            <strong style="font-size:13.5px; color:${stockVal > 0 ? '#b45309' : '#64748b'};">₹${stockVal.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong>
                         </div>
                     </div>
                     <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:12px;">

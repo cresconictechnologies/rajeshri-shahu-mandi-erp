@@ -1342,11 +1342,11 @@
                                 <strong style="font-size:13px; color:#0f172a; display:flex; align-items:center; gap:6px;">
                                     <span>📦</span> Multi-Commodity Vehicle Inward (एकाधिक शेतमाल आवक)
                                 </strong>
-                                <div style="font-size:11.5px; color:#64748b;">Farmer bringing multiple produce lots in one vehicle (e.g. Soyabean + Rajma + Dollar Chana)?</div>
+                                <div style="font-size:11.5px; color:#64748b;">Farmer bringing multiple produce lots in one vehicle? Must be inspected with photos on Inspector App first. Selecting an inspected ticket below loads the lots automatically.</div>
                             </div>
-                            <button type="button" id="btnToggleMultiLot" class="btn btn-secondary" onclick="toggleMultiLotBuilder()" style="padding:7px 14px; font-size:12px; font-weight:800; background:#f0fdf4; color:#15803d; border:1.5px solid #86efac; cursor:pointer;">
-                                📦 ➕ Add Multi-Commodity Lots
-                            </button>
+                            <div style="background:#e0f2fe; color:#0369a1; border:1.5px solid #bae6fd; font-size:12px; font-weight:800; padding:6px 14px; border-radius:8px; display:inline-flex; align-items:center; gap:6px;">
+                                <span>🔒</span> <span>Inspector Verified Only</span>
+                            </div>
                         </div>
 
                         <!-- Multi-Commodity Lots Table Section (Active for Multi-Lot Arrivals) -->
@@ -1360,9 +1360,7 @@
                                     </div>
                                 </div>
                                 <div style="display:flex; align-items:center; gap:8px;">
-                                    <button type="button" class="btn btn-secondary" onclick="addCustomMultiLotRow()" style="padding:4px 10px; font-size:11.5px; font-weight:800; background:#ecfdf5; color:#065f46; border:1.2px solid #059669;">
-                                        ➕ Add Lot
-                                    </button>
+                                    <span style="font-size:11px; color:#047857; font-weight:700;">📸 Photos Verified</span>
                                     <span id="multiLotCountBadgeForm" class="badge" style="background:#059669; color:#fff; font-size:11.5px; font-weight:800; padding:4px 10px; border-radius:12px;">
                                         2 Lots
                                     </span>
@@ -1393,7 +1391,7 @@
                                             <td id="multiLotTotHamali" style="padding:8px 10px; text-align:right; color:#b91c1c;">-₹0.00</td>
                                             <td id="multiLotTotPayable" style="padding:8px 10px; text-align:right; color:#047857; font-size:15px;">₹0.00</td>
                                             <td style="text-align:center;">
-                                                <button type="button" class="btn btn-secondary" onclick="addCustomMultiLotRow()" style="padding:3px 8px; font-size:10px; font-weight:800; background:#059669; color:#fff; border:none;" title="Add Another Lot">➕</button>
+                                                <span style="font-size:11px; color:#64748b;">🔒</span>
                                             </td>
                                         </tr>
                                     </tfoot>
@@ -1533,6 +1531,22 @@
                                     <span style="color:#475569; font-weight:700;">Total Bags: <strong id="disp_total_bags_count" style="color:#0f172a;">0</strong> &bull; Total Refund:</span>
                                     <strong id="disp_bardana_total_inline" style="color:#059669; font-size:15px; margin-left:4px;">+₹0.00</strong>
                                 </div>
+                            </div>
+                            <!-- Realtime Bag Capacity vs Net Produce Weight Limit Guard -->
+                            <div id="disp_bags_weight_indicator" style="margin-top:12px; padding:9px 14px; border-radius:8px; font-size:12px; font-weight:700; display:flex; justify-content:space-between; align-items:center; background:#f8fafc; border:1.5px solid #e2e8f0; flex-wrap:wrap; gap:8px;">
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <span style="color:#1e293b;">⚖️ Produce Net Weight: <strong id="disp_ref_net_wt" style="color:#0f172a; font-weight:900;">0.0 Kg</strong></span>
+                                    <span style="color:#cbd5e1;">|</span>
+                                    <span style="color:#1e293b;">Total Bag Capacity: <strong id="disp_ref_bag_wt" style="color:#0f172a; font-weight:900;">0 Kg</strong></span>
+                                </div>
+                                <div id="disp_bags_limit_status" style="font-weight:800; font-size:11.5px; color:#059669; background:#ecfdf5; padding:3px 10px; border-radius:12px; border:1px solid #a7f3d0;">
+                                    ✅ Within Weight Limit
+                                </div>
+                            </div>
+                            <!-- Live Error Warning when Bags Exceed Weight -->
+                            <div id="disp_bags_weight_warning" style="display:none; color:#991b1b; background:#fef2f2; border:1.5px solid #f87171; border-radius:8px; padding:10px 14px; margin-top:10px; font-weight:800; font-size:12px; line-height:1.5;">
+                                ⚠️ <strong>त्रुटी: पोत्यांची संख्या वजनापेक्षा जास्त आहे!</strong><br>
+                                पोत्यांचे एकूण वजन (<span id="disp_err_bag_wt">0</span> Kg) हे शेतमालाच्या निव्वळ वजनापेक्षा (<span id="disp_err_net_wt">0</span> Kg) जास्त असू शकत नाही. कृपया पोत्यांची संख्या कमी करा.
                             </div>
                             <input type="hidden" id="bardana_refund_amount" name="bardana_refund_amount" value="0">
                             <input type="hidden" id="total_bag_count" name="total_bag_count" value="0">
@@ -4748,6 +4762,55 @@
             const dispRounded = document.getElementById('disp_rounded_payout');
             if (dispRounded) dispRounded.innerText = '₹' + rounded.toLocaleString() + '.00';
 
+            // Realtime Bags vs Produce Net Weight Guard
+            const totalBagWeightKg = (b60 * 60) + (b100 * 100);
+            const totBags = b60 + b100;
+            const dRefNet = document.getElementById('disp_ref_net_wt');
+            if (dRefNet) dRefNet.innerText = `${net_weight_kg.toFixed(1)} Kg`;
+            const dRefBag = document.getElementById('disp_ref_bag_wt');
+            if (dRefBag) dRefBag.innerText = `${totalBagWeightKg} Kg (${totBags} Bags)`;
+
+            const warningBox = document.getElementById('disp_bags_weight_warning');
+            const statusText = document.getElementById('disp_bags_limit_status');
+            const indBar = document.getElementById('disp_bags_weight_indicator');
+            const errBagSpan = document.getElementById('disp_err_bag_wt');
+            const errNetSpan = document.getElementById('disp_err_net_wt');
+            const b60Inp = document.getElementById('bag_count_60');
+            const b100Inp = document.getElementById('bag_count_100');
+
+            if (errBagSpan) errBagSpan.innerText = totalBagWeightKg;
+            if (errNetSpan) errNetSpan.innerText = net_weight_kg.toFixed(1);
+
+            if (net_weight_kg > 0 && totalBagWeightKg > net_weight_kg) {
+                if (warningBox) warningBox.style.display = 'block';
+                if (statusText) {
+                    statusText.innerHTML = `❌ Exceeds Net Wt by ${(totalBagWeightKg - net_weight_kg).toFixed(1)} Kg`;
+                    statusText.style.color = '#dc2626';
+                    statusText.style.background = '#fef2f2';
+                    statusText.style.borderColor = '#fca5a5';
+                }
+                if (indBar) {
+                    indBar.style.background = '#fef2f2';
+                    indBar.style.borderColor = '#f87171';
+                }
+                if (b60Inp) { b60Inp.style.borderColor = '#ef4444'; b60Inp.style.background = '#fff5f5'; }
+                if (b100Inp) { b100Inp.style.borderColor = '#ef4444'; b100Inp.style.background = '#fff5f5'; }
+            } else {
+                if (warningBox) warningBox.style.display = 'none';
+                if (statusText) {
+                    statusText.innerHTML = (net_weight_kg > 0 && totalBagWeightKg > 0) ? `✅ Within Weight Limit (${(net_weight_kg - totalBagWeightKg).toFixed(1)} Kg spare)` : `✅ Within Weight Limit`;
+                    statusText.style.color = '#059669';
+                    statusText.style.background = '#ecfdf5';
+                    statusText.style.borderColor = '#a7f3d0';
+                }
+                if (indBar) {
+                    indBar.style.background = '#f8fafc';
+                    indBar.style.borderColor = '#e2e8f0';
+                }
+                if (b60Inp) { b60Inp.style.borderColor = '#cbd5e1'; b60Inp.style.background = '#fff'; }
+                if (b100Inp) { b100Inp.style.borderColor = '#cbd5e1'; b100Inp.style.background = '#fff'; }
+            }
+
             // Section 269ST check (Cash restricted for >= ₹2,00,000)
             const sec269Alert = document.getElementById('unifiedSec269Alert');
             const btnCash = document.getElementById('btnUnifiedModeCash');
@@ -4962,10 +5025,23 @@
                 return;
             }
 
-            const b60 = parseInt(document.getElementById('bag_count_60')?.value || 0);
-            const b100 = parseInt(document.getElementById('bag_count_100')?.value || 0);
+            const b60 = parseInt(document.getElementById('bag_count_60')?.value || 0, 10);
+            const b100 = parseInt(document.getElementById('bag_count_100')?.value || 0, 10);
             const bardanaRefund = (b60 * 20.0) + (b100 * 40.0);
             const gadiBhade = parseFloat(document.getElementById('gadi_bhade_input')?.value || 0);
+
+            // Mandatory Validation: Bags capacity cannot exceed total net produce weight
+            const totalBagCapacityKg = (b60 * 60) + (b100 * 100);
+            let effectiveNetKg = netWeight;
+            if (multiItems && multiItems.length > 0) {
+                effectiveNetKg = multiItems.reduce((acc, it) => acc + (it.net_weight_kg || 0), 0);
+            }
+
+            if (effectiveNetKg > 0 && totalBagCapacityKg > effectiveNetKg) {
+                alert(`❌ पावती तयार करता येणार नाही!\n\nपोत्यांचे एकूण वजन (${totalBagCapacityKg} Kg) हे शेतमालाच्या निव्वळ वजनापेक्षा (${effectiveNetKg.toFixed(1)} Kg) जास्त आहे.\n(60kg पोते = 60 kg, 100kg पोते = 100 kg)\n\nकृपया बारदाना विभागात जाऊन पोत्यांची संख्या योग्य करा.`);
+                document.getElementById('bag_count_60')?.focus();
+                return;
+            }
 
             let netQuintals = netWeight / 100.0;
             let grossProduceVal = netQuintals * rate;
@@ -6160,11 +6236,51 @@
             "Mustard (Rai)"
         ];
 
+        function getActiveNetWeightKg() {
+            if (window.activeMultiLotData && window.activeMultiLotData.length > 1) {
+                let totNet = 0;
+                window.activeMultiLotData.forEach((it, idx) => {
+                    const g = parseFloat(document.getElementById(`multi_gross_${idx}`)?.value || 0);
+                    const tr = parseFloat(document.getElementById(`multi_tare_${idx}`)?.value || 0);
+                    totNet += Math.max(0, g - tr);
+                });
+                if (totNet > 0) return totNet;
+            }
+            const mode = document.getElementById('weighment_mode') ? document.getElementById('weighment_mode').value : 'WEIGHBRIDGE';
+            let gross = 0;
+            let tare = 0;
+            if (mode === 'MANUAL_YARD') {
+                gross = parseFloat(document.getElementById('yard_weight_kg')?.value || 0);
+                tare = 0;
+            } else {
+                gross = parseFloat(document.getElementById('gross_weight_kg')?.value || 0);
+                tare = parseFloat(document.getElementById('vehicle_tare_kg')?.value || 0);
+            }
+            const moisture = parseFloat(document.getElementById('moisture_percentage')?.value || 0);
+            const vehicle_net_kg = Math.max(0, gross - tare);
+            const moisture_cut_kg = (moisture > 12.0) ? (vehicle_net_kg * (moisture - 12.0) / 100.0) : 0;
+            const wbCut = (mode === 'WEIGHBRIDGE') ? (vehicle_net_kg * 0.003) : 0;
+            return Math.max(0, vehicle_net_kg - moisture_cut_kg - wbCut);
+        }
+
         function adjustBagCount(type, delta) {
             const input = document.getElementById(`bag_count_${type}`);
             if (!input) return;
-            let val = parseInt(input.value || 0) + delta;
+            let val = parseInt(input.value || 0, 10) + delta;
             if (val < 0) val = 0;
+
+            if (delta > 0) {
+                const netKg = getActiveNetWeightKg();
+                const otherType = (type === '60' ? '100' : '60');
+                const otherVal = parseInt(document.getElementById(`bag_count_${otherType}`)?.value || 0, 10);
+                const newTotalBagKg = (type === '60' ? val * 60 : val * 100) + (otherType === '60' ? otherVal * 60 : otherVal * 100);
+
+                if (netKg > 0 && newTotalBagKg > netKg) {
+                    alert(`⚠️ पोत्यांची संख्या एकूण वजनापेक्षा जास्त वाढवता येत नाही!\n\nनिव्वळ वजन (Net Weight): ${netKg.toFixed(1)} Kg\nनिवडलेली पोती (Total Bag Wt): ${newTotalBagKg} Kg\n(60kg पोते = 60 kg, 100kg पोते = 100 kg)`);
+                    return;
+                }
+            }
+
             input.value = val;
             updateBardanaCalculations();
         }
@@ -6177,12 +6293,15 @@
         }
 
         function updateBardanaCalculations() {
-            const b60 = parseInt(document.getElementById('bag_count_60')?.value || 0);
-            const b100 = parseInt(document.getElementById('bag_count_100')?.value || 0);
+            const b60Inp = document.getElementById('bag_count_60');
+            const b100Inp = document.getElementById('bag_count_100');
+            const b60 = parseInt(b60Inp?.value || 0, 10);
+            const b100 = parseInt(b100Inp?.value || 0, 10);
             const sub60 = b60 * 20.0;
             const sub100 = b100 * 40.0;
             const totRefund = sub60 + sub100;
             const totBags = b60 + b100;
+            const totalBagWeightKg = (b60 * 60) + (b100 * 100);
 
             const dSub60 = document.getElementById('disp_subtotal_60');
             if (dSub60) dSub60.innerText = `Subtotal: ₹${sub60.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}`;
@@ -6205,38 +6324,61 @@
             const hidTotBags = document.getElementById('total_bag_count');
             if (hidTotBags) hidTotBags.value = totBags;
 
+            // Strict Weight Limit Realtime Guard
+            const netKg = getActiveNetWeightKg();
+            const dRefNet = document.getElementById('disp_ref_net_wt');
+            if (dRefNet) dRefNet.innerText = `${netKg.toFixed(1)} Kg`;
+            const dRefBag = document.getElementById('disp_ref_bag_wt');
+            if (dRefBag) dRefBag.innerText = `${totalBagWeightKg} Kg (${totBags} Bags)`;
+
+            const warningBox = document.getElementById('disp_bags_weight_warning');
+            const statusText = document.getElementById('disp_bags_limit_status');
+            const indBar = document.getElementById('disp_bags_weight_indicator');
+            const errBagSpan = document.getElementById('disp_err_bag_wt');
+            const errNetSpan = document.getElementById('disp_err_net_wt');
+
+            if (errBagSpan) errBagSpan.innerText = totalBagWeightKg;
+            if (errNetSpan) errNetSpan.innerText = netKg.toFixed(1);
+
+            if (netKg > 0 && totalBagWeightKg > netKg) {
+                if (warningBox) warningBox.style.display = 'block';
+                if (statusText) {
+                    statusText.innerHTML = `❌ Exceeds Net Wt by ${(totalBagWeightKg - netKg).toFixed(1)} Kg`;
+                    statusText.style.color = '#dc2626';
+                    statusText.style.background = '#fef2f2';
+                    statusText.style.borderColor = '#fca5a5';
+                }
+                if (indBar) {
+                    indBar.style.background = '#fef2f2';
+                    indBar.style.borderColor = '#f87171';
+                }
+                if (b60Inp) { b60Inp.style.borderColor = '#ef4444'; b60Inp.style.background = '#fff5f5'; }
+                if (b100Inp) { b100Inp.style.borderColor = '#ef4444'; b100Inp.style.background = '#fff5f5'; }
+            } else {
+                if (warningBox) warningBox.style.display = 'none';
+                if (statusText) {
+                    statusText.innerHTML = (netKg > 0 && totalBagWeightKg > 0) ? `✅ Within Weight Limit (${(netKg - totalBagWeightKg).toFixed(1)} Kg spare)` : `✅ Within Weight Limit`;
+                    statusText.style.color = '#059669';
+                    statusText.style.background = '#ecfdf5';
+                    statusText.style.borderColor = '#a7f3d0';
+                }
+                if (indBar) {
+                    indBar.style.background = '#f8fafc';
+                    indBar.style.borderColor = '#e2e8f0';
+                }
+                if (b60Inp) { b60Inp.style.borderColor = '#cbd5e1'; b60Inp.style.background = '#fff'; }
+                if (b100Inp) { b100Inp.style.borderColor = '#cbd5e1'; b100Inp.style.background = '#fff'; }
+            }
+
             recalculate();
         }
 
         function toggleMultiLotBuilder() {
-            const sec = document.getElementById('multiLotSection');
-            const btn = document.getElementById('btnToggleMultiLot');
-            if (!sec) return;
+            alert("⚠️ एकाधिक शेतमाल (Multi-Commodity) फक्त इन्स्पेक्टर पोर्टलवरूनच फोटो व ओलावा चाचणीसह तयार करता येईल.\nकॅशियर डेस्कवरून थेट नवीन शेतमाल जोडता येणार नाही.");
+        }
 
-            if (sec.style.display === 'none' || !sec.style.display) {
-                sec.style.display = 'block';
-                if (btn) {
-                    btn.innerHTML = '✕ Close Multi-Commodity Table';
-                    btn.style.background = '#fef2f2';
-                    btn.style.color = '#dc2626';
-                    btn.style.borderColor = '#fca5a5';
-                }
-                if (!window.activeMultiLotData || window.activeMultiLotData.length < 2) {
-                    initDefaultMultiLots();
-                } else {
-                    renderMultiLotRows();
-                }
-            } else {
-                sec.style.display = 'none';
-                if (btn) {
-                    btn.innerHTML = '📦 ➕ Add Multi-Commodity Lots';
-                    btn.style.background = '#f0fdf4';
-                    btn.style.color = '#15803d';
-                    btn.style.borderColor = '#86efac';
-                }
-                window.activeMultiLotData = null;
-                recalculate();
-            }
+        function addCustomMultiLotRow() {
+            alert("⚠️ नवीन शेतमाल लॉट फक्त इन्स्पेक्टर पोर्टलवरूनच फोटो व ओलावा चाचणीसह जोडता येईल.");
         }
 
         function initDefaultMultiLots() {

@@ -175,6 +175,14 @@
       "destination": "/api/portal?action=commodities"
     },
     {
+      "source": "/api/accounts/import-excel",
+      "destination": "/api/portal?action=import_excel"
+    },
+    {
+      "source": "/api/import-excel",
+      "destination": "/api/portal?action=import_excel"
+    },
+    {
       "source": "/api/accounts/reports",
       "destination": "/api/portal?action=reports"
     },

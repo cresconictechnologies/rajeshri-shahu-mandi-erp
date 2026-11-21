@@ -4214,6 +4214,403 @@ ${rawBardanaRefund > 0 ? `<div class="row" style="color:#047857;font-weight:800;
   }
 
   // =========================================================================
+  // 13. EXCEL BULK DATA IMPORT ACTION (INWARD PROCUREMENT & OUTWARD SALES)
+  // =========================================================================
+  if (action === 'import_excel') {
+    if (req.method === 'POST') {
+      try {
+        const importType = (body.import_type || 'inward').toLowerCase();
+        const targetBranchId = body.target_branch_id || 'auto';
+        const rawRows = Array.isArray(body.rows) ? body.rows : [];
+
+        if (rawRows.length === 0) {
+          return res.status(400).json({ success: false, error: 'No data rows provided in import payload.' });
+        }
+
+        // Branch code mapping helper
+        const mapBranch = (val) => {
+          if (!val || val === 'auto') {
+            return targetBranchId !== 'auto' ? targetBranchId : 'br-chikhali';
+          }
+          const s = String(val).toLowerCase();
+          if (s.includes('varv') || s.includes('vrv')) return 'br-varvand';
+          if (s.includes('dhad') || s.includes('dhd')) return 'br-dhad';
+          if (s.includes('sarola') || s.includes('srl')) return 'br-sarola';
+          if (s.includes('chikh') || s.includes('chk')) return 'br-chikhali';
+          if (targetBranchId !== 'auto') return targetBranchId;
+          return 'br-chikhali';
+        };
+
+        const now = new Date();
+        const importedRecords = [];
+        const ledgerVouchers = [];
+        let totalValuation = 0.0;
+        let totalQuintals = 0.0;
+
+        // Fetch existing parties map to reuse IDs and avoid duplicates
+        const partiesResp = await fetch(`${supabaseUrl}/rest/v1/parties?select=id,name,phone,village,party_type`, { headers });
+        const existingParties = partiesResp.ok ? await partiesResp.json() : [];
+        const partyMap = {};
+        existingParties.forEach(p => {
+          const key = (p.name || '').trim().toLowerCase();
+          if (key) partyMap[key] = p;
+        });
+
+        if (importType === 'inward') {
+          // Process Inward Procurement Rows
+          for (let idx = 0; idx < rawRows.length; idx++) {
+            const r = rawRows[idx];
+            const farmerName = (r.farmer_name || r.farmer || r.party_name || r.name || 'Walk-in Farmer').trim();
+            const village = (r.village || r.farmer_village || 'स्थानिक').trim();
+            const phone = (r.phone || r.farmer_phone || '').trim();
+            const branchId = mapBranch(r.branch || r.branch_id);
+            const commodity = canonicalizeCommodityName(r.commodity || r.commodity_name || 'Soyabean (Yellow)');
+            const vehicleNo = (r.vehicle_no || r.vehicle_number || r.vehicle || 'MH-28-LOCAL').trim().toUpperCase();
+            
+            // Weights & Pricing
+            const netQtl = parseFloat(r.net_quintals || r.net_qtl || 0) || ((parseFloat(r.net_weight_kg || 0)) / 100.0) || 0.0;
+            const rate = parseFloat(r.rate_per_qtl || r.rate || r.rate_per_quintal || 0) || 0.0;
+            const grossAmt = parseFloat(r.gross_amount || 0) || Math.round(netQtl * rate);
+            const hamali = parseFloat(r.hamali || r.hamali_charge || 0) || Math.round(25 * netQtl);
+            const freight = parseFloat(r.gadi_bhade_freight || r.gadi_bhade || r.freight || r.freight_charge || 0) || 0.0;
+            const bardanaRefund = parseFloat(r.bardana_refund || r.bardana_refund_amount || r.bardana || 0) || 0.0;
+            const netPayable = parseFloat(r.net_payable || r.net_payable_amount || 0) || Math.round(grossAmt - hamali + freight + bardanaRefund);
+
+            const bags60 = parseInt(r.bags_60kg || r.bag_count_60 || 0, 10);
+            const bags100 = parseInt(r.bags_100kg || r.bag_count_100 || 0, 10);
+            const totalBags = parseInt(r.total_bags || r.bag_count || r.bags || (bags60 + bags100) || 0, 10);
+            const status = (r.payment_status || r.status || 'PAID').toUpperCase();
+            const payMode = (r.payment_mode || 'CASH').toUpperCase();
+            const invDate = r.date || r.invoice_date || now.toISOString().slice(0, 10);
+
+            // Party check / create
+            let party = partyMap[farmerName.toLowerCase()];
+            if (!party) {
+              const partyId = `pty-${Date.now()}-${Math.floor(100 + Math.random() * 900)}-${idx}`;
+              try {
+                await fetch(`${supabaseUrl}/rest/v1/parties`, {
+                  method: 'POST',
+                  headers: { ...headers, 'Prefer': 'resolution=merge-duplicates' },
+                  body: JSON.stringify({
+                    id: partyId,
+                    name: farmerName,
+                    village: village,
+                    phone: phone,
+                    party_type: 'FARMER',
+                    home_branch_id: branchId
+                  })
+                });
+                party = { id: partyId, name: farmerName };
+                partyMap[farmerName.toLowerCase()] = party;
+              } catch (e) {
+                party = { id: `pty-temp-${idx}`, name: farmerName };
+              }
+            }
+
+            const yardCode = branchId === 'br-varvand' ? 'VRV' : (branchId === 'br-dhad' ? 'DHD' : (branchId === 'br-sarola' ? 'SRL' : 'CHK'));
+            const dateStr = invDate.replace(/-/g, '');
+            const tokenNum = r.invoice_no || r.token_number || `${yardCode}-${dateStr}-IMP${String(idx + 1).padStart(3, '0')}`;
+            const invId = `inv-imp-${Date.now()}-${idx + 1}`;
+
+            const invoicePayload = {
+              id: invId,
+              invoice_date: invDate,
+              branch_id: branchId,
+              party_id: party.id,
+              token_number: tokenNum,
+              commodity_name: commodity,
+              hsn_code: r.hsn_code || (String(commodity || '').toLowerCase().includes('chana') || String(commodity || '').toLowerCase().includes('gram') ? '0713' : '1201'),
+              quality_grade: r.quality_grade || 'Standard Grade',
+              bag_type: (bags60 > 0 && bags100 > 0) ? 'COMBO_BAGS' : (bags100 > 0 ? 'BAGS_100KG' : (bags60 > 0 ? 'BAGS_60KG' : 'LOOSE')),
+              is_rate_overridden: 0,
+              rate_override_status: 'APPROVED',
+              moisture_percentage: parseFloat(r.moisture_percentage || r.moisture || 10.0),
+              karda_percentage: parseFloat(r.karda_percentage || r.karda || 0.0),
+              round_off_amount: 0.0,
+              advance_adjusted: 0.0,
+              interest_adjusted: 0.0,
+              bag_count: totalBags,
+              bag_count_60: bags60,
+              bag_count_100: bags100,
+              gross_weight_kg: parseFloat(r.gross_wt_kg || r.gross_weight_kg || 0) || Math.round(netQtl * 100 + 1200),
+              vehicle_tare_kg: parseFloat(r.tare_wt_kg || r.vehicle_tare_kg || 0) || 1200,
+              bag_tare_kg: parseFloat(r.bag_tare_kg || 0) || 0,
+              net_weight_kg: Math.round(netQtl * 100),
+              net_quintals: netQtl,
+              rate_per_quintal: rate,
+              gross_amount: grossAmt,
+              hamali_charge: hamali,
+              freight_charge: freight,
+              gadi_bhade: freight,
+              bardana_refund_amount: bardanaRefund,
+              net_payable_amount: netPayable,
+              rounded_net_payable: Math.round(netPayable),
+              payout_status: status === 'UNPAID' ? 'UNPAID' : 'PAID',
+              vehicle_number: vehicleNo,
+              weighment_mode: 'DIRECT_EXCEL_IMPORT',
+              created_at: now.toISOString(),
+              updated_at: now.toISOString()
+            };
+
+            importedRecords.push(invoicePayload);
+            totalValuation += netPayable;
+            totalQuintals += netQtl;
+
+            // Double-entry ledger entries
+            ledgerVouchers.push({
+              id: `led-deb-grn-${invId}`,
+              branch_id: branchId,
+              transaction_date: invDate,
+              voucher_type: 'PURCHASE_INVOICE',
+              voucher_id: tokenNum,
+              account_name: `Grain Procurement - ${commodity}`,
+              party_id: party.id,
+              debit_amount: grossAmt,
+              credit_amount: 0.0,
+              narration: `Imported procurement of ${netQtl.toFixed(2)} Qtl ${commodity} from ${farmerName} @ Rs.${rate.toFixed(2)}/Qtl (Token #${tokenNum})`,
+              created_at: now.toISOString(),
+              updated_at: now.toISOString()
+            });
+
+            if (bardanaRefund > 0) {
+              ledgerVouchers.push({
+                id: `led-deb-bar-${invId}`,
+                branch_id: branchId,
+                transaction_date: invDate,
+                voucher_type: 'PURCHASE_INVOICE',
+                voucher_id: tokenNum,
+                account_name: 'Bardana Inventory & Gunny Bags',
+                party_id: party.id,
+                debit_amount: bardanaRefund,
+                credit_amount: 0.0,
+                narration: `Gunny bags value refund credited to ${farmerName} (Token #${tokenNum})`,
+                created_at: now.toISOString(),
+                updated_at: now.toISOString()
+              });
+            }
+
+            ledgerVouchers.push({
+              id: `led-crd-pay-${invId}`,
+              branch_id: branchId,
+              transaction_date: invDate,
+              voucher_type: 'PURCHASE_INVOICE',
+              voucher_id: tokenNum,
+              account_name: status === 'PAID' ? (payMode === 'CASH' ? 'Cash in Hand (Counter)' : 'Bank RTGS Clearing Account') : 'Farmer Settlement Payable',
+              party_id: party.id,
+              debit_amount: 0.0,
+              credit_amount: netPayable,
+              narration: `Settlement payout for ${farmerName} (Token #${tokenNum})`,
+              created_at: now.toISOString(),
+              updated_at: now.toISOString()
+            });
+
+            if (freight > 0) {
+              ledgerVouchers.push({
+                id: `led-crd-frt-${invId}`,
+                branch_id: branchId,
+                transaction_date: invDate,
+                voucher_type: 'PURCHASE_INVOICE',
+                voucher_id: tokenNum,
+                account_name: 'Freight & Transport Payable',
+                party_id: party.id,
+                debit_amount: 0.0,
+                credit_amount: freight,
+                narration: `Gadi bhade freight clearing for ${farmerName} (Token #${tokenNum})`,
+                created_at: now.toISOString(),
+                updated_at: now.toISOString()
+              });
+            }
+
+            if (hamali > 0) {
+              ledgerVouchers.push({
+                id: `led-crd-ham-${invId}`,
+                branch_id: branchId,
+                transaction_date: invDate,
+                voucher_type: 'PURCHASE_INVOICE',
+                voucher_id: tokenNum,
+                account_name: 'Hamali Deduction Clearing Account',
+                party_id: party.id,
+                debit_amount: 0.0,
+                credit_amount: hamali,
+                narration: `Hamali deduction on Token #${tokenNum}`,
+                created_at: now.toISOString(),
+                updated_at: now.toISOString()
+              });
+            }
+          }
+
+          // Insert batch into purchase_invoices
+          const insertResp = await fetch(`${supabaseUrl}/rest/v1/purchase_invoices`, {
+            method: 'POST',
+            headers: { ...headers, 'Prefer': 'resolution=merge-duplicates,return=representation' },
+            body: JSON.stringify(importedRecords)
+          });
+
+          if (!insertResp.ok) {
+            return res.status(insertResp.status).json({ success: false, error: await insertResp.text() });
+          }
+
+          // Insert ledger entries
+          if (ledgerVouchers.length > 0) {
+            try {
+              await fetch(`${supabaseUrl}/rest/v1/ledger_entries`, {
+                method: 'POST',
+                headers: { ...headers, 'Prefer': 'resolution=merge-duplicates' },
+                body: JSON.stringify(ledgerVouchers)
+              });
+            } catch (ledErr) {
+              console.warn('Import ledger insert note:', ledErr);
+            }
+          }
+
+          return res.status(200).json({
+            success: true,
+            import_type: 'inward',
+            imported_count: importedRecords.length,
+            total_quintals: totalQuintals,
+            total_valuation: totalValuation,
+            message: `Successfully imported ${importedRecords.length} inward procurement records worth ₹${totalValuation.toLocaleString('en-IN')}`
+          });
+        } else {
+          // Process Outward Sales Rows
+          for (let idx = 0; idx < rawRows.length; idx++) {
+            const r = rawRows[idx];
+            const buyerName = (r.buyer_name || r.buyer || r.party_name || r.party || 'Buyer Mill').trim();
+            const gstin = (r.buyer_gstin || r.gstin || '').trim().toUpperCase();
+            const phone = (r.buyer_phone || r.phone || '').trim();
+            const branchId = mapBranch(r.branch || r.branch_id);
+            const commodity = canonicalizeCommodityName(r.commodity || r.commodity_name || 'Soyabean (Yellow)');
+            const vehicleNo = (r.vehicle_no || r.vehicle_number || '').trim().toUpperCase();
+            const driverName = (r.driver_name || r.driver || '').trim();
+
+            const netQtl = parseFloat(r.net_quintals || r.net_qtl || 0) || 0.0;
+            const rate = parseFloat(r.rate_per_qtl || r.rate || 0) || 0.0;
+            const billAmt = parseFloat(r.total_bill_amount || r.bill_amount || r.total_amount || 0) || Math.round(netQtl * rate);
+            const status = (r.payment_status || r.status || 'PAID').toUpperCase();
+            const payMode = (r.payment_mode || 'RTGS').toUpperCase();
+            const orderDate = r.date || r.order_date || now.toISOString().slice(0, 10);
+            const challanNo = r.challan_no || r.challan_number || r.invoice_no || `CH-${orderDate.replace(/-/g, '')}-IMP${String(idx + 101).padStart(3, '0')}`;
+            const outId = `out-imp-${Date.now()}-${idx + 1}`;
+
+            // Buyer Party
+            let party = partyMap[buyerName.toLowerCase()];
+            if (!party) {
+              const partyId = `pty-b-${Date.now()}-${Math.floor(100 + Math.random() * 900)}-${idx}`;
+              try {
+                await fetch(`${supabaseUrl}/rest/v1/parties`, {
+                  method: 'POST',
+                  headers: { ...headers, 'Prefer': 'resolution=merge-duplicates' },
+                  body: JSON.stringify({
+                    id: partyId,
+                    name: buyerName,
+                    gstin: gstin,
+                    phone: phone,
+                    party_type: 'BUYER',
+                    home_branch_id: branchId
+                  })
+                });
+                party = { id: partyId, name: buyerName };
+                partyMap[buyerName.toLowerCase()] = party;
+              } catch (e) {
+                party = { id: `pty-b-temp-${idx}`, name: buyerName };
+              }
+            }
+
+            const outwardPayload = {
+              id: outId,
+              challan_number: challanNo,
+              branch_id: branchId,
+              buyer_name: buyerName,
+              commodity_name: commodity,
+              vehicle_number: vehicleNo,
+              net_weight_kg: Math.round(netQtl * 100),
+              net_quintals: netQtl,
+              rate_per_quintal: rate,
+              gross_amount: billAmt,
+              total_bill_amount: billAmt,
+              status: 'COMPLETED',
+              payment_mode: payMode,
+              payment_status: status === 'PENDING' ? 'PENDING' : 'PAID',
+              order_date: orderDate,
+              created_at: now.toISOString(),
+              updated_at: now.toISOString()
+            };
+
+            importedRecords.push(outwardPayload);
+            totalValuation += billAmt;
+            totalQuintals += netQtl;
+
+            // Ledger double entry for Sales
+            ledgerVouchers.push({
+              id: `led-deb-byr-${outId}`,
+              branch_id: branchId,
+              transaction_date: orderDate,
+              voucher_type: 'SALES_CHALLAN',
+              voucher_id: challanNo,
+              account_name: status === 'PAID' ? (payMode === 'CASH' ? 'Cash in Hand (Counter)' : 'Bank Account (Sales Receipts)') : `Sundry Debtors - ${buyerName}`,
+              party_id: party.id,
+              debit_amount: billAmt,
+              credit_amount: 0.0,
+              narration: `Sales dispatch receipt for ${netQtl.toFixed(2)} Qtl ${commodity} from ${buyerName} (Challan #${challanNo})`,
+              created_at: now.toISOString(),
+              updated_at: now.toISOString()
+            });
+
+            ledgerVouchers.push({
+              id: `led-crd-sal-${outId}`,
+              branch_id: branchId,
+              transaction_date: orderDate,
+              voucher_type: 'SALES_CHALLAN',
+              voucher_id: challanNo,
+              account_name: `Grain Sales Account - ${commodity}`,
+              party_id: party.id,
+              debit_amount: 0.0,
+              credit_amount: billAmt,
+              narration: `Grain sales of ${netQtl.toFixed(2)} Qtl ${commodity} to ${buyerName} @ Rs.${rate.toFixed(2)}/Qtl (Challan #${challanNo})`,
+              created_at: now.toISOString(),
+              updated_at: now.toISOString()
+            });
+          }
+
+          // Insert batch into outward_orders
+          const insertResp = await fetch(`${supabaseUrl}/rest/v1/outward_orders`, {
+            method: 'POST',
+            headers: { ...headers, 'Prefer': 'resolution=merge-duplicates,return=representation' },
+            body: JSON.stringify(importedRecords)
+          });
+
+          if (!insertResp.ok) {
+            return res.status(insertResp.status).json({ success: false, error: await insertResp.text() });
+          }
+
+          if (ledgerVouchers.length > 0) {
+            try {
+              await fetch(`${supabaseUrl}/rest/v1/ledger_entries`, {
+                method: 'POST',
+                headers: { ...headers, 'Prefer': 'resolution=merge-duplicates' },
+                body: JSON.stringify(ledgerVouchers)
+              });
+            } catch (ledErr) {
+              console.warn('Import outward ledger insert note:', ledErr);
+            }
+          }
+
+          return res.status(200).json({
+            success: true,
+            import_type: 'outward',
+            imported_count: importedRecords.length,
+            total_quintals: totalQuintals,
+            total_valuation: totalValuation,
+            message: `Successfully imported ${importedRecords.length} outward sales records worth ₹${totalValuation.toLocaleString('en-IN')}`
+          });
+        }
+      } catch (err) {
+        return res.status(500).json({ success: false, error: err.message });
+      }
+    }
+  }
+
+  // =========================================================================
   // DEFAULT: SUMMARY ACTION
   // =========================================================================
   try {

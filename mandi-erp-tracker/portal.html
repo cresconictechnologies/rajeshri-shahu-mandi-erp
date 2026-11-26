@@ -5441,21 +5441,57 @@
             e.preventDefault();
             const form = document.getElementById('outwardDispatchForm');
             const formData = new FormData(form);
+            const payload = Object.fromEntries(formData.entries());
+
+            // Ensure buyer details are populated
+            const buyerSel = document.getElementById('outward_buyer_id');
+            if (buyerSel && buyerSel.selectedIndex >= 0) {
+                const opt = buyerSel.options[buyerSel.selectedIndex];
+                if (opt && opt.value) {
+                    payload.buyer_id = opt.value;
+                    payload.buyer_name = opt.dataset.name || opt.text.split('(')[0].trim();
+                }
+            }
+
+            const netWeightKg = parseFloat(payload.net_weight_kg) || 0.0;
+            const netQtl = netWeightKg > 0 ? (netWeightKg / 100.0) : 0.0;
+            payload.net_quintals = netQtl.toFixed(2);
+            const rate = parseFloat(payload.rate_per_quintal) || 0.0;
+            const hamaliRate = parseFloat(payload.hamali_per_100kg) || 25.0;
+            const gross = netQtl * rate;
+            const hamali = netQtl * hamaliRate;
+            payload.gross_amount = gross.toFixed(2);
+            payload.hamali_amount = hamali.toFixed(2);
+            payload.total_bill_amount = (gross + hamali).toFixed(2);
+
+            const btn = document.getElementById('btnSubmitOutward');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerText = 'Generating Dispatch Challan & Gate Pass...';
+            }
 
             try {
                 const res = await fetch('/api/branch/outward/create', {
                     method: 'POST',
-                    body: formData
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
                 });
                 const d = await res.json();
                 if (d.success) {
-                    alert(`Outward Dispatch Challan Generated!\nChallan No: ${d.challan_number}\nTotal Bill: ₹${d.total_bill_amount.toLocaleString()}`);
-                    viewOutwardChallan(d.challan_number);
+                    const chalNo = d.challan_number || (d.challan && d.challan.challan_number) || 'CH-OUT';
+                    const totAmt = d.total_bill_amount || (d.challan && d.challan.total_bill_amount) || 0;
+                    alert(`Outward Dispatch Challan Generated!\nChallan No: ${chalNo}\nTotal Bill: ₹${Number(totAmt).toLocaleString('en-IN')}`);
+                    viewOutwardChallan(chalNo);
                 } else {
                     alert(`Error: ${d.error || 'Outward dispatch creation failed'}`);
                 }
             } catch (err) {
                 alert('Network error: ' + err);
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerText = 'Generate Outward Challan & Gate Pass →';
+                }
             }
         }
 

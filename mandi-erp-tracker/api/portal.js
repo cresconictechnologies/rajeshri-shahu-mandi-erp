@@ -53,6 +53,7 @@ export default async function handler(req, res) {
     else if (req.url.includes('/inspectors')) action = 'inspectors';
     else if (req.url.includes('/tickets') || req.url.includes('/inspections')) action = 'tickets';
     else if (req.url.includes('/overrides')) action = 'overrides';
+    else if (req.url.includes('/outward/challan') || req.url.includes('action=outward_challan')) action = 'outward_challan';
     else if (req.url.includes('/outward')) action = 'outward';
     else if (req.url.includes('/parchi')) action = 'parchi';
     else if (req.url.includes('/staff/update-all') || req.url.includes('/staff')) action = 'staff_update_all';
@@ -73,7 +74,16 @@ export default async function handler(req, res) {
   // Helper to parse body
   let body = req.body;
   if (typeof body === 'string') {
-    try { body = JSON.parse(body); } catch (_) {}
+    try {
+      body = JSON.parse(body);
+    } catch (_) {
+      try {
+        const params = new URLSearchParams(body);
+        const obj = {};
+        for (const [k, v] of params.entries()) obj[k] = v;
+        if (Object.keys(obj).length > 0) body = obj;
+      } catch (_) {}
+    }
   }
   body = body || {};
 
@@ -1735,12 +1745,18 @@ ${rawBardanaRefund > 0 ? `<div class="row" style="color:#047857;font-weight:800;
         // Record payment settlement
         if (body.challan_id || body.order_id) {
           const id = body.challan_id || body.order_id;
+          const rDate = body.receipt_date || new Date().toISOString().slice(0, 10);
+          const utr = body.bank_utr_no || body.utr_number || null;
+          const rBranch = body.receiving_branch_id || body.payment_branch_id || null;
           const updateData = {
             payment_status: 'PAID',
             payment_mode: body.payment_mode || 'RTGS',
-            receipt_date: body.receipt_date || new Date().toISOString().slice(0, 10),
-            bank_utr_no: body.bank_utr_no || null,
-            receiving_branch_id: body.receiving_branch_id || null,
+            receipt_date: rDate,
+            payment_received_date: rDate,
+            bank_utr_no: utr,
+            utr_number: utr,
+            receiving_branch_id: rBranch,
+            payment_branch_id: rBranch,
             payment_notes: body.payment_notes || null,
             updated_at: new Date().toISOString()
           };
@@ -1758,26 +1774,52 @@ ${rawBardanaRefund > 0 ? `<div class="row" style="color:#047857;font-weight:800;
         // Create new dispatch challan
         const now = new Date();
         const challanNo = body.challan_number || `CH-${now.toISOString().slice(0,10).replace(/-/g,'')}-${Math.floor(100+Math.random()*900)}`;
-        const netQtl = parseFloat(body.net_quintals) || 0.0;
+        const netWeightKg = parseFloat(body.net_weight_kg) || 0.0;
+        const netQtl = parseFloat(body.net_quintals) || (netWeightKg > 0 ? netWeightKg / 100.0 : 0.0);
         const rate = parseFloat(body.rate_per_quintal) || 0.0;
-        const billAmt = parseFloat(body.total_bill_amount) || (netQtl * rate);
+        const hamaliPer100 = parseFloat(body.hamali_per_100kg) || 25.0;
+        const grossAmt = parseFloat(body.gross_amount) || (netQtl * rate);
+        const hamaliAmt = parseFloat(body.hamali_amount) || (netQtl * hamaliPer100);
+        const billAmt = parseFloat(body.total_bill_amount) || (grossAmt + hamaliAmt);
+
+        // Resolve buyer name if missing
+        let buyerName = (body.buyer_name || '').trim();
+        let buyerId = (body.buyer_id || '').trim();
+        if ((!buyerName || buyerName === 'Buyer Mill') && buyerId) {
+          try {
+            const pResp = await fetch(`${supabaseUrl}/rest/v1/parties?id=eq.${encodeURIComponent(buyerId)}&limit=1`, { headers });
+            if (pResp.ok) {
+              const pRows = await pResp.json();
+              if (pRows && pRows[0]) {
+                buyerName = pRows[0].party_name || pRows[0].name || buyerName;
+              }
+            }
+          } catch (_) {}
+        }
+        if (!buyerName) buyerName = 'Buyer Mill';
 
         const payload = {
           id: `out-${Date.now()}`,
           challan_number: challanNo,
           branch_id: body.branch_id || 'br-chikhali',
-          buyer_id: body.buyer_id || `buyer-${Date.now()}`,
-          buyer_name: body.buyer_name || 'Buyer Mill',
+          buyer_id: buyerId || `buyer-${Date.now()}`,
+          buyer_name: buyerName,
           commodity_name: canonicalizeCommodityName(body.commodity_name || 'Soyabean (Yellow)'),
-          vehicle_number: body.vehicle_number || '',
+          vehicle_number: (body.vehicle_number || '').toUpperCase(),
           driver_name: body.driver_name || '',
+          net_weight_kg: netWeightKg > 0 ? netWeightKg : (netQtl * 100.0),
           net_quintals: netQtl,
           rate_per_quintal: rate,
+          hamali_per_100kg: hamaliPer100,
+          hamali_amount: hamaliAmt,
+          gross_amount: grossAmt,
           total_bill_amount: billAmt,
           payment_mode: body.payment_mode || 'RTGS',
-          payment_status: 'PENDING',
-          order_date: now.toISOString().slice(0, 10),
-          created_at: now.toISOString()
+          payment_status: body.payment_status || 'PENDING',
+          status: 'COMPLETED',
+          order_date: body.order_date || now.toISOString().slice(0, 10),
+          created_at: now.toISOString(),
+          updated_at: now.toISOString()
         };
 
         const resp = await fetch(`${supabaseUrl}/rest/v1/outward_orders`, {
@@ -1787,10 +1829,187 @@ ${rawBardanaRefund > 0 ? `<div class="row" style="color:#047857;font-weight:800;
         });
 
         if (!resp.ok) return res.status(resp.status).json({ success: false, error: await resp.text() });
-        return res.status(200).json({ success: true, message: `Challan #${challanNo} generated!`, challan: payload });
+
+        // Double-entry ledger vouchers for sales receivables
+        try {
+          const orderDate = payload.order_date;
+          const branchId = payload.branch_id;
+          const commodity = payload.commodity_name;
+          const outId = payload.id;
+          const partyId = buyerId || outId;
+
+          const ledgerVouchers = [
+            {
+              id: `led-deb-byr-${outId}`,
+              branch_id: branchId,
+              transaction_date: orderDate,
+              voucher_type: 'SALES_CHALLAN',
+              voucher_id: challanNo,
+              account_name: `Sundry Debtors - ${buyerName}`,
+              party_id: partyId,
+              debit_amount: billAmt,
+              credit_amount: 0.0,
+              narration: `Sales dispatch invoice of ${netQtl.toFixed(2)} Qtl ${commodity} to ${buyerName} @ Rs.${rate.toFixed(2)}/Qtl (Challan #${challanNo})`,
+              created_at: now.toISOString(),
+              updated_at: now.toISOString()
+            },
+            {
+              id: `led-crd-sal-${outId}`,
+              branch_id: branchId,
+              transaction_date: orderDate,
+              voucher_type: 'SALES_CHALLAN',
+              voucher_id: challanNo,
+              account_name: `Grain Sales Account - ${commodity}`,
+              party_id: partyId,
+              debit_amount: 0.0,
+              credit_amount: billAmt,
+              narration: `Grain sales of ${netQtl.toFixed(2)} Qtl ${commodity} to ${buyerName} @ Rs.${rate.toFixed(2)}/Qtl (Challan #${challanNo})`,
+              created_at: now.toISOString(),
+              updated_at: now.toISOString()
+            }
+          ];
+
+          await fetch(`${supabaseUrl}/rest/v1/ledger_entries`, {
+            method: 'POST',
+            headers: { ...headers, 'Prefer': 'resolution=merge-duplicates' },
+            body: JSON.stringify(ledgerVouchers)
+          });
+        } catch (ledErr) {
+          console.warn('Outward ledger insert warning:', ledErr);
+        }
+
+        return res.status(200).json({
+          success: true,
+          message: `Challan #${challanNo} generated!`,
+          challan_number: challanNo,
+          total_bill_amount: billAmt,
+          challan: payload
+        });
       } catch (err) {
         return res.status(500).json({ success: false, error: err.message });
       }
+    }
+  }
+
+  // =========================================================================
+  // 8A. OUTWARD CHALLAN & GATE PASS HTML VIEWER / PRINTABLE SLIP
+  // =========================================================================
+  if (action === 'outward_challan') {
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    const chalNum = req.query.challan_number || req.query.challan_no || body.challan_number || '';
+    try {
+      let order = null;
+      if (chalNum) {
+        const oResp = await fetch(
+          `${supabaseUrl}/rest/v1/outward_orders?challan_number=eq.${encodeURIComponent(chalNum)}&limit=1`,
+          { headers }
+        );
+        const rows = oResp.ok ? await oResp.json() : [];
+        if (rows && rows[0]) order = rows[0];
+      }
+      if (!order && chalNum) {
+        const oResp2 = await fetch(
+          `${supabaseUrl}/rest/v1/outward_orders?id=eq.${encodeURIComponent(chalNum)}&limit=1`,
+          { headers }
+        );
+        const rows2 = oResp2.ok ? await oResp2.json() : [];
+        if (rows2 && rows2[0]) order = rows2[0];
+      }
+
+      if (!order) {
+        return res.status(404).send(`
+          <div style="padding:20px; text-align:center; font-family:sans-serif; color:#dc2626;">
+            <h3>Challan Not Found</h3>
+            <p>Could not locate outward challan: <strong>${chalNum}</strong></p>
+          </div>
+        `);
+      }
+
+      const qtl = parseFloat(order.net_quintals || 0.0);
+      const kg = parseFloat(order.net_weight_kg || (qtl * 100));
+      const rate = parseFloat(order.rate_per_quintal || 0.0);
+      const gross = parseFloat(order.gross_amount || (qtl * rate));
+      const hamaliRate = parseFloat(order.hamali_per_100kg || 25.0);
+      const hamaliAmt = parseFloat(order.hamali_amount || (qtl * hamaliRate));
+      const totalAmt = parseFloat(order.total_bill_amount || (gross + hamaliAmt));
+
+      const html = `
+        <div style="font-family:'Segoe UI',sans-serif; color:#1e293b; padding:15px; background:#fff; border-radius:8px;">
+          <div style="border-bottom:2px solid #2563eb; padding-bottom:12px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <h2 style="margin:0; color:#1e3a8a; font-size:20px; font-weight:800;">RAJARSHI SHAHU TRADING COMPANY</h2>
+              <div style="font-size:12px; color:#64748b; font-weight:600;">Main Mandi Yard, Chikhali | Commercial Outward Dispatch & Gate Pass</div>
+            </div>
+            <div style="text-align:right;">
+              <span style="display:inline-block; padding:4px 10px; background:#dbeafe; color:#1e40af; border-radius:6px; font-weight:800; font-size:13px;">
+                CHALLAN #${order.challan_number || order.id}
+              </span>
+              <div style="font-size:11.5px; color:#64748b; margin-top:3px;">Date: <strong>${order.order_date || new Date().toISOString().slice(0,10)}</strong></div>
+            </div>
+          </div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:12px; margin-bottom:14px; font-size:13px;">
+            <div>
+              <span style="color:#64748b; font-size:11px; text-transform:uppercase; font-weight:700;">Consignee / Buyer:</span>
+              <div style="font-size:15px; font-weight:800; color:#0f172a; margin-top:2px;">${order.buyer_name || 'Buyer Mill'}</div>
+              <div style="font-size:11.5px; color:#475569;">Destination / Depot: Chikhali</div>
+            </div>
+            <div>
+              <span style="color:#64748b; font-size:11px; text-transform:uppercase; font-weight:700;">Vehicle & Transport:</span>
+              <div style="font-size:15px; font-weight:800; color:#0f172a; margin-top:2px;">${order.vehicle_number || 'N/A'}</div>
+              <div style="font-size:11.5px; color:#475569;">Driver: ${order.driver_name || 'Commercial Transporter'}</div>
+            </div>
+          </div>
+
+          <table style="width:100%; border-collapse:collapse; margin-bottom:14px; font-size:13px;">
+            <thead>
+              <tr style="background:#f1f5f9; border-bottom:1.5px solid #cbd5e1; text-align:left;">
+                <th style="padding:8px 10px; color:#334155;">Commodity</th>
+                <th style="padding:8px 10px; text-align:right; color:#334155;">Net Wt (Kg)</th>
+                <th style="padding:8px 10px; text-align:right; color:#334155;">Net Wt (Qtl)</th>
+                <th style="padding:8px 10px; text-align:right; color:#334155;">Rate (₹/Qtl)</th>
+                <th style="padding:8px 10px; text-align:right; color:#334155;">Gross Value (₹)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style="border-bottom:1px solid #e2e8f0;">
+                <td style="padding:10px; font-weight:700; color:#0f172a;">${order.commodity_name || 'Commodity'}</td>
+                <td style="padding:10px; text-align:right; font-weight:600;">${kg.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2})} Kg</td>
+                <td style="padding:10px; text-align:right; font-weight:800; color:#1d4ed8;">${qtl.toFixed(2)} Qtl</td>
+                <td style="padding:10px; text-align:right; font-weight:600;">₹${rate.toFixed(2)}</td>
+                <td style="padding:10px; text-align:right; font-weight:700;">₹${gross.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
+              </tr>
+              <tr style="border-bottom:1px solid #e2e8f0; background:#fffbeb;">
+                <td colspan="3" style="padding:8px 10px; color:#92400e; font-weight:600;">Hamali & Loading Charges (@ ₹${hamaliRate.toFixed(2)}/100 Kg):</td>
+                <td style="padding:8px 10px; text-align:right; color:#92400e;">₹${hamaliRate.toFixed(2)}/Qtl</td>
+                <td style="padding:8px 10px; text-align:right; font-weight:700; color:#92400e;">₹${hamaliAmt.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
+              </tr>
+              <tr style="background:#f8fafc; font-size:14px;">
+                <td colspan="4" style="padding:10px; text-align:right; font-weight:800; color:#0f172a;">Total Invoice & Gate Pass Payable:</td>
+                <td style="padding:10px; text-align:right; font-weight:900; color:#166534; font-size:16px;">₹${totalAmt.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-top:25px; padding-top:15px; border-top:1px dashed #cbd5e1; font-size:12px;">
+            <div style="text-align:center;">
+              <div style="height:35px;"></div>
+              <div style="border-top:1px solid #64748b; padding-top:4px; font-weight:700; min-width:130px;">Transporter / Driver</div>
+            </div>
+            <div style="text-align:center;">
+              <div style="height:35px;"></div>
+              <div style="border-top:1px solid #64748b; padding-top:4px; font-weight:700; min-width:130px;">Weighbridge In-Charge</div>
+            </div>
+            <div style="text-align:center;">
+              <div style="height:35px;"></div>
+              <div style="border-top:1px solid #64748b; padding-top:4px; font-weight:700; min-width:140px; color:#1e40af;">Authorized Signatory</div>
+            </div>
+          </div>
+        </div>
+      `;
+      return res.status(200).send(html);
+    } catch (err) {
+      return res.status(500).send(`<p>Error loading challan: ${err.message}</p>`);
     }
   }
 

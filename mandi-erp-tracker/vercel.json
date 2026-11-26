@@ -247,6 +247,10 @@
       "destination": "/api/portal?action=invoices"
     },
     {
+      "source": "/api/branch/outward/challan/:challan_no",
+      "destination": "/api/portal?action=outward_challan&challan_number=:challan_no"
+    },
+    {
       "source": "/api/branch/outward/create",
       "destination": "/api/portal?action=outward"
     },

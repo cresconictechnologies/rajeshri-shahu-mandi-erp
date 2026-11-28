@@ -5482,6 +5482,7 @@
                     const totAmt = d.total_bill_amount || (d.challan && d.challan.total_bill_amount) || 0;
                     alert(`Outward Dispatch Challan Generated!\nChallan No: ${chalNo}\nTotal Bill: ₹${Number(totAmt).toLocaleString('en-IN')}`);
                     viewOutwardChallan(chalNo);
+                    fetchRecentInvoices(currentBranchId);
                 } else {
                     alert(`Error: ${d.error || 'Outward dispatch creation failed'}`);
                 }
@@ -7100,13 +7101,24 @@
                 return;
             }
 
-            // Aggregate stock per card from cached invoices if available
+            // Aggregate inward invoices
             const branchInvs = (Array.isArray(BRANCH_INVOICES_CACHE) ? BRANCH_INVOICES_CACHE : []).filter(inv => {
                 if (bId === 'all') return true;
                 return inv.branch_id === bId;
             });
 
+            // Aggregate outward dispatches
+            const branchOut = (Array.isArray(BRANCH_OUTWARD_CACHE) ? BRANCH_OUTWARD_CACHE : []).filter(o => {
+                if (bId === 'all') return true;
+                return o.branch_id === bId;
+            });
+
             const commAgg = {};
+            cards.forEach(card => {
+                const cId = card.getAttribute('data-id') || '';
+                commAgg[cId] = { procQtl: 0, procAmt: 0, soldQtl: 0, soldAmt: 0 };
+            });
+
             if (branchInvs.length > 0) {
                 branchInvs.forEach(inv => {
                     const commName = inv.commodity_name || '';
@@ -7116,10 +7128,26 @@
                         const cId = card.getAttribute('data-id') || '';
                         const cName = card.getAttribute('data-name') || '';
                         if (matchCardToCommodity(cId, cName, commName)) {
-                            if (!commAgg[cId]) commAgg[cId] = { qtl: 0, amt: 0, count: 0 };
-                            commAgg[cId].qtl += qtl;
-                            commAgg[cId].amt += amt;
-                            commAgg[cId].count += 1;
+                            if (!commAgg[cId]) commAgg[cId] = { procQtl: 0, procAmt: 0, soldQtl: 0, soldAmt: 0 };
+                            commAgg[cId].procQtl += qtl;
+                            commAgg[cId].procAmt += amt;
+                        }
+                    });
+                });
+            }
+
+            if (branchOut.length > 0) {
+                branchOut.forEach(out => {
+                    const commName = out.commodity_name || '';
+                    const qtl = parseFloat(out.net_quintals) || 0;
+                    const amt = parseFloat(out.total_bill_amount || out.gross_amount) || 0;
+                    cards.forEach(card => {
+                        const cId = card.getAttribute('data-id') || '';
+                        const cName = card.getAttribute('data-name') || '';
+                        if (matchCardToCommodity(cId, cName, commName)) {
+                            if (!commAgg[cId]) commAgg[cId] = { procQtl: 0, procAmt: 0, soldQtl: 0, soldAmt: 0 };
+                            commAgg[cId].soldQtl += qtl;
+                            commAgg[cId].soldAmt += amt;
                         }
                     });
                 });
@@ -7131,25 +7159,35 @@
                 const statSub = card.querySelector('.commodity-stat-sub');
                 const avgBuySub = card.querySelector('.commodity-stats-box .commodity-stat-col:last-child .commodity-stat-sub');
 
-                let qtl = 0;
-                let amt = 0;
+                let procQtl = 0;
+                let procAmt = 0;
+                let soldQtl = 0;
 
-                if (commAgg[cId] && commAgg[cId].qtl > 0) {
-                    qtl = commAgg[cId].qtl;
-                    amt = commAgg[cId].amt;
+                if (commAgg[cId] && (commAgg[cId].procQtl > 0 || commAgg[cId].soldQtl > 0)) {
+                    procQtl = commAgg[cId].procQtl;
+                    procAmt = commAgg[cId].procAmt;
+                    soldQtl = commAgg[cId].soldQtl;
                 } else if (bId === 'br-chikhali' && AUDITED_CHIKHALI_COMMODITY_STOCK[cId]) {
-                    qtl = AUDITED_CHIKHALI_COMMODITY_STOCK[cId].qtl;
-                    amt = AUDITED_CHIKHALI_COMMODITY_STOCK[cId].qtl * AUDITED_CHIKHALI_COMMODITY_STOCK[cId].avgBuy;
+                    procQtl = AUDITED_CHIKHALI_COMMODITY_STOCK[cId].qtl;
+                    procAmt = AUDITED_CHIKHALI_COMMODITY_STOCK[cId].qtl * AUDITED_CHIKHALI_COMMODITY_STOCK[cId].avgBuy;
                 }
 
-                if (qtl > 0) {
-                    const mt = (qtl / 10.0).toFixed(2);
-                    const avgBuy = qtl > 0 ? (amt / qtl) : 0;
-                    if (statVal) statVal.innerText = qtl.toFixed(2) + ' Qtl';
-                    if (statSub) statSub.innerText = '(' + mt + ' MT)';
+                const netHoldingQtl = Math.max(0, procQtl - soldQtl);
+
+                if (netHoldingQtl > 0 || procQtl > 0) {
+                    const mt = (netHoldingQtl / 10.0).toFixed(2);
+                    const avgBuy = procQtl > 0 ? (procAmt / procQtl) : 0;
+                    if (statVal) {
+                        statVal.innerText = netHoldingQtl.toFixed(2) + ' Qtl';
+                        statVal.style.color = netHoldingQtl > 0 ? '#059669' : '#64748b';
+                    }
+                    if (statSub) statSub.innerText = '(' + mt + ' MT in hand)';
                     if (avgBuySub) avgBuySub.innerText = 'Avg Buy: ₹' + Math.round(avgBuy).toLocaleString('en-IN');
                 } else {
-                    if (statVal) statVal.innerText = '0.00 Qtl';
+                    if (statVal) {
+                        statVal.innerText = '0.00 Qtl';
+                        statVal.style.color = '#64748b';
+                    }
                     if (statSub) statSub.innerText = '(0.0 MT)';
                     if (avgBuySub) avgBuySub.innerText = 'Avg Buy: ₹0.00';
                 }
@@ -7193,6 +7231,7 @@
 
         
         let BRANCH_INVOICES_CACHE = [];
+        let BRANCH_OUTWARD_CACHE = [];
         let ALL_PARTIES_CACHE = [];
 
         function filterFarmersTable(query) {
@@ -7224,13 +7263,20 @@
         async function fetchRecentInvoices(branchId) {
             const bId = branchId || currentBranchId || 'br-chikhali';
             try {
-                const resp = await fetch('/api/portal?action=invoices&branch_id=' + encodeURIComponent(bId));
-                if (resp.ok) {
-                    const data = await resp.json();
+                const [respInv, respOut] = await Promise.all([
+                    fetch('/api/portal?action=invoices&branch_id=' + encodeURIComponent(bId)),
+                    fetch('/api/portal?action=outward&branch_id=' + encodeURIComponent(bId))
+                ]);
+                if (respInv.ok) {
+                    const data = await respInv.json();
                     BRANCH_INVOICES_CACHE = data.invoices || [];
                 }
+                if (respOut.ok) {
+                    const outData = await respOut.json();
+                    BRANCH_OUTWARD_CACHE = outData.orders || [];
+                }
             } catch (err) {
-                console.warn('Network fallback for branch invoices:', err);
+                console.warn('Network fallback for branch invoices/outward:', err);
             }
 
             renderBranchInvoicesAndLedger(bId, BRANCH_INVOICES_CACHE);

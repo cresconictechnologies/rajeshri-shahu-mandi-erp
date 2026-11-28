@@ -4080,6 +4080,7 @@
         const dailyRates = JSON.parse(document.getElementById('daily-rates-data').textContent || '{}');
         let currentTargetPayout = 0;
         let currentExactPayable = 0;
+        let currentBranchId = 'br-chikhali';
 
         function findCommodityCard(commName) {
             if (!commName) return null;
